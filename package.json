@@ -1,0 +1,10 @@
+{
+  "name": "pulse518-course-platform",
+  "version": "1.0.0",
+  "description": "Private Course Social Media Platform for CS-518",
+  "scripts": {
+    "dev:server": "node server/server.js",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:client\""
+  }
+}
