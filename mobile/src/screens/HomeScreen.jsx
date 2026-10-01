@@ -15,6 +15,8 @@ import Avatar from '../components/Avatar';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { Ionicons, Feather } from '@expo/vector-icons';
+import { ClearfeedLogo } from '../components/TwitterIcons';
 
 export const HomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -82,7 +84,8 @@ export const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.brandTitle}>
-          <Text style={styles.brandClear}>Clear</Text>
+          <ClearfeedLogo size={22} color={colors.accent} />
+          <Text style={[styles.brandClear, { marginLeft: 8 }]}>Clear</Text>
           <Text style={styles.brandFeed}>feed</Text>
         </View>
 
@@ -91,7 +94,7 @@ export const HomeScreen = ({ navigation }) => {
           style={styles.headerBtn}
           activeOpacity={0.7}
         >
-          <Text style={styles.headerBtnText}>🔖</Text>
+          <Ionicons name="bookmark-outline" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -172,7 +175,7 @@ export const HomeScreen = ({ navigation }) => {
         onPress={() => navigation.navigate('Compose')}
         activeOpacity={0.85}
       >
-        <Text style={styles.fabIcon}>✏️</Text>
+        <Feather name="feather" size={24} color={colors.white} />
       </TouchableOpacity>
     </View>
   );

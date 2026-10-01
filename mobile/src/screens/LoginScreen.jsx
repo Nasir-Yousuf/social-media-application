@@ -15,6 +15,8 @@ import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { getBaseUrl, setBaseUrl } from '../api/client';
+import { ClearfeedLogo, VerifiedBadge } from '../components/TwitterIcons';
+import { Ionicons } from '@expo/vector-icons';
 
 export const LoginScreen = () => {
   const insets = useSafeAreaInsets();
@@ -96,9 +98,7 @@ export const LoginScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Brand Header */}
         <View style={styles.brandHeader}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoDot}>●</Text>
-          </View>
+          <ClearfeedLogo size={46} style={{ marginBottom: 10 }} />
           <Text style={styles.brandTitle}>
             Clear<Text style={{ color: colors.accent }}>feed</Text>
           </Text>
@@ -209,7 +209,10 @@ export const LoginScreen = () => {
                 style={styles.demoBtn}
                 disabled={loading}
               >
-                <Text style={[styles.demoBtnName, { color: colors.gold }]}>★ Dr. Vance</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[styles.demoBtnName, { color: colors.gold, marginRight: 4 }]}>Dr. Vance</Text>
+                  <VerifiedBadge size={13} />
+                </View>
                 <Text style={styles.demoBtnRole}>Staff Admin</Text>
               </TouchableOpacity>
             </View>
@@ -221,9 +224,9 @@ export const LoginScreen = () => {
           onPress={() => setShowConfig(!showConfig)}
           style={styles.configToggle}
         >
-          <Text style={styles.configToggleText}>
-            ⚙️ Server Connection Settings {showConfig ? '▲' : '▼'}
-          </Text>
+          <Ionicons name="settings-outline" size={15} color={colors.textSecondary} style={{ marginRight: 6 }} />
+          <Text style={styles.configToggleText}>Server Connection</Text>
+          <Ionicons name={showConfig ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
 
         {showConfig && (
@@ -364,7 +367,9 @@ const styles = StyleSheet.create({
   },
   configToggle: {
     marginTop: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   configToggleText: {
     color: colors.textSecondary,

@@ -4,8 +4,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import colors from '../theme/colors';
+import { ClearfeedLogo } from '../components/TwitterIcons';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 
@@ -55,7 +57,7 @@ function MainTabs() {
         options={{
           tabBarLabel: 'Feed',
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, color }}>{focused ? '🏠' : '🏚️'}</Text>
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -65,8 +67,8 @@ function MainTabs() {
         component={ExploreScreen}
         options={{
           tabBarLabel: 'Discover',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>🧭</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -76,8 +78,8 @@ function MainTabs() {
         component={CodeHubScreen}
         options={{
           tabBarLabel: 'Code',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>⚡</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'code-slash' : 'code-slash-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -94,8 +96,8 @@ function MainTabs() {
             fontWeight: '900',
             lineHeight: 12,
           },
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>🔔</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -105,8 +107,8 @@ function MainTabs() {
         component={MembersScreen}
         options={{
           tabBarLabel: 'Members',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>👥</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -116,8 +118,8 @@ function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 18, color }}>👤</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -132,6 +134,7 @@ export const AppNavigator = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <ClearfeedLogo size={52} style={{ marginBottom: 16 }} />
         <Text style={styles.loadingLogo}>Clear<Text style={{ color: colors.accent }}>feed</Text></Text>
       </View>
     );

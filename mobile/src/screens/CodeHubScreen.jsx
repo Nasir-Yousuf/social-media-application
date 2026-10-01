@@ -15,6 +15,7 @@ import colors from '../theme/colors';
 import PostCard from '../components/PostCard';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
+import { Feather, Ionicons } from '@expo/vector-icons';
 
 const LANGUAGES = [
   { id: 'all', label: 'All Code' },
@@ -93,7 +94,7 @@ export const CodeHubScreen = ({ navigation }) => {
 
         {/* Search Input */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Feather name="search" size={15} color={colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
             placeholder="Search code by language, syntax, filename..."
             placeholderTextColor={colors.textSecondary}
@@ -103,7 +104,7 @@ export const CodeHubScreen = ({ navigation }) => {
           />
           {searchQuery ? (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-              <Text style={styles.clearBtnText}>✕</Text>
+              <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
         </View>

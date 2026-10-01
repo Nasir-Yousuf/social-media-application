@@ -20,6 +20,8 @@ import Button from '../components/Button';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+import { VerifiedBadge } from '../components/TwitterIcons';
 
 export const PostDetailScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
@@ -84,9 +86,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
           <View style={styles.commentHeader}>
             <Text style={styles.commentAuthor}>{author.name || 'Member'}</Text>
             {author.role === 'admin' && (
-              <View style={styles.goldBadge}>
-                <Text style={styles.goldBadgeText}>★</Text>
-              </View>
+              <VerifiedBadge size={12} style={{ marginLeft: 4 }} />
             )}
             <Text style={styles.commentHandle}>@{author.username}</Text>
             <Text style={styles.commentDot}>·</Text>
@@ -106,7 +106,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
       {/* Top Navbar */}
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← Back</Text>
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.navTitle}>Post</Text>
         <View style={{ width: 40 }} />

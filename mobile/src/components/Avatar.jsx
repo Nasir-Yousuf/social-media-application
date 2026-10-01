@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import colors from '../theme/colors';
+import { VerifiedBadge } from './TwitterIcons';
 
 const TWITTER_PALETTE = [
   '#1d9bf0', // Blue
@@ -74,19 +75,8 @@ export const Avatar = ({
 
       {/* Role Badge (Gold Verified Shield for Admin) */}
       {showRoleBadge && role === 'admin' && (
-        <View
-          style={[
-            styles.badge,
-            {
-              width: Math.max(14, dimension * 0.35),
-              height: Math.max(14, dimension * 0.35),
-              borderRadius: Math.max(7, dimension * 0.175),
-              bottom: -1,
-              right: -1,
-            },
-          ]}
-        >
-          <Text style={styles.badgeText}>★</Text>
+        <View style={styles.badgeWrapper}>
+          <VerifiedBadge size={Math.max(13, dimension * 0.35)} />
         </View>
       )}
     </View>
@@ -111,19 +101,12 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
-  badge: {
+  badgeWrapper: {
     position: 'absolute',
-    backgroundColor: colors.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.bg,
-  },
-  badgeText: {
-    color: '#000000',
-    fontSize: 9,
-    fontWeight: '900',
-    lineHeight: 10,
+    bottom: -2,
+    right: -2,
+    backgroundColor: colors.bg,
+    borderRadius: 9999,
   },
 });
 

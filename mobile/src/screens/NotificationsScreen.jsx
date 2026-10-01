@@ -15,6 +15,7 @@ import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export const NotificationsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -60,15 +61,15 @@ export const NotificationsScreen = ({ navigation }) => {
   const getIcon = (type) => {
     switch (type) {
       case 'like':
-        return <Text style={{ color: colors.like, fontSize: 18 }}>❤️</Text>;
+        return <Ionicons name="heart" size={20} color={colors.like} />;
       case 'comment':
-        return <Text style={{ color: colors.accent, fontSize: 18 }}>💬</Text>;
+        return <Ionicons name="chatbubble" size={18} color={colors.accent} />;
       case 'follow':
-        return <Text style={{ color: colors.accent, fontSize: 18 }}>👤</Text>;
+        return <Ionicons name="person-add" size={18} color={colors.accent} />;
       case 'announcement':
-        return <Text style={{ color: colors.gold, fontSize: 18 }}>📢</Text>;
+        return <Ionicons name="flame" size={20} color={colors.gold} />;
       default:
-        return <Text style={{ color: colors.textSecondary, fontSize: 18 }}>🔔</Text>;
+        return <Ionicons name="notifications" size={18} color={colors.textSecondary} />;
     }
   };
 

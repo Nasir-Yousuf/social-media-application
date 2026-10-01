@@ -10,6 +10,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import colors from '../theme/colors';
 import { useNotifications } from '../context/NotificationContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export const CodeSnippetView = ({ snippet }) => {
   const { showToast } = useNotifications();
@@ -68,6 +69,7 @@ export const CodeSnippetView = ({ snippet }) => {
         </ScrollView>
 
         <TouchableOpacity onPress={handleCopy} style={styles.copyBtn} activeOpacity={0.7}>
+          <Ionicons name="copy-outline" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
           <Text style={styles.copyBtnText}>Copy</Text>
         </TouchableOpacity>
       </View>
@@ -165,8 +167,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   copyBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     marginRight: 8,
     backgroundColor: '#282828',
     borderRadius: 6,

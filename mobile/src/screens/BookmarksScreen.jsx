@@ -13,6 +13,7 @@ import colors from '../theme/colors';
 import PostCard from '../components/PostCard';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export const BookmarksScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -45,11 +46,11 @@ export const BookmarksScreen = ({ navigation }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← Back</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Saved Posts</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 32 }} />
       </View>
 
       {loading ? (
@@ -77,7 +78,7 @@ export const BookmarksScreen = ({ navigation }) => {
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🔖</Text>
+              <Ionicons name="bookmark-outline" size={48} color={colors.textMuted} style={{ marginBottom: 12 }} />
               <Text style={styles.emptyTitle}>No saved posts yet</Text>
               <Text style={styles.emptyDesc}>
                 Click the bookmark icon on any post or code snippet to save it to your private collection.

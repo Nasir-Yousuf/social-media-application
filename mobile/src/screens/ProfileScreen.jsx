@@ -18,6 +18,8 @@ import PostCard from '../components/PostCard';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { VerifiedBadge } from '../components/TwitterIcons';
+import { Ionicons } from '@expo/vector-icons';
 
 export const ProfileScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
@@ -168,8 +170,8 @@ export const ProfileScreen = ({ route, navigation }) => {
       {/* Top Bar */}
       <View style={styles.topBar}>
         {navigation.canGoBack() && (
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>←</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="arrow-back" size={22} color={colors.text} />
           </TouchableOpacity>
         )}
         <View style={styles.topBarTitle}>
@@ -178,6 +180,7 @@ export const ProfileScreen = ({ route, navigation }) => {
         </View>
         {isSelf && (
           <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <Ionicons name="log-out-outline" size={17} color={colors.danger} style={{ marginRight: 4 }} />
             <Text style={styles.logoutText}>Log out</Text>
           </TouchableOpacity>
         )}
@@ -212,7 +215,7 @@ export const ProfileScreen = ({ route, navigation }) => {
                 />
                 {isSelf && (
                   <View style={styles.avatarEditBadge}>
-                    <Text style={styles.avatarEditBadgeText}>📷</Text>
+                    <Ionicons name="camera" size={13} color="#ffffff" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -236,9 +239,7 @@ export const ProfileScreen = ({ route, navigation }) => {
             <View style={styles.nameRow}>
               <Text style={styles.fullName}>{profile.name}</Text>
               {profile.role === 'admin' && (
-                <View style={styles.goldBadge}>
-                  <Text style={styles.goldBadgeText}>★</Text>
-                </View>
+                <VerifiedBadge size={16} style={{ marginLeft: 6 }} />
               )}
             </View>
             <Text style={styles.handle}>@{profile.username}</Text>
@@ -333,6 +334,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 8,
   },

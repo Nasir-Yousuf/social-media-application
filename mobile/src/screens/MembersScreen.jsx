@@ -14,6 +14,7 @@ import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
+import { VerifiedBadge } from '../components/TwitterIcons';
 
 export const MembersScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -100,9 +101,7 @@ export const MembersScreen = ({ navigation }) => {
               {item.name}
             </Text>
             {item.role === 'admin' && (
-              <View style={styles.goldBadge}>
-                <Text style={styles.goldBadgeText}>★</Text>
-              </View>
+              <VerifiedBadge size={13} style={{ marginLeft: 4 }} />
             )}
           </View>
           <Text style={styles.memberHandle}>@{item.username}</Text>

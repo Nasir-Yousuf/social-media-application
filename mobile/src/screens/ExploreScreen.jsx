@@ -14,6 +14,7 @@ import colors from '../theme/colors';
 import PostCard from '../components/PostCard';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
+import { Ionicons } from '@expo/vector-icons';
 
 const TOPICS = [
   'Architecture',
@@ -115,7 +116,7 @@ export const ExploreScreen = ({ navigation }) => {
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🧭</Text>
+              <Ionicons name="compass-outline" size={48} color={colors.textMuted} style={{ marginBottom: 12 }} />
               <Text style={styles.emptyTitle}>
                 {selectedTag ? `No posts matching #${selectedTag}` : 'No posts to discover'}
               </Text>

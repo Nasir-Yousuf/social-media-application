@@ -13,6 +13,15 @@ import CodeSnippetView from './CodeSnippetView';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
+import {
+  HeartIcon,
+  CommentIcon,
+  RetweetIcon,
+  BookmarkIcon,
+  ShareIcon,
+  PinIcon,
+  VerifiedBadge,
+} from './TwitterIcons';
 
 export const PostCard = ({
   post,
@@ -107,7 +116,7 @@ export const PostCard = ({
       {/* Pinned or Announcement Header */}
       {(post.isPinned || post.isAnnouncement) && (
         <View style={styles.badgeHeader}>
-          <Text style={styles.badgeIcon}>📌</Text>
+          <PinIcon size={12} color={colors.gold} style={styles.badgeIcon} />
           <Text style={styles.badgeText}>
             {post.isPinned ? 'Pinned Post' : 'Announcement'}
           </Text>
@@ -145,9 +154,7 @@ export const PostCard = ({
 
               {/* Verified Shield Badge for Admin */}
               {author.role === 'admin' && (
-                <View style={styles.goldBadge}>
-                  <Text style={styles.goldBadgeText}>★</Text>
-                </View>
+                <VerifiedBadge size={13} style={{ marginLeft: 4 }} />
               )}
 
               <Text style={styles.authorHandle} numberOfLines={1}>
@@ -175,7 +182,7 @@ export const PostCard = ({
                 style={styles.actionBtn}
                 activeOpacity={0.7}
               >
-                <Text style={styles.actionIcon}>💬</Text>
+                <CommentIcon size={16} />
                 {commentsCount > 0 && (
                   <Text style={styles.actionCount}>{commentsCount}</Text>
                 )}
@@ -187,9 +194,7 @@ export const PostCard = ({
                 style={styles.actionBtn}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.actionIcon, reposted && { color: colors.retweet }]}>
-                  🔁
-                </Text>
+                <RetweetIcon size={16} active={reposted} />
                 {reposted && <Text style={[styles.actionCount, { color: colors.retweet }]}>1</Text>}
               </TouchableOpacity>
 
@@ -199,9 +204,7 @@ export const PostCard = ({
                 style={styles.actionBtn}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.actionIcon, isLiked && { color: colors.like }]}>
-                  {isLiked ? '❤️' : '🤍'}
-                </Text>
+                <HeartIcon size={16} filled={isLiked} />
                 {likesCount > 0 && (
                   <Text style={[styles.actionCount, isLiked && { color: colors.like }]}>
                     {likesCount}
@@ -215,9 +218,7 @@ export const PostCard = ({
                 style={styles.actionBtn}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.actionIcon, isBookmarked && { color: colors.accent }]}>
-                  {isBookmarked ? '🔖' : '📑'}
-                </Text>
+                <BookmarkIcon size={16} filled={isBookmarked} />
               </TouchableOpacity>
 
               {/* Share */}
@@ -226,7 +227,7 @@ export const PostCard = ({
                 style={styles.actionBtn}
                 activeOpacity={0.7}
               >
-                <Text style={styles.actionIcon}>📤</Text>
+                <ShareIcon size={16} />
               </TouchableOpacity>
             </View>
           </View>

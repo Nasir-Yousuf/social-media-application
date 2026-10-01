@@ -16,6 +16,7 @@ import Avatar from '../components/Avatar';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const LANGUAGES = [
   'javascript',
@@ -132,8 +133,8 @@ export const ComposeScreen = ({ navigation }) => {
     >
       {/* Top Navbar */}
       <View style={styles.topNav}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn}>
-          <Text style={styles.cancelBtnText}>Cancel</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
 
         <View style={styles.topNavRight}>
@@ -190,8 +191,14 @@ export const ComposeScreen = ({ navigation }) => {
                 onPress={() => setIsAnnouncement(!isAnnouncement)}
                 style={[styles.checkPill, isAnnouncement && styles.checkPillActive]}
               >
+                <Ionicons
+                  name={isAnnouncement ? "megaphone" : "megaphone-outline"}
+                  size={14}
+                  color={isAnnouncement ? colors.accent : colors.textSecondary}
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={[styles.checkText, isAnnouncement && styles.checkTextActive]}>
-                  {isAnnouncement ? '✓ Announcement' : '+ Announcement'}
+                  Announcement
                 </Text>
               </TouchableOpacity>
 
@@ -199,8 +206,14 @@ export const ComposeScreen = ({ navigation }) => {
                 onPress={() => setIsPinned(!isPinned)}
                 style={[styles.checkPill, isPinned && styles.checkPillActive]}
               >
+                <MaterialCommunityIcons
+                  name={isPinned ? "pin" : "pin-outline"}
+                  size={14}
+                  color={isPinned ? colors.accent : colors.textSecondary}
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={[styles.checkText, isPinned && styles.checkTextActive]}>
-                  {isPinned ? '✓ Pinned' : '+ Pinned'}
+                  Pinned
                 </Text>
               </TouchableOpacity>
             </View>
@@ -213,8 +226,14 @@ export const ComposeScreen = ({ navigation }) => {
             onPress={() => setHasCode(!hasCode)}
             style={[styles.codeToggleBtn, hasCode && styles.codeToggleBtnActive]}
           >
+            <Ionicons
+              name={hasCode ? "code-slash" : "code-slash-outline"}
+              size={17}
+              color={hasCode ? colors.accent : colors.textSecondary}
+              style={{ marginRight: 8 }}
+            />
             <Text style={[styles.codeToggleText, hasCode && styles.codeToggleTextActive]}>
-              {hasCode ? '✓ Multi-File Code Included' : '⚡ Add VS Code Snippet Tabs'}
+              {hasCode ? 'Multi-File Code Attached' : 'Attach Multi-File Code Snippets'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -247,7 +266,7 @@ export const ComposeScreen = ({ navigation }) => {
                         onPress={() => handleRemoveFile(idx)}
                         style={styles.tabClose}
                       >
-                        <Text style={styles.tabCloseText}>✕</Text>
+                        <Ionicons name="close" size={13} color={colors.textSecondary} />
                       </TouchableOpacity>
                     )}
                   </TouchableOpacity>
@@ -255,7 +274,8 @@ export const ComposeScreen = ({ navigation }) => {
               </ScrollView>
 
               <TouchableOpacity onPress={handleAddFile} style={styles.addTabBtn}>
-                <Text style={styles.addTabBtnText}>+ Tab</Text>
+                <Ionicons name="add" size={16} color={colors.accent} style={{ marginRight: 2 }} />
+                <Text style={styles.addTabBtnText}>Tab</Text>
               </TouchableOpacity>
             </View>
 
