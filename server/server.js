@@ -64,8 +64,8 @@ const startServer = async () => {
     await connectDB();
     await seedDatabase();
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Pulse518 Server active on http://localhost:${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Clearfeed Server active on http://0.0.0.0:${PORT} (LAN: http://192.168.0.246:${PORT})`);
     });
   } catch (err) {
     console.error('Failed to start server:', err);

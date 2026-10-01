@@ -1,15 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Default backend API URL:
-// - Android Emulator uses 10.0.2.2 to access host machine localhost
-// - iOS Simulator uses localhost
-// - Change this to your local Wi-Fi IP (e.g., http://192.168.1.X:5180/api) when testing on a physical phone
-const DEFAULT_URL = Platform.select({
-  android: 'http://10.0.2.2:5180/api',
-  ios: 'http://localhost:5180/api',
-  default: 'http://localhost:5180/api',
-});
+// Automatically detect host computer's LAN IP when running on Expo Go:
+const getDevHostIp = () => {
+  // hostUri in Expo Go contains "192.168.0.246:8081"
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoGo?.debuggerHost ||
+    Constants.manifest?.debuggerHost;
+
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return ip;
+    }
+  }
+  // Default to your current local machine Wi-Fi IPv4 address
+  return '192.168.0.246';
+};
+
+const DEV_IP = getDevHostIp();
+const DEFAULT_URL = `http://${DEV_IP}:5180/api`;
 
 let customBaseUrl = null;
 
