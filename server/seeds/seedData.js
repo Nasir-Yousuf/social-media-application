@@ -47,7 +47,38 @@ const seedDatabase = async () => {
   try {
     const userCount = await User.countDocuments();
     if (userCount > 10) {
-      console.log(`Database already seeded with ${userCount} users. Skipping auto-seed.`);
+      console.log(`Database already seeded with ${userCount} users.`);
+      
+      // Check if existing posts need code snippets
+      const codePostCount = await Post.countDocuments({ 'codeSnippet.code': { $exists: true, $ne: null } });
+      if (codePostCount === 0) {
+        console.log('Attaching initial code snippets to existing posts...');
+        const posts = await Post.find().limit(5);
+        if (posts.length > 0) {
+          posts[0].codeSnippet = {
+            title: 'useSelectiveState.js',
+            language: 'react',
+            code: `import { createContext, useContext } from 'react';\n\n// Efficient context selector pattern for CS-518\nexport function createStoreContext(useValue) {\n  const Context = createContext(null);\n  \n  return {\n    Provider: ({ children, ...props }) => {\n      const value = useValue(props);\n      return <Context.Provider value={value}>{children}</Context.Provider>;\n    },\n    useSelector: (selector) => {\n      const store = useContext(Context);\n      if (!store) throw new Error('Missing Provider');\n      return selector(store);\n    }\n  };\n}`,
+          };
+          await posts[0].save();
+        }
+        if (posts.length > 1) {
+          posts[1].codeSnippet = {
+            title: 'prefixCompoundIndex.js',
+            language: 'javascript',
+            code: `// MongoDB compound index order matters!\n// Matching query: { author: userA, createdAt: { $gt: yesterday } }\npostSchema.index({ author: 1, createdAt: -1 });\n\n// Query optimization:\nconst userFeed = await Post.find({\n  author: userId,\n  createdAt: { $gte: sinceDate }\n})\n.sort({ createdAt: -1 })\n.hint({ author: 1, createdAt: -1 })\n.explain('executionStats');`,
+          };
+          await posts[1].save();
+        }
+        if (posts.length > 2) {
+          posts[2].codeSnippet = {
+            title: 'dataset_pipeline.py',
+            language: 'python',
+            code: `import pandas as pd\nimport numpy as np\n\ndef clean_telemetry_batch(raw_df: pd.DataFrame) -> pd.DataFrame:\n    """Preprocess course lab benchmarks and remove outliers."""\n    df = raw_df.copy()\n    q1 = df['latency_ms'].quantile(0.25)\n    q3 = df['latency_ms'].quantile(0.75)\n    iqr = q3 - q1\n    \n    filtered = df[(df['latency_ms'] >= q1 - 1.5 * iqr) & \n                  (df['latency_ms'] <= q3 + 1.5 * iqr)]\n    return filtered.sort_values(by='timestamp', ascending=False)`,
+          };
+          await posts[2].save();
+        }
+      }
       return;
     }
 

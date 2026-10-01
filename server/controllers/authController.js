@@ -13,17 +13,10 @@ const generateToken = (userId) => {
 // Register
 exports.register = async (req, res) => {
   try {
-    const { name, username, email, password, inviteCode, bio, avatarUrl } = req.body;
+    const { name, username, email, password, bio, avatarUrl } = req.body;
 
     if (!name || !username || !email || !password) {
       return res.status(400).json({ message: 'Name, username, email, and password are required.' });
-    }
-
-    // Verify course passcode for private course gating
-    if (!inviteCode || inviteCode.trim().toUpperCase() !== COURSE_INVITE_CODE.toUpperCase()) {
-      return res.status(400).json({
-        message: 'Invalid Course Invitation Passcode. Only registered students in CS-518 can join this network.',
-      });
     }
 
     const cleanUsername = username.trim().toLowerCase();
@@ -46,8 +39,8 @@ exports.register = async (req, res) => {
       username: cleanUsername,
       email: cleanEmail,
       password,
-      bio: bio ? bio.trim() : 'CS-518 Course Member',
-      avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
+      bio: bio ? bio.trim() : 'Thinking, building, and exploring code.',
+      avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanUsername)}&backgroundColor=6b7c5e,c4956a,8a7b6b,7c8a6b&textColor=ffffff`,
       role: 'student',
     });
 
@@ -56,18 +49,9 @@ exports.register = async (req, res) => {
     const token = generateToken(user._id);
 
     return res.status(201).json({
-      message: 'Account created successfully! Welcome to the course network.',
+      message: 'Account created successfully! Welcome to Clearfeed.',
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        bio: user.bio,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
-        createdAt: user.createdAt,
-      },
+      user,
     });
   } catch (err) {
     console.error('Registration error:', err);

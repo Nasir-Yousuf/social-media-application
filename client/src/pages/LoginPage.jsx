@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, Navigate } from 'react-router-dom';
-import { Sparkles, Lock, User, AlertCircle, ArrowRight, KeyRound } from 'lucide-react';
+import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { ClearfeedLogo } from '../components/common/ClearfeedIcons';
+import ThemeToggle from '../components/common/ThemeToggle';
 
 export const LoginPage = () => {
   const { login, isAuthenticated } = useAuth();
@@ -31,7 +33,7 @@ export const LoginPage = () => {
     setLoading(true);
     try {
       await login(loginId.trim(), password);
-      showToast('Welcome back to Course 518!', 'success');
+      showToast('Welcome back to Clearfeed!', 'success');
       navigate('/');
     } catch (err) {
       const msg = err.response?.data?.message || 'Login failed. Please verify your credentials.';
@@ -49,28 +51,29 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Ambience */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen cf-bg cf-text flex flex-col items-center justify-center p-4 relative font-sans">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
 
-      <div className="w-full max-w-md space-y-6 relative z-10">
+      <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-xl shadow-indigo-600/30 mb-2">
-            <Sparkles className="w-7 h-7" />
+          <div className="inline-flex items-center justify-center p-2 mb-1">
+            <ClearfeedLogo className="w-12 h-12 text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)]" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-100">
-            Pulse<span className="text-indigo-500">518</span>
+          <h1 className="text-3xl font-extrabold tracking-tight cf-text">
+            Clear<span className="text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)]">feed</span>
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-400">
-            Private Course Social Community for CS-518
+          <p className="text-sm cf-text-muted font-serif italic">
+            "Unfiltered. Chronological. Yours."
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-zinc-900/80 border border-zinc-800 shadow-2xl backdrop-blur-xl space-y-5">
+        <div className="p-7 rounded-2xl cf-surface border cf-border shadow-md space-y-5">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-[var(--color-cf-danger-soft)] text-[var(--color-cf-danger)] border border-[var(--color-cf-danger)]/25 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -78,33 +81,33 @@ export const LoginPage = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Username or Course Email
+              <label className="block text-xs font-semibold cf-text mb-1.5">
+                Username or Email
               </label>
               <div className="relative">
-                <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 cf-text-muted" />
                 <input
                   type="text"
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
-                  placeholder="nasir or nasir@course518.edu"
+                  placeholder="nasir or your email"
                   required
-                  className="w-full bg-zinc-950 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-4 py-2.5 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted pl-10 pr-3.5 py-2.5 rounded-lg border cf-border focus:outline-none cf-focus-ring"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Password</label>
+              <label className="block text-xs font-semibold cf-text mb-1.5">Password</label>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 cf-text-muted" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-zinc-950 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-4 py-2.5 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted pl-10 pr-3.5 py-2.5 rounded-lg border cf-border focus:outline-none cf-focus-ring"
                 />
               </div>
             </div>
@@ -112,52 +115,55 @@ export const LoginPage = () => {
             <Button
               type="submit"
               variant="primary"
-              size="md"
-              className="w-full py-3"
+              size="lg"
+              className="w-full py-2.5 font-bold"
               disabled={loading}
               isLoading={loading}
             >
-              <span>Sign In to Class</span>
+              <span>Sign in</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           </form>
 
-          {/* Quick Demo Credentials for Fast Testing */}
-          <div className="pt-3 border-t border-zinc-800/80 space-y-2">
-            <span className="text-[11px] font-semibold text-zinc-400 block text-center">
-              Quick 1-Click Demo Accounts:
+          {/* Quick Demo Credentials */}
+          <div className="pt-4 border-t cf-border space-y-2">
+            <span className="text-[10px] font-bold cf-text-muted block text-center uppercase tracking-wider">
+              1-Click Demo Accounts
             </span>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => handleQuickLogin('nasir', 'password123')}
-                className="p-2 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 text-left transition-colors cursor-pointer group"
+                className="p-3 rounded-lg cf-bg hover:bg-[var(--color-cf-elevated)] border cf-border text-left transition-colors cursor-pointer group"
               >
-                <div className="font-semibold text-zinc-200 group-hover:text-indigo-400">
-                  👤 Nasir
+                <div className="font-semibold cf-text group-hover:text-[var(--color-cf-accent)]">
+                  Nasir
                 </div>
-                <div className="text-[10px] text-zinc-400">Student Account</div>
+                <div className="text-[11px] cf-text-muted">Member</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleQuickLogin('dr_vance', 'admin123')}
-                className="p-2 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 text-left transition-colors cursor-pointer group"
+                className="p-3 rounded-lg cf-bg hover:bg-[var(--color-cf-elevated)] border cf-border text-left transition-colors cursor-pointer group"
               >
-                <div className="font-semibold text-amber-300 group-hover:text-amber-200">
+                <div className="font-semibold text-[var(--color-cf-amber)]">
                   ★ Dr. Vance
                 </div>
-                <div className="text-[10px] text-zinc-400">Instructor Admin</div>
+                <div className="text-[11px] cf-text-muted">Admin</div>
               </button>
             </div>
           </div>
         </div>
 
         {/* Footer Navigation */}
-        <p className="text-center text-xs text-zinc-400">
-          Enrolled student but don't have an account?{' '}
-          <NavLink to="/register" className="text-indigo-400 hover:text-indigo-300 font-semibold">
-            Join with Course Code
+        <p className="text-center text-sm cf-text-muted">
+          Don't have an account?{' '}
+          <NavLink
+            to="/register"
+            className="text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] hover:underline font-semibold"
+          >
+            Create one
           </NavLink>
         </p>
       </div>

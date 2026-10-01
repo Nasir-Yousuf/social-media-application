@@ -12,7 +12,57 @@ const postSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Post content cannot be empty'],
       trim: true,
-      maxlength: [280, 'Post cannot exceed 280 characters'],
+      maxlength: [2000, 'Post text cannot exceed 2000 characters'],
+    },
+    codeSnippet: {
+      title: {
+        type: String,
+        maxlength: [120, 'Title cannot exceed 120 characters'],
+        trim: true,
+        default: '',
+      },
+      files: [
+        {
+          _id: false,
+          name: {
+            type: String,
+            trim: true,
+            maxlength: [100, 'Filename cannot exceed 100 characters'],
+            default: 'file',
+          },
+          language: {
+            type: String,
+            trim: true,
+            default: 'javascript',
+          },
+          code: {
+            type: String,
+            required: true,
+            maxlength: [25000, 'Code content cannot exceed 25,000 characters'],
+          },
+        },
+      ],
+      // Backward compatibility fields:
+      code: {
+        type: String,
+        maxlength: [25000, 'Code snippet cannot exceed 25,000 characters'],
+        default: null,
+      },
+      language: {
+        type: String,
+        default: 'javascript',
+        trim: true,
+      },
+    },
+    forkedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Post',
+      default: null,
+    },
+    forksCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     isAnnouncement: {
       type: Boolean,
@@ -44,5 +94,7 @@ const postSchema = new mongoose.Schema(
 
 postSchema.index({ createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
+postSchema.index({ 'codeSnippet.code': 1 });
+postSchema.index({ 'codeSnippet.language': 1 });
 
 module.exports = mongoose.model('Post', postSchema);

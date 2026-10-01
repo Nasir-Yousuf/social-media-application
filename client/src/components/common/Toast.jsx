@@ -1,38 +1,45 @@
 import React from 'react';
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { X, Check, AlertCircle, Info } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
+
+const TOAST_STYLES = {
+  success: {
+    bg: 'bg-[var(--color-cf-accent)]',
+    icon: Check,
+    iconClass: 'text-white',
+  },
+  error: {
+    bg: 'bg-[var(--color-cf-danger)]',
+    icon: AlertCircle,
+    iconClass: 'text-white',
+  },
+  info: {
+    bg: 'bg-[var(--color-cf-text-secondary)] dark:bg-[var(--color-cfd-elevated)]',
+    icon: Info,
+    iconClass: 'text-white',
+  },
+};
 
 export const Toast = () => {
   const { toast, dismissToast } = useNotifications();
 
   if (!toast) return null;
 
-  const icons = {
-    success: <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />,
-    error: <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />,
-    info: <Info className="w-5 h-5 text-indigo-400 shrink-0" />,
-  };
-
-  const bgStyles = {
-    success: 'border-emerald-500/30 bg-emerald-950/80 text-emerald-100',
-    error: 'border-rose-500/30 bg-rose-950/80 text-rose-100',
-    info: 'border-indigo-500/30 bg-zinc-900/90 text-zinc-100',
-  };
+  const style = TOAST_STYLES[toast.type] || TOAST_STYLES.info;
+  const Icon = style.icon;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-sm animate-bounce-in">
-      <div
-        className={`flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-xl ${
-          bgStyles[toast.type] || bgStyles.info
-        }`}
-      >
-        {icons[toast.type] || icons.info}
-        <p className="text-sm font-medium flex-1">{toast.message}</p>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-toast">
+      <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-lg ${style.bg} text-white shadow-lg`}>
+        <div className="flex items-center gap-2.5 text-sm font-semibold min-w-0 font-sans">
+          <Icon className={`w-4 h-4 shrink-0 ${style.iconClass}`} strokeWidth={2.5} />
+          <p className="truncate">{toast.message}</p>
+        </div>
         <button
           onClick={dismissToast}
-          className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+          className="text-white/70 hover:text-white p-1 rounded hover:bg-white/15 transition-colors cursor-pointer"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

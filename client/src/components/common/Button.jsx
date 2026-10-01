@@ -12,26 +12,26 @@ export const Button = ({
   ...props
 }) => {
   const baseStyles =
-    'relative inline-flex items-center justify-center font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none rounded-xl active:scale-[0.98]';
+    'relative inline-flex items-center justify-center font-bold cf-btn-transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none rounded-full cf-focus-ring';
 
   const variants = {
     primary:
-      'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 border border-indigo-500/30',
+      'bg-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-hover)] text-white border-0 shadow-sm',
     secondary:
-      'bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700/50 hover:border-zinc-600',
+      'bg-white text-black hover:bg-neutral-200 border-0 shadow-sm dark:bg-white dark:text-black dark:hover:bg-neutral-200',
     outline:
-      'bg-transparent hover:bg-zinc-800/60 text-zinc-300 hover:text-white border border-zinc-700/80',
+      'bg-transparent hover:bg-white/10 text-[var(--color-cf-text)] border border-[var(--color-cf-border)]',
     ghost:
-      'bg-transparent hover:bg-zinc-800/50 text-zinc-400 hover:text-zinc-100 border border-transparent',
+      'bg-transparent hover:bg-[var(--color-cf-elevated)] text-[var(--color-cf-text-secondary)] border-0',
     danger:
-      'bg-rose-600/15 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30',
+      'bg-[var(--color-cf-danger-soft)] hover:bg-[var(--color-cf-danger)] text-[var(--color-cf-danger)] hover:text-white border border-[var(--color-cf-danger)]/30',
   };
 
   const sizes = {
-    xs: 'text-xs px-2.5 py-1 gap-1',
-    sm: 'text-xs px-3 py-1.5 gap-1.5',
-    md: 'text-sm px-4 py-2 gap-2',
-    lg: 'text-base px-5 py-2.5 gap-2.5',
+    xs: 'text-xs px-3 py-1 gap-1',
+    sm: 'text-xs px-3.5 py-1.5 gap-1.5',
+    md: 'text-sm px-4.5 py-2 gap-2',
+    lg: 'text-base px-6 py-2.5 gap-2.5',
   };
 
   return (

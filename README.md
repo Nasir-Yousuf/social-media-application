@@ -1,75 +1,88 @@
-# Pulse518 — Private Course Social Media Platform
+# Clearfeed — The Anti-Algorithm Social Platform
 
-**Pulse518** is a private, cohort-exclusive social network built for students in **CS-518: Advanced Web Architecture**. Inspired by the text-first simplicity and focused usability of classic Twitter, Pulse518 delivers an academic community environment with zero algorithmic noise or external ads.
+> **"Unfiltered. Chronological. Yours."**  
+> A minimalist social platform built for thinkers, writers, and software developers. Text, code, and substance — free from engagement manipulation, vanity impression metrics, and algorithmic frenzy.
 
 ---
 
-## 🌟 Key Features
+## 🌿 Philosophy & Principles
 
-1. **Course-Gated Registration & Secure Authentication**
-   - Private course entry guarded by course invitation passcode (`CS518-2026`).
-   - Passwords hashed using `bcryptjs` with salt factor 10.
-   - Cryptographically signed JWT tokens with 7-day expiration.
-   - Protected route guards on both API and React frontend.
+| What Clearfeed Avoids                   | Why                                                | What Clearfeed Embraces                                                  |
+| --------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------ |
+| ❌ **Algorithmic feed sorting**         | Feeds that optimize for rage/engagement trap users | ✅ **100% Chronological timeline** with explicit "No Algorithm" badge    |
+| ❌ **Endless infinite scroll**          | Encourages compulsive doomscrolling                | ✅ **Deliberate pagination** ("Load earlier posts") so you can stop      |
+| ❌ **Impression counts / View metrics** | Triggers vanity anxiety                            | ✅ **Quiet interaction**: Appreciate, Respond, Boost, and Bookmark       |
+| ❌ **Image-heavy attention noise**      | Drowns out substantive discourse                   | ✅ **Text & Code only** (tiny profile avatars auto-compressed ≤100KB)    |
+| ❌ **280-character soundbites**         | Limits nuanced thought                             | ✅ **2,000-character limit** with serif typography for book-like reading |
 
-2. **Classic Text-First Feed & Post Composer**
-   - 280-character post limit with live radial progress ring.
-   - Dynamic tabs: **"All Course"** (chronological course posts + pinned announcements) and **"Following"** (posts from followed classmates).
-   - Optimistic Like interaction with micro-animation and instant count updates.
-   - Full post edit and deletion permissions strictly enforced (author or faculty admin).
+---
 
-3. **Discussion Threads & Comments**
-   - Inline expandable comment sections on every post.
-   - Character validation (up to 500 chars) and delete permissions for comment authors or faculty.
+## 🌟 Core Features
 
-4. **Social Graph & Following System**
-   - Follow and unfollow classmates with real-time reactive follower/following counts.
-   - Interactive modal listing who a student is following and their followers.
+1. **Warm & Earthy Minimalist Design System**
+   - Warm paper and charcoal palette (no corporate social media blue).
+   - Serif typography (`Source Serif 4`) for post body text designed for reading.
+   - Sans-serif navigation (`Inter`) and monospace code font (`JetBrains Mono`).
+   - Seamless **Light & Dark mode** toggle with persistent local storage.
 
-5. **Course Members Directory (~35 Enrolled Students)**
-   - Pre-seeded with 35 realistic student profiles + 1 instructor admin account.
-   - Real-time search by student name, username, or technical bio.
-   - Filter by All, Students, and Faculty.
+2. **VS Code Multi-File Snippet Studio**
+   - Tabbed editor mirroring the Visual Studio Code interface.
+   - Share multi-file projects (HTML, CSS, JS, Python, SQL, React, etc.).
+   - Full syntax highlighting, line numbers, and file icons.
+   - **Fork / Remix**: 1-click fork snippets from any post into your composer with attribution.
 
-6. **Explore & Unified Search**
-   - Trending course topic hashtags (`#React19`, `#MongoDB`, `#Architecture`, `#MidtermPrep`, `#Docker`).
-   - Unified search querying across students, usernames, and post discussions.
+3. **Markdown-Enhanced Posts**
+   - Write posts with **bold**, _italic_, `inline code`, [links](url), and bullet lists.
+   - Zero-dependency safe inline markdown rendering.
 
-7. **Faculty Administration & Moderation (`/admin`)**
-   - Platform metrics: Total Enrolled, Total Posts, Discussion Comments, and Total Likes.
-   - Student roster management (promote to admin, suspend/activate account, remove).
-   - Content moderation (force-remove inappropriate posts).
-   - Official announcement broadcaster pinned to the top of the course feed.
+4. **Private Bookmarks & Reading List**
+   - Privately save posts and code snippets to your `/bookmarks` collection.
+   - Toggle bookmark with one click directly from any post card.
 
-8. **Design Aesthetics & Responsiveness**
-   - Custom Plus Jakarta Sans typography and JetBrains Mono code font.
-   - Zinc/slate dark theme with indigo and violet accent hues and glassmorphism.
-   - Desktop 3-column layout + mobile-optimized bottom navigation bar and mobile composer.
+5. **Self-Contained Avatar Storage (Zero Cloud Storage Cost)**
+   - Client-side HTML5 canvas compression resizes photos to 128×128 JPEG (≤100KB).
+   - Stored directly as binary `Buffer` inside MongoDB.
+   - Served via `GET /api/users/:id/avatar` with 24-hour HTTP cache headers.
+   - Free tier compatible: 500 users take only ~25MB of MongoDB Atlas's 512MB free tier.
+
+6. **Weekly Digest (`/digest`)**
+   - A calm overview of the thoughts, workspaces, and discussions from the past 7 days.
+
+7. **Centered Single-Column Architecture**
+   - Clean horizontal top navigation bar replacing distracting left/right sidebars.
+   - Optimal reading column width (`max-w-2xl` / 672px).
+   - Compact mobile bottom navigation.
+
+8. **Open Community**
+   - Direct, open signup without invitation passcodes.
+   - Member status line (e.g. `🔨 Building a compiler`).
+   - Community directory with search and role filters.
 
 ---
 
 ## 🚀 Quick Start Guide
 
 ### 1. Requirements
-- **Node.js**: v18+ (tested on Node v24.21.0)
-- **Database**: Zero-setup embedded MongoDB included out-of-the-box via `mongodb-memory-server`! Alternatively, connect to your own MongoDB Atlas or local MongoDB by setting `MONGODB_URI` in `server/.env`.
+
+- **Node.js**: v18+ (tested on Node v24)
+- **Database**: Zero-setup embedded MongoDB included out-of-the-box via `mongodb-memory-server`! Alternatively, connect to your own MongoDB Atlas cluster by setting `MONGODB_URI` in `server/.env`.
 
 ### 2. Running Locally
-Both backend and frontend can be started with a single command from the project root:
+
+Start both backend (port 5180) and frontend (port 5173) with a single command from the project root:
 
 ```bash
-# Start backend (Port 5180) and frontend (Port 5173) concurrently
 npm run dev
 ```
 
-Or start them individually:
+Or run each service individually:
 
 ```bash
-# In the server directory (Port 5180):
+# Backend (Port 5180):
 cd server
-npm start
+npm run dev
 
-# In the client directory (Port 5173):
+# Frontend (Port 5173):
 cd client
 npm run dev
 ```
@@ -79,32 +92,90 @@ Open your browser to:
 
 ---
 
-## 🔑 Pre-Seeded Test Credentials
+## 🔑 Pre-Seeded Demo Accounts
 
-To facilitate instant testing, 1-click login pills are provided on the login page, or you can log in manually:
+1-click login buttons are available on the sign-in page:
 
-| Role | Username / Email | Password | Description |
-|---|---|---|---|
-| **Student** | `nasir` or `nasir@course518.edu` | `password123` | Student account with existing posts & followers |
-| **Student** | `sarah_c` or `sarah@course518.edu` | `password123` | Classmate student account |
-| **Faculty Admin** | `dr_vance` or `admin@course518.edu` | `admin123` | Course Instructor with `/admin` dashboard access |
+| Account       | Username   | Password      | Role             |
+| ------------- | ---------- | ------------- | ---------------- |
+| **Nasir**     | `nasir`    | `password123` | Community Member |
+| **Dr. Vance** | `dr_vance` | `admin123`    | Staff / Admin    |
 
-### Registering a New Student:
-- Course Invitation Passcode: `CS518-2026`
+Or create any new account directly via `/register`.
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## 🌐 100% Free Hosting Deployment
 
-### Frontend
-- **Framework**: React 19 + Vite 8
-- **Styling**: Tailwind CSS v4 + Vanilla CSS Design Tokens
-- **Icons**: Lucide React
-- **Routing**: React Router DOM v7
-- **HTTP Client**: Axios with Bearer token request/response interceptors
+Clearfeed is specifically engineered to run completely free across standard cloud tiers without requiring paid storage services (like AWS S3 or Cloudinary):
 
-### Backend
-- **Runtime**: Node.js + Express.js 5
-- **Database ODM**: Mongoose 8
-- **Authentication**: JWT (`jsonwebtoken`) + `bcryptjs`
-- **Embedded Database**: `mongodb-memory-server` (automatic fallback if no external URI provided)
+| Component       | Recommended Platform                           | Free Tier Specifications                                          |
+| --------------- | ---------------------------------------------- | ----------------------------------------------------------------- |
+| **Database**    | [MongoDB Atlas](https://www.mongodb.com/atlas) | Free Shared M0 Cluster (512MB storage, automated backups)         |
+| **Backend API** | [Render](https://render.com)                   | Free Web Service (512MB RAM, Node.js runtime)                     |
+| **Frontend UI** | [Vercel](https://vercel.com)                   | Free Hobby Plan (Edge CDN, unlimited preview & production builds) |
+
+### Deploying the Backend on Render:
+
+1. Connect your GitHub repository to Render.
+2. Create a new **Web Service**.
+3. Set **Root Directory** to `server`.
+4. Set **Build Command** to `npm install`.
+5. Set **Start Command** to `node server.js`.
+6. Add Environment Variables:
+   - `NODE_ENV`: `production`
+   - `PORT`: `5180`
+   - `JWT_SECRET`: `<any-secure-random-string>`
+   - `MONGODB_URI`: `<your-mongodb-atlas-connection-string>`
+
+### Deploying the Frontend on Vercel:
+
+1. Import your GitHub repository to Vercel.
+2. Set **Root Directory** to `client`.
+3. Set **Framework Preset** to `Vite`.
+4. Set Environment Variable:
+   - `VITE_API_URL`: `<your-render-backend-url>/api` (e.g. `https://clearfeed-api.onrender.com/api`)
+5. Deploy.
+
+## 📱 React Native Mobile Application (`mobile/`)
+
+Clearfeed also includes a full native mobile app built with **React Native + Expo**, featuring Twitter's exact dark aesthetic, full gesture navigation, and native offline storage.
+
+### 🌟 Mobile Features
+
+- **Twitter "Lights Out" Aesthetic**: Pure black `#000000` background, card surfaces `#16181c`, borders `#2f3336`, Twitter blue `#1d9bf0`, like pink `#f91880`, retweet green `#00ba7c`, and verified gold `#ffd700`.
+- **Chronological Feed**: Pull-to-refresh (`RefreshControl`), infinite scrolling, "All Feed" vs "Following" pill tabs.
+- **VS Code Multi-File Snippet Block**: Tabbed code viewer with line numbers, monospace typography, and 1-tap copy to clipboard via `expo-clipboard`.
+- **Interactive Action Bar**: Like heart animation, retweet, bookmarks, threaded replies, and native OS share dialog.
+- **2000-Character Composer**: Numeric character counter, staff controls (announcement & pinned posts), and multi-tab code project builder.
+- **Avatar Photo Picker**: Pick photos directly from camera roll via `expo-image-picker`, compressed under 100KB and stored as binary in the database.
+- **Configurable Backend Host**: 1-tap setting to connect physical phones (via Wi-Fi IP) or emulators (`10.0.2.2`).
+
+### 🚀 Running the Mobile App
+
+From the project root:
+
+```bash
+# Start the Expo development server:
+npm run mobile
+
+# Or inside the mobile/ directory:
+cd mobile
+npm start
+```
+
+Press:
+
+- **`a`** to open in Android Emulator
+- **`i`** to open in iOS Simulator (macOS)
+- **`w`** to open in Web browser
+- Or scan the terminal QR code with the **Expo Go** app on your physical iOS or Android device!
+
+---
+
+## 🛠️ Tech Stack
+
+- **Web Frontend**: React 19, Vite 8, Tailwind CSS v4, Vanilla CSS tokens, Lucide React, Date-fns, React Router DOM v7
+- **Mobile App**: React Native 0.86, Expo SDK 57, React Navigation v7 (Bottom Tabs + Native Stack), AsyncStorage, Expo Image Picker, Expo Clipboard, Date-fns
+- **Backend API**: Node.js, Express.js 5, Mongoose 8, JWT, bcryptjs, Morgan
+- **Storage**: In-database binary buffers for avatars (zero S3/blob costs)

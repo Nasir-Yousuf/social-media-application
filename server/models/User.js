@@ -36,13 +36,30 @@ const userSchema = new mongoose.Schema(
     avatarUrl: {
       type: String,
       default: function () {
-        return `https://api.dicebear.com/7.x/bottts/svg?seed=${this.username || 'student'}`;
+        return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(this.username || 'user')}&backgroundColor=6b7c5e,c4956a,8a7b6b,7c8a6b&textColor=ffffff`;
       },
+    },
+    avatar: {
+      type: Buffer,
+      select: false,
+    },
+    avatarMimeType: {
+      type: String,
+      default: 'image/jpeg',
+    },
+    hasCustomAvatar: {
+      type: Boolean,
+      default: false,
+    },
+    status: {
+      type: String,
+      maxlength: [60, 'Status cannot exceed 60 characters'],
+      default: '',
     },
     bio: {
       type: String,
       maxlength: [160, 'Bio cannot exceed 160 characters'],
-      default: 'Course 518 student exploring modern full-stack development.',
+      default: 'Thinking, building, and exploring code.',
     },
     role: {
       type: String,
@@ -79,6 +96,10 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.avatar;
+  if (obj.hasCustomAvatar) {
+    obj.avatarUrl = `/api/users/${obj._id}/avatar`;
+  }
   return obj;
 };
 

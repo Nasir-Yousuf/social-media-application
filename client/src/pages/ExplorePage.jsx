@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Compass, Hash, Flame, Award } from 'lucide-react';
+import { Compass, Tag, X } from 'lucide-react';
 import PostList from '../components/posts/PostList';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
@@ -10,14 +10,15 @@ export const ExplorePage = () => {
   const [selectedTag, setSelectedTag] = useState(null);
   const { showToast } = useNotifications();
 
-  const courseTags = [
-    { tag: 'React19', count: 18 },
-    { tag: 'MongoDB', count: 14 },
-    { tag: 'Architecture', count: 21 },
-    { tag: 'StudyGroup', count: 11 },
-    { tag: 'MidtermPrep', count: 16 },
-    { tag: 'Docker', count: 9 },
-    { tag: 'TailwindCSS', count: 12 },
+  const topics = [
+    'Architecture',
+    'React',
+    'Python',
+    'JavaScript',
+    'Databases',
+    'Design',
+    'Compilers',
+    'DevOps',
   ];
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export const ExplorePage = () => {
         const res = await api.get('/posts/explore');
         setPosts(res.data.posts || []);
       } catch (err) {
-        showToast('Failed to load explore feed', 'error');
+        showToast('Failed to load discover feed', 'error');
       } finally {
         setLoading(false);
       }
@@ -40,69 +41,63 @@ export const ExplorePage = () => {
     : posts;
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="space-y-5 font-sans">
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-zinc-950/85 backdrop-blur-xl border-b border-zinc-800/80 px-4 py-3.5">
+      <div className="pb-3 border-b cf-border">
         <div className="flex items-center gap-2">
-          <Compass className="w-5 h-5 text-indigo-400" />
-          <h1 className="text-lg font-extrabold tracking-tight text-zinc-100">Explore & Discover</h1>
+          <Compass className="w-5 h-5 text-[var(--color-cf-accent)]" />
+          <h1 className="text-xl font-bold tracking-tight cf-text">Discover</h1>
         </div>
-        <p className="text-xs text-zinc-400 mt-0.5">
-          Trending topics and top-rated discussions across our 35 cohort members
+        <p className="text-xs cf-text-muted mt-0.5 font-serif italic">
+          Explore thoughtful posts, notes, and discussions across the network.
         </p>
-      </header>
+      </div>
 
-      {/* Course Tags Banner */}
-      <div className="p-4 border-b border-zinc-800/80 bg-zinc-900/30">
-        <div className="flex items-center gap-2 text-xs font-bold text-zinc-300 mb-2.5">
-          <Flame className="w-4 h-4 text-amber-500" />
-          <span>Trending Course Topics</span>
+      {/* Topic Filter Pills */}
+      <div>
+        <div className="flex items-center gap-1.5 text-xs cf-text-muted mb-2 font-medium">
+          <Tag className="w-3.5 h-3.5" />
+          <span>Browse topics:</span>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-          <button
-            onClick={() => setSelectedTag(null)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors shrink-0 cursor-pointer ${
-              selectedTag === null
-                ? 'bg-indigo-600 text-white border-indigo-500'
-                : 'bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
-            }`}
-          >
-            All Discussions
-          </button>
-          {courseTags.map((item) => (
+        <div className="flex flex-wrap gap-1.5">
+          {topics.map((tag) => {
+            const isSelected = selectedTag === tag;
+            return (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(isSelected ? null : tag)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cf-btn-transition cursor-pointer ${
+                  isSelected
+                    ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
+                    : 'cf-surface border cf-border cf-text hover:bg-[var(--color-cf-elevated)] dark:hover:bg-[var(--color-cfd-elevated)]'
+                }`}
+              >
+                #{tag}
+              </button>
+            );
+          })}
+
+          {selectedTag && (
             <button
-              key={item.tag}
-              onClick={() => setSelectedTag(selectedTag === item.tag ? null : item.tag)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors shrink-0 cursor-pointer ${
-                selectedTag === item.tag
-                  ? 'bg-indigo-600 text-white border-indigo-500'
-                  : 'bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
-              }`}
+              onClick={() => setSelectedTag(null)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-[var(--color-cf-danger)] hover:bg-[var(--color-cf-danger-soft)] cf-btn-transition cursor-pointer flex items-center gap-1"
             >
-              <Hash className="w-3 h-3 text-indigo-400" />
-              <span>{item.tag}</span>
-              <span className="text-[10px] text-zinc-400">({item.count})</span>
+              <X className="w-3.5 h-3.5" />
+              <span>Clear filter</span>
             </button>
-          ))}
+          )}
         </div>
       </div>
 
-      {/* Popular Posts */}
-      <div className="px-4 py-2 bg-zinc-900/40 border-b border-zinc-800/60 flex items-center justify-between text-xs text-zinc-400">
-        <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
-          <Award className="w-3.5 h-3.5 text-indigo-400" />
-          {selectedTag ? `Discussions mentioning #${selectedTag}` : 'Most Engaged Course Posts'}
-        </span>
-        <span>{filteredPosts.length} posts</span>
-      </div>
-
+      {/* Stream */}
       <PostList
         posts={filteredPosts}
         loading={loading}
         onPostDeleted={(id) => setPosts((prev) => prev.filter((p) => p._id !== id))}
         onPostUpdated={(up) => setPosts((prev) => prev.map((p) => (p._id === up._id ? up : p)))}
-        emptyMessage="No posts match this topic filter."
+        emptyMessage={selectedTag ? `No posts matching #${selectedTag}` : 'No posts to discover yet.'}
+        emptyDescription="Posts from all community members will appear here."
       />
     </div>
   );

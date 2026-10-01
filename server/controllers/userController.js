@@ -43,12 +43,41 @@ exports.getProfileByUsername = async (req, res) => {
 // Update profile (own)
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, bio, avatarUrl } = req.body;
+    const { name, bio, status, avatarUrl, avatarBase64 } = req.body;
     const user = req.user;
 
     if (name) user.name = name.trim();
     if (bio !== undefined) user.bio = bio.trim();
-    if (avatarUrl) user.avatarUrl = avatarUrl.trim();
+    if (status !== undefined) user.status = status.trim().slice(0, 60);
+
+    // Process avatar base64 upload if provided
+    if (avatarBase64) {
+      const matches = avatarBase64.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+      let buffer;
+      let mimeType = 'image/jpeg';
+
+      if (matches && matches.length === 3) {
+        mimeType = matches[1];
+        buffer = Buffer.from(matches[2], 'base64');
+      } else {
+        buffer = Buffer.from(avatarBase64, 'base64');
+      }
+
+      // 100KB limit enforcement
+      const MAX_SIZE = 100 * 1024;
+      if (buffer.length > MAX_SIZE) {
+        return res.status(400).json({
+          message: `Avatar image must be under 100KB (current: ${(buffer.length / 1024).toFixed(1)}KB).`,
+        });
+      }
+
+      user.avatar = buffer;
+      user.avatarMimeType = mimeType;
+      user.hasCustomAvatar = true;
+      user.avatarUrl = `/api/users/${user._id}/avatar?t=${Date.now()}`;
+    } else if (avatarUrl) {
+      user.avatarUrl = avatarUrl.trim();
+    }
 
     await user.save();
 
@@ -59,6 +88,24 @@ exports.updateProfile = async (req, res) => {
   } catch (err) {
     console.error('updateProfile error:', err);
     return res.status(500).json({ message: 'Failed to update profile.' });
+  }
+};
+
+// Serve avatar image directly from MongoDB Buffer
+exports.getAvatar = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('+avatar +avatarMimeType');
+
+    if (!user || !user.avatar) {
+      return res.status(404).json({ message: 'Avatar image not found.' });
+    }
+
+    res.set('Content-Type', user.avatarMimeType || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(user.avatar);
+  } catch (err) {
+    console.error('getAvatar error:', err);
+    return res.status(500).json({ message: 'Error retrieving avatar image.' });
   }
 };
 

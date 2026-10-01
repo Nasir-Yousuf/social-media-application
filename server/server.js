@@ -18,8 +18,8 @@ app.use(cors({
   origin: '*', // Allow Vite frontend
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
@@ -27,13 +27,14 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Pulse518 API is running.' });
+  res.status(200).json({ status: 'ok', message: 'Clearfeed API is running.' });
 });
 
 // Mount Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
+app.use('/api/bookmarks', require('./routes/bookmarkRoutes'));
 app.use('/api/comments', require('./routes/commentRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));

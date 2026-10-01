@@ -1,10 +1,12 @@
 {
-  "name": "pulse518-course-platform",
-  "version": "1.0.0",
-  "description": "Private Course Social Media Platform for CS-518",
+  "name": "clearfeed",
+  "version": "2.0.0",
+  "description": "Clearfeed — The Anti-Algorithm Minimalist Social Platform for Text and Code",
   "scripts": {
-    "dev:server": "node server/server.js",
+    "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
+    "dev:mobile": "npm --prefix mobile run start",
+    "mobile": "npm --prefix mobile run start",
     "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:client\""
   }
 }

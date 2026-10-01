@@ -1,28 +1,21 @@
 import React from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import SidebarLeft from './SidebarLeft';
-import SidebarRight from './SidebarRight';
-import MobileNav from './MobileNav';
+import TopNav from './TopNav';
+import BottomNav from './BottomNav';
 import Toast from '../common/Toast';
+import { ClearfeedLogo } from '../common/ClearfeedIcons';
 
 export const AppLayout = () => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-4 text-zinc-400">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center animate-pulse">
-          <svg className="animate-spin h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
+      <div className="min-h-screen cf-bg cf-text flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 flex items-center justify-center animate-pulse">
+          <ClearfeedLogo className="w-10 h-10 text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)]" />
         </div>
-        <p className="text-sm font-medium">Entering Pulse 518 Community...</p>
+        <p className="text-sm font-medium cf-text-muted font-sans">Opening Clearfeed...</p>
       </div>
     );
   }
@@ -32,20 +25,17 @@ export const AppLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row justify-center">
-      <div className="w-full max-w-7xl flex">
-        {/* Left Navigation */}
-        <SidebarLeft />
+    <div className="min-h-screen cf-bg cf-text flex flex-col">
+      {/* Top Navigation */}
+      <TopNav />
 
-        {/* Center Main Scrollable Area */}
-        <main className="flex-1 min-w-0 border-r border-zinc-800/80 min-h-screen pb-20 md:pb-8">
-          <MobileNav />
-          <Outlet />
-        </main>
+      {/* Main Single-Column Content */}
+      <main className="flex-1 w-full max-w-2xl mx-auto px-4 py-6 pb-24 md:pb-12">
+        <Outlet />
+      </main>
 
-        {/* Right Info & Discovery Sidebar */}
-        <SidebarRight />
-      </div>
+      {/* Mobile Bottom Navigation */}
+      <BottomNav />
 
       {/* Global Toast */}
       <Toast />

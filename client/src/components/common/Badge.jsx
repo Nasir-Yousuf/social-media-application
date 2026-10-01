@@ -2,12 +2,13 @@ import React from 'react';
 
 export const Badge = ({ children, variant = 'neutral', size = 'sm', className = '' }) => {
   const variantStyles = {
-    neutral: 'bg-zinc-800 text-zinc-300 border-zinc-700/60',
-    admin: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
-    announcement: 'bg-amber-500/15 text-amber-400 border-amber-500/30 font-semibold',
-    success: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    danger: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-    course: 'bg-sky-500/15 text-sky-400 border-sky-500/30 font-medium',
+    neutral: 'bg-[var(--color-cf-surface)] text-[var(--color-cf-text-muted)] border-[var(--color-cf-border)]',
+    accent: 'bg-[var(--color-cf-accent-soft)] text-[var(--color-cf-accent)] border-[var(--color-cf-accent)]/20 font-semibold',
+    admin: 'bg-[var(--color-cf-amber-soft)] text-[var(--color-cf-amber)] border-[var(--color-cf-amber)]/25 font-bold',
+    announcement: 'bg-[var(--color-cf-amber-soft)] text-[var(--color-cf-amber)] border-[var(--color-cf-amber)]/25 font-bold',
+    success: 'bg-[var(--color-cf-success-soft)] text-[var(--color-cf-success)] border-[var(--color-cf-success)]/25 font-semibold',
+    danger: 'bg-[var(--color-cf-danger-soft)] text-[var(--color-cf-danger)] border-[var(--color-cf-danger)]/25 font-semibold',
+    chronological: 'bg-[var(--color-cf-accent-soft)] text-[var(--color-cf-accent)] border-[var(--color-cf-accent)]/15 font-mono font-semibold',
   };
 
   const sizeStyles = {

@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Check, UserPlus } from 'lucide-react';
 import Avatar from '../common/Avatar';
-import Badge from '../common/Badge';
 import Button from '../common/Button';
 import api from '../../api/client';
 import { useNotifications } from '../../context/NotificationContext';
+import { FacultyBadge } from '../common/ClearfeedIcons';
 
 export const MemberCard = ({ member }) => {
   const { showToast } = useNotifications();
@@ -25,7 +24,7 @@ export const MemberCard = ({ member }) => {
         await api.post(`/users/${member._id}/follow`);
         setIsFollowing(true);
         setFollowersCount((prev) => prev + 1);
-        showToast(`Now following @${member.username}`, 'success');
+        showToast(`Following @${member.username}`, 'success');
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update follow status', 'error');
@@ -35,7 +34,7 @@ export const MemberCard = ({ member }) => {
   };
 
   return (
-    <div className="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 flex flex-col justify-between gap-3 hover:border-zinc-700/80 transition-all hover:shadow-lg hover:shadow-black/20">
+    <div className="p-4 rounded-xl cf-surface border cf-border flex flex-col justify-between gap-3 shadow-sm hover:shadow transition-shadow">
       <div className="flex items-start justify-between gap-3">
         <NavLink to={`/profile/${member.username}`} className="flex items-center gap-3 min-w-0">
           <Avatar
@@ -47,56 +46,50 @@ export const MemberCard = ({ member }) => {
           />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-sm text-zinc-100 hover:text-indigo-400 truncate">
+              <span className="font-sans font-bold text-sm cf-text hover:underline truncate">
                 {member.name}
               </span>
               {member.role === 'admin' && (
-                <Badge variant="admin" size="xs">
-                  Instructor
-                </Badge>
+                <FacultyBadge className="w-3.5 h-3.5 text-[var(--color-cf-amber)]" />
               )}
             </div>
-            <span className="text-xs text-zinc-400 block truncate">@{member.username}</span>
+            <span className="text-xs cf-text-muted block truncate font-sans">@{member.username}</span>
+            {member.status && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--color-cf-accent-soft)] dark:bg-[var(--color-cfd-accent-soft)] text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] font-medium inline-block mt-1">
+                {member.status}
+              </span>
+            )}
           </div>
         </NavLink>
 
         {!member.isSelf && (
           <Button
-            variant={isFollowing ? 'outline' : 'primary'}
+            variant={isFollowing ? 'outline' : 'secondary'}
             size="xs"
             onClick={handleFollowToggle}
             isLoading={loading}
+            className="px-3.5 py-1 font-bold"
           >
-            {isFollowing ? (
-              <>
-                <Check className="w-3 h-3 text-emerald-400" />
-                <span>Following</span>
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-3 h-3" />
-                <span>Follow</span>
-              </>
-            )}
+            {isFollowing ? 'Following' : 'Follow'}
           </Button>
         )}
       </div>
 
       {member.bio && (
-        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+        <p className="text-xs cf-text/90 line-clamp-2 leading-relaxed font-serif">
           {member.bio}
         </p>
       )}
 
-      <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-xs text-zinc-400">
-        <span className="flex items-center gap-1">
-          <strong className="text-zinc-200">{followersCount}</strong> followers
+      <div className="pt-2 border-t cf-border flex items-center justify-between text-xs cf-text-muted font-sans">
+        <span>
+          <strong className="cf-text font-bold">{followersCount}</strong> follower{followersCount === 1 ? '' : 's'}
         </span>
         <NavLink
           to={`/profile/${member.username}`}
-          className="text-indigo-400 hover:underline text-[11px]"
+          className="text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] hover:underline font-semibold text-xs"
         >
-          View Profile &rarr;
+          View profile &rarr;
         </NavLink>
       </div>
     </div>

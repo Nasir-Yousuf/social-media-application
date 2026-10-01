@@ -4,48 +4,110 @@ const Like = require('../models/Like');
 const Follow = require('../models/Follow');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Bookmark = require('../models/Bookmark');
 
 // Helper to enrich post with currentUser state
 const enrichPost = async (post, currentUserId) => {
-  const isLiked = currentUserId ? await Like.exists({ post: post._id, user: currentUserId }) : false;
+  const [isLiked, isBookmarked] = await Promise.all([
+    currentUserId ? Like.exists({ post: post._id, user: currentUserId }) : false,
+    currentUserId ? Bookmark.exists({ post: post._id, user: currentUserId }) : false,
+  ]);
   const isOwner = currentUserId ? post.author && post.author._id.equals(currentUserId) : false;
 
   return {
     ...post.toObject(),
     isLiked: !!isLiked,
+    isBookmarked: !!isBookmarked,
     isOwner,
+  };
+};
+
+// Helper to sanitize multi-file or single-file code snippets
+const sanitizeSnippet = (codeSnippet) => {
+  if (!codeSnippet) return null;
+
+  let files = [];
+  if (Array.isArray(codeSnippet.files) && codeSnippet.files.length > 0) {
+    files = codeSnippet.files
+      .filter((f) => f && f.code && f.code.trim())
+      .map((f, idx) => ({
+        name: (f.name || `file${idx + 1}`).trim().slice(0, 100),
+        language: (f.language || 'javascript').toLowerCase().trim(),
+        code: f.code.slice(0, 25000),
+      }));
+  } else if (codeSnippet.code && codeSnippet.code.trim()) {
+    files = [
+      {
+        name: (codeSnippet.title || 'snippet').trim().slice(0, 100),
+        language: (codeSnippet.language || 'javascript').toLowerCase().trim(),
+        code: codeSnippet.code.slice(0, 25000),
+      },
+    ];
+  }
+
+  if (files.length === 0) return null;
+
+  return {
+    title: (codeSnippet.title || files[0].name || '').trim().slice(0, 120),
+    files,
+    code: files[0].code,
+    language: files[0].language,
   };
 };
 
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { content, isAnnouncement, isPinned } = req.body;
+    const { content, codeSnippet, isAnnouncement, isPinned, forkedFrom } = req.body;
 
-    if (!content || !content.trim()) {
-      return res.status(400).json({ message: 'Post content cannot be empty.' });
+    const formattedSnippet = sanitizeSnippet(codeSnippet);
+    let trimmedContent = content ? content.trim() : '';
+
+    // If content is empty but codeSnippet is provided, provide a default content
+    if (!trimmedContent && formattedSnippet) {
+      trimmedContent = formattedSnippet.title
+        ? `Shared snippet: ${formattedSnippet.title}`
+        : `Shared ${formattedSnippet.files.length} code file${formattedSnippet.files.length > 1 ? 's' : ''}`;
     }
 
-    if (content.trim().length > 280) {
-      return res.status(400).json({ message: 'Post cannot exceed 280 characters.' });
+    if (!trimmedContent) {
+      return res.status(400).json({ message: 'Post content or code snippet cannot be empty.' });
+    }
+
+    if (trimmedContent.length > 2000) {
+      return res.status(400).json({ message: 'Post text cannot exceed 2000 characters.' });
     }
 
     const isAdmin = req.user.role === 'admin';
 
     const post = new Post({
       author: req.user._id,
-      content: content.trim(),
+      content: trimmedContent,
+      codeSnippet: formattedSnippet,
+      forkedFrom: forkedFrom || null,
       isAnnouncement: isAdmin ? !!isAnnouncement : false,
       isPinned: isAdmin ? !!isPinned : false,
     });
 
     await post.save();
-    await post.populate('author', 'name username avatarUrl role');
 
-    // If it's an official announcement, notify all course members
+    if (forkedFrom) {
+      await Post.findByIdAndUpdate(forkedFrom, { $inc: { forksCount: 1 } });
+    }
+
+    await post.populate('author', 'name username avatarUrl role status');
+    if (post.forkedFrom) {
+      await post.populate({
+        path: 'forkedFrom',
+        select: 'content codeSnippet author createdAt',
+        populate: { path: 'author', select: 'name username avatarUrl' },
+      });
+    }
+
+    // If it's an official announcement, notify all members
     if (post.isAnnouncement) {
-      const allStudents = await User.find({ _id: { $ne: req.user._id }, isApproved: true }).select('_id');
-      const notifications = allStudents.map((s) => ({
+      const allMembers = await User.find({ _id: { $ne: req.user._id }, isApproved: true }).select('_id');
+      const notifications = allMembers.map((s) => ({
         recipient: s._id,
         sender: req.user._id,
         type: 'announcement',
@@ -57,10 +119,11 @@ exports.createPost = async (req, res) => {
     }
 
     return res.status(201).json({
-      message: 'Post published to the course feed.',
+      message: 'Post published to Clearfeed.',
       post: {
         ...post.toObject(),
         isLiked: false,
+        isBookmarked: false,
         isOwner: true,
       },
     });
@@ -70,12 +133,12 @@ exports.createPost = async (req, res) => {
   }
 };
 
-// Get Feed (All or Following)
+// Get Feed (All or Following) - Strictly Chronological
 exports.getFeed = async (req, res) => {
   try {
     const tab = req.query.tab || 'all'; // 'all' or 'following'
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 25;
+    const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
     const currentUserId = req.user._id;
@@ -89,21 +152,32 @@ exports.getFeed = async (req, res) => {
     }
 
     const posts = await Post.find(query)
-      .populate('author', 'name username avatarUrl role')
+      .populate('author', 'name username avatarUrl role status')
+      .populate({
+        path: 'forkedFrom',
+        select: 'content codeSnippet author createdAt',
+        populate: { path: 'author', select: 'name username avatarUrl' },
+      })
       .sort({ isPinned: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
     const totalPosts = await Post.countDocuments(query);
 
-    // Batch query likes for current user to avoid N+1 queries
+    // Batch query likes and bookmarks for current user to avoid N+1 queries
     const postIds = posts.map((p) => p._id);
-    const userLikes = await Like.find({ post: { $in: postIds }, user: currentUserId }).select('post');
+    const [userLikes, userBookmarks] = await Promise.all([
+      Like.find({ post: { $in: postIds }, user: currentUserId }).select('post'),
+      Bookmark.find({ post: { $in: postIds }, user: currentUserId }).select('post'),
+    ]);
+
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
+    const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const enrichedPosts = posts.map((post) => ({
       ...post.toObject(),
       isLiked: likedPostIdSet.has(post._id.toString()),
+      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: post.author && post.author._id.equals(currentUserId),
     }));
 
@@ -118,14 +192,20 @@ exports.getFeed = async (req, res) => {
     });
   } catch (err) {
     console.error('getFeed error:', err);
-    return res.status(500).json({ message: 'Failed to load course feed.' });
+    return res.status(500).json({ message: 'Failed to load feed.' });
   }
 };
 
 // Get single post
 exports.getPostById = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).populate('author', 'name username avatarUrl role');
+    const post = await Post.findById(req.params.id)
+      .populate('author', 'name username avatarUrl role status')
+      .populate({
+        path: 'forkedFrom',
+        select: 'content codeSnippet author createdAt',
+        populate: { path: 'author', select: 'name username avatarUrl' },
+      });
 
     if (!post) {
       return res.status(404).json({ message: 'Post not found.' });
@@ -142,13 +222,13 @@ exports.getPostById = async (req, res) => {
 // Update own post
 exports.updatePost = async (req, res) => {
   try {
-    const { content } = req.body;
+    const { content, codeSnippet } = req.body;
     if (!content || !content.trim()) {
       return res.status(400).json({ message: 'Content cannot be empty.' });
     }
 
-    if (content.trim().length > 280) {
-      return res.status(400).json({ message: 'Post cannot exceed 280 characters.' });
+    if (content.trim().length > 2000) {
+      return res.status(400).json({ message: 'Post text cannot exceed 2000 characters.' });
     }
 
     const post = await Post.findById(req.params.id);
@@ -162,9 +242,21 @@ exports.updatePost = async (req, res) => {
     }
 
     post.content = content.trim();
+
+    if (codeSnippet !== undefined) {
+      post.codeSnippet = sanitizeSnippet(codeSnippet);
+    }
+
     post.isEdited = true;
     await post.save();
-    await post.populate('author', 'name username avatarUrl role');
+    await post.populate('author', 'name username avatarUrl role status');
+    if (post.forkedFrom) {
+      await post.populate({
+        path: 'forkedFrom',
+        select: 'content codeSnippet author createdAt',
+        populate: { path: 'author', select: 'name username avatarUrl' },
+      });
+    }
 
     const enriched = await enrichPost(post, req.user._id);
 
@@ -178,7 +270,7 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-// Delete post (Owner or Admin)
+// Delete post (Author or Admin)
 exports.deletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -190,15 +282,16 @@ exports.deletePost = async (req, res) => {
     const isAdmin = req.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
-      return res.status(403).json({ message: 'You are not authorized to delete this post.' });
+      return res.status(403).json({ message: 'Not authorized to delete this post.' });
     }
 
-    // Cascade delete comments, likes, and notifications
+    // Cascade delete comments, likes, notifications, bookmarks
     await Promise.all([
-      Post.findByIdAndDelete(post._id),
       Comment.deleteMany({ post: post._id }),
       Like.deleteMany({ post: post._id }),
       Notification.deleteMany({ post: post._id }),
+      Bookmark.deleteMany({ post: post._id }),
+      Post.findByIdAndDelete(post._id),
     ]);
 
     return res.status(200).json({ message: 'Post deleted successfully.' });
@@ -208,7 +301,7 @@ exports.deletePost = async (req, res) => {
   }
 };
 
-// Toggle like on a post
+// Toggle Like
 exports.toggleLike = async (req, res) => {
   try {
     const postId = req.params.id;
@@ -222,78 +315,161 @@ exports.toggleLike = async (req, res) => {
     const existingLike = await Like.findOne({ post: postId, user: currentUserId });
 
     if (existingLike) {
-      // Unlike
-      await Like.findByIdAndDelete(existingLike._id);
-      const updatedPost = await Post.findByIdAndUpdate(
-        postId,
-        { $inc: { likesCount: -1 } },
-        { new: true }
-      );
-      // Clean up notification if user unliked
-      await Notification.findOneAndDelete({
-        recipient: post.author,
-        sender: currentUserId,
-        type: 'like',
-        post: postId,
-      });
+      await Like.deleteOne({ _id: existingLike._id });
+      post.likesCount = Math.max(0, post.likesCount - 1);
+      await post.save();
 
       return res.status(200).json({
-        liked: false,
-        likesCount: Math.max(0, updatedPost.likesCount),
+        message: 'Post unliked.',
+        isLiked: false,
+        likesCount: post.likesCount,
       });
     } else {
-      // Like
       await Like.create({ post: postId, user: currentUserId });
-      const updatedPost = await Post.findByIdAndUpdate(
-        postId,
-        { $inc: { likesCount: 1 } },
-        { new: true }
-      );
+      post.likesCount += 1;
+      await post.save();
 
-      // Notify post author if not liking own post
+      // Only notify if author isn't liking own post
       if (!post.author.equals(currentUserId)) {
         await Notification.create({
           recipient: post.author,
           sender: currentUserId,
           type: 'like',
-          post: postId,
+          post: post._id,
         });
       }
 
       return res.status(200).json({
-        liked: true,
-        likesCount: updatedPost.likesCount,
+        message: 'Post liked.',
+        isLiked: true,
+        likesCount: post.likesCount,
       });
     }
   } catch (err) {
     console.error('toggleLike error:', err);
-    return res.status(500).json({ message: 'Failed to update like status.' });
+    return res.status(500).json({ message: 'Error updating like.' });
   }
 };
 
-// Get posts by a specific user (profile view)
+// Toggle Bookmark
+exports.toggleBookmark = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const currentUserId = req.user._id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    const existing = await Bookmark.findOne({ post: postId, user: currentUserId });
+
+    if (existing) {
+      await Bookmark.deleteOne({ _id: existing._id });
+      return res.status(200).json({
+        message: 'Post removed from saved.',
+        isBookmarked: false,
+      });
+    } else {
+      await Bookmark.create({ post: postId, user: currentUserId });
+      return res.status(200).json({
+        message: 'Post saved.',
+        isBookmarked: true,
+      });
+    }
+  } catch (err) {
+    console.error('toggleBookmark error:', err);
+    return res.status(500).json({ message: 'Error updating bookmark.' });
+  }
+};
+
+// Get User's Bookmarks
+exports.getBookmarks = async (req, res) => {
+  try {
+    const currentUserId = req.user._id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const bookmarks = await Bookmark.find({ user: currentUserId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: 'post',
+        populate: [
+          { path: 'author', select: 'name username avatarUrl role status' },
+          {
+            path: 'forkedFrom',
+            select: 'content codeSnippet author createdAt',
+            populate: { path: 'author', select: 'name username avatarUrl' },
+          },
+        ],
+      });
+
+    const validBookmarks = bookmarks.filter((b) => b.post != null);
+    const postIds = validBookmarks.map((b) => b.post._id);
+
+    const userLikes = await Like.find({ post: { $in: postIds }, user: currentUserId }).select('post');
+    const likedSet = new Set(userLikes.map((l) => l.post.toString()));
+
+    const posts = validBookmarks.map((b) => ({
+      ...b.post.toObject(),
+      isLiked: likedSet.has(b.post._id.toString()),
+      isBookmarked: true,
+      isOwner: b.post.author && b.post.author._id.equals(currentUserId),
+    }));
+
+    const totalPosts = await Bookmark.countDocuments({ user: currentUserId });
+
+    return res.status(200).json({
+      posts,
+      pagination: {
+        page,
+        limit,
+        totalPosts,
+        hasMore: skip + bookmarks.length < totalPosts,
+      },
+    });
+  } catch (err) {
+    console.error('getBookmarks error:', err);
+    return res.status(500).json({ message: 'Failed to retrieve bookmarks.' });
+  }
+};
+
+// Get posts by a specific user
 exports.getUserPosts = async (req, res) => {
   try {
     const { username } = req.params;
+    const currentUserId = req.user ? req.user._id : null;
+
     const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    const currentUserId = req.user ? req.user._id : null;
     const posts = await Post.find({ author: user._id })
-      .populate('author', 'name username avatarUrl role')
+      .populate('author', 'name username avatarUrl role status')
+      .populate({
+        path: 'forkedFrom',
+        select: 'content codeSnippet author createdAt',
+        populate: { path: 'author', select: 'name username avatarUrl' },
+      })
       .sort({ createdAt: -1 });
 
     const postIds = posts.map((p) => p._id);
-    const userLikes = currentUserId
-      ? await Like.find({ post: { $in: postIds }, user: currentUserId }).select('post')
-      : [];
+    const [userLikes, userBookmarks] = await Promise.all([
+      currentUserId ? Like.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
+      currentUserId ? Bookmark.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
+    ]);
+
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
+    const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const enriched = posts.map((post) => ({
       ...post.toObject(),
       isLiked: likedPostIdSet.has(post._id.toString()),
+      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
     }));
 
@@ -304,32 +480,157 @@ exports.getUserPosts = async (req, res) => {
   }
 };
 
-// Get Explore posts (popular and trending course posts)
+// Get Explore/Discover posts (chronological discover feed)
 exports.getExplorePosts = async (req, res) => {
   try {
     const currentUserId = req.user ? req.user._id : null;
 
-    // Get posts sorted by highest engagement (likes + comments)
     const posts = await Post.find({})
-      .populate('author', 'name username avatarUrl role')
-      .sort({ likesCount: -1, commentsCount: -1, createdAt: -1 })
+      .populate('author', 'name username avatarUrl role status')
+      .populate({
+        path: 'forkedFrom',
+        select: 'content codeSnippet author createdAt',
+        populate: { path: 'author', select: 'name username avatarUrl' },
+      })
+      .sort({ createdAt: -1 })
       .limit(30);
 
     const postIds = posts.map((p) => p._id);
-    const userLikes = currentUserId
-      ? await Like.find({ post: { $in: postIds }, user: currentUserId }).select('post')
-      : [];
+    const [userLikes, userBookmarks] = await Promise.all([
+      currentUserId ? Like.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
+      currentUserId ? Bookmark.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
+    ]);
+
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
+    const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const enriched = posts.map((post) => ({
       ...post.toObject(),
       isLiked: likedPostIdSet.has(post._id.toString()),
+      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
     }));
 
     return res.status(200).json({ posts: enriched });
   } catch (err) {
     console.error('getExplorePosts error:', err);
-    return res.status(500).json({ message: 'Failed to retrieve explore feed.' });
+    return res.status(500).json({ message: 'Failed to retrieve discover feed.' });
+  }
+};
+
+// Get all posts that contain code snippets with optional language filter & search
+exports.getCodeFeed = async (req, res) => {
+  try {
+    const { language, q } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 30;
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      $or: [
+        { 'codeSnippet.code': { $exists: true, $ne: null, $ne: '' } },
+        { 'codeSnippet.files.0': { $exists: true } },
+      ],
+    };
+
+    if (language && language.toLowerCase() !== 'all') {
+      const langLower = language.toLowerCase();
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { 'codeSnippet.language': langLower },
+          { 'codeSnippet.files.language': langLower },
+        ],
+      });
+    }
+
+    if (q && q.trim()) {
+      const regex = { $regex: q.trim(), $options: 'i' };
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { content: regex },
+          { 'codeSnippet.title': regex },
+          { 'codeSnippet.code': regex },
+          { 'codeSnippet.files.name': regex },
+          { 'codeSnippet.files.code': regex },
+        ],
+      });
+    }
+
+    const [posts, total] = await Promise.all([
+      Post.find(filter)
+        .sort({ isPinned: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('author', 'name username avatarUrl role status')
+        .populate({
+          path: 'forkedFrom',
+          select: 'content codeSnippet author createdAt',
+          populate: { path: 'author', select: 'name username avatarUrl' },
+        }),
+      Post.countDocuments(filter),
+    ]);
+
+    const currentUserId = req.user ? req.user._id : null;
+    const postIds = posts.map((p) => p._id);
+    const [userLikes, userBookmarks] = await Promise.all([
+      currentUserId ? Like.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
+      currentUserId ? Bookmark.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
+    ]);
+
+    const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
+    const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
+
+    const enriched = posts.map((post) => ({
+      ...post.toObject(),
+      isLiked: likedPostIdSet.has(post._id.toString()),
+      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+      isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
+    }));
+
+    return res.status(200).json({
+      posts: enriched,
+      total,
+      page,
+      hasMore: total > skip + posts.length,
+    });
+  } catch (err) {
+    console.error('getCodeFeed error:', err);
+    return res.status(500).json({ message: 'Failed to retrieve code snippets.' });
+  }
+};
+
+// Weekly Digest Summary (Section 5.9)
+exports.getDigest = async (req, res) => {
+  try {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const [topPosts, codeSnippetsCount, newMembersCount, totalPostsThisWeek] = await Promise.all([
+      Post.find({ createdAt: { $gte: oneWeekAgo } })
+        .sort({ likesCount: -1, commentsCount: -1, createdAt: -1 })
+        .limit(5)
+        .populate('author', 'name username avatarUrl role status'),
+      Post.countDocuments({
+        createdAt: { $gte: oneWeekAgo },
+        'codeSnippet.code': { $exists: true, $ne: null },
+      }),
+      User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+      Post.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+    ]);
+
+    return res.status(200).json({
+      period: 'Past 7 days',
+      stats: {
+        totalPosts: totalPostsThisWeek,
+        codeSnippets: codeSnippetsCount,
+        newMembers: newMembersCount,
+      },
+      topPosts,
+    });
+  } catch (err) {
+    console.error('getDigest error:', err);
+    return res.status(500).json({ message: 'Failed to load weekly digest.' });
   }
 };

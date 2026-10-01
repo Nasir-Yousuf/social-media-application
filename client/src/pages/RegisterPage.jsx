@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, Navigate } from 'react-router-dom';
-import { Sparkles, Lock, User, Mail, KeyRound, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, User, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { ClearfeedLogo } from '../components/common/ClearfeedIcons';
+import ThemeToggle from '../components/common/ThemeToggle';
 
 export const RegisterPage = () => {
   const { register, isAuthenticated } = useAuth();
@@ -15,7 +17,6 @@ export const RegisterPage = () => {
     username: '',
     email: '',
     password: '',
-    inviteCode: 'CS518-2026', // Pre-fill or leave as hint
     bio: '',
   });
 
@@ -51,14 +52,13 @@ export const RegisterPage = () => {
         username: formData.username.trim(),
         email: formData.email.trim(),
         password: formData.password,
-        inviteCode: formData.inviteCode.trim(),
-        bio: formData.bio.trim() || 'CS-518 student exploring modern full-stack development.',
+        bio: formData.bio.trim() || 'Thinking, building, and exploring code.',
       });
 
-      showToast('Registration complete! Welcome to CS-518.', 'success');
+      showToast('Account created! Welcome to Clearfeed.', 'success');
       navigate('/');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Registration failed. Check the course invite code.';
+      const msg = err.response?.data?.message || 'Registration failed. Please check your information.';
       setError(msg);
       showToast(msg, 'error');
     } finally {
@@ -67,59 +67,56 @@ export const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Ambience */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen cf-bg cf-text flex flex-col items-center justify-center p-4 relative py-10 font-sans">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
 
-      <div className="w-full max-w-md space-y-6 relative z-10 py-8">
+      <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-xl shadow-indigo-600/30 mb-2">
-            <Sparkles className="w-7 h-7" />
+          <div className="inline-flex items-center justify-center p-2 mb-1">
+            <ClearfeedLogo className="w-12 h-12 text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)]" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-100">
-            Join Pulse<span className="text-indigo-500">518</span>
+          <h1 className="text-3xl font-extrabold tracking-tight cf-text">
+            Join Clear<span className="text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)]">feed</span>
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-400">
-            Private Course Enrollment for CS-518
+          <p className="text-sm cf-text-muted font-serif italic">
+            "The anti-algorithm platform. Text. Code. Substance."
           </p>
         </div>
 
         {/* Register Card */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-zinc-900/80 border border-zinc-800 shadow-2xl backdrop-blur-xl space-y-4">
+        <div className="p-7 rounded-2xl cf-surface border cf-border shadow-md space-y-4">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-[var(--color-cf-danger-soft)] text-[var(--color-cf-danger)] border border-[var(--color-cf-danger)]/25 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 shrink-0 text-indigo-400" />
-            <span>Registration is restricted to verified CS-518 course students.</span>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Full Name</label>
+              <label className="block text-xs font-semibold cf-text mb-1.5">Full Name</label>
               <div className="relative">
-                <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 cf-text-muted" />
                 <input
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g. Alex Miller"
+                  placeholder="e.g. Ada Lovelace"
                   required
-                  className="w-full bg-zinc-950 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-4 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500"
+                  maxLength={50}
+                  className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted pl-10 pr-3.5 py-2.5 rounded-lg border cf-border focus:outline-none cf-focus-ring"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Username</label>
+              <label className="block text-xs font-semibold cf-text mb-1.5">Username</label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-xs font-mono">
+                <span className="text-sm font-semibold absolute left-3.5 top-1/2 -translate-y-1/2 cf-text-muted select-none">
                   @
                 </span>
                 <input
@@ -127,33 +124,35 @@ export const RegisterPage = () => {
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  placeholder="alex_m"
+                  placeholder="adalovelace"
                   required
-                  className="w-full bg-zinc-950 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-4 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500"
+                  minLength={3}
+                  maxLength={20}
+                  className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted pl-9 pr-3.5 py-2.5 rounded-lg border cf-border focus:outline-none cf-focus-ring lowercase"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Email</label>
+              <label className="block text-xs font-semibold cf-text mb-1.5">Email</label>
               <div className="relative">
-                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 cf-text-muted" />
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="alex@course518.edu"
+                  placeholder="ada@example.com"
                   required
-                  className="w-full bg-zinc-950 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-4 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500"
+                  className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted pl-10 pr-3.5 py-2.5 rounded-lg border cf-border focus:outline-none cf-focus-ring"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Password</label>
+              <label className="block text-xs font-semibold cf-text mb-1.5">Password</label>
               <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 cf-text-muted" />
                 <input
                   type="password"
                   name="password"
@@ -162,50 +161,29 @@ export const RegisterPage = () => {
                   placeholder="At least 6 characters"
                   required
                   minLength={6}
-                  className="w-full bg-zinc-950 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-4 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500"
+                  className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted pl-10 pr-3.5 py-2.5 rounded-lg border cf-border focus:outline-none cf-focus-ring"
                 />
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs font-semibold text-zinc-300">
-                  Course Passcode (Required)
-                </label>
-                <span className="text-[10px] text-indigo-400 font-mono">Code: CS518-2026</span>
-              </div>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  type="text"
-                  name="inviteCode"
-                  value={formData.inviteCode}
-                  onChange={handleChange}
-                  placeholder="CS518-2026"
-                  required
-                  className="w-full bg-zinc-950 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-4 py-2 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500 uppercase tracking-wider font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1">Short Bio</label>
+              <label className="block text-xs font-semibold cf-text mb-1.5">Bio (Optional)</label>
               <textarea
                 name="bio"
                 value={formData.bio}
                 onChange={handleChange}
-                placeholder="What are your technical interests in CS-518?"
+                placeholder="What do you build, write, or think about?"
                 rows={2}
                 maxLength={160}
-                className="w-full bg-zinc-950 text-xs text-zinc-100 placeholder-zinc-500 p-2.5 rounded-xl border border-zinc-800 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted p-3 rounded-lg border cf-border focus:outline-none cf-focus-ring resize-none font-serif"
               />
             </div>
 
             <Button
               type="submit"
               variant="primary"
-              size="md"
-              className="w-full py-2.5 mt-2"
+              size="lg"
+              className="w-full py-2.5 font-bold mt-2"
               disabled={loading}
               isLoading={loading}
             >
@@ -216,10 +194,13 @@ export const RegisterPage = () => {
         </div>
 
         {/* Footer Navigation */}
-        <p className="text-center text-xs text-zinc-400">
-          Already registered?{' '}
-          <NavLink to="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold">
-            Sign In here
+        <p className="text-center text-sm cf-text-muted">
+          Already have an account?{' '}
+          <NavLink
+            to="/login"
+            className="text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] hover:underline font-semibold"
+          >
+            Sign in
           </NavLink>
         </p>
       </div>
