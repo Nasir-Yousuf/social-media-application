@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 // Get all conversations for current user
 exports.getConversations = async (req, res) => {
@@ -83,6 +84,15 @@ exports.getMessages = async (req, res) => {
             isRead: false,
           },
           { isRead: true }
+        ),
+        Notification.updateMany(
+          {
+            recipient: currentUserId,
+            conversation: conversationId,
+            type: 'message',
+            read: false,
+          },
+          { read: true }
         ),
         conversation.save(),
       ]);
@@ -248,10 +258,19 @@ exports.sendMessage = async (req, res) => {
       conversation.unreadCounts.set(recipientKey, currentUnread + 1);
     }
 
-    // Save message and conversation concurrently to eliminate latency
+    // Create notification for recipient
+    const notification = new Notification({
+      recipient: targetRecipientId,
+      sender: currentUserId,
+      type: 'message',
+      conversation: conversation._id,
+    });
+
+    // Save message, conversation, and notification concurrently to eliminate latency
     await Promise.all([
       message.save(),
       conversation.save(),
+      notification.save(),
     ]);
 
     return res.status(201).json({
@@ -264,7 +283,7 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
-// Total unread messages count for navbar badge
+// Total unread messages count for navbar badge with latest unread message details
 exports.getUnreadTotal = async (req, res) => {
   try {
     const currentUserId = req.user._id;
@@ -272,7 +291,28 @@ exports.getUnreadTotal = async (req, res) => {
       recipient: currentUserId,
       isRead: false,
     });
-    return res.status(200).json({ unreadTotal: count });
+
+    const latestUnread = count > 0
+      ? await Message.findOne({
+          recipient: currentUserId,
+          isRead: false,
+        })
+          .sort({ createdAt: -1 })
+          .populate('sender', 'name username avatarUrl')
+      : null;
+
+    return res.status(200).json({
+      unreadTotal: count,
+      latestUnread: latestUnread
+        ? {
+            _id: latestUnread._id,
+            sender: latestUnread.sender,
+            text: latestUnread.text || (latestUnread.codeSnippet?.code ? 'Shared a code snippet' : 'Sent a message'),
+            conversation: latestUnread.conversation,
+            createdAt: latestUnread.createdAt,
+          }
+        : null,
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Error counting unread messages.' });
   }
@@ -352,6 +392,8 @@ exports.deleteConversation = async (req, res) => {
 
     // Purge all messages from collection
     await Message.deleteMany({ conversation: conversationId });
+    // Purge notifications related to this conversation
+    await Notification.deleteMany({ conversation: conversationId });
     // Purge conversation metadata
     await Conversation.findByIdAndDelete(conversationId);
 

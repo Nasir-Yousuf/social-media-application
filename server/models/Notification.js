@@ -15,7 +15,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['like', 'comment', 'follow', 'announcement', 'mention'],
+      enum: ['like', 'comment', 'follow', 'announcement', 'mention', 'message'],
       required: true,
     },
     post: {
@@ -25,6 +25,10 @@ const notificationSchema = new mongoose.Schema(
     comment: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Comment',
+    },
+    conversation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Conversation',
     },
     read: {
       type: Boolean,

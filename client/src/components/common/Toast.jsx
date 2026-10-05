@@ -28,17 +28,40 @@ export const Toast = () => {
   const style = TOAST_STYLES[toast.type] || TOAST_STYLES.info;
   const Icon = style.icon;
 
+  const handleClick = () => {
+    if (toast.onClick) {
+      toast.onClick();
+      dismissToast();
+    }
+  };
+
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-sm sm:max-w-md w-full px-4 animate-toast select-none">
-      <div className="relative overflow-hidden flex items-center justify-between gap-3 px-4 py-3 rounded-2xl backdrop-blur-xl bg-neutral-900/90 dark:bg-[#16181d]/90 text-white shadow-2xl border border-neutral-700/60 dark:border-neutral-700/50">
+    <div
+      onClick={handleClick}
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-sm sm:max-w-md w-full px-4 animate-toast select-none ${
+        toast.onClick ? 'cursor-pointer' : ''
+      }`}
+    >
+      <div className="relative overflow-hidden flex items-center justify-between gap-3 px-4 py-3 rounded-2xl backdrop-blur-xl bg-neutral-900/95 dark:bg-[#16181d]/95 text-white shadow-2xl border border-neutral-700/60 dark:border-neutral-700/50 hover:border-sky-500/50 transition-colors">
         <div className="flex items-center gap-3 text-xs sm:text-sm font-medium min-w-0 font-sans">
-          <span className={`p-1 rounded-lg shrink-0 ${style.badge}`}>
-            <Icon className="w-4 h-4" strokeWidth={2.5} />
-          </span>
+          {toast.avatarUrl ? (
+            <img
+              src={toast.avatarUrl}
+              alt=""
+              className="w-7 h-7 rounded-full object-cover shrink-0 ring-2 ring-sky-500/40"
+            />
+          ) : (
+            <span className={`p-1 rounded-lg shrink-0 ${style.badge}`}>
+              <Icon className="w-4 h-4" strokeWidth={2.5} />
+            </span>
+          )}
           <p className="truncate text-neutral-100">{toast.message}</p>
         </div>
         <button
-          onClick={dismissToast}
+          onClick={(e) => {
+            e.stopPropagation();
+            dismissToast();
+          }}
           className="text-neutral-400 hover:text-white p-1 rounded-full hover:bg-neutral-800 transition-colors cursor-pointer"
           aria-label="Dismiss toast"
         >

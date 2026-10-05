@@ -8,6 +8,7 @@ import {
   Flame,
   CheckCheck,
   AtSign,
+  MessageSquare,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -68,6 +69,12 @@ export const NotificationsPage = () => {
             <AtSign className="w-4 h-4" />
           </div>
         );
+      case 'message':
+        return (
+          <div className="p-2 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-500 ring-1 ring-sky-200 dark:ring-sky-900/50">
+            <MessageSquare className="w-4 h-4" />
+          </div>
+        );
       case 'follow':
         return (
           <div className="p-2 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 ring-1 ring-emerald-200 dark:ring-emerald-900/50">
@@ -99,6 +106,7 @@ export const NotificationsPage = () => {
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeFilter === 'all') return true;
+    if (activeFilter === 'messages') return n.type === 'message';
     if (activeFilter === 'mentions') return n.type === 'mention';
     if (activeFilter === 'likes') return n.type === 'like';
     if (activeFilter === 'comments') return n.type === 'comment';
@@ -118,7 +126,7 @@ export const NotificationsPage = () => {
             <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Notifications</h1>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
-            Direct interactions: mentions, replies, appreciations, and new connections.
+            Direct interactions: messages, mentions, replies, appreciations, and new connections.
           </p>
         </div>
 
@@ -139,6 +147,7 @@ export const NotificationsPage = () => {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
         {[
           { id: 'all', label: 'All' },
+          { id: 'messages', label: 'Messages' },
           { id: 'mentions', label: 'Mentions' },
           { id: 'likes', label: 'Likes' },
           { id: 'comments', label: 'Comments' },
@@ -175,7 +184,7 @@ export const NotificationsPage = () => {
           </div>
           <p className="text-base font-bold text-neutral-900 dark:text-neutral-100">No alerts found</p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-sm mx-auto font-sans leading-relaxed">
-            When someone responds to your posts or follows your work, you will see it here.
+            When someone sends you a message, responds to your posts, or follows your work, you will see it here.
           </p>
         </div>
       ) : (
@@ -218,12 +227,25 @@ export const NotificationsPage = () => {
                       {n.sender.name}
                     </NavLink>
                   )}
+                  {n.type === 'message' && 'sent you a direct message.'}
                   {n.type === 'like' && 'appreciated your post.'}
                   {n.type === 'comment' && 'responded to your post.'}
                   {n.type === 'mention' && (n.comment ? 'mentioned you in a response.' : 'mentioned you in a post.')}
                   {n.type === 'follow' && 'began following your updates.'}
                   {n.type === 'announcement' && 'published an announcement.'}
                 </p>
+
+                {n.type === 'message' && (
+                  <div className="mt-2">
+                    <NavLink
+                      to={`/messages?user=${n.sender?.username}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Reply to message</span>
+                    </NavLink>
+                  </div>
+                )}
 
                 {n.post && (
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1 mt-1 font-serif italic">

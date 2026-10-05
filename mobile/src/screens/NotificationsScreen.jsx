@@ -68,6 +68,8 @@ export const NotificationsScreen = ({ navigation }) => {
         return <Ionicons name="person-add" size={18} color={colors.accent} />;
       case 'announcement':
         return <Ionicons name="flame" size={20} color={colors.gold} />;
+      case 'message':
+        return <Ionicons name="chatbubbles" size={18} color={colors.accent} />;
       default:
         return <Ionicons name="notifications" size={18} color={colors.textSecondary} />;
     }

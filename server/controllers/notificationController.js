@@ -9,6 +9,10 @@ exports.getNotifications = async (req, res) => {
         path: 'post',
         select: 'content',
       })
+      .populate({
+        path: 'conversation',
+        select: 'lastMessage',
+      })
       .sort({ createdAt: -1 })
       .limit(50);
 
