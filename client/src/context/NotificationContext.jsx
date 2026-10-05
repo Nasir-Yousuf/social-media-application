@@ -4,25 +4,75 @@ import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
 
-// Gentle synthesized notification chime (no external audio assets needed)
-const playMessageChime = () => {
+// Authentic Twitter / X signature notification sound (two-tone melodic chirp)
+export const playTwitterNotificationSound = () => {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1); // A5
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.3);
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    const t = ctx.currentTime;
+
+    // Master volume control
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.35, t);
+    master.connect(ctx.destination);
+
+    // --- Note 1: Upward initial chirp (grace note) ---
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(1350, t);
+    osc1.frequency.exponentialRampToValueAtTime(2150, t + 0.045);
+
+    gain1.gain.setValueAtTime(0, t);
+    gain1.gain.linearRampToValueAtTime(0.4, t + 0.008);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+
+    osc1.connect(gain1);
+    gain1.connect(master);
+    osc1.start(t);
+    osc1.stop(t + 0.06);
+
+    // --- Note 2: Signature bright Twitter tweet whistle ---
+    const t2 = t + 0.055;
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(2100, t2);
+    osc2.frequency.exponentialRampToValueAtTime(3350, t2 + 0.04);
+    osc2.frequency.exponentialRampToValueAtTime(2700, t2 + 0.13);
+
+    gain2.gain.setValueAtTime(0, t2);
+    gain2.gain.linearRampToValueAtTime(0.7, t2 + 0.012);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.16);
+
+    osc2.connect(gain2);
+    gain2.connect(master);
+    osc2.start(t2);
+    osc2.stop(t2 + 0.17);
+
+    // --- Crystalline overtone layer for modern crispness ---
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = 'triangle';
+    osc3.frequency.setValueAtTime(4200, t2);
+    osc3.frequency.exponentialRampToValueAtTime(5500, t2 + 0.05);
+
+    gain3.gain.setValueAtTime(0, t2);
+    gain3.gain.linearRampToValueAtTime(0.09, t2 + 0.01);
+    gain3.gain.exponentialRampToValueAtTime(0.001, t2 + 0.12);
+
+    osc3.connect(gain3);
+    gain3.connect(master);
+    osc3.start(t2);
+    osc3.stop(t2 + 0.13);
   } catch {
-    // Ignore audio restrictions before user gesture
+    // Audio restrictions fallback
   }
 };
 
@@ -33,6 +83,7 @@ export const NotificationProvider = ({ children }) => {
   const [toast, setToast] = useState(null);
 
   const notifiedMessageIdsRef = React.useRef(new Set());
+  const notifiedNotificationIdsRef = React.useRef(new Set());
   const initialLoadRef = React.useRef(true);
 
   const showToast = useCallback((message, type = 'info', options = {}) => {
@@ -61,34 +112,88 @@ export const NotificationProvider = ({ children }) => {
       ]);
 
       const newNotifCount = notifRes.data.unreadCount || 0;
+      const latestUnreadNotif = notifRes.data.latestUnread;
+
       const newMsgCount = msgRes.data.unreadTotal || 0;
-      const latestUnread = msgRes.data.latestUnread;
+      const latestUnreadMsg = msgRes.data.latestUnread;
 
       setUnreadCount(newNotifCount);
       setUnreadMessagesCount(newMsgCount);
 
-      // Handle new incoming message notification
-      if (latestUnread && latestUnread._id) {
+      // Handle new incoming general notification (likes, comments, follows, mentions, announcements)
+      if (latestUnreadNotif && latestUnreadNotif._id) {
         if (initialLoadRef.current) {
-          notifiedMessageIdsRef.current.add(latestUnread._id);
-        } else if (!notifiedMessageIdsRef.current.has(latestUnread._id)) {
-          notifiedMessageIdsRef.current.add(latestUnread._id);
+          notifiedNotificationIdsRef.current.add(latestUnreadNotif._id);
+        } else if (!notifiedNotificationIdsRef.current.has(latestUnreadNotif._id)) {
+          notifiedNotificationIdsRef.current.add(latestUnreadNotif._id);
+
+          const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+          const isViewingNotifications = currentPath.startsWith('/notifications');
+
+          if (!isViewingNotifications) {
+            playTwitterNotificationSound();
+
+            let notifText = 'You have a new notification';
+            const senderName = latestUnreadNotif.sender?.name || 'Someone';
+            if (latestUnreadNotif.type === 'like') {
+              notifText = `❤️ ${senderName} appreciated your post`;
+            } else if (latestUnreadNotif.type === 'comment') {
+              notifText = `💬 ${senderName} responded to your post`;
+            } else if (latestUnreadNotif.type === 'follow') {
+              notifText = `👤 ${senderName} began following you`;
+            } else if (latestUnreadNotif.type === 'mention') {
+              notifText = `📢 ${senderName} mentioned you`;
+            } else if (latestUnreadNotif.type === 'announcement') {
+              notifText = `📌 Announcement from ${senderName}`;
+            }
+
+            showToast(notifText, 'info', {
+              avatarUrl: latestUnreadNotif.sender?.avatarUrl,
+              onClick: () => {
+                window.location.assign('/notifications');
+              },
+              duration: 5000,
+            });
+
+            // Native Browser Notification
+            if (
+              typeof window !== 'undefined' &&
+              'Notification' in window &&
+              Notification.permission === 'granted'
+            ) {
+              try {
+                new Notification(`Clearfeed: ${senderName}`, {
+                  body: notifText,
+                  icon: latestUnreadNotif.sender?.avatarUrl || undefined,
+                });
+              } catch {}
+            }
+          }
+        }
+      }
+
+      // Handle new incoming direct message notification
+      if (latestUnreadMsg && latestUnreadMsg._id) {
+        if (initialLoadRef.current) {
+          notifiedMessageIdsRef.current.add(latestUnreadMsg._id);
+        } else if (!notifiedMessageIdsRef.current.has(latestUnreadMsg._id)) {
+          notifiedMessageIdsRef.current.add(latestUnreadMsg._id);
 
           // Only alert if user is not actively viewing this conversation
           const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
           const isViewingThisChat =
             currentUrl.includes('/messages') &&
-            currentUrl.includes(`user=${latestUnread.sender?.username}`);
+            currentUrl.includes(`user=${latestUnreadMsg.sender?.username}`);
 
           if (!isViewingThisChat) {
-            playMessageChime();
+            playTwitterNotificationSound();
             showToast(
-              `💬 ${latestUnread.sender?.name || 'Someone'}: "${(latestUnread.text || 'Sent a message').slice(0, 45)}"`,
+              `💬 ${latestUnreadMsg.sender?.name || 'Someone'}: "${(latestUnreadMsg.text || 'Sent a message').slice(0, 45)}"`,
               'info',
               {
-                avatarUrl: latestUnread.sender?.avatarUrl,
+                avatarUrl: latestUnreadMsg.sender?.avatarUrl,
                 onClick: () => {
-                  window.location.assign(`/messages?user=${latestUnread.sender?.username}`);
+                  window.location.assign(`/messages?user=${latestUnreadMsg.sender?.username}`);
                 },
                 duration: 5000,
               }
@@ -101,13 +206,11 @@ export const NotificationProvider = ({ children }) => {
               Notification.permission === 'granted'
             ) {
               try {
-                new Notification(`Message from ${latestUnread.sender?.name || 'Classmate'}`, {
-                  body: latestUnread.text || 'Sent you a direct message.',
-                  icon: latestUnread.sender?.avatarUrl || undefined,
+                new Notification(`Message from ${latestUnreadMsg.sender?.name || 'Classmate'}`, {
+                  body: latestUnreadMsg.text || 'Sent you a direct message.',
+                  icon: latestUnreadMsg.sender?.avatarUrl || undefined,
                 });
-              } catch {
-                // Fallback
-              }
+              } catch {}
             }
           }
         }
@@ -119,21 +222,38 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [isAuthenticated, showToast]);
 
-  // Request browser notification permission once politely on first user interaction
+  // Unlock AudioContext and request browser notification permission on user interaction
   useEffect(() => {
-    if (
-      isAuthenticated &&
-      typeof window !== 'undefined' &&
-      'Notification' in window &&
-      Notification.permission === 'default'
-    ) {
-      const requestPermission = () => {
+    const handleFirstInteraction = () => {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
+        }
+      } catch {}
+
+      if (
+        isAuthenticated &&
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        Notification.permission === 'default'
+      ) {
         Notification.requestPermission().catch(() => {});
-        window.removeEventListener('click', requestPermission);
-      };
-      window.addEventListener('click', requestPermission, { once: true });
-      return () => window.removeEventListener('click', requestPermission);
-    }
+      }
+
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
+
+    window.addEventListener('click', handleFirstInteraction, { once: true });
+    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
   }, [isAuthenticated]);
 
   const markAllNotificationsAsRead = useCallback(async () => {
@@ -173,6 +293,7 @@ export const NotificationProvider = ({ children }) => {
         setUnreadMessagesCount,
         fetchUnreadCount,
         markAllNotificationsAsRead,
+        playNotificationSound: playTwitterNotificationSound,
         showToast,
         toast,
         dismissToast: () => setToast(null),

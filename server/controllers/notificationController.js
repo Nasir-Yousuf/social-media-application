@@ -55,15 +55,30 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-// Get unread notifications count
+// Get unread notifications count and latest unread alert
 exports.getUnreadCount = async (req, res) => {
   try {
-    const count = await Notification.countDocuments({
-      recipient: req.user._id,
-      read: false,
-    });
+    const [count, latestUnread] = await Promise.all([
+      Notification.countDocuments({
+        recipient: req.user._id,
+        read: false,
+      }),
+      Notification.findOne({
+        recipient: req.user._id,
+        read: false,
+      })
+        .populate('sender', 'name username avatarUrl role')
+        .populate({
+          path: 'post',
+          select: 'content',
+        })
+        .sort({ createdAt: -1 }),
+    ]);
 
-    return res.status(200).json({ unreadCount: count });
+    return res.status(200).json({
+      unreadCount: count,
+      latestUnread: latestUnread || null,
+    });
   } catch (err) {
     console.error('getUnreadCount error:', err);
     return res.status(500).json({ message: 'Failed to get unread count.' });

@@ -9,6 +9,7 @@ import {
   CheckCheck,
   AtSign,
   MessageSquare,
+  Volume2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -20,7 +21,7 @@ export const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
-  const { setUnreadCount, showToast, markAllNotificationsAsRead } = useNotifications();
+  const { setUnreadCount, showToast, markAllNotificationsAsRead, playNotificationSound } = useNotifications();
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -146,17 +147,32 @@ export const NotificationsPage = () => {
           </p>
         </div>
 
-        {notifications.some((n) => !n.read) && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMarkAllRead}
-            className="text-xs px-3 font-semibold"
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              playNotificationSound();
+              showToast('Playing Twitter notification sound 🔔', 'info');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:text-sky-500 dark:hover:text-sky-400 bg-neutral-100 dark:bg-neutral-800/80 hover:bg-sky-50 dark:hover:bg-sky-950/40 border border-neutral-200 dark:border-neutral-700/60 transition-all cursor-pointer active:scale-95 shadow-2xs"
+            title="Preview Twitter notification sound"
           >
-            <CheckCheck className="w-3.5 h-3.5" />
-            <span>Mark all read</span>
-          </Button>
-        )}
+            <Volume2 className="w-3.5 h-3.5 text-sky-500" />
+            <span>Test Sound</span>
+          </button>
+
+          {notifications.some((n) => !n.read) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAllRead}
+              className="text-xs px-3 font-semibold"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              <span>Mark all read</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter Tabs */}
