@@ -110,6 +110,38 @@ const startServer = async () => {
       console.warn('Startup user role sync note:', cleanErr.message);
     }
 
+    // Automatically sanitize and enforce unique views count on all existing posts
+    try {
+      const Post = require('./models/Post');
+      const User = require('./models/User');
+      const totalUsers = await User.countDocuments();
+      const posts = await Post.find().select('_id author viewedBy viewsCount');
+      for (const p of posts) {
+        let changed = false;
+        let viewedBy = Array.isArray(p.viewedBy) ? p.viewedBy : [];
+        if (p.author && !viewedBy.some((id) => id.toString() === p.author.toString())) {
+          viewedBy.push(p.author);
+          changed = true;
+        }
+        if (viewedBy.length === 0 && p.author) {
+          viewedBy = [p.author];
+          changed = true;
+        }
+        const realCount = Math.min(Math.max(1, viewedBy.length), totalUsers > 0 ? totalUsers : 1);
+        if (p.viewsCount !== realCount || p.viewsCount > totalUsers) {
+          p.viewsCount = realCount;
+          changed = true;
+        }
+        p.viewedBy = viewedBy;
+        if (changed) {
+          await p.save();
+        }
+      }
+      console.log(`👁️ Verified and synchronized unique views count across all posts.`);
+    } catch (viewSyncErr) {
+      console.warn('Startup views sync note:', viewSyncErr.message);
+    }
+
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Clearfeed Server active on http://0.0.0.0:${PORT} (LAN: http://192.168.0.246:${PORT})`);
     });

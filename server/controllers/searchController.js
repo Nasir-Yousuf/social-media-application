@@ -63,6 +63,9 @@ exports.searchAll = async (req, res) => {
 
     const enrichedPosts = posts.map((p) => ({
       ...p.toObject(),
+      viewsCount: Array.isArray(p.viewedBy) && p.viewedBy.length > 0
+        ? p.viewedBy.length
+        : Math.max(1, p.viewsCount || 1),
       isLiked: likedSet.has(p._id.toString()),
       isOwner: currentUserId ? p.author && p.author._id.equals(currentUserId) : false,
     }));

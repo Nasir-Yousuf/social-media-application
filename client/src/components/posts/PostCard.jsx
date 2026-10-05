@@ -46,13 +46,19 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   const [animatingHeart, setAnimatingHeart] = useState(false);
   const viewRecordedRef = useRef(false);
 
+  useEffect(() => {
+    if (typeof post.viewsCount === 'number') {
+      setViewsCount(post.viewsCount);
+    }
+  }, [post.viewsCount]);
+
   // Record impression view once
   useEffect(() => {
     if (!viewRecordedRef.current && currentPost._id) {
       viewRecordedRef.current = true;
       api.post(`/posts/${currentPost._id}/view`)
         .then((res) => {
-          if (res.data?.viewsCount) {
+          if (typeof res.data?.viewsCount === 'number') {
             setViewsCount(res.data.viewsCount);
           }
         })
@@ -376,13 +382,13 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
             <span className="font-semibold text-xs">{likesCount > 0 ? likesCount : ''}</span>
           </button>
 
-          {/* Views Analytics (Impressions like Twitter) */}
+          {/* Views Analytics (Unique Views) */}
           <div
             className="flex items-center gap-1.5 p-1.5 rounded-full text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10 transition-colors cursor-default"
-            title={`${viewsCount} Views`}
+            title={`${viewsCount || 0} ${viewsCount === 1 ? 'View' : 'Views'}`}
           >
             <BarChart2 className="w-4 h-4" />
-            <span className="font-medium text-xs font-mono">{formatCount(viewsCount)}</span>
+            <span className="font-medium text-xs font-mono">{viewsCount || 0}</span>
           </div>
 
           {/* Fork Code Button */}

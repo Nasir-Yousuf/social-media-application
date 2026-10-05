@@ -14,8 +14,13 @@ const enrichPost = async (post, currentUserId) => {
   ]);
   const isOwner = currentUserId ? post.author && post.author._id.equals(currentUserId) : false;
 
+  const uniqueViews = Array.isArray(post.viewedBy) && post.viewedBy.length > 0
+    ? post.viewedBy.length
+    : Math.max(1, post.viewsCount || 1);
+
   return {
     ...post.toObject(),
+    viewsCount: uniqueViews,
     isLiked: !!isLiked,
     isBookmarked: !!isBookmarked,
     isOwner,
@@ -101,7 +106,8 @@ exports.createPost = async (req, res) => {
       isPinned: isAdmin ? !!isPinned : false,
       location: location ? location.trim().slice(0, 100) : '',
       tags: extractedTags,
-      viewsCount: Math.floor(Math.random() * 20) + 12, // Organic initial views
+      viewedBy: [req.user._id],
+      viewsCount: 1, // Author is the first unique viewer
     });
 
     await post.save();
@@ -212,6 +218,9 @@ exports.getFeed = async (req, res) => {
 
     const enrichedPosts = posts.map((post) => ({
       ...post.toObject(),
+      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
+        ? post.viewedBy.length
+        : Math.max(1, post.viewsCount || 1),
       isLiked: likedPostIdSet.has(post._id.toString()),
       isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: post.author && post.author._id.equals(currentUserId),
@@ -479,6 +488,9 @@ exports.getBookmarks = async (req, res) => {
 
     const posts = validBookmarks.map((b) => ({
       ...b.post.toObject(),
+      viewsCount: Array.isArray(b.post.viewedBy) && b.post.viewedBy.length > 0
+        ? b.post.viewedBy.length
+        : Math.max(1, b.post.viewsCount || 1),
       isLiked: likedSet.has(b.post._id.toString()),
       isBookmarked: true,
       isOwner: b.post.author && b.post.author._id.equals(currentUserId),
@@ -532,6 +544,9 @@ exports.getUserPosts = async (req, res) => {
 
     const enriched = posts.map((post) => ({
       ...post.toObject(),
+      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
+        ? post.viewedBy.length
+        : Math.max(1, post.viewsCount || 1),
       isLiked: likedPostIdSet.has(post._id.toString()),
       isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
@@ -570,6 +585,9 @@ exports.getExplorePosts = async (req, res) => {
 
     const enriched = posts.map((post) => ({
       ...post.toObject(),
+      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
+        ? post.viewedBy.length
+        : Math.max(1, post.viewsCount || 1),
       isLiked: likedPostIdSet.has(post._id.toString()),
       isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
@@ -648,6 +666,9 @@ exports.getCodeFeed = async (req, res) => {
 
     const enriched = posts.map((post) => ({
       ...post.toObject(),
+      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
+        ? post.viewedBy.length
+        : Math.max(1, post.viewsCount || 1),
       isLiked: likedPostIdSet.has(post._id.toString()),
       isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
@@ -699,19 +720,50 @@ exports.getDigest = async (req, res) => {
   }
 };
 
-// Record post view impression (like Twitter)
+// Record post view impression (strictly unique per user)
 exports.recordView = async (req, res) => {
   try {
-    const post = await Post.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { viewsCount: 1 } },
-      { new: true, select: 'viewsCount' }
-    );
+    const postId = req.params.id;
+    const userId = req.user ? req.user._id : null;
+
+    const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found.' });
     }
+
+    if (!Array.isArray(post.viewedBy)) {
+      post.viewedBy = post.author ? [post.author] : [];
+    }
+
+    let changed = false;
+
+    // Ensure author is included in viewedBy
+    if (post.author && !post.viewedBy.some((id) => id.toString() === post.author.toString())) {
+      post.viewedBy.push(post.author);
+      changed = true;
+    }
+
+    if (userId) {
+      const hasViewed = post.viewedBy.some((id) => id.toString() === userId.toString());
+      if (!hasViewed) {
+        post.viewedBy.push(userId);
+        changed = true;
+      }
+    }
+
+    const uniqueCount = Math.max(1, post.viewedBy.length);
+    if (post.viewsCount !== uniqueCount) {
+      post.viewsCount = uniqueCount;
+      changed = true;
+    }
+
+    if (changed) {
+      await post.save();
+    }
+
     return res.status(200).json({ viewsCount: post.viewsCount });
   } catch (err) {
+    console.error('recordView error:', err);
     return res.status(500).json({ message: 'Error recording view.' });
   }
 };
