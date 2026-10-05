@@ -98,7 +98,12 @@ userSchema.methods.toJSON = function () {
   delete obj.password;
   delete obj.avatar;
   if (obj.hasCustomAvatar) {
-    obj.avatarUrl = `/api/users/${obj._id}/avatar`;
+    if (this.avatarUrl && this.avatarUrl.includes('?')) {
+      obj.avatarUrl = this.avatarUrl;
+    } else {
+      const v = this.updatedAt ? new Date(this.updatedAt).getTime() : Date.now();
+      obj.avatarUrl = `/api/users/${obj._id}/avatar?t=${v}`;
+    }
   }
   return obj;
 };

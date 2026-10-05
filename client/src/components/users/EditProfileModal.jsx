@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Camera, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -22,6 +22,19 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
   const [avatarSizeKB, setAvatarSizeKB] = useState(null);
   const [compressing, setCompressing] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Sync state whenever modal is opened or user changes
+  useEffect(() => {
+    if (isOpen && user) {
+      setName(user.name || '');
+      setBio(user.bio || '');
+      setStatus(user.status || '');
+      setAvatarPreview(user.avatarUrl || '');
+      setAvatarBase64('');
+      setRemoveAvatar(false);
+      setAvatarSizeKB(null);
+    }
+  }, [isOpen, user]);
 
   // Resize and compress chosen image to 256x256 JPEG <= 200KB
   const handleFileSelect = async (e) => {
@@ -86,11 +99,21 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
 
       const res = await api.patch('/users/profile', payload);
 
-      updateUser(res.data.user);
+      const updatedUser = {
+        ...res.data.user,
+        avatarUrl: res.data.user.avatarUrl
+          ? (res.data.user.avatarUrl.includes('?')
+              ? res.data.user.avatarUrl
+              : `${res.data.user.avatarUrl}?t=${Date.now()}`)
+          : res.data.user.avatarUrl,
+      };
+
+      updateUser(updatedUser);
       showToast('Profile updated!', 'success');
       if (onProfileUpdated) {
-        onProfileUpdated(res.data.user);
+        onProfileUpdated(updatedUser);
       }
+      window.dispatchEvent(new CustomEvent('clearfeed:userUpdated', { detail: updatedUser }));
       onClose();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update profile', 'error');

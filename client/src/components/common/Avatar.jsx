@@ -79,6 +79,7 @@ export const Avatar = ({
     <div className={`relative inline-block shrink-0 select-none ${className}`}>
       {resolvedSrc ? (
         <img
+          key={resolvedSrc}
           src={resolvedSrc}
           alt={alt}
           className={`${sizeClasses} rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-800 transition-opacity duration-200 hover:opacity-90 shadow-2xs`}

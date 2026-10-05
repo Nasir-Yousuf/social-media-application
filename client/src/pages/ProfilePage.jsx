@@ -56,6 +56,35 @@ export const ProfilePage = () => {
     fetchProfileAndPosts();
   }, [fetchProfileAndPosts]);
 
+  // Listen for real-time user profile/avatar updates
+  useEffect(() => {
+    const handleUserUpdated = (e) => {
+      const updatedUser = e.detail;
+      if (updatedUser && updatedUser.username?.toLowerCase() === username?.toLowerCase()) {
+        setProfile((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser));
+        setPosts((prev) =>
+          prev.map((p) => {
+            const authorId = typeof p.author === 'object' ? p.author?._id : p.author;
+            if (String(authorId) === String(updatedUser._id)) {
+              return {
+                ...p,
+                author: {
+                  ...(typeof p.author === 'object' ? p.author : {}),
+                  avatarUrl: updatedUser.avatarUrl,
+                  name: updatedUser.name,
+                },
+              };
+            }
+            return p;
+          })
+        );
+      }
+    };
+
+    window.addEventListener('clearfeed:userUpdated', handleUserUpdated);
+    return () => window.removeEventListener('clearfeed:userUpdated', handleUserUpdated);
+  }, [username]);
+
   const handleFollowToggle = async () => {
     if (!profile) return;
     setFollowLoading(true);
@@ -388,7 +417,25 @@ export const ProfilePage = () => {
         <EditProfileModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          onProfileUpdated={(updated) => setProfile((prev) => ({ ...prev, ...updated }))}
+          onProfileUpdated={(updated) => {
+            setProfile((prev) => ({ ...prev, ...updated }));
+            setPosts((prev) =>
+              prev.map((p) => {
+                const authorId = typeof p.author === 'object' ? p.author?._id : p.author;
+                if (String(authorId) === String(updated._id)) {
+                  return {
+                    ...p,
+                    author: {
+                      ...(typeof p.author === 'object' ? p.author : {}),
+                      avatarUrl: updated.avatarUrl,
+                      name: updated.name,
+                    },
+                  };
+                }
+                return p;
+              })
+            );
+          }}
         />
       )}
 

@@ -107,7 +107,7 @@ exports.getAvatar = async (req, res) => {
     }
 
     res.set('Content-Type', user.avatarMimeType || 'image/jpeg');
-    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Cache-Control', 'no-cache, private, must-revalidate');
     return res.send(user.avatar);
   } catch (err) {
     console.error('getAvatar error:', err);
