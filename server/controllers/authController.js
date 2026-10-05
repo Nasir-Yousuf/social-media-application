@@ -83,7 +83,12 @@ exports.register = async (req, res) => {
     return res.status(201).json({
       message: 'Account created successfully! Welcome to Clearfeed.',
       token,
-      user,
+      user: {
+        ...user.toJSON(),
+        followersCount: 0,
+        followingCount: 0,
+        postsCount: 0,
+      },
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -132,6 +137,12 @@ exports.login = async (req, res) => {
 
     const token = generateToken(user._id);
 
+    const [followersCount, followingCount, postsCount] = await Promise.all([
+      Follow.countDocuments({ following: user._id }),
+      Follow.countDocuments({ follower: user._id }),
+      Post.countDocuments({ author: user._id }),
+    ]);
+
     return res.status(200).json({
       message: 'Login successful.',
       token,
@@ -144,6 +155,9 @@ exports.login = async (req, res) => {
         avatarUrl: user.avatarUrl,
         role: user.role,
         createdAt: user.createdAt,
+        followersCount,
+        followingCount,
+        postsCount,
       },
     });
   } catch (err) {
@@ -203,6 +217,12 @@ exports.guestLogin = async (req, res) => {
 
     const token = generateToken(guestUser._id);
 
+    const [followersCount, followingCount, postsCount] = await Promise.all([
+      Follow.countDocuments({ following: guestUser._id }),
+      Follow.countDocuments({ follower: guestUser._id }),
+      Post.countDocuments({ author: guestUser._id }),
+    ]);
+
     return res.status(200).json({
       message: 'Signed in as guest.',
       token,
@@ -215,6 +235,9 @@ exports.guestLogin = async (req, res) => {
         avatarUrl: guestUser.avatarUrl,
         role: guestUser.role,
         createdAt: guestUser.createdAt,
+        followersCount,
+        followingCount,
+        postsCount,
       },
     });
   } catch (err) {

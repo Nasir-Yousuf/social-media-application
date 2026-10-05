@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
@@ -12,19 +12,71 @@ export const MemberCard = ({ member }) => {
   const [followersCount, setFollowersCount] = useState(member.followersCount || 0);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setIsFollowing(member.isFollowing);
+    setFollowersCount(member.followersCount || 0);
+  }, [member.isFollowing, member.followersCount]);
+
+  useEffect(() => {
+    const handleFollowSync = (e) => {
+      if (e.detail?.userId === member._id) {
+        if (typeof e.detail.isFollowing === 'boolean') {
+          setIsFollowing(e.detail.isFollowing);
+        }
+        if (typeof e.detail.followersCount === 'number') {
+          setFollowersCount(e.detail.followersCount);
+        }
+      }
+    };
+    window.addEventListener('clearfeed:followUpdated', handleFollowSync);
+    return () => window.removeEventListener('clearfeed:followUpdated', handleFollowSync);
+  }, [member._id]);
+
   const handleFollowToggle = async () => {
     setLoading(true);
     try {
       if (isFollowing) {
-        await api.delete(`/users/${member._id}/follow`);
+        const res = await api.delete(`/users/${member._id}/follow`);
         setIsFollowing(false);
-        setFollowersCount((prev) => Math.max(0, prev - 1));
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : Math.max(0, followersCount - 1);
+        setFollowersCount(newCount);
         showToast(`Unfollowed @${member.username}`, 'info');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: member._id,
+              username: member.username,
+              isFollowing: false,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
       } else {
-        await api.post(`/users/${member._id}/follow`);
+        const res = await api.post(`/users/${member._id}/follow`);
         setIsFollowing(true);
-        setFollowersCount((prev) => prev + 1);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : followersCount + 1;
+        setFollowersCount(newCount);
         showToast(`Following @${member.username}`, 'success');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: member._id,
+              username: member.username,
+              isFollowing: true,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update follow status', 'error');

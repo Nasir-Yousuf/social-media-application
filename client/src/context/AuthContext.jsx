@@ -92,6 +92,38 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
+  // Synchronize authenticated user stats dynamically whenever follow actions occur
+  useEffect(() => {
+    const handleFollowUpdated = (e) => {
+      const detail = e.detail;
+      if (!detail) return;
+
+      setUser((prev) => {
+        if (!prev) return prev;
+        let changed = false;
+        const next = { ...prev };
+
+        if (typeof detail.currentUserFollowingCount === 'number') {
+          next.followingCount = detail.currentUserFollowingCount;
+          changed = true;
+        }
+        if (typeof detail.currentUserFollowersCount === 'number') {
+          next.followersCount = detail.currentUserFollowersCount;
+          changed = true;
+        }
+
+        if (changed) {
+          localStorage.setItem('pulse518_user', JSON.stringify(next));
+          return next;
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('clearfeed:followUpdated', handleFollowUpdated);
+    return () => window.removeEventListener('clearfeed:followUpdated', handleFollowUpdated);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{

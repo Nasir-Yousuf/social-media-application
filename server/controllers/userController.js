@@ -145,9 +145,11 @@ exports.followUser = async (req, res) => {
       type: 'follow',
     });
 
-    const [followersCount, followingCount] = await Promise.all([
+    const [followersCount, followingCount, currentUserFollowersCount, currentUserFollowingCount] = await Promise.all([
       Follow.countDocuments({ following: targetUserId }),
       Follow.countDocuments({ follower: targetUserId }),
+      Follow.countDocuments({ following: currentUserId }),
+      Follow.countDocuments({ follower: currentUserId }),
     ]);
 
     return res.status(200).json({
@@ -155,6 +157,9 @@ exports.followUser = async (req, res) => {
       isFollowing: true,
       followersCount,
       followingCount,
+      currentUserFollowersCount,
+      currentUserFollowingCount,
+      targetUserId,
     });
   } catch (err) {
     console.error('followUser error:', err);
@@ -170,9 +175,11 @@ exports.unfollowUser = async (req, res) => {
 
     await Follow.findOneAndDelete({ follower: currentUserId, following: targetUserId });
 
-    const [followersCount, followingCount] = await Promise.all([
+    const [followersCount, followingCount, currentUserFollowersCount, currentUserFollowingCount] = await Promise.all([
       Follow.countDocuments({ following: targetUserId }),
       Follow.countDocuments({ follower: targetUserId }),
+      Follow.countDocuments({ following: currentUserId }),
+      Follow.countDocuments({ follower: currentUserId }),
     ]);
 
     return res.status(200).json({
@@ -180,6 +187,9 @@ exports.unfollowUser = async (req, res) => {
       isFollowing: false,
       followersCount,
       followingCount,
+      currentUserFollowersCount,
+      currentUserFollowingCount,
+      targetUserId,
     });
   } catch (err) {
     console.error('unfollowUser error:', err);
@@ -200,11 +210,17 @@ exports.getFollowers = async (req, res) => {
       follows.map(async (f) => {
         const u = f.follower;
         if (!u) return null;
-        const isFollowing = await Follow.exists({ follower: currentUserId, following: u._id });
+        const [isFollowing, followersCount, followingCount] = await Promise.all([
+          Follow.exists({ follower: currentUserId, following: u._id }),
+          Follow.countDocuments({ following: u._id }),
+          Follow.countDocuments({ follower: u._id }),
+        ]);
         return {
           ...u.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId.equals(u._id),
+          followersCount,
+          followingCount,
         };
       })
     );
@@ -229,11 +245,17 @@ exports.getFollowing = async (req, res) => {
       follows.map(async (f) => {
         const u = f.following;
         if (!u) return null;
-        const isFollowing = await Follow.exists({ follower: currentUserId, following: u._id });
+        const [isFollowing, followersCount, followingCount] = await Promise.all([
+          Follow.exists({ follower: currentUserId, following: u._id }),
+          Follow.countDocuments({ following: u._id }),
+          Follow.countDocuments({ follower: u._id }),
+        ]);
         return {
           ...u.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId.equals(u._id),
+          followersCount,
+          followingCount,
         };
       })
     );
@@ -255,15 +277,17 @@ exports.getCourseDirectory = async (req, res) => {
 
     const enriched = await Promise.all(
       members.map(async (m) => {
-        const [isFollowing, followersCount] = await Promise.all([
+        const [isFollowing, followersCount, followingCount] = await Promise.all([
           Follow.exists({ follower: currentUserId, following: m._id }),
           Follow.countDocuments({ following: m._id }),
+          Follow.countDocuments({ follower: m._id }),
         ]);
         return {
           ...m.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId.equals(m._id),
           followersCount,
+          followingCount,
         };
       })
     );
@@ -293,7 +317,21 @@ exports.getSuggestions = async (req, res) => {
       .select('name username bio avatarUrl role')
       .limit(5);
 
-    return res.status(200).json({ suggestions });
+    const enrichedSuggestions = await Promise.all(
+      suggestions.map(async (s) => {
+        const [followersCount, followingCount] = await Promise.all([
+          Follow.countDocuments({ following: s._id }),
+          Follow.countDocuments({ follower: s._id }),
+        ]);
+        return {
+          ...s.toObject(),
+          followersCount,
+          followingCount,
+        };
+      })
+    );
+
+    return res.status(200).json({ suggestions: enrichedSuggestions });
   } catch (err) {
     console.error('getSuggestions error:', err);
     return res.status(500).json({ message: 'Error fetching suggestions.' });

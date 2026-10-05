@@ -88,31 +88,176 @@ export const ProfilePage = () => {
     return () => window.removeEventListener('clearfeed:userUpdated', handleUserUpdated);
   }, [username]);
 
+  // Listen for follow updates anywhere in the app to sync live profile counts
+  useEffect(() => {
+    const handleFollowUpdated = (e) => {
+      const detail = e.detail;
+      if (!detail) return;
+
+      setProfile((prev) => {
+        if (!prev) return prev;
+
+        // If the profile being viewed is the user who was followed/unfollowed
+        if (prev._id === detail.userId) {
+          return {
+            ...prev,
+            isFollowing: typeof detail.isFollowing === 'boolean' ? detail.isFollowing : prev.isFollowing,
+            followersCount: typeof detail.followersCount === 'number' ? detail.followersCount : prev.followersCount,
+          };
+        }
+
+        // If the profile being viewed is the current logged-in user themselves
+        if (currentUser && prev._id === currentUser._id) {
+          return {
+            ...prev,
+            followingCount: typeof detail.currentUserFollowingCount === 'number' ? detail.currentUserFollowingCount : prev.followingCount,
+            followersCount: typeof detail.currentUserFollowersCount === 'number' ? detail.currentUserFollowersCount : prev.followersCount,
+          };
+        }
+
+        return prev;
+      });
+
+      // Also sync if the user is listed in connectionsModal
+      setConnectionsModal((prev) => {
+        if (!prev.isOpen || !prev.users.length) return prev;
+        const updatedUsers = prev.users.map((u) => {
+          if (u._id === detail.userId) {
+            return {
+              ...u,
+              isFollowing: typeof detail.isFollowing === 'boolean' ? detail.isFollowing : u.isFollowing,
+              followersCount: typeof detail.followersCount === 'number' ? detail.followersCount : u.followersCount,
+            };
+          }
+          return u;
+        });
+        return { ...prev, users: updatedUsers };
+      });
+    };
+
+    window.addEventListener('clearfeed:followUpdated', handleFollowUpdated);
+    return () => window.removeEventListener('clearfeed:followUpdated', handleFollowUpdated);
+  }, [currentUser]);
+
   const handleFollowToggle = async () => {
     if (!profile) return;
     setFollowLoading(true);
     try {
       if (profile.isFollowing) {
-        await api.delete(`/users/${profile._id}/follow`);
+        const res = await api.delete(`/users/${profile._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : Math.max(0, (profile.followersCount || 0) - 1);
+
         setProfile((prev) => ({
           ...prev,
           isFollowing: false,
-          followersCount: Math.max(0, prev.followersCount - 1),
+          followersCount: newCount,
         }));
         showToast(`Unfollowed @${profile.username}`, 'info');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: profile._id,
+              username: profile.username,
+              isFollowing: false,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
       } else {
-        await api.post(`/users/${profile._id}/follow`);
+        const res = await api.post(`/users/${profile._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : (profile.followersCount || 0) + 1;
+
         setProfile((prev) => ({
           ...prev,
           isFollowing: true,
-          followersCount: prev.followersCount + 1,
+          followersCount: newCount,
         }));
         showToast(`Following @${profile.username}`, 'success');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: profile._id,
+              username: profile.username,
+              isFollowing: true,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update follow', 'error');
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const handleModalFollowToggle = async (targetUser) => {
+    try {
+      if (targetUser.isFollowing) {
+        const res = await api.delete(`/users/${targetUser._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : Math.max(0, (targetUser.followersCount || 0) - 1);
+
+        setConnectionsModal((prev) => ({
+          ...prev,
+          users: prev.users.map((u) =>
+            u._id === targetUser._id ? { ...u, isFollowing: false, followersCount: newCount } : u
+          ),
+        }));
+        showToast(`Unfollowed @${targetUser.username}`, 'info');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: targetUser._id,
+              username: targetUser.username,
+              isFollowing: false,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      } else {
+        const res = await api.post(`/users/${targetUser._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : (targetUser.followersCount || 0) + 1;
+
+        setConnectionsModal((prev) => ({
+          ...prev,
+          users: prev.users.map((u) =>
+            u._id === targetUser._id ? { ...u, isFollowing: true, followersCount: newCount } : u
+          ),
+        }));
+        showToast(`Following @${targetUser.username}`, 'success');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: targetUser._id,
+              username: targetUser.username,
+              isFollowing: true,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update follow', 'error');
     }
   };
 
@@ -473,32 +618,53 @@ export const ProfilePage = () => {
               No {connectionsModal.title.toLowerCase()} yet.
             </div>
           ) : (
-            connectionsModal.users.map((u) => (
-              <div
-                key={u._id}
-                className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-neutral-50/70 dark:bg-black/40 border border-neutral-200 dark:border-neutral-800"
-              >
-                <NavLink
-                  to={`/profile/${u.username}`}
-                  onClick={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
-                  className="flex items-center gap-2.5 min-w-0"
+            connectionsModal.users.map((u) => {
+              const isMe = u.isSelf || (currentUser && currentUser._id === u._id);
+              return (
+                <div
+                  key={u._id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-neutral-50/70 dark:bg-black/40 border border-neutral-200 dark:border-neutral-800"
                 >
-                  <Avatar src={u.avatarUrl} name={u.name} size="sm" />
-                  <div className="min-w-0">
-                    <p className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 truncate">{u.name}</p>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">@{u.username}</p>
-                  </div>
-                </NavLink>
+                  <NavLink
+                    to={`/profile/${u.username}`}
+                    onClick={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
+                    className="flex items-center gap-2.5 min-w-0"
+                  >
+                    <Avatar src={u.avatarUrl} name={u.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 truncate">{u.name}</p>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">@{u.username}</p>
+                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans mt-0.5">
+                        {u.followersCount ?? 0} {u.followersCount === 1 ? 'follower' : 'followers'}
+                      </p>
+                    </div>
+                  </NavLink>
 
-                <NavLink
-                  to={`/profile/${u.username}`}
-                  onClick={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
-                  className="text-xs text-sky-500 hover:underline font-semibold"
-                >
-                  View &rarr;
-                </NavLink>
-              </div>
-            ))
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isMe && (
+                      <button
+                        onClick={() => handleModalFollowToggle(u)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${
+                          u.isFollowing
+                            ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 dark:hover:text-rose-400 border border-neutral-300 dark:border-neutral-700'
+                            : 'bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90 shadow-xs'
+                        }`}
+                      >
+                        {u.isFollowing ? 'Following' : 'Follow'}
+                      </button>
+                    )}
+
+                    <NavLink
+                      to={`/profile/${u.username}`}
+                      onClick={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
+                      className="text-xs text-sky-500 hover:underline font-semibold"
+                    >
+                      View &rarr;
+                    </NavLink>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </Modal>

@@ -217,6 +217,14 @@ export const LeftSidebar = () => {
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
                   @{user?.username}
                 </p>
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-neutral-500 dark:text-neutral-400 font-sans">
+                  <span>
+                    <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{user?.followingCount ?? 0}</strong> Following
+                  </span>
+                  <span>
+                    <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{user?.followersCount ?? 0}</strong> Followers
+                  </span>
+                </div>
               </div>
 
               <div className="py-1">

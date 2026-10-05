@@ -54,9 +54,29 @@ export const RightSidebar = () => {
     const handleRefreshTrends = () => fetchTrends();
     window.addEventListener('clearfeed:newPost', handleRefreshTrends);
 
+    const handleFollowUpdated = (e) => {
+      const detail = e.detail;
+      if (detail?.userId && typeof detail.isFollowing === 'boolean') {
+        setFollowingMap((prev) => ({ ...prev, [detail.userId]: detail.isFollowing }));
+        setSuggestions((prev) =>
+          prev.map((s) =>
+            s._id === detail.userId
+              ? {
+                  ...s,
+                  followersCount:
+                    typeof detail.followersCount === 'number' ? detail.followersCount : s.followersCount,
+                }
+              : s
+          )
+        );
+      }
+    };
+    window.addEventListener('clearfeed:followUpdated', handleFollowUpdated);
+
     return () => {
       isMounted = false;
       window.removeEventListener('clearfeed:newPost', handleRefreshTrends);
+      window.removeEventListener('clearfeed:followUpdated', handleFollowUpdated);
     };
   }, []);
 
@@ -78,11 +98,37 @@ export const RightSidebar = () => {
 
     try {
       if (newStatus) {
-        await api.post(`/users/${userId}/follow`);
+        const res = await api.post(`/users/${userId}/follow`);
         showToast(`Following @${username}`, 'success');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId,
+              username,
+              isFollowing: true,
+              followersCount: res.data.followersCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
       } else {
-        await api.delete(`/users/${userId}/follow`);
+        const res = await api.delete(`/users/${userId}/follow`);
         showToast(`Unfollowed @${username}`, 'info');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId,
+              username,
+              isFollowing: false,
+              followersCount: res.data.followersCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
       }
     } catch (err) {
       setFollowingMap((prev) => ({ ...prev, [userId]: isCurrentlyFollowing }));
@@ -204,6 +250,9 @@ export const RightSidebar = () => {
                       </p>
                       <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
                         @{u.username}
+                      </p>
+                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans">
+                        {u.followersCount ?? 0} {u.followersCount === 1 ? 'follower' : 'followers'}
                       </p>
                     </div>
                   </NavLink>

@@ -25,13 +25,19 @@ exports.searchAll = async (req, res) => {
 
     const enrichedUsers = await Promise.all(
       users.map(async (u) => {
-        const isFollowing = currentUserId
-          ? await Follow.exists({ follower: currentUserId, following: u._id })
-          : false;
+        const [isFollowing, followersCount, followingCount] = await Promise.all([
+          currentUserId
+            ? Follow.exists({ follower: currentUserId, following: u._id })
+            : false,
+          Follow.countDocuments({ following: u._id }),
+          Follow.countDocuments({ follower: u._id }),
+        ]);
         return {
           ...u.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId ? currentUserId.equals(u._id) : false,
+          followersCount,
+          followingCount,
         };
       })
     );
