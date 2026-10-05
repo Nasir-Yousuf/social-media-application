@@ -14,8 +14,13 @@ const connectDB = async () => {
       console.log(` MongoDB Connected: ${conn.connection.host}`);
       return conn;
     } catch (err) {
-      console.warn(` Failed to connect to specified MONGODB_URI: ${err.message}`);
-      console.log(`Attempting fallback to MongoMemoryServer...`);
+      console.error(`❌ Failed to connect to specified MONGODB_URI: ${err.message}`);
+      if (process.env.NODE_ENV === 'production') {
+        console.error('❌ Fatal: In production, a valid MongoDB Atlas connection is required.');
+        console.error('👉 Please check your MongoDB Atlas username, password, and ensure Network Access allows 0.0.0.0/0.');
+        process.exit(1);
+      }
+      console.log(`Attempting fallback to MongoMemoryServer for local development...`);
     }
   }
 
