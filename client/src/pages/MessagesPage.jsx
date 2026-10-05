@@ -25,6 +25,11 @@ import Avatar from '../components/common/Avatar';
 import Modal from '../components/common/Modal';
 import TwitterSpinner from '../components/common/TwitterSpinner';
 import api from '../api/client';
+import {
+  WhatsAppReactionPicker,
+  WhatsAppReactionsBadge,
+  WhatsAppReactionsModal,
+} from '../components/chat/WhatsAppReactions';
 
 const QUICK_EMOJIS = ['😀', '😂', '🔥', '🚀', '💻', '💡', '⚡', '❤️', '🎯', '🎉', '✨', '☕', '🧠', '🐛', '👍', '🙌', '🤝', '💯', '🔒', '🛠️'];
 
@@ -64,6 +69,12 @@ export const MessagesPage = () => {
   const [snippetLang, setSnippetLang] = useState('javascript');
   const [deletingMsgId, setDeletingMsgId] = useState(null);
   const [deletingConvId, setDeletingConvId] = useState(null);
+  const [reactionPickerMsgId, setReactionPickerMsgId] = useState(null);
+  const [reactionModalData, setReactionModalData] = useState({
+    isOpen: false,
+    reactions: [],
+    messageId: null,
+  });
 
   // Search & Filters
   const [conversationSearch, setConversationSearch] = useState('');
@@ -432,6 +443,108 @@ export const MessagesPage = () => {
     if (!text) return;
     navigator.clipboard.writeText(text);
     showToast('Message copied to clipboard', 'success');
+  };
+
+  // WhatsApp Message Reactions: Add, switch, or remove
+  const handleReactToMessage = async (msgId, emoji) => {
+    if (!msgId || !emoji) return;
+
+    const targetMsg = messages.find((m) => m._id === msgId);
+    if (!targetMsg) return;
+
+    const currentReactions = Array.isArray(targetMsg.reactions) ? targetMsg.reactions : [];
+    const myExistingReaction = currentReactions.find((r) => {
+      const uId = r.user?._id || r.user;
+      return String(uId) === String(currentUser?._id);
+    });
+
+    let optimisticReactions;
+    if (myExistingReaction && myExistingReaction.emoji === emoji) {
+      // Toggle off / remove
+      optimisticReactions = currentReactions.filter((r) => {
+        const uId = r.user?._id || r.user;
+        return String(uId) !== String(currentUser?._id);
+      });
+    } else if (myExistingReaction) {
+      // Replace with new emoji
+      optimisticReactions = currentReactions.map((r) => {
+        const uId = r.user?._id || r.user;
+        if (String(uId) === String(currentUser?._id)) {
+          return {
+            ...r,
+            emoji,
+            createdAt: new Date(),
+          };
+        }
+        return r;
+      });
+    } else {
+      // Add new reaction
+      optimisticReactions = [
+        ...currentReactions,
+        {
+          _id: `temp-${Date.now()}`,
+          user: {
+            _id: currentUser?._id,
+            name: currentUser?.name,
+            username: currentUser?.username,
+            avatarUrl: currentUser?.avatarUrl,
+          },
+          emoji,
+          createdAt: new Date(),
+        },
+      ];
+    }
+
+    // Immediate optimistic update for instantaneous feedback
+    setMessages((prev) =>
+      prev.map((m) => (m._id === msgId ? { ...m, reactions: optimisticReactions } : m))
+    );
+
+    try {
+      const res = await api.post(`/messages/${msgId}/react`, { emoji });
+      if (res.data?.reactions) {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === msgId ? { ...m, reactions: res.data.reactions } : m))
+        );
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update reaction', 'error');
+      if (activeConversation?._id) {
+        fetchMessages(activeConversation._id, true);
+      }
+    }
+  };
+
+  // Remove reaction explicitly from reaction modal
+  const handleRemoveReaction = async (msgId) => {
+    if (!msgId) return;
+
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m._id === msgId && Array.isArray(m.reactions)) {
+          return {
+            ...m,
+            reactions: m.reactions.filter((r) => {
+              const uId = r.user?._id || r.user;
+              return String(uId) !== String(currentUser?._id);
+            }),
+          };
+        }
+        return m;
+      })
+    );
+
+    try {
+      const res = await api.post(`/messages/${msgId}/react`, { remove: true });
+      if (res.data?.reactions) {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === msgId ? { ...m, reactions: res.data.reactions } : m))
+        );
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to remove reaction', 'error');
+    }
   };
 
   // Delete individual message
@@ -863,6 +976,11 @@ export const MessagesPage = () => {
                   const isTemp = typeof msg._id === 'string' && msg._id.startsWith('temp-');
                   const isSending = msg.status === 'sending' || isTemp;
                   const isFailed = msg.status === 'failed';
+                  const hasReactions = Array.isArray(msg.reactions) && msg.reactions.length > 0;
+                  const currentUserReaction = msg.reactions?.find((r) => {
+                    const uId = r.user?._id || r.user;
+                    return String(uId) === String(currentUser?._id);
+                  })?.emoji;
 
                   const currentDateLabel = getMessageDateLabel(msg.createdAt);
                   const prevDateLabel = idx > 0 ? getMessageDateLabel(messages[idx - 1].createdAt) : null;
@@ -882,8 +1000,27 @@ export const MessagesPage = () => {
                         className={`group/msg flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full my-0.5`}
                       >
                         <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'} max-w-full`}>
+                          {/* WhatsApp Floating Reaction Bar Capsule */}
+                          {reactionPickerMsgId === msg._id && (
+                            <WhatsAppReactionPicker
+                              messageId={msg._id}
+                              isMe={isMe}
+                              currentUserReaction={currentUserReaction}
+                              onReact={handleReactToMessage}
+                              onClose={() => setReactionPickerMsgId(null)}
+                            />
+                          )}
+
                           <div
-                            className={`max-w-[85%] sm:max-w-[75%] lg:max-w-[70%] rounded-2xl p-3 sm:p-3.5 text-sm leading-relaxed shadow-xs transition-all ${
+                            onClick={() => {
+                              if (window.getSelection()?.toString()) return;
+                              if (window.innerWidth < 768 && !isFailed && !isSending) {
+                                setReactionPickerMsgId((prev) => (prev === msg._id ? null : msg._id));
+                              }
+                            }}
+                            className={`max-w-[85%] sm:max-w-[75%] lg:max-w-[70%] rounded-2xl p-3 sm:p-3.5 text-sm leading-relaxed shadow-xs transition-all relative ${
+                              hasReactions ? 'mb-3.5' : ''
+                            } ${
                               isFailed
                                 ? 'border-2 border-rose-500/80 bg-rose-50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200'
                                 : isMe
@@ -926,10 +1063,54 @@ export const MessagesPage = () => {
                                 </pre>
                               </div>
                             )}
+
+                            {/* WhatsApp Reactions Overlapping Badge */}
+                            {hasReactions && (
+                              <WhatsAppReactionsBadge
+                                reactions={msg.reactions}
+                                currentUserId={currentUser?._id}
+                                isMe={isMe}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReactionModalData({
+                                    isOpen: true,
+                                    reactions: msg.reactions,
+                                    messageId: msg._id,
+                                  });
+                                }}
+                              />
+                            )}
                           </div>
 
-                          {/* Desktop Hover Action Toolbar */}
-                          <div className={`opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                          {/* Desktop/Touch Action Toolbar */}
+                          <div
+                            className={`flex items-center gap-0.5 transition-opacity shrink-0 ${
+                              isMe ? 'flex-row-reverse' : 'flex-row'
+                            } ${
+                              reactionPickerMsgId === msg._id
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100'
+                            }`}
+                          >
+                            {/* WhatsApp Reaction Trigger Button */}
+                            {!isFailed && !isSending && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReactionPickerMsgId((prev) => (prev === msg._id ? null : msg._id));
+                                }}
+                                className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+                                  reactionPickerMsgId === msg._id
+                                    ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 opacity-100'
+                                    : 'hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+                                }`}
+                                title="Add reaction"
+                              >
+                                <Smile className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
                             {msg.text && (
                               <button
                                 type="button"
@@ -1255,6 +1436,19 @@ export const MessagesPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* WhatsApp Message Reactions Detail Modal */}
+      <WhatsAppReactionsModal
+        isOpen={reactionModalData.isOpen}
+        onClose={() => setReactionModalData({ isOpen: false, reactions: [], messageId: null })}
+        reactions={reactionModalData.reactions}
+        currentUserId={currentUser?._id}
+        onRemoveReaction={() => {
+          if (reactionModalData.messageId) {
+            handleRemoveReaction(reactionModalData.messageId);
+          }
+        }}
+      />
     </div>
   );
 };

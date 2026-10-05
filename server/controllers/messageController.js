@@ -103,7 +103,8 @@ exports.getMessages = async (req, res) => {
     const messages = await Message.find({ conversation: conversationId })
       .sort({ createdAt: 1 })
       .limit(limit)
-      .select('sender recipient text codeSnippet isRead createdAt');
+      .select('sender recipient text codeSnippet isRead reactions createdAt')
+      .populate('reactions.user', 'name username avatarUrl');
 
     const otherUser = conversation.participants.find(
       (p) => !p._id.equals(currentUserId)
@@ -450,4 +451,85 @@ exports.clearConversation = async (req, res) => {
     return res.status(500).json({ message: 'Failed to clear messages.' });
   }
 };
+
+// Add, change, or remove a reaction on a message (WhatsApp style)
+exports.reactToMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji, remove } = req.body;
+    const currentUserId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found.' });
+    }
+
+    const conversation = await Conversation.findById(message.conversation);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found.' });
+    }
+
+    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'You are not authorized to react to this message.' });
+    }
+
+    if (!Array.isArray(message.reactions)) {
+      message.reactions = [];
+    }
+
+    const existingIdx = message.reactions.findIndex((r) => {
+      const uId = r.user?._id || r.user;
+      return uId && currentUserId.equals(uId);
+    });
+
+    let action = 'added';
+
+    if (remove) {
+      if (existingIdx !== -1) {
+        message.reactions.splice(existingIdx, 1);
+        action = 'removed';
+      }
+    } else {
+      if (!emoji || typeof emoji !== 'string' || !emoji.trim()) {
+        return res.status(400).json({ message: 'Emoji reaction is required.' });
+      }
+      const cleanEmoji = emoji.trim().slice(0, 12);
+
+      if (existingIdx !== -1) {
+        if (message.reactions[existingIdx].emoji === cleanEmoji) {
+          // WhatsApp behavior: clicking current emoji removes it
+          message.reactions.splice(existingIdx, 1);
+          action = 'removed';
+        } else {
+          // WhatsApp behavior: clicking different emoji updates it
+          message.reactions[existingIdx].emoji = cleanEmoji;
+          message.reactions[existingIdx].createdAt = new Date();
+          action = 'updated';
+        }
+      } else {
+        message.reactions.push({
+          user: currentUserId,
+          emoji: cleanEmoji,
+          createdAt: new Date(),
+        });
+        action = 'added';
+      }
+    }
+
+    await message.save();
+    await message.populate('reactions.user', 'name username avatarUrl');
+
+    return res.status(200).json({
+      message: `Reaction ${action}.`,
+      action,
+      reactions: message.reactions,
+      messageId: message._id,
+    });
+  } catch (err) {
+    console.error('reactToMessage error:', err);
+    return res.status(500).json({ message: 'Failed to update message reaction.' });
+  }
+};
+
 

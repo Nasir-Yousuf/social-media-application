@@ -12,6 +12,7 @@ router.delete('/conversations/:conversationId/messages', messageController.clear
 router.post('/conversations', messageController.startConversation);
 router.post('/send', messageController.sendMessage);
 router.delete('/:messageId', messageController.deleteMessage);
+router.post('/:messageId/react', messageController.reactToMessage);
 router.get('/unread-total', messageController.getUnreadTotal);
 
 module.exports = router;
