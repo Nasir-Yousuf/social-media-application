@@ -46,7 +46,7 @@ export const BookmarksPage = () => {
   };
 
   return (
-    <div className="flex flex-col space-y-6 font-sans">
+    <div className="flex flex-col p-4 sm:p-5 space-y-6 font-sans">
       <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
           <div className="flex items-center gap-2.5">

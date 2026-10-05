@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 
 /**
  * Lightweight, safe zero-dependency Markdown renderer for Clearfeed post text.
@@ -6,6 +7,8 @@ import React from 'react';
  * - **bold** and *italic*
  * - `inline code`
  * - [links](url) (opens safely in new tab)
+ * - #hashtags (links to search)
+ * - @mentions (links to user profile)
  * - Bullet lists (- or *)
  * - Paragraph breaks
  */
@@ -20,8 +23,8 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
     let remaining = text;
     let key = 0;
 
-    // Pattern matches: `code`, [label](url), **bold**, *italic*, #hashtag
-    const inlineRegex = /(`[^`]+`)|(\[[^\]]+\]\([^\)]+\))|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(#[a-zA-Z0-9_\u00c0-\u017e]+)/;
+    // Pattern matches: `code`, [label](url), **bold**, *italic*, #hashtag, @mention
+    const inlineRegex = /(`[^`]+`)|(\[[^\]]+\]\([^\)]+\))|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(#[a-zA-Z0-9_\u00c0-\u017e]+)|(@[a-zA-Z0-9_]{3,20})/;
 
     while (remaining) {
       const match = remaining.match(inlineRegex);
@@ -48,16 +51,30 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
         );
       } else if (matchedStr.startsWith('#') && matchedStr.length > 1) {
         elements.push(
-          <a
+          <NavLink
             key={key++}
-            href={`/search?q=${encodeURIComponent(matchedStr)}`}
+            to={`/search?q=${encodeURIComponent(matchedStr)}`}
             className="text-sky-500 hover:text-sky-400 hover:underline font-semibold cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
             }}
           >
             {matchedStr}
-          </a>
+          </NavLink>
+        );
+      } else if (matchedStr.startsWith('@') && matchedStr.length > 1) {
+        const username = matchedStr.slice(1);
+        elements.push(
+          <NavLink
+            key={key++}
+            to={`/profile/${username}`}
+            className="text-sky-500 hover:text-sky-400 hover:underline font-semibold cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {matchedStr}
+          </NavLink>
         );
       } else if (matchedStr.startsWith('[') && matchedStr.includes('](')) {
         const closeBracket = matchedStr.indexOf('](');

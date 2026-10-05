@@ -1,6 +1,7 @@
 const Comment = require('../models/Comment');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 // Get comments for a post
 exports.getCommentsByPost = async (req, res) => {
@@ -68,6 +69,32 @@ exports.createComment = async (req, res) => {
         post: postId,
         comment: comment._id,
       });
+    }
+
+    // Extract @mentions from comment and notify mentioned users
+    const mentionMatches = content.trim().match(/@([a-zA-Z0-9_]{3,20})/g);
+    if (mentionMatches) {
+      const usernames = [...new Set(mentionMatches.map((m) => m.slice(1).toLowerCase()))];
+      const mentionedUsers = await User.find({
+        username: { $in: usernames },
+        _id: { $ne: req.user._id },
+        isApproved: true,
+      }).select('_id');
+
+      if (mentionedUsers.length > 0) {
+        const mentionNotifs = mentionedUsers
+          .filter((u) => !post.author.equals(u._id))
+          .map((u) => ({
+            recipient: u._id,
+            sender: req.user._id,
+            type: 'mention',
+            post: postId,
+            comment: comment._id,
+          }));
+        if (mentionNotifs.length > 0) {
+          await Notification.insertMany(mentionNotifs);
+        }
+      }
     }
 
     return res.status(201).json({

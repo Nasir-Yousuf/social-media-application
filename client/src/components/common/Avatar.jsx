@@ -7,6 +7,7 @@ const sizeMap = {
   md: 'w-10 h-10 text-sm',
   lg: 'w-14 h-14 text-base',
   xl: 'w-20 h-20 text-xl',
+  '2xl': 'w-24 h-24 sm:w-28 sm:h-28 text-2xl sm:text-3xl',
 };
 
 // Curated avatar background palette
@@ -39,6 +40,25 @@ const getInitials = (name = '') => {
     .slice(0, 2);
 };
 
+export const resolveAvatarUrl = (url) => {
+  if (!url) return null;
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('data:') ||
+    url.startsWith('blob:')
+  ) {
+    return url;
+  }
+  const apiBase = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/$/, '')
+    : '';
+  if (url.startsWith('/api') || url.startsWith('/')) {
+    return `${apiBase}${url}`;
+  }
+  return url;
+};
+
 export const Avatar = ({
   src,
   alt = 'Avatar',
@@ -53,12 +73,13 @@ export const Avatar = ({
   const bgClass = getInitialsClass(name);
 
   const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'user')}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
+  const resolvedSrc = resolveAvatarUrl(src);
 
   return (
     <div className={`relative inline-block shrink-0 select-none ${className}`}>
-      {src ? (
+      {resolvedSrc ? (
         <img
-          src={src}
+          src={resolvedSrc}
           alt={alt}
           className={`${sizeClasses} rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-800 transition-opacity duration-200 hover:opacity-90 shadow-2xs`}
           onError={(e) => {

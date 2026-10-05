@@ -17,6 +17,7 @@ import RegisterPage from './pages/RegisterPage';
 import BookmarksPage from './pages/BookmarksPage';
 import DigestPage from './pages/DigestPage';
 import MessagesPage from './pages/MessagesPage';
+import ThemeModal from './components/common/ThemeModal';
 
 export function App() {
   return (
@@ -48,6 +49,7 @@ export function App() {
               {/* Catch-all redirect */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <ThemeModal />
           </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>

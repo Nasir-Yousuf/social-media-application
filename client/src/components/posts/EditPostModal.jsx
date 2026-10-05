@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Plus } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import api from '../../api/client';
 import { useNotifications } from '../../context/NotificationContext';
+import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutocomplete';
 import {
   FileTabIcon,
   getLanguageFromFilename,
@@ -38,6 +39,16 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const { showToast } = useNotifications();
+  const textareaRef = useRef(null);
+
+  const {
+    mentionActive,
+    filteredUsers,
+    selectedIndex,
+    insertMention,
+    handleKeyDown: handleMentionKeyDown,
+    closeMention,
+  } = useMentionAutocomplete(content, setContent, textareaRef);
 
   const MAX_CHARS = 2000;
   const remaining = MAX_CHARS - content.length;
@@ -121,6 +132,7 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
 
       const res = await api.patch(`/posts/${post._id}`, payload);
       showToast('Post updated successfully', 'success');
+      closeMention();
       if (onPostUpdated) {
         onPostUpdated(res.data.post);
       }
@@ -135,15 +147,32 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Post">
       <form onSubmit={handleSave} className="flex flex-col gap-4 font-sans">
-        <div>
+        <div className="relative">
           <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">Post Content</label>
+          
+          {mentionActive && (
+            <div className="absolute top-full left-0 z-50 mt-1">
+              <MentionDropdown
+                users={filteredUsers}
+                selectedIndex={selectedIndex}
+                onSelect={insertMention}
+              />
+            </div>
+          )}
+
           <textarea
+            ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (mentionActive && handleMentionKeyDown(e)) {
+                return;
+              }
+            }}
             rows={4}
             maxLength={MAX_CHARS}
             className="w-full bg-neutral-50 dark:bg-black/50 p-3.5 rounded-2xl border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 text-sm leading-relaxed"
-            placeholder="Edit your post..."
+            placeholder="Edit your post or type @ to mention someone..."
           />
         </div>
 

@@ -128,6 +128,113 @@ html.dark {
     color: #f0f3f5;
   }
 
+  /* ========================================================================
+     THEME FLAVORS
+     ======================================================================== */
+
+  /* 1. DIM NAVY / TWILIGHT THEME */
+  html.theme-dim,
+  html.theme-dim body {
+    background-color: #15202b !important;
+    color: #f7f9f9;
+  }
+  html.theme-dim .dark\:bg-black,
+  html.theme-dim [class*="dark:bg-black"] {
+    background-color: #15202b !important;
+  }
+  html.theme-dim .dark\:bg-\[\#121519\],
+  html.theme-dim .dark\:bg-\[\#16181c\],
+  html.theme-dim .dark\:bg-\[\#181a20\],
+  html.theme-dim .dark\:bg-\[\#14161a\],
+  html.theme-dim .dark\:bg-neutral-900 {
+    background-color: #1e2732 !important;
+  }
+  html.theme-dim .dark\:border-neutral-800,
+  html.theme-dim [class*="dark:border-neutral-800"] {
+    border-color: #38444d !important;
+  }
+  html.theme-dim .dark\:hover\:bg-neutral-800:hover,
+  html.theme-dim .dark\:hover\:bg-neutral-900:hover,
+  html.theme-dim [class*="dark:hover:bg-neutral-800"]:hover {
+    background-color: #273340 !important;
+  }
+
+  /* 2. CODEHUB MATRIX / HACKER EMERALD THEME */
+  html.theme-emerald,
+  html.theme-emerald body {
+    background-color: #080f0c !important;
+    color: #ecfdf5;
+  }
+  html.theme-emerald .dark\:bg-black,
+  html.theme-emerald [class*="dark:bg-black"] {
+    background-color: #080f0c !important;
+  }
+  html.theme-emerald .dark\:bg-\[\#121519\],
+  html.theme-emerald .dark\:bg-\[\#16181c\],
+  html.theme-emerald .dark\:bg-\[\#181a20\],
+  html.theme-emerald .dark\:bg-\[\#14161a\],
+  html.theme-emerald .dark\:bg-neutral-900 {
+    background-color: #0f1d17 !important;
+  }
+  html.theme-emerald .dark\:border-neutral-800,
+  html.theme-emerald [class*="dark:border-neutral-800"] {
+    border-color: #1b382b !important;
+  }
+  html.theme-emerald .dark\:hover\:bg-neutral-800:hover,
+  html.theme-emerald .dark\:hover\:bg-neutral-900:hover,
+  html.theme-emerald [class*="dark:hover:bg-neutral-800"]:hover {
+    background-color: #162a21 !important;
+  }
+  html.theme-emerald .text-sky-500,
+  html.theme-emerald .text-sky-400 {
+    color: #10b981 !important;
+  }
+  html.theme-emerald .bg-sky-500,
+  html.theme-emerald .bg-sky-600 {
+    background-color: #10b981 !important;
+  }
+  html.theme-emerald .border-sky-500 {
+    border-color: #10b981 !important;
+  }
+
+  /* 3. DUSK SUNSET / AMBER THEME */
+  html.theme-sunset,
+  html.theme-sunset body {
+    background-color: #141113 !important;
+    color: #fdf4ff;
+  }
+  html.theme-sunset .dark\:bg-black,
+  html.theme-sunset [class*="dark:bg-black"] {
+    background-color: #141113 !important;
+  }
+  html.theme-sunset .dark\:bg-\[\#121519\],
+  html.theme-sunset .dark\:bg-\[\#16181c\],
+  html.theme-sunset .dark\:bg-\[\#181a20\],
+  html.theme-sunset .dark\:bg-\[\#14161a\],
+  html.theme-sunset .dark\:bg-neutral-900 {
+    background-color: #1f1a1d !important;
+  }
+  html.theme-sunset .dark\:border-neutral-800,
+  html.theme-sunset [class*="dark:border-neutral-800"] {
+    border-color: #3a2e36 !important;
+  }
+  html.theme-sunset .dark\:hover\:bg-neutral-800:hover,
+  html.theme-sunset .dark\:hover\:bg-neutral-900:hover,
+  html.theme-sunset [class*="dark:hover:bg-neutral-800"]:hover {
+    background-color: #2a2327 !important;
+  }
+  html.theme-sunset .text-sky-500,
+  html.theme-sunset .text-sky-400 {
+    color: #f97316 !important;
+  }
+  html.theme-sunset .bg-sky-500,
+  html.theme-sunset .bg-sky-600 {
+    background-color: #f97316 !important;
+  }
+  html.theme-sunset .border-sky-500 {
+    border-color: #f97316 !important;
+  }
+
   /* Headings */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sans);
@@ -213,3 +320,41 @@ html.dark {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Smooth, cross-browser sidebar scrollbar */
+.sidebar-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.35);
+  border-radius: 9999px;
+}
+
+.sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.65);
+}
+
+html.dark .sidebar-scroll {
+  scrollbar-color: rgba(113, 118, 123, 0.45) transparent;
+}
+
+html.dark .sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(113, 118, 123, 0.35);
+}
+
+html.dark .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(113, 118, 123, 0.7);
+}
+

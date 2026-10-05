@@ -98,7 +98,7 @@ export const CodeHubPage = () => {
   };
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="p-4 sm:p-5 space-y-6 font-sans">
       {/* Header */}
       <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
         <div>

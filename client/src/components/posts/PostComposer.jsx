@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Code2,
   X,
@@ -9,12 +9,14 @@ import {
   MapPin,
   Smile,
   Navigation,
+  AtSign,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 import api from '../../api/client';
+import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutocomplete';
 import {
   FileTabIcon,
   getLanguageFromFilename,
@@ -73,6 +75,16 @@ export const PostComposer = ({
   const [loading, setLoading] = useState(false);
   const [forkedFromId, setForkedFromId] = useState(null);
   const [showMarkdownHint, setShowMarkdownHint] = useState(false);
+  const textareaRef = useRef(null);
+
+  const {
+    mentionActive,
+    filteredUsers,
+    selectedIndex,
+    insertMention,
+    handleKeyDown: handleMentionKeyDown,
+    closeMention,
+  } = useMentionAutocomplete(content, setContent, textareaRef);
 
   // Twitter-style Location and Emoji state
   const [location, setLocation] = useState('');
@@ -308,6 +320,7 @@ export const PostComposer = ({
 
       // Reset
       setContent('');
+      closeMention();
       setLocation('');
       setShowLocationPicker(false);
       setShowEmojiPicker(false);
@@ -354,19 +367,38 @@ export const PostComposer = ({
         />
 
         <div className="flex-1 min-w-0">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder={
-              isAdmin
-                ? "What's happening? Share a course note or update..."
-                : showCodeEditor
-                ? 'Describe your code snippet or solution...'
-                : "What's happening? Share your thoughts or code..."
-            }
-            rows={compact ? 2 : showCodeEditor ? 2 : 3}
-            className="w-full bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 text-lg resize-none focus:outline-none leading-relaxed font-sans"
-          />
+          <div className="relative">
+            {/* Mention Autocomplete Dropdown */}
+            {mentionActive && (
+              <div className="absolute top-full left-0 z-50 mt-1">
+                <MentionDropdown
+                  users={filteredUsers}
+                  selectedIndex={selectedIndex}
+                  onSelect={insertMention}
+                />
+              </div>
+            )}
+
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (mentionActive && handleMentionKeyDown(e)) {
+                  return;
+                }
+              }}
+              placeholder={
+                isAdmin
+                  ? "What's happening? Share a course note or update..."
+                  : showCodeEditor
+                  ? 'Describe your code snippet or solution...'
+                  : "What's happening? Share your thoughts or code..."
+              }
+              rows={compact ? 2 : showCodeEditor ? 2 : 3}
+              className="w-full bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 text-lg resize-none focus:outline-none leading-relaxed font-sans"
+            />
+          </div>
 
           {/* Location Badge Chip */}
           {location && (
@@ -706,6 +738,25 @@ export const PostComposer = ({
                 }`}
               >
                 <MapPin className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
+                title="Mention a member (@)"
+                onClick={() => {
+                  const needsSpace = content.length > 0 && !content.endsWith(' ');
+                  setContent((prev) => `${prev}${needsSpace ? ' ' : ''}@`);
+                  setTimeout(() => {
+                    if (textareaRef.current) {
+                      textareaRef.current.focus();
+                      const nextPos = textareaRef.current.value.length;
+                      textareaRef.current.setSelectionRange(nextPos, nextPos);
+                    }
+                  }, 0);
+                }}
+                className="p-2 rounded-full transition-all duration-150 cursor-pointer text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10"
+              >
+                <AtSign className="w-5 h-5" />
               </button>
 
               <button

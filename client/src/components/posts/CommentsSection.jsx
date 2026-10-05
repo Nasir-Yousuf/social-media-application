@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { Trash2, AtSign } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../api/client';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
+import MarkdownRenderer from './MarkdownRenderer';
+import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutocomplete';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { FacultyBadge } from '../common/ClearfeedIcons';
@@ -16,6 +18,16 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const commentInputRef = useRef(null);
+
+  const {
+    mentionActive,
+    filteredUsers,
+    selectedIndex,
+    insertMention,
+    handleKeyDown: handleMentionKeyDown,
+    closeMention,
+  } = useMentionAutocomplete(newComment, setNewComment, commentInputRef);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,6 +60,7 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
       });
       setComments((prev) => [...prev, res.data.comment]);
       setNewComment('');
+      closeMention();
       if (onCommentCountChange) {
         onCommentCountChange(res.data.commentsCount);
       }
@@ -72,6 +85,19 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
     }
   };
 
+  const handleTriggerMention = () => {
+    if (commentInputRef.current) {
+      const current = newComment;
+      const needsSpace = current.length > 0 && !current.endsWith(' ');
+      setNewComment(`${current}${needsSpace ? ' ' : ''}@`);
+      setTimeout(() => {
+        if (commentInputRef.current) {
+          commentInputRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
   const formatTime = (dateStr) => {
     try {
       return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
@@ -90,7 +116,7 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
         </div>
       ) : comments.length === 0 ? (
         <p className="text-xs text-neutral-500 dark:text-neutral-400 py-1">
-          No responses yet. Share your thoughts below.
+          No responses yet. Share your thoughts or mention a member below.
         </p>
       ) : (
         <div className="space-y-2.5">
@@ -131,9 +157,10 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
                         {formatTime(comment.createdAt)}
                       </span>
                     </div>
-                    <p className="text-neutral-800 dark:text-neutral-200 mt-1 leading-relaxed break-words font-sans text-xs">
-                      {comment.content}
-                    </p>
+
+                    <div className="text-neutral-800 dark:text-neutral-200 mt-1 leading-relaxed break-words font-sans text-xs">
+                      <MarkdownRenderer content={comment.content} />
+                    </div>
                   </div>
                 </div>
 
@@ -153,26 +180,57 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
       )}
 
       {/* Add Reply Input Form */}
-      <form onSubmit={handleAddComment} className="flex items-center gap-2 mt-2">
-        <input
-          type="text"
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Write a response..."
-          maxLength={1000}
-          className="flex-1 bg-white dark:bg-[#121519] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 px-3.5 py-2 rounded-full border border-neutral-300 dark:border-neutral-700/80 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-        />
-        <Button
-          type="submit"
-          variant="primary"
-          size="sm"
-          disabled={!newComment.trim() || submitting}
-          isLoading={submitting}
-          className="px-4 py-1.5 font-bold"
-        >
-          Reply
-        </Button>
-      </form>
+      <div className="relative mt-2">
+        {/* Floating Mention Autocomplete Dropdown above input */}
+        {mentionActive && (
+          <div className="absolute bottom-full mb-1 left-0 z-50">
+            <MentionDropdown
+              users={filteredUsers}
+              selectedIndex={selectedIndex}
+              onSelect={insertMention}
+            />
+          </div>
+        )}
+
+        <form onSubmit={handleAddComment} className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              ref={commentInputRef}
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => {
+                if (mentionActive && handleMentionKeyDown(e)) {
+                  return;
+                }
+              }}
+              placeholder="Write a response or type @ to mention someone..."
+              maxLength={1000}
+              className="w-full bg-white dark:bg-[#121519] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-3.5 pr-8 py-2 rounded-full border border-neutral-300 dark:border-neutral-700/80 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+            />
+
+            <button
+              type="button"
+              onClick={handleTriggerMention}
+              title="Mention a member (@)"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-sky-500 transition-colors p-1 cursor-pointer"
+            >
+              <AtSign className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            disabled={!newComment.trim() || submitting}
+            isLoading={submitting}
+            className="px-4 py-1.5 font-bold"
+          >
+            Reply
+          </Button>
+        </form>
+      </div>
     </div>
   );
 };

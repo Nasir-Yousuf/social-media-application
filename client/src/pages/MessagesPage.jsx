@@ -17,6 +17,7 @@ import {
   Sparkles,
   Trash2,
   Eraser,
+  RotateCcw,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
@@ -49,7 +50,6 @@ export const MessagesPage = () => {
   const [messages, setMessages] = useState([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [sending, setSending] = useState(false);
 
   // Composer state
   const [inputText, setInputText] = useState('');
@@ -66,6 +66,7 @@ export const MessagesPage = () => {
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
   const activeConvIdRef = useRef(null);
   activeConvIdRef.current = activeConversation?._id;
 
@@ -114,17 +115,53 @@ export const MessagesPage = () => {
     }
   }, []);
 
-  // Fetch messages for a specific conversation
+  // Fetch messages for a specific conversation without wiping pending optimistic messages
   const fetchMessages = useCallback(async (convId, silent = false) => {
     if (!silent) setLoadingMessages(true);
     try {
       const res = await api.get(`/messages/conversations/${convId}`);
-      setMessages(res.data.messages || []);
+      const serverMessages = res.data.messages || [];
+
+      setMessages((prev) => {
+        // Collect in-flight optimistic or failed messages
+        const pendingOptimistic = prev.filter(
+          (m) =>
+            (typeof m._id === 'string' && m._id.startsWith('temp-')) ||
+            m.status === 'sending' ||
+            m.status === 'failed'
+        );
+
+        if (pendingOptimistic.length === 0) {
+          return serverMessages;
+        }
+
+        const serverIds = new Set(serverMessages.map((m) => m._id));
+
+        // Keep optimistic messages that haven't yet been confirmed in server messages
+        const stillPending = pendingOptimistic.filter((opt) => {
+          if (serverIds.has(opt._id)) return false;
+
+          // Check if a server message matches sender, text, and is within 15 seconds
+          const alreadyOnServer = serverMessages.some((sm) => {
+            const smSenderId = typeof sm.sender === 'object' && sm.sender?._id ? sm.sender._id : sm.sender;
+            const optSenderId = typeof opt.sender === 'object' && opt.sender?._id ? opt.sender._id : opt.sender;
+            const sameSender = String(smSenderId) === String(optSenderId);
+            const sameText = (sm.text || '') === (opt.text || '');
+            const timeDiff = Math.abs(new Date(sm.createdAt).getTime() - new Date(opt.createdAt).getTime());
+            return sameSender && sameText && timeDiff < 15000;
+          });
+
+          return !alreadyOnServer;
+        });
+
+        return [...serverMessages, ...stillPending];
+      });
+
       if (!silent) {
-        setTimeout(() => scrollToBottom(false), 50);
+        setTimeout(() => scrollToBottom(false), 20);
       }
     } catch {
-      showToast('Could not load messages', 'error');
+      if (!silent) showToast('Could not load messages', 'error');
     } finally {
       if (!silent) setLoadingMessages(false);
     }
@@ -220,64 +257,146 @@ export const MessagesPage = () => {
     }
   };
 
-  // Send message
+  // Send message with instant 0ms optimistic UI update
   const handleSendMessage = async (e) => {
     e?.preventDefault();
     const trimmedText = inputText.trim();
     const hasCode = snippetCode.trim().length > 0;
 
-    if ((!trimmedText && !hasCode) || sending || !activeConversation) return;
+    if ((!trimmedText && !hasCode) || !activeConversation) return;
 
-    setSending(true);
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const nowIso = new Date().toISOString();
+
+    const codeSnippetPayload = hasCode
+      ? {
+          language: snippetLang,
+          code: snippetCode.trim(),
+        }
+      : undefined;
 
     const payload = {
       conversationId: activeConversation._id,
       text: trimmedText,
-      codeSnippet: hasCode
-        ? {
-            language: snippetLang,
-            code: snippetCode.trim(),
-          }
-        : undefined,
+      codeSnippet: codeSnippetPayload,
     };
 
-    // Optimistic message update
+    // 1. Instant optimistic message bubble (0ms perceived latency)
     const optimisticMessage = {
-      _id: `temp-${Date.now()}`,
+      _id: tempId,
       conversation: activeConversation._id,
-      sender: currentUser?._id,
+      sender: {
+        _id: currentUser?._id,
+        name: currentUser?.name,
+        username: currentUser?.username,
+        avatarUrl: currentUser?.avatarUrl,
+      },
       recipient: activeConversation.otherUser?._id,
       text: trimmedText,
-      codeSnippet: payload.codeSnippet,
+      codeSnippet: codeSnippetPayload,
       isRead: false,
-      createdAt: new Date().toISOString(),
+      status: 'sending',
+      createdAt: nowIso,
     };
 
+    // 2. Append optimistic bubble to active thread immediately
     setMessages((prev) => [...prev, optimisticMessage]);
+
+    // 3. Clear text/code composer immediately so user can keep typing
     setInputText('');
     setSnippetCode('');
     setShowCodeEditor(false);
     setShowEmojiPicker(false);
-    setTimeout(() => scrollToBottom(true), 50);
 
+    // Reset textarea height and keep focus
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      inputRef.current.focus();
+    }
+
+    // 4. Instant scroll to bottom
+    scrollToBottom(false);
+
+    // 5. Optimistically update conversations list in the sidebar with 0ms delay
+    setConversations((prev) => {
+      const activeIdx = prev.findIndex((c) => c._id === activeConversation._id);
+      if (activeIdx === -1) return prev;
+      const targetConv = {
+        ...prev[activeIdx],
+        lastMessage: {
+          text: trimmedText || (hasCode ? 'Shared a code snippet' : 'New message'),
+          hasCode: Boolean(hasCode),
+          sender: {
+            _id: currentUser?._id,
+            name: currentUser?.name,
+            username: currentUser?.username,
+          },
+          createdAt: nowIso,
+        },
+        updatedAt: nowIso,
+      };
+      const rest = prev.filter((_, idx) => idx !== activeIdx);
+      return [targetConv, ...rest];
+    });
+
+    // 6. Deliver to MongoDB in background without locking UI
     try {
       const res = await api.post('/messages/send', payload);
       const savedMessage = res.data.data;
 
-      // Replace optimistic message with actual DB record
+      // Reconcile temporary message with saved record
+      setMessages((prev) => {
+        const hasTemp = prev.some((m) => m._id === tempId);
+        if (hasTemp) {
+          return prev.map((m) =>
+            m._id === tempId ? { ...savedMessage, status: 'sent' } : m
+          );
+        }
+        if (!prev.some((m) => m._id === savedMessage._id)) {
+          return [...prev, { ...savedMessage, status: 'sent' }];
+        }
+        return prev;
+      });
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      showToast(err.response?.data?.message || 'Failed to send message', 'error');
+      // Mark bubble as failed instead of dropping it silently
       setMessages((prev) =>
-        prev.map((m) => (m._id === optimisticMessage._id ? savedMessage : m))
+        prev.map((m) => (m._id === tempId ? { ...m, status: 'failed' } : m))
       );
+    }
+  };
 
-      // Refresh conversations list to update last message
+  // Retry sending a failed message
+  const handleRetryMessage = async (failedMsg) => {
+    setMessages((prev) =>
+      prev.map((m) => (m._id === failedMsg._id ? { ...m, status: 'sending' } : m))
+    );
+
+    const payload = {
+      conversationId: failedMsg.conversation,
+      text: failedMsg.text,
+      codeSnippet: failedMsg.codeSnippet,
+    };
+
+    try {
+      const res = await api.post('/messages/send', payload);
+      const savedMessage = res.data.data;
+      setMessages((prev) =>
+        prev.map((m) => (m._id === failedMsg._id ? { ...savedMessage, status: 'sent' } : m))
+      );
       fetchConversations(true);
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to send message', 'error');
-      // Rollback optimistic message
-      setMessages((prev) => prev.filter((m) => m._id !== optimisticMessage._id));
-    } finally {
-      setSending(false);
+      showToast(err.response?.data?.message || 'Failed to resend message', 'error');
+      setMessages((prev) =>
+        prev.map((m) => (m._id === failedMsg._id ? { ...m, status: 'failed' } : m))
+      );
     }
+  };
+
+  // Dismiss a failed message bubble
+  const handleDismissFailedMessage = (msgId) => {
+    setMessages((prev) => prev.filter((m) => m._id !== msgId));
   };
 
   // Copy code snippet to clipboard
@@ -598,9 +717,12 @@ export const MessagesPage = () => {
                 </div>
               ) : (
                 messages.map((msg, idx) => {
-                  const isMe = msg.sender === currentUser?._id;
+                  const senderId = typeof msg.sender === 'object' && msg.sender !== null ? msg.sender._id : msg.sender;
+                  const isMe = String(senderId) === String(currentUser?._id);
                   const hasSnippet = msg.codeSnippet && msg.codeSnippet.code;
                   const isTemp = typeof msg._id === 'string' && msg._id.startsWith('temp-');
+                  const isSending = msg.status === 'sending' || isTemp;
+                  const isFailed = msg.status === 'failed';
 
                   return (
                     <div
@@ -609,9 +731,13 @@ export const MessagesPage = () => {
                     >
                       <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'} max-w-full`}>
                         <div
-                          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 text-sm leading-relaxed shadow-xs ${
-                            isMe
-                              ? 'bg-sky-500 text-white rounded-br-xs'
+                          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 text-sm leading-relaxed shadow-xs transition-all ${
+                            isFailed
+                              ? 'border-2 border-rose-500/80 bg-rose-50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200'
+                              : isMe
+                              ? isSending
+                                ? 'bg-sky-500/90 text-white rounded-br-xs'
+                                : 'bg-sky-500 text-white rounded-br-xs'
                               : 'bg-white dark:bg-[#181a20] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800/80 rounded-bl-xs'
                           }`}
                         >
@@ -650,8 +776,27 @@ export const MessagesPage = () => {
                           )}
                         </div>
 
-                        {/* Delete single message button */}
-                        {!isTemp && (
+                        {/* Action buttons beside bubble */}
+                        {isFailed ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleRetryMessage(msg)}
+                              className="p-1.5 rounded-full hover:bg-rose-500/10 text-rose-500 transition-colors cursor-pointer"
+                              title="Retry sending message"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDismissFailedMessage(msg._id)}
+                              className="p-1.5 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+                              title="Dismiss failed message"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : !isSending ? (
                           <button
                             type="button"
                             onClick={() => handleDeleteMessage(msg._id)}
@@ -660,18 +805,24 @@ export const MessagesPage = () => {
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                        )}
+                        ) : null}
                       </div>
 
                       {/* Timestamp & Delivered status */}
                       <div className="flex items-center gap-1 text-[10px] text-neutral-400 mt-1 px-1">
                         <span>{formatMessageTime(msg.createdAt)}</span>
                         {isMe && (
-                          <span>
-                            {msg.isRead ? (
-                              <CheckCheck className="w-3 h-3 text-sky-500" />
+                          <span className="inline-flex items-center">
+                            {isFailed ? (
+                              <span className="text-rose-500 font-semibold ml-1">Failed to send</span>
+                            ) : isSending ? (
+                              <span className="inline-flex items-center ml-1 text-sky-400" title="Sending...">
+                                <span className="w-2.5 h-2.5 border-1.5 border-sky-400 border-t-transparent rounded-full animate-spin inline-block" />
+                              </span>
+                            ) : msg.isRead ? (
+                              <CheckCheck className="w-3.5 h-3.5 text-sky-500 ml-0.5" title="Read" />
                             ) : (
-                              <Check className="w-3 h-3 text-neutral-400" />
+                              <Check className="w-3.5 h-3.5 text-neutral-400 ml-0.5" title="Delivered" />
                             )}
                           </span>
                         )}
@@ -785,8 +936,13 @@ export const MessagesPage = () => {
                 {/* Textarea */}
                 <div className="flex-1 relative">
                   <textarea
+                    ref={inputRef}
                     value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
+                    onChange={(e) => {
+                      setInputText(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -795,16 +951,14 @@ export const MessagesPage = () => {
                     }}
                     placeholder="Start a new message... (Enter to send)"
                     rows={1}
-                    className="w-full py-2 px-3.5 rounded-2xl bg-neutral-100 dark:bg-[#16181c] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none focus:border-sky-500 border border-transparent resize-none max-h-32 min-h-[38px] leading-relaxed"
+                    className="w-full py-2 px-3.5 rounded-2xl bg-neutral-100 dark:bg-[#16181c] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none focus:border-sky-500 border border-transparent resize-none max-h-32 min-h-[38px] leading-relaxed transition-all"
                   />
                 </div>
 
                 {/* Send Button */}
                 <button
                   type="submit"
-                  disabled={
-                    (!inputText.trim() && !snippetCode.trim()) || sending
-                  }
+                  disabled={!inputText.trim() && !snippetCode.trim()}
                   className="p-2.5 rounded-full bg-sky-500 text-white disabled:opacity-40 hover:bg-sky-400 active:bg-sky-600 transition-all cursor-pointer shrink-0 shadow-xs"
                   title="Send message"
                 >

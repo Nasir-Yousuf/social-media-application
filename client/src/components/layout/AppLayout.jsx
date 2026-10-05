@@ -53,7 +53,7 @@ export const AppLayout = () => {
       </header>
 
       {/* Main 3-Column Twitter Layout Container */}
-      <div className="max-w-7xl mx-auto flex justify-center min-h-screen">
+      <div className="max-w-7xl mx-auto flex justify-center items-start min-h-screen">
         {/* Left Column: Navigation Sidebar */}
         <LeftSidebar />
 

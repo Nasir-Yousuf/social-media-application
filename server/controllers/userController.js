@@ -43,15 +43,21 @@ exports.getProfileByUsername = async (req, res) => {
 // Update profile (own)
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, bio, status, avatarUrl, avatarBase64 } = req.body;
+    const { name, bio, status, avatarUrl, avatarBase64, removeAvatar } = req.body;
     const user = req.user;
 
     if (name) user.name = name.trim();
     if (bio !== undefined) user.bio = bio.trim();
     if (status !== undefined) user.status = status.trim().slice(0, 60);
 
-    // Process avatar base64 upload if provided
-    if (avatarBase64) {
+    // Process remove avatar
+    if (removeAvatar) {
+      user.avatar = undefined;
+      user.avatarMimeType = 'image/jpeg';
+      user.hasCustomAvatar = false;
+      user.avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.username)}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
+    } else if (avatarBase64) {
+      // Process avatar base64 upload if provided
       const matches = avatarBase64.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
       let buffer;
       let mimeType = 'image/jpeg';
@@ -63,11 +69,11 @@ exports.updateProfile = async (req, res) => {
         buffer = Buffer.from(avatarBase64, 'base64');
       }
 
-      // 100KB limit enforcement
-      const MAX_SIZE = 100 * 1024;
+      // 200KB limit enforcement
+      const MAX_SIZE = 200 * 1024;
       if (buffer.length > MAX_SIZE) {
         return res.status(400).json({
-          message: `Avatar image must be under 100KB (current: ${(buffer.length / 1024).toFixed(1)}KB).`,
+          message: `Profile photo must be under 200KB (current: ${(buffer.length / 1024).toFixed(1)}KB).`,
         });
       }
 

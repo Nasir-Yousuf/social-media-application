@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Camera } from 'lucide-react';
+import { Upload, Camera, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Avatar from '../common/Avatar';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { compressAvatarImage } from '../../utils/imageCompressor';
 
 export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
   const { user, updateUser } = useAuth();
@@ -17,10 +18,13 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
   const [status, setStatus] = useState(user?.status || '');
   const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || '');
   const [avatarBase64, setAvatarBase64] = useState('');
+  const [removeAvatar, setRemoveAvatar] = useState(false);
+  const [avatarSizeKB, setAvatarSizeKB] = useState(null);
+  const [compressing, setCompressing] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Resize and compress chosen image to 128x128 JPEG <= 100KB using Canvas
-  const handleFileSelect = (e) => {
+  // Resize and compress chosen image to 256x256 JPEG <= 200KB
+  const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -29,42 +33,37 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const size = 128;
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
+    setCompressing(true);
+    try {
+      const result = await compressAvatarImage(file, {
+        size: 256,
+        maxSizeBytes: 200 * 1024, // 200KB limit
+        initialQuality: 0.85,
+      });
 
-        // Center crop and draw into square
-        const minDim = Math.min(img.width, img.height);
-        const sx = (img.width - minDim) / 2;
-        const sy = (img.height - minDim) / 2;
+      setAvatarPreview(result.base64);
+      setAvatarBase64(result.base64);
+      setRemoveAvatar(false);
+      setAvatarSizeKB(result.sizeKB);
+      showToast(`Photo optimized (${result.sizeKB} KB) - under 200KB limit`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to compress image.', 'error');
+    } finally {
+      setCompressing(false);
+      // Reset input value so re-selecting the same file fires onChange
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
-        ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
-
-        // Compress to JPEG with 0.85 quality
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-
-        // Check binary size
-        const head = 'data:image/jpeg;base64,';
-        const rawLength = Math.round(((compressedBase64.length - head.length) * 3) / 4);
-
-        if (rawLength > 100 * 1024) {
-          showToast('Image could not be compressed below 100KB. Try a smaller file.', 'error');
-          return;
-        }
-
-        setAvatarPreview(compressedBase64);
-        setAvatarBase64(compressedBase64);
-        showToast(`Image optimized (${Math.round(rawLength / 1024)} KB)`, 'info');
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+  const handleRemovePhoto = () => {
+    setRemoveAvatar(true);
+    setAvatarBase64('');
+    setAvatarSizeKB(null);
+    const defaultDicebear = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+      user?.username || 'user'
+    )}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
+    setAvatarPreview(defaultDicebear);
+    showToast('Profile photo removed. Default initials avatar will be used.', 'info');
   };
 
   const handleSubmit = async (e) => {
@@ -79,7 +78,9 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
         status: status.trim().slice(0, 60),
       };
 
-      if (avatarBase64) {
+      if (removeAvatar) {
+        payload.removeAvatar = true;
+      } else if (avatarBase64) {
         payload.avatarBase64 = avatarBase64;
       }
 
@@ -98,48 +99,88 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
     }
   };
 
+  const hasCustomPhoto =
+    (user?.hasCustomAvatar && !removeAvatar) || Boolean(avatarBase64);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Profile">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 font-sans">
-        {/* Avatar Upload */}
-        <div className="flex flex-col items-center gap-3 py-2 border-b border-neutral-100 dark:border-neutral-800">
+        {/* Avatar Upload Area */}
+        <div className="flex flex-col items-center gap-3 py-3 border-b border-neutral-100 dark:border-neutral-800">
           <div
             className="relative group cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
-            title="Change profile avatar"
+            onClick={() => !compressing && fileInputRef.current?.click()}
+            title="Click to choose a photo"
           >
-            <Avatar src={avatarPreview} name={name} size="xl" />
-            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="w-6 h-6 text-white" />
+            <div className="ring-4 ring-neutral-100 dark:ring-neutral-800 rounded-full overflow-hidden inline-block shadow-sm">
+              <Avatar src={avatarPreview} name={name} size="2xl" />
             </div>
+
+            <div className="absolute inset-0 rounded-full bg-black/55 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-semibold">
+              <Camera className="w-6 h-6 mb-1" />
+              <span>Change</span>
+            </div>
+
+            {compressing && (
+              <div className="absolute inset-0 rounded-full bg-black/70 flex items-center justify-center text-white text-xs font-bold animate-pulse">
+                Optimizing...
+              </div>
+            )}
           </div>
 
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/png,image/jpeg,image/webp,image/jpg"
             onChange={handleFileSelect}
             className="hidden"
           />
 
-          <div className="text-center">
+          {/* Action buttons for Avatar */}
+          <div className="flex items-center gap-2 flex-wrap justify-center">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="text-xs font-semibold text-sky-500 hover:underline flex items-center gap-1.5 cursor-pointer mx-auto"
+              disabled={compressing}
+              className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5" />
-              <span>Upload photo (auto-compressed ≤ 100KB)</span>
+              <span>{hasCustomPhoto ? 'Upload new photo' : 'Upload photo'}</span>
             </button>
-            <span className="text-[11px] text-neutral-400 mt-0.5 block">
-              JPG, PNG, or WebP. Stored locally in MongoDB database.
-            </span>
+
+            {hasCustomPhoto && (
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                disabled={compressing}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove</span>
+              </button>
+            )}
+          </div>
+
+          {/* Size / Status Badge */}
+          <div className="text-center">
+            {avatarSizeKB ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-500/20">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Compressed: {avatarSizeKB} KB (Limit: 200 KB)</span>
+              </span>
+            ) : (
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400 block">
+                Auto-compressed to &le; 200 KB &bull; JPG, PNG, or WebP &bull; MongoDB safe
+              </span>
+            )}
           </div>
         </div>
 
         {/* Full Name */}
         <div>
-          <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">Display Name</label>
+          <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+            Display Name
+          </label>
           <input
             type="text"
             value={name}
@@ -153,7 +194,9 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
         {/* Status / Mood */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">Current Status</label>
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              Current Status
+            </label>
             <span className="text-[11px] text-neutral-400">{60 - status.length}</span>
           </div>
           <input
@@ -169,7 +212,9 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
         {/* Bio */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">Bio</label>
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+              Bio
+            </label>
             <span className="text-[11px] text-neutral-400">{160 - bio.length}</span>
           </div>
           <textarea
@@ -184,7 +229,7 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
 
         {/* Buttons */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-neutral-800">
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={loading || compressing}>
             Cancel
           </Button>
           <Button
@@ -192,6 +237,7 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
             variant="primary"
             size="sm"
             isLoading={loading}
+            disabled={compressing}
             className="px-5 py-1.5 font-bold"
           >
             Save Profile

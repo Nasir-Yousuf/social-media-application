@@ -69,20 +69,23 @@ exports.getMessages = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to view these messages.' });
     }
 
-    // Mark unread messages sent to current user as read
-    await Message.updateMany(
-      {
-        conversation: conversationId,
-        recipient: currentUserId,
-        isRead: false,
-      },
-      { isRead: true }
-    );
-
-    // Reset unread count for current user in conversation
-    if (conversation.unreadCounts) {
-      conversation.unreadCounts.set(currentUserId.toString(), 0);
-      await conversation.save();
+    // Mark unread messages sent to current user as read only if unread messages exist
+    const currentUnread = conversation.unreadCounts?.get(currentUserId.toString()) || 0;
+    if (currentUnread > 0) {
+      if (conversation.unreadCounts) {
+        conversation.unreadCounts.set(currentUserId.toString(), 0);
+      }
+      await Promise.all([
+        Message.updateMany(
+          {
+            conversation: conversationId,
+            recipient: currentUserId,
+            isRead: false,
+          },
+          { isRead: true }
+        ),
+        conversation.save(),
+      ]);
     }
 
     // Fetch messages (paginated, chronological order)
@@ -230,21 +233,26 @@ exports.sendMessage = async (req, res) => {
       isRead: false,
     });
 
-    await message.save();
-
     // Update conversation metadata
+    const messageCreatedAt = new Date();
     conversation.lastMessage = {
       text: trimmedText || (hasValidCode ? 'Shared a code snippet' : 'New message'),
       hasCode: Boolean(hasValidCode),
       sender: currentUserId,
-      createdAt: message.createdAt,
+      createdAt: messageCreatedAt,
     };
 
     const recipientKey = targetRecipientId.toString();
     const currentUnread = conversation.unreadCounts?.get(recipientKey) || 0;
-    conversation.unreadCounts.set(recipientKey, currentUnread + 1);
+    if (conversation.unreadCounts) {
+      conversation.unreadCounts.set(recipientKey, currentUnread + 1);
+    }
 
-    await conversation.save();
+    // Save message and conversation concurrently to eliminate latency
+    await Promise.all([
+      message.save(),
+      conversation.save(),
+    ]);
 
     return res.status(201).json({
       message: 'Message delivered.',

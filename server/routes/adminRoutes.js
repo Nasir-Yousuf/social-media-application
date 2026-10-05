@@ -11,5 +11,6 @@ router.patch('/users/:id/role', adminController.toggleUserRole);
 router.patch('/users/:id/status', adminController.toggleUserStatus);
 router.delete('/users/:id', adminController.deleteUser);
 router.get('/posts', adminController.getAllPosts);
+router.post('/purge-all-data', adminController.purgeAllData);
 
 module.exports = router;

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Code2,
   FileText,
   MessageSquare,
+  ArrowLeft,
+  Camera,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -19,6 +21,7 @@ import { FacultyBadge } from '../components/common/ClearfeedIcons';
 
 export const ProfilePage = () => {
   const { username } = useParams();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { showToast } = useNotifications();
 
@@ -104,11 +107,28 @@ export const ProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        <div className="p-6 rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 space-y-4">
-          <div className="w-20 h-20 rounded-full bg-neutral-200 dark:bg-neutral-800" />
-          <div className="h-5 bg-neutral-200 dark:bg-neutral-800 rounded w-44" />
-          <div className="h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded w-28" />
+      <div className="flex flex-col font-sans animate-pulse">
+        {/* Sticky Top Bar Skeleton */}
+        <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/85 dark:bg-black/85 border-b border-neutral-200/80 dark:border-neutral-800/80 px-4 py-2 flex items-center gap-6">
+          <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+          <div className="space-y-1.5">
+            <div className="w-28 h-4 bg-neutral-200 dark:bg-neutral-800 rounded" />
+            <div className="w-16 h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+          </div>
+        </div>
+        {/* Banner Skeleton */}
+        <div className="h-32 sm:h-44 w-full bg-neutral-200 dark:bg-neutral-800/60" />
+        {/* Profile Info Skeleton */}
+        <div className="px-4 sm:px-6 pb-4 space-y-4">
+          <div className="flex justify-between items-end -mt-12 sm:-mt-14">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-neutral-300 dark:bg-neutral-700 ring-4 ring-white dark:ring-black" />
+            <div className="w-24 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 mb-1" />
+          </div>
+          <div className="space-y-2 pt-2">
+            <div className="w-40 h-5 bg-neutral-200 dark:bg-neutral-800 rounded" />
+            <div className="w-24 h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+            <div className="w-full max-w-sm h-3 bg-neutral-100 dark:bg-neutral-800/50 rounded mt-2" />
+          </div>
         </div>
       </div>
     );
@@ -116,15 +136,32 @@ export const ProfilePage = () => {
 
   if (!profile) {
     return (
-      <div className="py-20 text-center text-neutral-500 dark:text-neutral-400">
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Member not found</h2>
-        <p className="text-sm mt-1">This user profile does not exist.</p>
-        <NavLink
-          to="/"
-          className="inline-block mt-4 text-sm text-sky-500 hover:underline font-semibold"
-        >
-          &larr; Back to Feed
-        </NavLink>
+      <div className="flex flex-col font-sans">
+        {/* Sticky Top Bar */}
+        <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/85 dark:bg-black/85 border-b border-neutral-200/80 dark:border-neutral-800/80 px-4 py-2 flex items-center gap-6">
+          <button
+            onClick={() => navigate(-1)}
+            aria-label="Back"
+            className="p-2 -ml-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors text-neutral-800 dark:text-neutral-200 cursor-pointer active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">Profile</h1>
+          </div>
+        </div>
+
+        {/* Not Found Body */}
+        <div className="py-24 px-4 text-center text-neutral-500 dark:text-neutral-400">
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">This account doesn’t exist</h2>
+          <p className="text-sm mt-1">Try searching for another member.</p>
+          <NavLink
+            to="/"
+            className="inline-block mt-4 px-5 py-2 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm transition-colors"
+          >
+            Back to Feed
+          </NavLink>
+        </div>
       </div>
     );
   }
@@ -140,53 +177,86 @@ export const ProfilePage = () => {
   const displayedPosts = activeTab === 'code' ? codePosts : posts;
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* Profile Card */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <Avatar
-              src={profile.avatarUrl}
-              name={profile.name}
-              size="xl"
-              showRoleBadge={true}
-              role={profile.role}
-            />
+    <div className="flex flex-col font-sans">
+      {/* Twitter Sticky Header */}
+      <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/85 dark:bg-black/85 border-b border-neutral-200/80 dark:border-neutral-800/80 px-4 py-2 flex items-center gap-6">
+        <button
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+          className="p-2 -ml-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors text-neutral-800 dark:text-neutral-200 cursor-pointer active:scale-95"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">{profile.name}</h1>
-                {profile.role === 'admin' && (
-                  <FacultyBadge className="w-4 h-4 text-amber-500" />
-                )}
-              </div>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-lg font-black tracking-tight text-neutral-900 dark:text-white truncate leading-tight">
+              {profile.name}
+            </h1>
+            {profile.role === 'admin' && (
+              <FacultyBadge className="w-4 h-4 text-amber-500 shrink-0" />
+            )}
+          </div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-tight">
+            {profile.postsCount ?? posts.length} {((profile.postsCount ?? posts.length) === 1) ? 'post' : 'posts'}
+          </p>
+        </div>
+      </div>
 
-              {profile.status && (
-                <div className="pt-1">
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium inline-block">
-                    {profile.status}
-                  </span>
-                </div>
-              )}
+      {/* Cover Banner */}
+      <div className="h-32 sm:h-44 w-full bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-600/25 dark:from-sky-950/60 dark:via-indigo-950/40 dark:to-neutral-900 relative overflow-hidden border-b border-neutral-200/80 dark:border-neutral-800/80">
+        <div className="absolute inset-0 opacity-20 dark:opacity-30 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
+        <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-sky-400/20 blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Profile Header Details */}
+      <div className="px-4 sm:px-6 pb-4">
+        {/* Avatar and Action Buttons */}
+        <div className="flex justify-between items-end -mt-12 sm:-mt-14 mb-4">
+          <div className="relative group">
+            <div
+              className={`ring-4 ring-white dark:ring-black rounded-full overflow-hidden inline-block bg-white dark:bg-black shadow-md ${
+                isSelf ? 'cursor-pointer' : ''
+              }`}
+              onClick={() => isSelf && setIsEditModalOpen(true)}
+              title={isSelf ? 'Click to change profile photo' : profile.name}
+            >
+              <Avatar
+                src={profile.avatarUrl}
+                name={profile.name}
+                size="2xl"
+                showRoleBadge={false}
+              />
             </div>
+
+            {isSelf && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                title="Change profile photo"
+                className="absolute inset-0 rounded-full bg-black/45 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ring-4 ring-white dark:ring-black"
+              >
+                <Camera className="w-6 h-6 mb-0.5 drop-shadow-md" />
+                <span className="text-[10px] font-bold">Edit</span>
+              </button>
+            )}
           </div>
 
-          <div>
+          <div className="flex items-center gap-2 mb-1">
             {isSelf ? (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsEditModalOpen(true)}
-                className="w-full sm:w-auto font-semibold"
+                className="font-bold rounded-full px-4 text-sm"
               >
-                Edit Profile
+                Edit profile
               </Button>
             ) : (
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2">
                 <NavLink
                   to={`/messages?user=${profile.username}`}
-                  className="p-2 rounded-full border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors shrink-0"
+                  className="p-2 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
                   title={`Direct Message @${profile.username}`}
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -197,7 +267,7 @@ export const ProfilePage = () => {
                   size="sm"
                   onClick={handleFollowToggle}
                   isLoading={followLoading}
-                  className="flex-1 sm:flex-initial px-5 font-bold"
+                  className="px-5 font-bold rounded-full text-sm"
                 >
                   {profile.isFollowing ? 'Following' : 'Follow'}
                 </Button>
@@ -206,79 +276,118 @@ export const ProfilePage = () => {
           </div>
         </div>
 
-        {/* Bio */}
-        {profile.bio && (
-          <p className="mt-4 text-neutral-700 dark:text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">
-            {profile.bio}
-          </p>
-        )}
+        {/* User Identity Info */}
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
+                {profile.name}
+              </h2>
+              {profile.role === 'admin' && (
+                <FacultyBadge className="w-5 h-5 text-amber-500" />
+              )}
+            </div>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
+          </div>
 
-        {/* Stats Row */}
-        <div className="flex items-center gap-6 mt-5 pt-4 border-t border-neutral-100 dark:border-neutral-800/80 text-xs text-neutral-500 dark:text-neutral-400 flex-wrap">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>
-              Joined {profile.createdAt ? format(new Date(profile.createdAt), 'MMMM yyyy') : 'recently'}
+          {profile.status && (
+            <div>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium inline-block border border-sky-200/50 dark:border-sky-500/20">
+                {profile.status}
+              </span>
+            </div>
+          )}
+
+          {profile.bio && (
+            <p className="text-sm text-neutral-800 dark:text-neutral-200 font-sans leading-relaxed whitespace-pre-wrap">
+              {profile.bio}
+            </p>
+          )}
+
+          {/* Metadata */}
+          <div className="flex items-center gap-4 pt-1 text-xs text-neutral-500 dark:text-neutral-400 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" />
+              <span>
+                Joined {profile.createdAt ? format(new Date(profile.createdAt), 'MMMM yyyy') : 'recently'}
+              </span>
             </span>
-          </span>
+          </div>
 
-          <button
-            onClick={() => openConnectionsModal('following')}
-            className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
-          >
-            <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followingCount || 0}</strong> Following
-          </button>
+          {/* Followers / Following counts */}
+          <div className="flex items-center gap-5 pt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            <button
+              onClick={() => openConnectionsModal('following')}
+              className="hover:underline transition-all cursor-pointer flex items-center gap-1"
+            >
+              <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followingCount || 0}</strong>
+              <span className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">Following</span>
+            </button>
 
-          <button
-            onClick={() => openConnectionsModal('followers')}
-            className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
-          >
-            <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followersCount || 0}</strong> Followers
-          </button>
-
-          <span>
-            <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.postsCount || 0}</strong> Posts
-          </span>
+            <button
+              onClick={() => openConnectionsModal('followers')}
+              className="hover:underline transition-all cursor-pointer flex items-center gap-1"
+            >
+              <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followersCount || 0}</strong>
+              <span className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">Followers</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Profile Tabs */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2">
+      <div className="flex border-b border-neutral-200/80 dark:border-neutral-800/80">
         <button
           onClick={() => setActiveTab('posts')}
-          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95 ${
-            activeTab === 'posts'
-              ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
-              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
-          }`}
+          className="flex-1 py-3.5 text-center font-bold text-sm hover:bg-neutral-100/50 dark:hover:bg-neutral-900/50 transition-colors relative cursor-pointer"
         >
-          <FileText className="w-4 h-4" />
-          <span>All Posts ({posts.length})</span>
+          <span
+            className={`transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'posts'
+                ? 'text-neutral-900 dark:text-white font-extrabold'
+                : 'text-neutral-500 font-medium'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Posts ({posts.length})
+          </span>
+          {activeTab === 'posts' && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-1 bg-sky-500 rounded-full" />
+          )}
         </button>
 
         <button
           onClick={() => setActiveTab('code')}
-          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95 ${
-            activeTab === 'code'
-              ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
-              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
-          }`}
+          className="flex-1 py-3.5 text-center font-bold text-sm hover:bg-neutral-100/50 dark:hover:bg-neutral-900/50 transition-colors relative cursor-pointer"
         >
-          <Code2 className="w-4 h-4" />
-          <span>Code ({codePosts.length})</span>
+          <span
+            className={`transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'code'
+                ? 'text-neutral-900 dark:text-white font-extrabold'
+                : 'text-neutral-500 font-medium'
+            }`}
+          >
+            <Code2 className="w-4 h-4" />
+            Code Hub ({codePosts.length})
+          </span>
+          {activeTab === 'code' && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-sky-500 rounded-full" />
+          )}
         </button>
       </div>
 
       {/* Posts Stream */}
-      <PostList
-        posts={displayedPosts}
-        emptyMessage={
-          activeTab === 'code' ? 'No code snippets posted yet.' : 'No posts published yet.'
-        }
-        emptyDescription="Thoughts and code snippets written by this member will show up here."
-        onPostDeleted={(id) => setPosts((prev) => prev.filter((p) => p._id !== id))}
-        onPostUpdated={(up) => setPosts((prev) => prev.map((p) => (p._id === up._id ? up : p)))}
-      />
+      <div>
+        <PostList
+          posts={displayedPosts}
+          emptyMessage={
+            activeTab === 'code' ? 'No code snippets posted yet.' : 'No posts published yet.'
+          }
+          emptyDescription="Thoughts and code snippets written by this member will show up here."
+          onPostDeleted={(id) => setPosts((prev) => prev.filter((p) => p._id !== id))}
+          onPostUpdated={(up) => setPosts((prev) => prev.map((p) => (p._id === up._id ? up : p)))}
+        />
+      </div>
 
       {/* Edit Profile Modal */}
       {isEditModalOpen && (

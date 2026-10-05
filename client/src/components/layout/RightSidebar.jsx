@@ -98,22 +98,25 @@ export const RightSidebar = () => {
   };
 
   return (
-    <aside className="hidden lg:flex flex-col gap-4 sticky top-0 h-screen w-80 xl:w-90 px-3 py-3 overflow-y-auto shrink-0 select-none z-20">
-      {/* Twitter Search Bar */}
-      <form onSubmit={handleSearchSubmit} className="relative w-full">
-        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
-          <Search className="w-4 h-4" />
-        </div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search Clearfeed"
-          className="w-full pl-10 pr-4 py-2.5 rounded-full bg-neutral-100 dark:bg-[#16181c] border border-transparent focus:border-sky-500 focus:bg-white dark:focus:bg-black text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-500 outline-none transition-all duration-200"
-        />
-      </form>
+    <aside className="hidden lg:flex flex-col sticky top-0 h-screen max-h-screen w-80 xl:w-90 px-3 pt-1 pb-16 overflow-y-auto shrink-0 z-20 self-start overscroll-contain sidebar-scroll">
+      {/* Twitter Search Bar - Sticky Header */}
+      <div className="sticky top-0 z-10 pt-2 pb-3 bg-white/95 dark:bg-black/95 backdrop-blur-md">
+        <form onSubmit={handleSearchSubmit} className="relative w-full">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
+            <Search className="w-4 h-4" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search Clearfeed"
+            className="w-full pl-10 pr-4 py-2.5 rounded-full bg-neutral-100 dark:bg-[#16181c] border border-transparent focus:border-sky-500 focus:bg-white dark:focus:bg-black text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-500 outline-none transition-all duration-200"
+          />
+        </form>
+      </div>
 
-      {/* "What's happening" / Trending Hashtags Card */}
+      <div className="flex flex-col gap-4 pb-8">
+        {/* "What's happening" / Trending Hashtags Card */}
       <div className="rounded-2xl bg-neutral-100/70 dark:bg-[#16181c] border border-neutral-200/60 dark:border-neutral-800/80 overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
           <h2 className="font-sans font-black text-lg tracking-tight text-neutral-900 dark:text-white flex items-center gap-2">
@@ -246,6 +249,7 @@ export const RightSidebar = () => {
         </div>
         <p>© 2026 Clearfeed · Anti-Algorithm Network</p>
       </footer>
+      </div>
     </aside>
   );
 };

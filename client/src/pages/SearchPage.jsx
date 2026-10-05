@@ -54,7 +54,7 @@ export const SearchPage = () => {
   const totalResults = (results.users?.length || 0) + (results.posts?.length || 0);
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="p-4 sm:p-5 space-y-6 font-sans">
       {/* Search Header */}
       <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <form onSubmit={handleSubmit} className="relative">

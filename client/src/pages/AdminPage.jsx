@@ -127,8 +127,27 @@ export const AdminPage = () => {
     }
   };
 
+  const [purging, setPurging] = useState(false);
+  const handlePurgeAllData = async () => {
+    const confirmation = window.prompt(
+      '⚠️ DANGER: This will permanently delete ALL dummy users, posts, messages, comments, likes, and follows from MongoDB.\n\nType "RESET" to confirm:'
+    );
+    if (confirmation !== 'RESET') return;
+
+    setPurging(true);
+    try {
+      const res = await api.post('/admin/purge-all-data');
+      showToast(res.data.message || 'All platform data purged successfully', 'success');
+      fetchAdminData();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to purge data', 'error');
+    } finally {
+      setPurging(false);
+    }
+  };
+
   return (
-    <div className="space-y-6 font-sans">
+    <div className="p-4 sm:p-5 space-y-6 font-sans">
       {/* Top Header */}
       <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -214,6 +233,30 @@ export const AdminPage = () => {
                   <p className="leading-relaxed font-sans text-xs">
                     As an administrator, you have full oversight over user accounts, content moderation, and platform announcements. Use the Broadcast tab to publish announcements that pin to the top of all feeds.
                   </p>
+                </div>
+
+                {/* DANGER ZONE: Platform Data Reset */}
+                <div className="p-5 sm:p-6 rounded-3xl bg-red-500/5 border border-red-500/20 text-xs shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-sm text-red-600 dark:text-red-400">
+                        Platform Reset & Data Cleanup
+                      </h3>
+                      <p className="text-neutral-500 dark:text-neutral-400 text-xs mt-0.5">
+                        Permanently purge all dummy users, sample posts, comments, likes, and messages from MongoDB to test with real users.
+                      </p>
+                    </div>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={handlePurgeAllData}
+                      loading={purging}
+                      className="shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Purge All Dummy Data
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

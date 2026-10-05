@@ -17,8 +17,10 @@ import {
   Moon,
   Sparkles,
   ExternalLink,
+  Palette,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { ClearfeedLogo } from '../common/ClearfeedIcons';
 import Avatar from '../common/Avatar';
@@ -26,7 +28,8 @@ import Modal from '../common/Modal';
 import PostComposer from '../posts/PostComposer';
 
 export const LeftSidebar = () => {
-  const { user, logout, isAdmin, isDark, toggleTheme } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
+  const { theme, currentTheme, isDark, toggleTheme, openThemeModal } = useTheme();
   const { unreadCount, unreadMessagesCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,7 +69,7 @@ export const LeftSidebar = () => {
 
   return (
     <>
-      <aside className="hidden md:flex flex-col justify-between sticky top-0 h-screen w-18 xl:w-64 px-2 xl:px-4 py-3 shrink-0 border-r border-neutral-200/80 dark:border-neutral-800/80 select-none z-30 transition-all duration-200">
+      <aside className="hidden md:flex flex-col justify-between sticky top-0 h-screen max-h-screen w-18 xl:w-64 px-2 xl:px-4 py-3 shrink-0 border-r border-neutral-200/80 dark:border-neutral-800/80 select-none z-30 self-start transition-all duration-200">
         {/* Top: Logo & Nav Links */}
         <div className="flex flex-col gap-1.5">
           {/* Logo */}
@@ -125,6 +128,19 @@ export const LeftSidebar = () => {
               );
             })}
 
+            {/* Display / Theme Customizer */}
+            <button
+              type="button"
+              onClick={openThemeModal}
+              className="flex items-center gap-4 px-3.5 py-3 rounded-full text-base font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white transition-all duration-150 active:scale-95 w-fit xl:w-full cursor-pointer group"
+              title={`Theme: ${currentTheme?.name} (Click to customize)`}
+            >
+              <div className="relative transition-transform duration-200 group-hover:scale-110">
+                <Palette className="w-6 h-6 stroke-[2]" style={{ color: currentTheme?.accentColor }} />
+              </div>
+              <span className="hidden xl:inline text-lg tracking-tight">Display</span>
+            </button>
+
             {/* More / Settings Menu */}
             <div className="relative">
               <button
@@ -138,18 +154,23 @@ export const LeftSidebar = () => {
 
               {isMoreMenuOpen && (
                 <div
-                  className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#12151a] border border-neutral-200 dark:border-neutral-800 rounded-2xl p-1.5 shadow-2xl z-50 animate-fade-in"
+                  className="absolute bottom-full left-0 mb-2 w-60 bg-white dark:bg-[#12151a] border border-neutral-200 dark:border-neutral-800 rounded-2xl p-1.5 shadow-2xl z-50 animate-fade-in"
                   onMouseLeave={() => setIsMoreMenuOpen(false)}
                 >
                   <button
                     onClick={() => {
-                      toggleTheme();
+                      openThemeModal();
                       setIsMoreMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
                   >
-                    {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-sky-500" />}
-                    <span>{isDark ? 'Light Display' : 'Dark Display'}</span>
+                    <div className="flex items-center gap-3">
+                      <Palette className="w-4 h-4 text-sky-500" />
+                      <span>Display & Themes</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700">
+                      {currentTheme?.name}
+                    </span>
                   </button>
                   <NavLink
                     to="/digest"
@@ -207,13 +228,18 @@ export const LeftSidebar = () => {
 
                 <button
                   onClick={() => {
-                    toggleTheme();
+                    openThemeModal();
                     setIsUserMenuOpen(false);
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
                 >
-                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-sky-500" />}
-                  <span>Switch Theme</span>
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-sky-500" />
+                    <span>Theme ({currentTheme?.name})</span>
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-500">
+                    {currentTheme?.badge}
+                  </span>
                 </button>
 
                 <button

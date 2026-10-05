@@ -7,6 +7,7 @@ import {
   UserPlus,
   Flame,
   CheckCheck,
+  AtSign,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -61,6 +62,12 @@ export const NotificationsPage = () => {
             <MessageCircle className="w-4 h-4" />
           </div>
         );
+      case 'mention':
+        return (
+          <div className="p-2 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-500 ring-1 ring-purple-200 dark:ring-purple-900/50">
+            <AtSign className="w-4 h-4" />
+          </div>
+        );
       case 'follow':
         return (
           <div className="p-2 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 ring-1 ring-emerald-200 dark:ring-emerald-900/50">
@@ -92,6 +99,7 @@ export const NotificationsPage = () => {
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeFilter === 'all') return true;
+    if (activeFilter === 'mentions') return n.type === 'mention';
     if (activeFilter === 'likes') return n.type === 'like';
     if (activeFilter === 'comments') return n.type === 'comment';
     if (activeFilter === 'follows') return n.type === 'follow';
@@ -99,7 +107,7 @@ export const NotificationsPage = () => {
   });
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="p-4 sm:p-5 space-y-6 font-sans">
       {/* Header */}
       <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
         <div>
@@ -110,7 +118,7 @@ export const NotificationsPage = () => {
             <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Notifications</h1>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
-            Direct interactions: replies, appreciations, and new connections.
+            Direct interactions: mentions, replies, appreciations, and new connections.
           </p>
         </div>
 
@@ -131,6 +139,7 @@ export const NotificationsPage = () => {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
         {[
           { id: 'all', label: 'All' },
+          { id: 'mentions', label: 'Mentions' },
           { id: 'likes', label: 'Likes' },
           { id: 'comments', label: 'Comments' },
           { id: 'follows', label: 'Followers' },
@@ -211,6 +220,7 @@ export const NotificationsPage = () => {
                   )}
                   {n.type === 'like' && 'appreciated your post.'}
                   {n.type === 'comment' && 'responded to your post.'}
+                  {n.type === 'mention' && (n.comment ? 'mentioned you in a response.' : 'mentioned you in a post.')}
                   {n.type === 'follow' && 'began following your updates.'}
                   {n.type === 'announcement' && 'published an announcement.'}
                 </p>

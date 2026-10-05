@@ -13,7 +13,7 @@ const generateToken = (userId) => {
 // Register
 exports.register = async (req, res) => {
   try {
-    const { name, username, email, password, bio, avatarUrl } = req.body;
+    const { name, username, email, password, bio, avatarUrl, avatarBase64 } = req.body;
 
     if (!name || !username || !email || !password) {
       return res.status(400).json({ message: 'Name, username, email, and password are required.' });
@@ -34,6 +34,29 @@ exports.register = async (req, res) => {
       return res.status(409).json({ message: 'This username is already taken. Please choose another.' });
     }
 
+    // Process avatar if provided during registration
+    let avatarBuffer;
+    let avatarMime = 'image/jpeg';
+    if (avatarBase64) {
+      const matches = avatarBase64.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        avatarMime = matches[1];
+        avatarBuffer = Buffer.from(matches[2], 'base64');
+      } else {
+        avatarBuffer = Buffer.from(avatarBase64, 'base64');
+      }
+
+      const MAX_SIZE = 200 * 1024;
+      if (avatarBuffer.length > MAX_SIZE) {
+        return res.status(400).json({
+          message: `Profile photo must be under 200KB (current: ${(avatarBuffer.length / 1024).toFixed(1)}KB).`,
+        });
+      }
+    }
+
+    const userCount = await User.countDocuments();
+    const isFirstUser = userCount === 0;
+
     const user = new User({
       name: name.trim(),
       username: cleanUsername,
@@ -41,8 +64,16 @@ exports.register = async (req, res) => {
       password,
       bio: bio ? bio.trim() : 'Thinking, building, and exploring code.',
       avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanUsername)}&backgroundColor=6b7c5e,c4956a,8a7b6b,7c8a6b&textColor=ffffff`,
-      role: 'student',
+      role: isFirstUser ? 'admin' : 'student',
+      isApproved: true,
     });
+
+    if (avatarBuffer) {
+      user.avatar = avatarBuffer;
+      user.avatarMimeType = avatarMime;
+      user.hasCustomAvatar = true;
+      user.avatarUrl = `/api/users/${user._id}/avatar?t=${Date.now()}`;
+    }
 
     await user.save();
 

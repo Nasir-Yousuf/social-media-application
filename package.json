@@ -7,6 +7,7 @@
     "dev:client": "npm --prefix client run dev",
     "dev:mobile": "npm --prefix mobile run start",
     "mobile": "npm --prefix mobile run start",
+    "clean": "npm --prefix server run clean",
     "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:client\""
   }
 }

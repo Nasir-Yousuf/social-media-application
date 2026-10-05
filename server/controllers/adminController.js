@@ -144,3 +144,18 @@ exports.getAllPosts = async (req, res) => {
     return res.status(500).json({ message: 'Error retrieving posts for moderation.' });
   }
 };
+
+// Admin Platform Reset: purge all data for fresh real-world launch
+exports.purgeAllData = async (req, res) => {
+  try {
+    const { cleanAllData } = require('../scripts/cleanData');
+    const summary = await cleanAllData({ exitOnComplete: false });
+    return res.status(200).json({
+      message: 'All dummy users and platform data have been permanently deleted.',
+      deleted: summary,
+    });
+  } catch (err) {
+    console.error('purgeAllData error:', err);
+    return res.status(500).json({ message: 'Failed to purge data: ' + err.message });
+  }
+};

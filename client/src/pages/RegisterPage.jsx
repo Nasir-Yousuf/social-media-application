@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { NavLink, useNavigate, Navigate } from 'react-router-dom';
-import { Lock, User, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { Lock, User, Mail, AlertCircle, ArrowRight, Camera, Upload, Trash2, CheckCircle2 } from 'lucide-react';
 import Button from '../components/common/Button';
+import Avatar from '../components/common/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { ClearfeedLogo } from '../components/common/ClearfeedIcons';
 import ThemeToggle from '../components/common/ThemeToggle';
+import { compressAvatarImage } from '../utils/imageCompressor';
 
 export const RegisterPage = () => {
   const { register, isAuthenticated } = useAuth();
   const { showToast } = useNotifications();
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -20,6 +23,10 @@ export const RegisterPage = () => {
     bio: '',
   });
 
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarBase64, setAvatarBase64] = useState('');
+  const [avatarSizeKB, setAvatarSizeKB] = useState(null);
+  const [compressing, setCompressing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,6 +36,41 @@ export const RegisterPage = () => {
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleAvatarSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WebP)', 'error');
+      return;
+    }
+
+    setCompressing(true);
+    try {
+      const result = await compressAvatarImage(file, {
+        size: 256,
+        maxSizeBytes: 200 * 1024, // 200KB limit
+        initialQuality: 0.85,
+      });
+
+      setAvatarPreview(result.base64);
+      setAvatarBase64(result.base64);
+      setAvatarSizeKB(result.sizeKB);
+      showToast(`Photo optimized (${result.sizeKB} KB) - under 200KB limit`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to compress image.', 'error');
+    } finally {
+      setCompressing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarPreview('');
+    setAvatarBase64('');
+    setAvatarSizeKB(null);
   };
 
   const handleSubmit = async (e) => {
@@ -47,13 +89,19 @@ export const RegisterPage = () => {
 
     setLoading(true);
     try {
-      await register({
+      const payload = {
         name: formData.name.trim(),
         username: formData.username.trim(),
         email: formData.email.trim(),
         password: formData.password,
         bio: formData.bio.trim() || 'Thinking, building, and exploring code.',
-      });
+      };
+
+      if (avatarBase64) {
+        payload.avatarBase64 = avatarBase64;
+      }
+
+      await register(payload);
 
       showToast('Account created! Welcome to Clearfeed.', 'success');
       navigate('/');
@@ -99,6 +147,77 @@ export const RegisterPage = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
+            {/* Optional Profile Photo Selector */}
+            <div className="flex flex-col items-center gap-2 pb-3 border-b border-neutral-100 dark:border-neutral-800/80">
+              <div
+                className="relative group cursor-pointer"
+                onClick={() => !compressing && fileInputRef.current?.click()}
+                title="Add profile photo (optional)"
+              >
+                {avatarPreview ? (
+                  <div className="ring-3 ring-sky-500 rounded-full overflow-hidden inline-block shadow-sm">
+                    <Avatar src={avatarPreview} name={formData.name || 'User'} size="xl" />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 border-2 border-dashed border-neutral-300 dark:border-neutral-700 flex flex-col items-center justify-center text-neutral-400 hover:text-sky-500 hover:border-sky-500 transition-colors">
+                    <Camera className="w-6 h-6" />
+                  </div>
+                )}
+
+                <div className="absolute inset-0 rounded-full bg-black/55 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-[11px] font-semibold">
+                  <Camera className="w-5 h-5 mb-0.5" />
+                  <span>{avatarPreview ? 'Change' : 'Add Photo'}</span>
+                </div>
+
+                {compressing && (
+                  <div className="absolute inset-0 rounded-full bg-black/70 flex items-center justify-center text-white text-[10px] font-bold animate-pulse">
+                    Optimizing...
+                  </div>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/jpg"
+                onChange={handleAvatarSelect}
+                className="hidden"
+              />
+
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-sky-500 hover:underline font-semibold cursor-pointer flex items-center gap-1"
+                >
+                  <Upload className="w-3 h-3" />
+                  <span>{avatarPreview ? 'Change photo' : 'Add profile photo (optional)'}</span>
+                </button>
+
+                {avatarPreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    className="text-rose-500 hover:underline font-semibold cursor-pointer flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Remove</span>
+                  </button>
+                )}
+              </div>
+
+              {avatarSizeKB ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-500/20">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Optimized: {avatarSizeKB} KB (&le; 200 KB)</span>
+                </span>
+              ) : (
+                <span className="text-[10px] text-neutral-400">
+                  Auto-compressed to under 200 KB
+                </span>
+              )}
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">Full Name</label>
               <div className="relative">
