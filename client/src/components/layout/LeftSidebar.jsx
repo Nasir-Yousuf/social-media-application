@@ -18,6 +18,7 @@ import {
   Sparkles,
   ExternalLink,
   Palette,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,6 +27,7 @@ import { ClearfeedLogo } from '../common/ClearfeedIcons';
 import Avatar from '../common/Avatar';
 import Modal from '../common/Modal';
 import PostComposer from '../posts/PostComposer';
+import ChangePasswordModal from '../users/ChangePasswordModal';
 
 export const LeftSidebar = () => {
   const { user, logout, isAdmin } = useAuth();
@@ -37,6 +39,7 @@ export const LeftSidebar = () => {
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -243,6 +246,18 @@ export const LeftSidebar = () => {
                 </button>
 
                 <button
+                  type="button"
+                  onClick={() => {
+                    setIsChangePasswordOpen(true);
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
+                >
+                  <KeyRound className="w-4 h-4 text-amber-500" />
+                  <span>Change Password</span>
+                </button>
+
+                <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/15 transition-colors cursor-pointer"
                 >
@@ -296,6 +311,12 @@ export const LeftSidebar = () => {
           compact={true}
         />
       </Modal>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
     </>
   );
 };

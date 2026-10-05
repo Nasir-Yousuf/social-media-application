@@ -7,6 +7,7 @@ import {
   MessageSquare,
   ArrowLeft,
   Camera,
+  KeyRound,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -15,6 +16,7 @@ import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import PostList from '../components/posts/PostList';
 import EditProfileModal from '../components/users/EditProfileModal';
+import ChangePasswordModal from '../components/users/ChangePasswordModal';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { FacultyBadge } from '../components/common/ClearfeedIcons';
@@ -31,6 +33,7 @@ export const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   // Followers / Following Modal
   const [connectionsModal, setConnectionsModal] = useState({ isOpen: false, title: '', users: [] });
@@ -270,14 +273,25 @@ export const ProfilePage = () => {
 
           <div className="flex items-center gap-2 mb-1">
             {isSelf ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditModalOpen(true)}
-                className="font-bold rounded-full px-4 text-sm"
-              >
-                Edit profile
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="font-bold rounded-full px-4 text-xs sm:text-sm"
+                >
+                  Edit profile
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasswordOpen(true)}
+                  className="px-3.5 py-1.5 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer active:scale-95"
+                  title="Change Password"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Password</span>
+                </button>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <NavLink
@@ -438,6 +452,12 @@ export const ProfilePage = () => {
           }}
         />
       )}
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
 
       {/* Connections Modal */}
       <Modal
