@@ -136,6 +136,23 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
+  const markAllNotificationsAsRead = useCallback(async () => {
+    setUnreadCount(0);
+    try {
+      await api.patch('/notifications/mark-read', {});
+    } catch (err) {
+      console.error('Failed to mark notifications read:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleNotificationsRead = () => {
+      setUnreadCount(0);
+    };
+    window.addEventListener('clearfeed:notificationsRead', handleNotificationsRead);
+    return () => window.removeEventListener('clearfeed:notificationsRead', handleNotificationsRead);
+  }, []);
+
   useEffect(() => {
     fetchUnreadCount();
     // Poll every 5 seconds for fast real-time message notification
@@ -155,6 +172,7 @@ export const NotificationProvider = ({ children }) => {
         setUnreadCount,
         setUnreadMessagesCount,
         fetchUnreadCount,
+        markAllNotificationsAsRead,
         showToast,
         toast,
         dismissToast: () => setToast(null),

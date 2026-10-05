@@ -26,7 +26,9 @@ exports.getNotifications = async (req, res) => {
 // Mark notifications as read
 exports.markAsRead = async (req, res) => {
   try {
-    const { notificationId } = req.body;
+    const body = req.body || {};
+    const query = req.query || {};
+    const notificationId = body.notificationId || query.notificationId || req.params?.id;
 
     if (notificationId) {
       await Notification.findOneAndUpdate(
@@ -38,7 +40,15 @@ exports.markAsRead = async (req, res) => {
       await Notification.updateMany({ recipient: req.user._id, read: false }, { read: true });
     }
 
-    return res.status(200).json({ message: 'Notifications marked as read.' });
+    const unreadCount = await Notification.countDocuments({
+      recipient: req.user._id,
+      read: false,
+    });
+
+    return res.status(200).json({
+      message: 'Notifications marked as read.',
+      unreadCount,
+    });
   } catch (err) {
     console.error('markAsRead error:', err);
     return res.status(500).json({ message: 'Failed to update notification state.' });

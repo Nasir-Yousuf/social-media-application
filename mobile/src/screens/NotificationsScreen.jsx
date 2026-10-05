@@ -32,7 +32,18 @@ export const NotificationsScreen = ({ navigation }) => {
 
       try {
         const res = await api.get('/notifications');
-        setNotifications(res.data.notifications || []);
+        const list = res.data.notifications || [];
+        setNotifications(list);
+
+        // When user opens/sees notifications, numbers go away
+        const hasUnread = list.some((n) => !n.read);
+        if (hasUnread) {
+          setUnreadCount(0);
+          await api.patch('/notifications/mark-read', {});
+          setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        } else {
+          setUnreadCount(0);
+        }
       } catch (err) {
         showToast('Could not load notifications', 'error');
       } finally {
@@ -40,18 +51,19 @@ export const NotificationsScreen = ({ navigation }) => {
         setRefreshing(false);
       }
     },
-    [showToast]
+    [showToast, setUnreadCount]
   );
 
   useEffect(() => {
+    setUnreadCount(0);
     fetchNotifications();
-  }, [fetchNotifications]);
+  }, [fetchNotifications, setUnreadCount]);
 
   const handleMarkAllRead = async () => {
     try {
-      await api.patch('/notifications/mark-read');
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      await api.patch('/notifications/mark-read', {});
       showToast('All notifications marked as read', 'success');
     } catch (err) {
       showToast('Failed to mark read', 'error');

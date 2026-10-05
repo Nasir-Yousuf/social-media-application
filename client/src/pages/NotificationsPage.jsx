@@ -20,13 +20,25 @@ export const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
-  const { setUnreadCount, showToast } = useNotifications();
+  const { setUnreadCount, showToast, markAllNotificationsAsRead } = useNotifications();
 
   const fetchNotifications = async () => {
     setLoading(true);
     try {
       const res = await api.get('/notifications');
-      setNotifications(res.data.notifications || []);
+      const list = res.data.notifications || [];
+      setNotifications(list);
+
+      // Whenever a user sees the notification page, the unread badge numbers go away
+      const hasUnread = list.some((n) => !n.read);
+      if (hasUnread) {
+        setUnreadCount(0);
+        window.dispatchEvent(new CustomEvent('clearfeed:notificationsRead'));
+        await api.patch('/notifications/mark-read', {});
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      } else {
+        setUnreadCount(0);
+      }
     } catch (err) {
       showToast('Failed to load notifications', 'error');
     } finally {
@@ -35,14 +47,18 @@ export const NotificationsPage = () => {
   };
 
   useEffect(() => {
+    // Immediately clear notification badge numbers when user lands on Notifications page
+    setUnreadCount(0);
+    window.dispatchEvent(new CustomEvent('clearfeed:notificationsRead'));
     fetchNotifications();
   }, []);
 
   const handleMarkAllRead = async () => {
     try {
-      await api.patch('/notifications/mark-read');
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+      window.dispatchEvent(new CustomEvent('clearfeed:notificationsRead'));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      await api.patch('/notifications/mark-read', {});
       showToast('All alerts marked as read', 'success');
     } catch (err) {
       showToast('Failed to mark notifications read', 'error');
