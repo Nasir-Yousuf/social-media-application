@@ -84,15 +84,15 @@ const seedDatabase = async () => {
 
     console.log('Seeding CS-518 course community data (~35 members + instructor)...');
 
-    // 1. Create Instructor / Admin
+    // 1. Create Admin (Nasir)
     const adminUser = await User.create({
-      name: 'Dr. Arthur Vance',
-      username: 'dr_vance',
-      email: 'admin@course518.edu',
-      password: 'admin123',
-      bio: 'Lead Instructor for CS-518: Advanced Web Architecture. Office Hours: Tue/Thu 3-5 PM.',
+      name: 'Nasir',
+      username: 'nasir',
+      email: 'nasir@course518.edu',
+      password: 'password123',
+      bio: 'Full-stack developer & CS-518 community member.',
       role: 'admin',
-      avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=dr_vance',
+      avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=nasir',
       isApproved: true,
     });
 

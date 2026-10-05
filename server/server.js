@@ -98,6 +98,18 @@ const startServer = async () => {
       console.log(' Live database ready (auto-seeding disabled).');
     }
 
+    // Automatically remove dr_vance and guarantee Nasir has admin role
+    try {
+      const User = require('./models/User');
+      await User.deleteMany({ username: 'dr_vance' });
+      await User.updateMany(
+        { username: { $in: ['nasir', 'nasiryousuf', 'nasir_yousuf'] } },
+        { $set: { role: 'admin' } }
+      );
+    } catch (cleanErr) {
+      console.warn('Startup user role sync note:', cleanErr.message);
+    }
+
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Clearfeed Server active on http://0.0.0.0:${PORT} (LAN: http://192.168.0.246:${PORT})`);
     });

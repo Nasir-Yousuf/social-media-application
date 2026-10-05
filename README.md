@@ -96,10 +96,9 @@ Open your browser to:
 
 1-click login buttons are available on the sign-in page:
 
-| Account       | Username   | Password      | Role             |
-| ------------- | ---------- | ------------- | ---------------- |
-| **Nasir**     | `nasir`    | `password123` | Community Member |
-| **Dr. Vance** | `dr_vance` | `admin123`    | Staff / Admin    |
+| Account   | Username | Password      | Role             |
+| --------- | -------- | ------------- | ---------------- |
+| **Nasir** | `nasir`  | `password123` | Community Member |
 
 Or create any new account directly via `/register`.
 

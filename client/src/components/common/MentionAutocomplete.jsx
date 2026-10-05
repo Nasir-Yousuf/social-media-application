@@ -195,9 +195,6 @@ export const MentionDropdown = ({
                   <span className="font-bold text-xs truncate text-neutral-900 dark:text-neutral-100">
                     {u.name}
                   </span>
-                  {u.role === 'admin' && (
-                    <FacultyBadge className="w-3 h-3 text-amber-500 shrink-0" />
-                  )}
                 </div>
                 <span className="text-[11px] text-neutral-500 dark:text-neutral-400 block truncate">
                   @{u.username}

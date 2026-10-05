@@ -146,9 +146,6 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
                       >
                         {comment.author?.name}
                       </NavLink>
-                      {comment.author?.role === 'admin' && (
-                        <FacultyBadge className="w-3 h-3 text-amber-500" />
-                      )}
                       <span className="text-neutral-500 dark:text-neutral-400 text-[11px]">
                         @{comment.author?.username}
                       </span>

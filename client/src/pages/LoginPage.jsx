@@ -133,29 +133,18 @@ export const LoginPage = () => {
           {/* Quick Demo Credentials */}
           <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-2.5">
             <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 block text-center uppercase tracking-wider">
-              1-Click Demo Accounts
+              Quick Test Sign-in
             </span>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
               <button
                 type="button"
                 onClick={() => handleQuickLogin('nasir', 'password123')}
-                className="p-3 rounded-xl bg-neutral-50 dark:bg-black/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 text-left transition-all duration-150 cursor-pointer group active:scale-95"
+                className="w-full p-2.5 rounded-xl bg-neutral-50 dark:bg-black/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs transition-all duration-150 cursor-pointer group active:scale-95"
               >
                 <div className="font-bold text-neutral-900 dark:text-neutral-100 group-hover:text-sky-500 transition-colors">
                   Nasir
                 </div>
-                <div className="text-[11px] text-neutral-500 dark:text-neutral-400">Student / Member</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('dr_vance', 'admin123')}
-                className="p-3 rounded-xl bg-neutral-50 dark:bg-black/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 text-left transition-all duration-150 cursor-pointer group active:scale-95"
-              >
-                <div className="font-bold text-amber-500 group-hover:text-amber-400 transition-colors">
-                  ★ Dr. Vance
-                </div>
-                <div className="text-[11px] text-neutral-500 dark:text-neutral-400">Faculty / Admin</div>
+                <div className="text-[11px] text-neutral-500 dark:text-neutral-400">@nasir · 1-click test</div>
               </button>
             </div>
           </div>

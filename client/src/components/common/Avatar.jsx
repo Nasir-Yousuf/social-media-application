@@ -95,14 +95,6 @@ export const Avatar = ({
           {initials || '?'}
         </div>
       )}
-      {showRoleBadge && role === 'admin' && (
-        <span
-          title="Faculty / Staff"
-          className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white dark:ring-black bg-amber-500 text-white p-0.5 shadow-xs"
-        >
-          <FacultyBadge className="w-3.5 h-3.5" />
-        </span>
-      )}
     </div>
   );
 };

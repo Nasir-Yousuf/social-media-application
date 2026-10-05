@@ -27,20 +27,12 @@ export const MembersPage = () => {
   }, [showToast]);
 
   const filteredMembers = members.filter((m) => {
-    const matchesSearch =
+    return (
       m.name.toLowerCase().includes(search.toLowerCase()) ||
       m.username.toLowerCase().includes(search.toLowerCase()) ||
       (m.bio && m.bio.toLowerCase().includes(search.toLowerCase())) ||
-      (m.status && m.status.toLowerCase().includes(search.toLowerCase()));
-
-    const matchesRole =
-      roleFilter === 'all'
-        ? true
-        : roleFilter === 'admin'
-        ? m.role === 'admin'
-        : m.role !== 'admin';
-
-    return matchesSearch && matchesRole;
+      (m.status && m.status.toLowerCase().includes(search.toLowerCase()))
+    );
   });
 
   return (
@@ -63,49 +55,24 @@ export const MembersPage = () => {
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="space-y-3">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search members by name, @username, or interest..."
-            className="w-full bg-white dark:bg-[#121519] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-11 pr-10 py-2.5 rounded-full border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors shadow-2xs"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 select-none">
-          {[
-            { id: 'all', label: 'All Members' },
-            { id: 'admin', label: 'Faculty / Staff' },
-            { id: 'member', label: 'Students / Peers' },
-          ].map((tab) => {
-            const isActive = roleFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setRoleFilter(tab.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95 ${
-                  isActive
-                    ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
-                    : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search members by name, @username, or interest..."
+          className="w-full bg-white dark:bg-[#121519] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-11 pr-10 py-2.5 rounded-full border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors shadow-2xs"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Directory Grid */}

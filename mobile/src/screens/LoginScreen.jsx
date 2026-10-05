@@ -193,27 +193,15 @@ export const LoginScreen = () => {
 
           {/* 1-Click Demo Accounts */}
           <View style={styles.demoSection}>
-            <Text style={styles.demoTitle}>1-Click Demo Accounts</Text>
+            <Text style={styles.demoTitle}>Quick Test Sign-in</Text>
             <View style={styles.demoRow}>
               <TouchableOpacity
                 onPress={() => handleQuickLogin('nasir', 'password123')}
-                style={styles.demoBtn}
+                style={[styles.demoBtn, { flex: 1 }]}
                 disabled={loading}
               >
                 <Text style={styles.demoBtnName}>Nasir</Text>
-                <Text style={styles.demoBtnRole}>Member</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => handleQuickLogin('dr_vance', 'admin123')}
-                style={styles.demoBtn}
-                disabled={loading}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[styles.demoBtnName, { color: colors.gold, marginRight: 4 }]}>Dr. Vance</Text>
-                  <VerifiedBadge size={13} />
-                </View>
-                <Text style={styles.demoBtnRole}>Staff Admin</Text>
+                <Text style={styles.demoBtnRole}>@nasir · 1-click test</Text>
               </TouchableOpacity>
             </View>
           </View>

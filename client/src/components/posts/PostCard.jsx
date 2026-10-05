@@ -224,10 +224,6 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
                 {author.name || 'Member'}
               </NavLink>
 
-              {author.role === 'admin' && (
-                <FacultyBadge className="w-3.5 h-3.5 text-amber-500" />
-              )}
-
               <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">@{author.username}</span>
 
               {author.status && (

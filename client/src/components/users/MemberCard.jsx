@@ -41,7 +41,7 @@ export const MemberCard = ({ member }) => {
             src={member.avatarUrl}
             name={member.name}
             size="md"
-            showRoleBadge={true}
+            showRoleBadge={false}
             role={member.role}
           />
           <div className="min-w-0">
@@ -49,9 +49,6 @@ export const MemberCard = ({ member }) => {
               <span className="font-sans font-bold text-sm text-neutral-900 dark:text-neutral-100 hover:underline truncate">
                 {member.name}
               </span>
-              {member.role === 'admin' && (
-                <FacultyBadge className="w-3.5 h-3.5 text-amber-500" />
-              )}
             </div>
             <span className="text-xs text-neutral-500 dark:text-neutral-400 block truncate font-sans">
               @{member.username}

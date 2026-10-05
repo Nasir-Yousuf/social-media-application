@@ -193,9 +193,6 @@ export const ProfilePage = () => {
             <h1 className="text-lg font-black tracking-tight text-neutral-900 dark:text-white truncate leading-tight">
               {profile.name}
             </h1>
-            {profile.role === 'admin' && (
-              <FacultyBadge className="w-4 h-4 text-amber-500 shrink-0" />
-            )}
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-tight">
             {profile.postsCount ?? posts.length} {((profile.postsCount ?? posts.length) === 1) ? 'post' : 'posts'}
@@ -283,9 +280,6 @@ export const ProfilePage = () => {
               <h2 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
                 {profile.name}
               </h2>
-              {profile.role === 'admin' && (
-                <FacultyBadge className="w-5 h-5 text-amber-500" />
-              )}
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
           </div>
