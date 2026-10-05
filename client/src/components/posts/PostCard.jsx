@@ -21,6 +21,8 @@ import CodeSnippetBlock from './CodeSnippetBlock';
 import MarkdownRenderer from './MarkdownRenderer';
 import BookmarkButton from './BookmarkButton';
 import { FacultyBadge, BoostIcon, ForkIcon } from '../common/ClearfeedIcons';
+import TwitterSpinner from '../common/TwitterSpinner';
+import DeleteConfirmModal from '../common/DeleteConfirmModal';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -39,6 +41,9 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   const [showComments, setShowComments] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
   const [animatingHeart, setAnimatingHeart] = useState(false);
   const viewRecordedRef = useRef(false);
 
@@ -131,15 +136,20 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
     showToast(`Forking @${author.username}'s snippet into composer...`, 'info');
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
     try {
       await api.delete(`/posts/${currentPost._id}`);
-      showToast('Post removed', 'info');
-      if (onPostDeleted) {
-        onPostDeleted(currentPost._id);
-      }
+      setIsConfirmDeleteOpen(false);
+      setIsFadingOut(true);
+      setTimeout(() => {
+        if (onPostDeleted) {
+          onPostDeleted(currentPost._id);
+        }
+        showToast('Post removed', 'info');
+      }, 300);
     } catch (err) {
+      setIsDeleting(false);
       showToast(err.response?.data?.message || 'Failed to delete post', 'error');
     }
   };
@@ -166,12 +176,25 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   return (
     <article
       id={`post-${currentPost._id}`}
-      className={`rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-4 sm:p-5 mb-4 shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-200 ${
+      className={`relative rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-4 sm:p-5 mb-4 shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-300 ${
+        isFadingOut
+          ? 'opacity-0 scale-[0.98] -translate-y-2 max-h-0 py-0 my-0 mb-0 overflow-hidden border-transparent pointer-events-none'
+          : ''
+      } ${
         currentPost.isAnnouncement
           ? 'border-l-4 border-l-amber-500 bg-amber-50/20 dark:bg-amber-950/10'
           : ''
       }`}
     >
+      {/* Twitter-style in-card Deleting overlay with Spinner */}
+      {isDeleting && (
+        <div className="absolute inset-0 bg-white/80 dark:bg-[#121519]/80 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center gap-2.5 z-20 animate-fade-in pointer-events-none">
+          <TwitterSpinner size="lg" className="text-sky-500" />
+          <span className="text-xs font-bold text-neutral-700 dark:text-neutral-300 tracking-wide font-sans">
+            Deleting post...
+          </span>
+        </div>
+      )}
       {/* Pinned / Announcement / Forked Header Tag */}
       {(currentPost.isPinned || currentPost.isAnnouncement || currentPost.forkedFrom) && (
         <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-amber-500">
@@ -283,7 +306,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
                 <button
                   onClick={() => {
                     setIsMenuOpen(false);
-                    handleDelete();
+                    setIsConfirmDeleteOpen(true);
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/15 transition-colors cursor-pointer"
                 >
@@ -421,6 +444,16 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
           onPostUpdated={handlePostUpdated}
         />
       )}
+
+      {/* Twitter-style Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={isConfirmDeleteOpen}
+        onClose={() => !isDeleting && setIsConfirmDeleteOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={isDeleting}
+        title="Delete post?"
+        description="This can’t be undone and it will be removed from your profile, the timeline of any accounts that follow you, and from search results."
+      />
     </article>
   );
 };

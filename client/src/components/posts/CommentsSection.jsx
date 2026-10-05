@@ -10,6 +10,7 @@ import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutoco
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { FacultyBadge } from '../common/ClearfeedIcons';
+import TwitterSpinner from '../common/TwitterSpinner';
 
 export const CommentsSection = ({ postId, onCommentCountChange }) => {
   const { user, isAdmin } = useAuth();
@@ -18,6 +19,8 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [fadingCommentId, setFadingCommentId] = useState(null);
   const commentInputRef = useRef(null);
 
   const {
@@ -73,14 +76,22 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
   };
 
   const handleDeleteComment = async (commentId) => {
+    setDeletingCommentId(commentId);
     try {
       const res = await api.delete(`/comments/${commentId}`);
-      setComments((prev) => prev.filter((c) => c._id !== commentId));
-      if (onCommentCountChange) {
-        onCommentCountChange(res.data.commentsCount);
-      }
-      showToast('Response deleted', 'info');
+      setFadingCommentId(commentId);
+      setTimeout(() => {
+        setComments((prev) => prev.filter((c) => c._id !== commentId));
+        setFadingCommentId(null);
+        setDeletingCommentId(null);
+        if (onCommentCountChange) {
+          onCommentCountChange(res.data.commentsCount);
+        }
+        showToast('Response deleted', 'info');
+      }, 250);
     } catch (err) {
+      setDeletingCommentId(null);
+      setFadingCommentId(null);
       showToast(err.response?.data?.message || 'Failed to delete reply', 'error');
     }
   };
@@ -123,11 +134,15 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
           {comments.map((comment) => {
             const isOwner = comment.author?._id === user?._id || comment.isOwner;
             const canDelete = isOwner || isAdmin;
+            const isDeletingThis = deletingCommentId === comment._id;
+            const isFadingThis = fadingCommentId === comment._id;
 
             return (
               <div
                 key={comment._id}
-                className="flex items-start justify-between gap-2.5 p-3 rounded-2xl bg-neutral-50/80 dark:bg-black/40 border border-neutral-200/80 dark:border-neutral-800 text-xs transition-colors"
+                className={`flex items-start justify-between gap-2.5 p-3 rounded-2xl bg-neutral-50/80 dark:bg-black/40 border border-neutral-200/80 dark:border-neutral-800 text-xs transition-all duration-250 ${
+                  isFadingThis ? 'opacity-0 scale-95 -translate-y-1' : ''
+                } ${isDeletingThis ? 'opacity-60 pointer-events-none' : ''}`}
               >
                 <div className="flex items-start gap-2.5 min-w-0">
                   <NavLink to={`/profile/${comment.author?.username}`}>
@@ -164,10 +179,15 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
                 {canDelete && (
                   <button
                     onClick={() => handleDeleteComment(comment._id)}
+                    disabled={isDeletingThis}
                     title="Delete response"
-                    className="text-neutral-400 hover:text-rose-500 p-1 rounded-full hover:bg-rose-500/10 transition-colors shrink-0 cursor-pointer"
+                    className="text-neutral-400 hover:text-rose-500 p-1 rounded-full hover:bg-rose-500/10 transition-colors shrink-0 cursor-pointer disabled:cursor-not-allowed"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {isDeletingThis ? (
+                      <TwitterSpinner size="xs" className="text-rose-500" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 )}
               </div>

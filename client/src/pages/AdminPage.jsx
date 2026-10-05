@@ -26,6 +26,8 @@ export const AdminPage = () => {
   const [usersList, setUsersList] = useState([]);
   const [postsList, setPostsList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingUserId, setDeletingUserId] = useState(null);
+  const [deletingPostId, setDeletingPostId] = useState(null);
 
   // Announcement Form
   const [announcementText, setAnnouncementText] = useState('');
@@ -86,23 +88,29 @@ export const AdminPage = () => {
 
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Delete this member and all their posts? This action is irreversible.')) return;
+    setDeletingUserId(userId);
     try {
       await api.delete(`/admin/users/${userId}`);
       setUsersList((prev) => prev.filter((u) => u._id !== userId));
       showToast('Member removed', 'info');
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to remove user', 'error');
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
   const handleForceDeletePost = async (postId) => {
     if (!window.confirm('Remove this post as administrator?')) return;
+    setDeletingPostId(postId);
     try {
       await api.delete(`/posts/${postId}`);
       setPostsList((prev) => prev.filter((p) => p._id !== postId));
       showToast('Post removed', 'info');
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to remove post', 'error');
+    } finally {
+      setDeletingPostId(null);
     }
   };
 
@@ -318,6 +326,8 @@ export const AdminPage = () => {
                           <Button
                             variant="danger"
                             size="xs"
+                            isLoading={deletingUserId === u._id}
+                            disabled={deletingUserId === u._id}
                             onClick={() => handleDeleteUser(u._id)}
                             className="text-[11px]"
                           >
@@ -355,6 +365,8 @@ export const AdminPage = () => {
                       <Button
                         variant="danger"
                         size="xs"
+                        isLoading={deletingPostId === p._id}
+                        disabled={deletingPostId === p._id}
                         onClick={() => handleForceDeletePost(p._id)}
                         className="shrink-0"
                       >

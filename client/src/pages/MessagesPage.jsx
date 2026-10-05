@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import Avatar from '../components/common/Avatar';
 import Modal from '../components/common/Modal';
+import TwitterSpinner from '../components/common/TwitterSpinner';
 import api from '../api/client';
 
 const QUICK_EMOJIS = ['😀', '😂', '🔥', '🚀', '💻', '💡', '⚡', '❤️', '🎯', '🎉', '✨', '☕', '🧠', '🐛', '👍', '🙌', '🤝', '💯', '🔒', '🛠️'];
@@ -57,6 +58,8 @@ export const MessagesPage = () => {
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [snippetCode, setSnippetCode] = useState('');
   const [snippetLang, setSnippetLang] = useState('javascript');
+  const [deletingMsgId, setDeletingMsgId] = useState(null);
+  const [deletingConvId, setDeletingConvId] = useState(null);
 
   // Search & New Conversation Modal
   const [conversationSearch, setConversationSearch] = useState('');
@@ -408,6 +411,7 @@ export const MessagesPage = () => {
   // Delete individual message
   const handleDeleteMessage = async (msgId) => {
     if (!window.confirm('Delete this message? This cannot be undone.')) return;
+    setDeletingMsgId(msgId);
     try {
       await api.delete(`/messages/${msgId}`);
       setMessages((prev) => prev.filter((m) => m._id !== msgId));
@@ -415,6 +419,8 @@ export const MessagesPage = () => {
       showToast('Message deleted', 'info');
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to delete message', 'error');
+    } finally {
+      setDeletingMsgId(null);
     }
   };
 
@@ -422,6 +428,7 @@ export const MessagesPage = () => {
   const handleDeleteConversation = async (convId, e) => {
     if (e) e.stopPropagation();
     if (!window.confirm('Delete this entire conversation? All messages will be permanently removed from MongoDB storage.')) return;
+    setDeletingConvId(convId);
     try {
       await api.delete(`/messages/conversations/${convId}`);
       setConversations((prev) => prev.filter((c) => c._id !== convId));
@@ -432,6 +439,8 @@ export const MessagesPage = () => {
       showToast('Conversation deleted', 'info');
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to delete conversation', 'error');
+    } finally {
+      setDeletingConvId(null);
     }
   };
 
@@ -578,14 +587,20 @@ export const MessagesPage = () => {
                         <span className="text-[10px] text-neutral-400">
                           {formatConvDate(conv.lastMessage?.createdAt || conv.updatedAt)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteConversation(conv._id, e)}
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
-                          title="Delete conversation & all messages"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {deletingConvId === conv._id ? (
+                          <span className="p-1 flex items-center justify-center">
+                            <TwitterSpinner size="xs" className="text-rose-500" />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteConversation(conv._id, e)}
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
+                            title="Delete conversation & all messages"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -685,11 +700,16 @@ export const MessagesPage = () => {
                 </button>
                 <button
                   type="button"
+                  disabled={deletingConvId === activeConversation._id}
                   onClick={(e) => handleDeleteConversation(activeConversation._id, e)}
-                  className="p-2 rounded-full hover:bg-red-500/10 text-neutral-500 hover:text-red-500 transition-colors cursor-pointer"
+                  className="p-2 rounded-full hover:bg-red-500/10 text-neutral-500 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
                   title="Delete conversation & all messages"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {deletingConvId === activeConversation._id ? (
+                    <TwitterSpinner size="xs" className="text-rose-500" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
                 </button>
                 <NavLink
                   to={`/profile/${activeConversation.otherUser?.username}`}
@@ -797,14 +817,20 @@ export const MessagesPage = () => {
                             </button>
                           </div>
                         ) : !isSending ? (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteMessage(msg._id)}
-                            className="opacity-0 group-hover/msg:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-neutral-200/60 dark:hover:bg-neutral-800 text-neutral-400 hover:text-red-500 cursor-pointer shrink-0"
-                            title="Delete this message"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          deletingMsgId === msg._id ? (
+                            <span className="p-1.5 flex items-center justify-center shrink-0">
+                              <TwitterSpinner size="xs" className="text-rose-500" />
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(msg._id)}
+                              className="opacity-0 group-hover/msg:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-neutral-200/60 dark:hover:bg-neutral-800 text-neutral-400 hover:text-red-500 cursor-pointer shrink-0"
+                              title="Delete this message"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )
                         ) : null}
                       </div>
 
