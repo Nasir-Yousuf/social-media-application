@@ -20,8 +20,8 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
     let remaining = text;
     let key = 0;
 
-    // Pattern matches: `code`, [label](url), **bold**, *italic*
-    const inlineRegex = /(`[^`]+`)|(\[[^\]]+\]\([^\)]+\))|(\*\*[^*]+\*\*)|(\*[^*]+\*)/;
+    // Pattern matches: `code`, [label](url), **bold**, *italic*, #hashtag
+    const inlineRegex = /(`[^`]+`)|(\[[^\]]+\]\([^\)]+\))|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(#[a-zA-Z0-9_\u00c0-\u017e]+)/;
 
     while (remaining) {
       const match = remaining.match(inlineRegex);
@@ -45,6 +45,19 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
           >
             {codeText}
           </code>
+        );
+      } else if (matchedStr.startsWith('#') && matchedStr.length > 1) {
+        elements.push(
+          <a
+            key={key++}
+            href={`/search?q=${encodeURIComponent(matchedStr)}`}
+            className="text-sky-500 hover:text-sky-400 hover:underline font-semibold cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {matchedStr}
+          </a>
         );
       } else if (matchedStr.startsWith('[') && matchedStr.includes('](')) {
         const closeBracket = matchedStr.indexOf('](');

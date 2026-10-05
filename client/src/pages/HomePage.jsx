@@ -71,29 +71,44 @@ export const HomePage = () => {
   };
 
   return (
-    <div className="flex flex-col space-y-5 font-sans">
-      {/* Feed Filter Header */}
-      <div className="flex items-center justify-between pb-1">
-        <div className="flex items-center gap-1 p-1 rounded-full bg-neutral-100 dark:bg-[#14161a] border border-neutral-200 dark:border-neutral-800">
+    <div className="flex flex-col font-sans">
+      {/* Twitter Sticky Header: For you / Following */}
+      <div className="sticky top-0 z-20 backdrop-blur-xl bg-white/80 dark:bg-black/80 border-b border-neutral-200/80 dark:border-neutral-800/80 flex items-center justify-between">
+        <div className="flex-1 flex">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${
-              activeTab === 'all'
-                ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25'
-                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
-            }`}
+            className="flex-1 py-3.5 text-center font-bold text-sm hover:bg-neutral-100/50 dark:hover:bg-neutral-900/50 transition-colors relative cursor-pointer"
           >
-            All Feed
+            <span
+              className={`transition-colors ${
+                activeTab === 'all'
+                  ? 'text-neutral-900 dark:text-white font-extrabold'
+                  : 'text-neutral-500 font-medium'
+              }`}
+            >
+              For you
+            </span>
+            {activeTab === 'all' && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-sky-500 rounded-full" />
+            )}
           </button>
+
           <button
             onClick={() => setActiveTab('following')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${
-              activeTab === 'following'
-                ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25'
-                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
-            }`}
+            className="flex-1 py-3.5 text-center font-bold text-sm hover:bg-neutral-100/50 dark:hover:bg-neutral-900/50 transition-colors relative cursor-pointer"
           >
-            Following
+            <span
+              className={`transition-colors ${
+                activeTab === 'following'
+                  ? 'text-neutral-900 dark:text-white font-extrabold'
+                  : 'text-neutral-500 font-medium'
+              }`}
+            >
+              Following
+            </span>
+            {activeTab === 'following' && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-sky-500 rounded-full" />
+            )}
           </button>
         </div>
 
@@ -101,36 +116,40 @@ export const HomePage = () => {
           onClick={() => fetchFeed(true, 1)}
           disabled={refreshing || loading}
           title="Refresh feed"
-          className="p-2 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50 cursor-pointer active:scale-90"
+          className="p-3 mr-1 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50 cursor-pointer active:scale-90"
         >
           <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-sky-500' : ''}`} />
         </button>
       </div>
 
-      {/* Post Composer */}
-      <PostComposer onPostCreated={handlePostCreated} />
+      {/* Post Composer right at top of feed */}
+      <div className="border-b border-neutral-200/80 dark:border-neutral-800/80 p-3 sm:p-4 bg-white dark:bg-black">
+        <PostComposer onPostCreated={handlePostCreated} compact={true} />
+      </div>
 
       {/* Chronological Posts Stream */}
-      <PostList
-        posts={posts}
-        loading={loading}
-        onPostDeleted={handlePostDeleted}
-        onPostUpdated={handlePostUpdated}
-        showChronologicalBadge={true}
-        hasMore={hasMore}
-        loadingMore={loadingMore}
-        onLoadMore={handleLoadMore}
-        emptyMessage={
-          activeTab === 'following'
-            ? 'No posts from people you follow yet.'
-            : 'No posts yet.'
-        }
-        emptyDescription={
-          activeTab === 'following'
-            ? 'Follow thinkers and builders from the Community page to curate your reading feed.'
-            : 'Write the first post or share a code snippet to start the conversation.'
-        }
-      />
+      <div className="p-3 sm:p-4 space-y-4">
+        <PostList
+          posts={posts}
+          loading={loading}
+          onPostDeleted={handlePostDeleted}
+          onPostUpdated={handlePostUpdated}
+          showChronologicalBadge={true}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={handleLoadMore}
+          emptyMessage={
+            activeTab === 'following'
+              ? 'No posts from people you follow yet.'
+              : 'No posts yet.'
+          }
+          emptyDescription={
+            activeTab === 'following'
+              ? 'Follow thinkers and builders from the Community page to curate your reading feed.'
+              : 'Write the first post or share a code snippet to start the conversation.'
+          }
+        />
+      </div>
     </div>
   );
 };

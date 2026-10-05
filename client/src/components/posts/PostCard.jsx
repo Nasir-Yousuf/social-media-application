@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Heart,
@@ -9,6 +9,9 @@ import {
   Trash2,
   Pin,
   Flame,
+  BarChart2,
+  MapPin,
+  Flag,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Avatar from '../common/Avatar';
@@ -30,16 +33,52 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
+  const [viewsCount, setViewsCount] = useState(post.viewsCount || 0);
+  const [isFlagged, setIsFlagged] = useState(post.isFlagged || false);
   const [reposted, setReposted] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [animatingHeart, setAnimatingHeart] = useState(false);
+  const viewRecordedRef = useRef(false);
+
+  // Record impression view once
+  useEffect(() => {
+    if (!viewRecordedRef.current && currentPost._id) {
+      viewRecordedRef.current = true;
+      api.post(`/posts/${currentPost._id}/view`)
+        .then((res) => {
+          if (res.data?.viewsCount) {
+            setViewsCount(res.data.viewsCount);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentPost._id]);
 
   const author = currentPost.author || {};
   const isOwner = user && (author._id === user._id || author.id === user._id);
   const canDelete = isOwner || isAdmin;
   const canEdit = isOwner;
+
+  const formatCount = (count) => {
+    if (!count || count <= 0) return '';
+    if (count >= 1000000) return (count / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (count >= 1000) return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return count;
+  };
+
+  const handleFlagPost = async () => {
+    setIsMenuOpen(false);
+    if (!window.confirm('Report this post to course moderators?')) return;
+    try {
+      await api.post(`/posts/${currentPost._id}/flag`, { reason: 'Community report' });
+      setIsFlagged(true);
+      showToast('Post flagged for moderator review', 'info');
+    } catch {
+      showToast('Could not submit report', 'error');
+    }
+  };
 
   const formatDate = (dateStr) => {
     try {
@@ -198,58 +237,77 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 font-sans">
+            <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 font-sans flex-wrap">
               <time dateTime={currentPost.createdAt}>{formatDate(currentPost.createdAt)}</time>
+              {currentPost.location && (
+                <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium">
+                  <MapPin className="w-3 h-3 text-sky-500" />
+                  <span>{currentPost.location}</span>
+                </span>
+              )}
               {currentPost.isEdited && <span className="italic">· edited</span>}
+              {isFlagged && (
+                <span className="text-amber-500 font-semibold text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10">
+                  Reported
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Options Menu (Edit / Delete) */}
-        {(canEdit || canDelete) && (
-          <div className="relative">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-1.5 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors cursor-pointer"
-              aria-label="Post options"
+        {/* Options Menu (Edit / Delete / Flag) */}
+        <div className="relative">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="p-1.5 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors cursor-pointer"
+            aria-label="Post options"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+
+          {isMenuOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-[#181b20] border border-neutral-200 dark:border-neutral-800 rounded-2xl py-1 z-30 shadow-xl animate-fade-in"
+              onMouseLeave={() => setIsMenuOpen(false)}
             >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Edit Post</span>
+                </button>
+              )}
 
-            {isMenuOpen && (
-              <div
-                className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-[#181b20] border border-neutral-200 dark:border-neutral-800 rounded-2xl py-1 z-30 shadow-xl animate-fade-in"
-                onMouseLeave={() => setIsMenuOpen(false)}
-              >
-                {canEdit && (
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      setIsEditModalOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-sky-500" />
-                    <span>Edit Post</span>
-                  </button>
-                )}
+              {canDelete && (
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    handleDelete();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/15 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              )}
 
-                {canDelete && (
-                  <button
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      handleDelete();
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/15 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+              {!isOwner && (
+                <button
+                  onClick={handleFlagPost}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/15 transition-colors cursor-pointer"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Flag Post</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Post Content */}
@@ -264,13 +322,37 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
         )}
       </div>
 
-      {/* Action Bar: Modern, responsive icons with micro-interactions */}
+      {/* Twitter Action Bar: Reply, Repost, Like, Views Analytics, Bookmark, Share */}
       <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 text-xs text-neutral-500 dark:text-neutral-400 select-none">
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-6 flex-wrap">
+          {/* Comments / Reply */}
+          <button
+            onClick={() => setShowComments(!showComments)}
+            className="flex items-center gap-1.5 p-1.5 rounded-full hover:text-sky-500 hover:bg-sky-500/10 transition-all duration-150 active:scale-90 cursor-pointer group"
+            title="Reply"
+          >
+            <MessageCircle className="w-4 h-4 group-hover:scale-105 transition-transform" />
+            <span className="font-semibold text-xs">{commentsCount > 0 ? commentsCount : ''}</span>
+          </button>
+
+          {/* Repost / Retweet */}
+          <button
+            onClick={handleRepostToggle}
+            className={`flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer group ${
+              reposted
+                ? 'text-emerald-500'
+                : 'hover:text-emerald-500 hover:bg-emerald-500/10'
+            }`}
+            title="Repost"
+          >
+            <BoostIcon className="w-4 h-4 group-hover:scale-105 transition-transform" />
+            <span className="font-semibold text-xs">{reposted ? 1 : ''}</span>
+          </button>
+
           {/* Like / Heart */}
           <button
             onClick={handleLikeToggle}
-            className={`flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer ${
+            className={`flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer group ${
               isLiked
                 ? 'text-rose-500'
                 : 'hover:text-rose-500 hover:bg-rose-500/10'
@@ -279,35 +361,20 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
           >
             <Heart
               className={`w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''} ${
-                animatingHeart ? 'scale-125' : ''
+                animatingHeart ? 'scale-125' : 'group-hover:scale-105'
               } transition-transform`}
             />
             <span className="font-semibold text-xs">{likesCount > 0 ? likesCount : ''}</span>
           </button>
 
-          {/* Comments Toggle */}
-          <button
-            onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 p-1.5 rounded-full hover:text-sky-500 hover:bg-sky-500/10 transition-all duration-150 active:scale-90 cursor-pointer"
-            title="Reply"
+          {/* Views Analytics (Impressions like Twitter) */}
+          <div
+            className="flex items-center gap-1.5 p-1.5 rounded-full text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10 transition-colors cursor-default"
+            title={`${viewsCount} Views`}
           >
-            <MessageCircle className="w-4 h-4" />
-            <span className="font-semibold text-xs">{commentsCount > 0 ? commentsCount : ''}</span>
-          </button>
-
-          {/* Repost / Retweet */}
-          <button
-            onClick={handleRepostToggle}
-            className={`flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer ${
-              reposted
-                ? 'text-emerald-500'
-                : 'hover:text-emerald-500 hover:bg-emerald-500/10'
-            }`}
-            title="Repost"
-          >
-            <BoostIcon className="w-4 h-4" />
-            <span className="font-semibold text-xs">{reposted ? 1 : ''}</span>
-          </button>
+            <BarChart2 className="w-4 h-4" />
+            <span className="font-medium text-xs font-mono">{formatCount(viewsCount)}</span>
+          </div>
 
           {/* Fork Code Button */}
           {hasCode && (

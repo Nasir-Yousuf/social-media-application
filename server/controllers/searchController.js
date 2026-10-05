@@ -11,7 +11,8 @@ exports.searchAll = async (req, res) => {
       return res.status(200).json({ users: [], posts: [] });
     }
 
-    const regex = new RegExp(q, 'i');
+    const cleanQ = q.replace(/^#/, '').trim();
+    const regex = new RegExp(cleanQ || q, 'i');
     const currentUserId = req.user ? req.user._id : null;
 
     // Search users
@@ -35,13 +36,18 @@ exports.searchAll = async (req, res) => {
       })
     );
 
-    // Search posts
+    // Search posts (by text, hashtag in tags array, or snippet)
     const posts = await Post.find({
-      content: regex,
+      $or: [
+        { content: regex },
+        { tags: cleanQ.toLowerCase() },
+        { 'codeSnippet.title': regex },
+        { 'codeSnippet.language': cleanQ.toLowerCase() },
+      ],
     })
       .populate('author', 'name username avatarUrl role')
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(25);
 
     const postIds = posts.map((p) => p._id);
     const userLikes = currentUserId

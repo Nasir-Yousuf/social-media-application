@@ -1,0 +1,272 @@
+import React, { useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import {
+  Home,
+  Compass,
+  Bell,
+  MessageSquare,
+  Code2,
+  Bookmark,
+  Users,
+  User,
+  ShieldAlert,
+  MoreHorizontal,
+  PenSquare,
+  LogOut,
+  Sun,
+  Moon,
+  Sparkles,
+  ExternalLink,
+} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
+import { ClearfeedLogo } from '../common/ClearfeedIcons';
+import Avatar from '../common/Avatar';
+import Modal from '../common/Modal';
+import PostComposer from '../posts/PostComposer';
+
+export const LeftSidebar = () => {
+  const { user, logout, isAdmin, isDark, toggleTheme } = useAuth();
+  const { unreadCount } = useNotifications();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const navItems = [
+    { to: '/', label: 'Home', icon: Home, end: true },
+    { to: '/explore', label: 'Explore', icon: Compass },
+    {
+      to: '/notifications',
+      label: 'Notifications',
+      icon: Bell,
+      badge: unreadCount,
+    },
+    { to: '/messages', label: 'Chat', icon: MessageSquare },
+    { to: '/code', label: 'CodeHub', icon: Code2 },
+    { to: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
+    { to: '/members', label: 'Community', icon: Users },
+    { to: `/profile/${user?.username}`, label: 'Profile', icon: User },
+    ...(isAdmin
+      ? [{ to: '/admin', label: 'Admin', icon: ShieldAlert, highlight: true }]
+      : []),
+  ];
+
+  return (
+    <>
+      <aside className="hidden md:flex flex-col justify-between sticky top-0 h-screen w-18 xl:w-64 px-2 xl:px-4 py-3 shrink-0 border-r border-neutral-200/80 dark:border-neutral-800/80 select-none z-30 transition-all duration-200">
+        {/* Top: Logo & Nav Links */}
+        <div className="flex flex-col gap-1.5">
+          {/* Logo */}
+          <NavLink
+            to="/"
+            className="flex items-center gap-3 p-3 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800/80 w-fit transition-colors group mb-1"
+            title="Clearfeed Home"
+          >
+            <div className="transition-transform group-hover:scale-110 duration-200">
+              <ClearfeedLogo className="w-8 h-8 text-sky-500" />
+            </div>
+            <span className="hidden xl:inline font-sans font-black text-xl tracking-tight text-neutral-900 dark:text-white">
+              Clear<span className="text-sky-500">feed</span>
+            </span>
+          </NavLink>
+
+          {/* Nav Items */}
+          <nav className="flex flex-col gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                item.end
+                  ? location.pathname === item.to
+                  : location.pathname.startsWith(item.to);
+
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={`flex items-center gap-4 px-3.5 py-3 rounded-full text-base font-semibold transition-all duration-150 active:scale-95 group w-fit xl:w-full ${
+                    isActive
+                      ? 'font-bold text-neutral-900 dark:text-white bg-neutral-100/90 dark:bg-neutral-800/80'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white'
+                  }`}
+                  title={item.label}
+                >
+                  <div className="relative">
+                    <Icon
+                      className={`w-6 h-6 transition-transform group-hover:scale-105 ${
+                        isActive
+                          ? 'text-sky-500 stroke-[2.5]'
+                          : 'text-neutral-700 dark:text-neutral-300 stroke-[2]'
+                      } ${item.highlight ? 'text-amber-500 dark:text-amber-400' : ''}`}
+                    />
+                    {item.badge > 0 && (
+                      <span className="absolute -top-1.5 -right-2 min-w-4.5 h-4.5 px-1 text-[10px] font-black rounded-full bg-sky-500 text-white flex items-center justify-center animate-pulse shadow-sm">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="hidden xl:inline text-lg tracking-tight">
+                    {item.label}
+                  </span>
+                </NavLink>
+              );
+            })}
+
+            {/* More / Settings Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                className="flex items-center gap-4 px-3.5 py-3 rounded-full text-base font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 hover:text-neutral-900 dark:hover:text-white transition-all duration-150 active:scale-95 w-fit xl:w-full cursor-pointer"
+                title="More Options"
+              >
+                <MoreHorizontal className="w-6 h-6 stroke-[2]" />
+                <span className="hidden xl:inline text-lg tracking-tight">More</span>
+              </button>
+
+              {isMoreMenuOpen && (
+                <div
+                  className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-[#12151a] border border-neutral-200 dark:border-neutral-800 rounded-2xl p-1.5 shadow-2xl z-50 animate-fade-in"
+                  onMouseLeave={() => setIsMoreMenuOpen(false)}
+                >
+                  <button
+                    onClick={() => {
+                      toggleTheme();
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
+                  >
+                    {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-sky-500" />}
+                    <span>{isDark ? 'Light Display' : 'Dark Display'}</span>
+                  </button>
+                  <NavLink
+                    to="/digest"
+                    onClick={() => setIsMoreMenuOpen(false)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors"
+                  >
+                    <Sparkles className="w-4 h-4 text-sky-500" />
+                    <span>Weekly Digest</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
+          </nav>
+
+          {/* Big Twitter-style Post Button */}
+          <div className="mt-3">
+            <button
+              onClick={() => setIsPostModalOpen(true)}
+              className="w-12 h-12 xl:w-full xl:h-12 flex items-center justify-center gap-2 rounded-full bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold text-base shadow-md shadow-sky-500/25 transition-all duration-150 active:scale-95 cursor-pointer"
+              title="Post"
+            >
+              <PenSquare className="w-5 h-5 xl:hidden" />
+              <span className="hidden xl:inline tracking-tight font-extrabold text-base">
+                Post
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Left: User Profile Pill (Exactly like Twitter) */}
+        <div className="relative pt-2">
+          {isUserMenuOpen && (
+            <div
+              className="absolute bottom-full left-0 mb-3 w-64 bg-white dark:bg-[#12151a] border border-neutral-200 dark:border-neutral-800 rounded-2xl p-2 shadow-2xl z-50 animate-fade-in"
+              onMouseLeave={() => setIsUserMenuOpen(false)}
+            >
+              <div className="px-3 py-2 border-b border-neutral-100 dark:border-neutral-800">
+                <p className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
+                  {user?.name}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                  @{user?.username}
+                </p>
+              </div>
+
+              <div className="py-1">
+                <NavLink
+                  to={`/profile/${user?.username}`}
+                  onClick={() => setIsUserMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors"
+                >
+                  <User className="w-4 h-4 text-sky-500" />
+                  <span>View Profile</span>
+                </NavLink>
+
+                <button
+                  onClick={() => {
+                    toggleTheme();
+                    setIsUserMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer"
+                >
+                  {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-sky-500" />}
+                  <span>Switch Theme</span>
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/15 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log out @{user?.username}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="flex items-center justify-between w-full p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-all duration-150 cursor-pointer active:scale-95 group"
+            title={`Account options for @${user?.username}`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Avatar
+                src={user?.avatarUrl}
+                name={user?.name}
+                size="md"
+                showRoleBadge={false}
+              />
+              <div className="hidden xl:flex flex-col text-left min-w-0">
+                <span className="font-bold text-sm text-neutral-900 dark:text-neutral-100 truncate leading-tight">
+                  {user?.name}
+                </span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate leading-tight">
+                  @{user?.username}
+                </span>
+              </div>
+            </div>
+
+            <div className="hidden xl:block text-neutral-400 group-hover:text-neutral-600 dark:group-hover:text-neutral-200">
+              <MoreHorizontal className="w-4 h-4" />
+            </div>
+          </button>
+        </div>
+      </aside>
+
+      {/* Quick Compose Modal */}
+      <Modal
+        isOpen={isPostModalOpen}
+        onClose={() => setIsPostModalOpen(false)}
+        title="Compose Post"
+      >
+        <PostComposer
+          onPostCreated={() => {
+            setIsPostModalOpen(false);
+            window.dispatchEvent(new CustomEvent('clearfeed:newPost'));
+          }}
+          compact={true}
+        />
+      </Modal>
+    </>
+  );
+};
+
+export default LeftSidebar;

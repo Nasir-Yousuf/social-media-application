@@ -6,6 +6,9 @@ import {
   Flame,
   Info,
   FolderGit2,
+  MapPin,
+  Smile,
+  Navigation,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -17,6 +20,17 @@ import {
   getLanguageFromFilename,
   SNIPPET_PRESETS,
 } from './vscodeUtils';
+
+const QUICK_EMOJIS = ['😀', '😂', '🔥', '🚀', '💻', '💡', '⚡', '❤️', '🎯', '🎉', '✨', '☕', '🧠', '🐛', '👍', '🙌', '🤝', '💯', '🔒', '🛠️'];
+
+const LOCATION_PRESETS = [
+  'CS Lab 402B',
+  'Campus Library',
+  'Code Lounge',
+  'Online / Remote',
+  'San Francisco, CA',
+  'New York, NY',
+];
 
 const SUPPORTED_LANGUAGES = [
   { value: 'javascript', label: 'JavaScript' },
@@ -59,6 +73,62 @@ export const PostComposer = ({
   const [loading, setLoading] = useState(false);
   const [forkedFromId, setForkedFromId] = useState(null);
   const [showMarkdownHint, setShowMarkdownHint] = useState(false);
+
+  // Twitter-style Location and Emoji state
+  const [location, setLocation] = useState('');
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [customLocationInput, setCustomLocationInput] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
+
+  const handleInsertEmoji = (emoji) => {
+    setContent((prev) => prev + emoji);
+  };
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      showToast('Geolocation is not supported by your browser', 'info');
+      return;
+    }
+    setDetectingLocation(true);
+    showToast('Detecting location...', 'info');
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+          );
+          const data = await res.json();
+          const city =
+            data.address?.city ||
+            data.address?.town ||
+            data.address?.village ||
+            data.address?.state ||
+            'Nearby';
+          const country = data.address?.country_code
+            ? data.address.country_code.toUpperCase()
+            : '';
+          const tag = country ? `${city}, ${country}` : city;
+          setLocation(tag);
+          setShowLocationPicker(false);
+          showToast(`Tagged: ${tag}`, 'success');
+        } catch {
+          setLocation('Campus Lab');
+          setShowLocationPicker(false);
+        } finally {
+          setDetectingLocation(false);
+        }
+      },
+      () => {
+        setDetectingLocation(false);
+        showToast('Location access denied or unavailable. You can type one below.', 'info');
+      },
+      { timeout: 8000 }
+    );
+  };
 
   // Multi-File Code Snippet State
   const [showCodeEditor, setShowCodeEditor] = useState(initialShowCode);
@@ -227,6 +297,7 @@ export const PostComposer = ({
         content: postText || (formattedSnippet ? `Shared snippet: ${formattedSnippet.title}` : 'Shared a post'),
         isAnnouncement: isAdmin ? isAnnouncement : false,
         forkedFrom: forkedFromId || null,
+        location: location.trim() || undefined,
       };
 
       if (formattedSnippet) {
@@ -237,6 +308,9 @@ export const PostComposer = ({
 
       // Reset
       setContent('');
+      setLocation('');
+      setShowLocationPicker(false);
+      setShowEmojiPicker(false);
       setFiles([
         {
           name: 'script.js',
@@ -285,14 +359,30 @@ export const PostComposer = ({
             onChange={(e) => setContent(e.target.value)}
             placeholder={
               isAdmin
-                ? 'Share a note, announcement, or insight...'
+                ? "What's happening? Share a course note or update..."
                 : showCodeEditor
-                ? 'Describe your code or solution (Markdown supported)...'
-                : 'Write something thoughtful... (Markdown supported)'
+                ? 'Describe your code snippet or solution...'
+                : "What's happening? Share your thoughts or code..."
             }
             rows={compact ? 2 : showCodeEditor ? 2 : 3}
-            className="w-full bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-base resize-none focus:outline-none leading-relaxed font-sans"
+            className="w-full bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 text-lg resize-none focus:outline-none leading-relaxed font-sans"
           />
+
+          {/* Location Badge Chip */}
+          {location && (
+            <div className="flex items-center gap-1.5 px-3 py-1 mb-2.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 text-xs font-semibold w-fit animate-fade-in border border-sky-200/60 dark:border-sky-500/20">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>{location}</span>
+              <button
+                type="button"
+                onClick={() => setLocation('')}
+                className="p-0.5 rounded-full hover:bg-sky-200/50 dark:hover:bg-sky-500/20 text-sky-500 cursor-pointer ml-1"
+                title="Remove location"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
 
           {/* Markdown Hint Accordion */}
           {showMarkdownHint && (
@@ -476,24 +566,111 @@ export const PostComposer = ({
             </div>
           )}
 
+          {/* Emoji Drawer */}
+          {showEmojiPicker && (
+            <div className="p-2.5 my-2.5 bg-neutral-100 dark:bg-[#181a20] border border-neutral-200 dark:border-neutral-800 rounded-2xl flex flex-wrap gap-1 animate-fade-in shadow-inner">
+              {QUICK_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleInsertEmoji(emoji)}
+                  className="text-lg p-1.5 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700/60 active:scale-125 transition-transform cursor-pointer"
+                  title={`Insert ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Location Drawer */}
+          {showLocationPicker && (
+            <div className="p-3 my-2.5 bg-neutral-100 dark:bg-[#181a20] border border-neutral-200 dark:border-neutral-800 rounded-2xl space-y-2.5 animate-fade-in text-xs shadow-inner">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-sky-500" />
+                  Tag Location
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDetectLocation}
+                  disabled={detectingLocation}
+                  className="flex items-center gap-1 text-sky-500 font-semibold hover:underline cursor-pointer"
+                >
+                  <Navigation className={`w-3.5 h-3.5 ${detectingLocation ? 'animate-spin' : ''}`} />
+                  <span>{detectingLocation ? 'Detecting...' : 'Use Current GPS'}</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {LOCATION_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setLocation(preset);
+                      setShowLocationPicker(false);
+                    }}
+                    className="px-2.5 py-1 rounded-full bg-white dark:bg-black/60 border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-sky-500 hover:text-sky-500 transition-colors cursor-pointer font-medium"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-1.5 pt-1">
+                <input
+                  type="text"
+                  value={customLocationInput}
+                  onChange={(e) => setCustomLocationInput(e.target.value)}
+                  placeholder="Or type city or place (e.g. San Francisco)..."
+                  className="flex-1 px-3 py-1.5 rounded-xl bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white outline-none focus:border-sky-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (customLocationInput.trim()) {
+                        setLocation(customLocationInput.trim());
+                        setCustomLocationInput('');
+                        setShowLocationPicker(false);
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (customLocationInput.trim()) {
+                      setLocation(customLocationInput.trim());
+                      setCustomLocationInput('');
+                      setShowLocationPicker(false);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-sky-500 text-white font-bold text-xs hover:bg-sky-400 cursor-pointer"
+                >
+                  Set
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Composer Bottom Action Bar */}
           <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
-            {/* Snippet & Markdown hints */}
-            <div className="flex items-center gap-2">
+            {/* Action Tools: Code, Emoji, Location, Hints */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 title={showCodeEditor ? 'Hide code editor' : 'Attach code snippet'}
                 onClick={() => setShowCodeEditor(!showCodeEditor)}
-                className={`px-3 py-1.5 rounded-full transition-all duration-150 cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
+                className={`p-2 rounded-full transition-all duration-150 cursor-pointer flex items-center gap-1 text-xs font-semibold ${
                   showCodeEditor
-                    ? 'bg-sky-500 text-white shadow-xs'
-                    : 'text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 border border-neutral-200 dark:border-neutral-800'
+                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
+                    : 'text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10'
                 }`}
               >
-                <Code2 className="w-4 h-4" />
-                <span>Code Snippet</span>
+                <Code2 className="w-5 h-5" />
+                <span className="hidden sm:inline">Code</span>
                 {files.length > 1 && (
-                  <span className="ml-0.5 px-1.5 py-0.2 text-[10px] rounded-full bg-white/20">
+                  <span className="ml-0.5 px-1.5 py-0.2 text-[10px] rounded-full bg-sky-500 text-white">
                     {files.length}
                   </span>
                 )}
@@ -501,11 +678,43 @@ export const PostComposer = ({
 
               <button
                 type="button"
+                title="Add emoji"
+                onClick={() => {
+                  setShowEmojiPicker(!showEmojiPicker);
+                  setShowLocationPicker(false);
+                }}
+                className={`p-2 rounded-full transition-all duration-150 cursor-pointer ${
+                  showEmojiPicker
+                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
+                    : 'text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10'
+                }`}
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
+                title="Add location"
+                onClick={() => {
+                  setShowLocationPicker(!showLocationPicker);
+                  setShowEmojiPicker(false);
+                }}
+                className={`p-2 rounded-full transition-all duration-150 cursor-pointer ${
+                  location || showLocationPicker
+                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
+                    : 'text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10'
+                }`}
+              >
+                <MapPin className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
                 title="Formatting help"
                 onClick={() => setShowMarkdownHint(!showMarkdownHint)}
-                className={`p-1.5 rounded-full transition-all duration-150 cursor-pointer ${
+                className={`p-2 rounded-full transition-all duration-150 cursor-pointer ${
                   showMarkdownHint
-                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
+                    ? 'text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-neutral-800'
                     : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                 }`}
               >
@@ -513,7 +722,7 @@ export const PostComposer = ({
               </button>
             </div>
 
-            {/* Character counter & Submit Button */}
+            {/* Character counter & Twitter Pill Post Button */}
             <div className="flex items-center gap-3">
               {content.length > 0 && (
                 <div className="flex items-center gap-1.5 text-xs font-mono">
@@ -562,16 +771,14 @@ export const PostComposer = ({
                 </div>
               )}
 
-              <Button
-                variant="primary"
-                size="sm"
+              <button
+                type="button"
                 disabled={!isValid || loading}
-                isLoading={loading}
                 onClick={handleSubmit}
-                className="px-5 py-1.5 font-bold"
+                className="px-5 py-2 rounded-full bg-sky-500 hover:bg-sky-400 active:bg-sky-600 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-sm shadow-xs transition-all duration-150 active:scale-95 cursor-pointer"
               >
-                Publish
-              </Button>
+                {loading ? 'Posting...' : 'Post'}
+              </button>
             </div>
           </div>
         </div>

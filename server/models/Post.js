@@ -82,6 +82,38 @@ const postSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    viewsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    location: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Location cannot exceed 100 characters'],
+      default: '',
+    },
+    tags: [
+      {
+        type: String,
+        trim: true,
+        lowercase: true,
+      },
+    ],
+    isFlagged: {
+      type: Boolean,
+      default: false,
+    },
+    flagReason: {
+      type: String,
+      default: null,
+    },
+    flaggedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
     isEdited: {
       type: Boolean,
       default: false,
