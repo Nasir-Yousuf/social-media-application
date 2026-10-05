@@ -1,5 +1,6 @@
 import React from 'react';
-import { Outlet, Navigate, NavLink } from 'react-router-dom';
+import { Outlet, Navigate, NavLink, useLocation } from 'react-router-dom';
+import { MessageSquare } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import LeftSidebar from './LeftSidebar';
 import RightSidebar from './RightSidebar';
@@ -11,6 +12,8 @@ import { ClearfeedLogo } from '../common/ClearfeedIcons';
 
 export const AppLayout = () => {
   const { user, isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  const isMessages = location.pathname.startsWith('/messages');
 
   if (loading) {
     return (
@@ -49,7 +52,20 @@ export const AppLayout = () => {
           </span>
         </NavLink>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-1.5">
+          <NavLink
+            to="/messages"
+            className={({ isActive }) =>
+              `p-1.5 rounded-full text-neutral-600 dark:text-neutral-300 hover:text-sky-500 transition-colors ${
+                isActive ? 'text-sky-500' : ''
+              }`
+            }
+            title="Messages"
+          >
+            <MessageSquare className="w-5 h-5" />
+          </NavLink>
+          <ThemeToggle />
+        </div>
       </header>
 
       {/* Main 3-Column Twitter Layout Container */}
@@ -58,12 +74,16 @@ export const AppLayout = () => {
         <LeftSidebar />
 
         {/* Center Column: Feed & Main Content */}
-        <main className="flex-1 w-full max-w-[620px] min-h-screen border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 pb-20 md:pb-12 bg-white dark:bg-black">
+        <main
+          className={`flex-1 w-full ${
+            isMessages ? 'max-w-[990px] pb-0' : 'max-w-[620px] pb-20 md:pb-12'
+          } min-h-screen border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black`}
+        >
           <Outlet />
         </main>
 
-        {/* Right Column: Search, Trending & Who to follow */}
-        <RightSidebar />
+        {/* Right Column: Search, Trending & Who to follow (hidden on messages to give full width) */}
+        {!isMessages && <RightSidebar />}
       </div>
 
       {/* Mobile Bottom Navigation (Only on mobile < md) */}

@@ -226,6 +226,14 @@ export const MessagesPage = () => {
     );
   };
 
+  // Back to conversations list on mobile
+  const handleBackToConversations = () => {
+    setActiveConversation(null);
+    if (searchParams.get('user')) {
+      setSearchParams({});
+    }
+  };
+
   // Open New Chat Modal & Load directory members
   const handleOpenNewChat = async () => {
     setIsNewChatModalOpen(true);
@@ -480,7 +488,7 @@ export const MessagesPage = () => {
   });
 
   return (
-    <div className="flex h-[calc(100vh-56px)] md:h-screen w-full bg-white dark:bg-black font-sans overflow-hidden">
+    <div className="flex h-[calc(100dvh-3.25rem-3.5rem)] md:h-screen w-full bg-white dark:bg-black font-sans overflow-hidden">
       {/* LEFT PANE: Conversations List (Hidden on mobile if chat is active) */}
       <div
         className={`${
@@ -522,7 +530,7 @@ export const MessagesPage = () => {
         </div>
 
         {/* Conversation List Stream */}
-        <div className="flex-1 overflow-y-auto divide-y divide-neutral-100/60 dark:divide-neutral-900/60">
+        <div className="flex-1 overflow-y-auto overscroll-contain divide-y divide-neutral-100/60 dark:divide-neutral-900/60">
           {loadingConversations ? (
             <div className="p-4 space-y-3">
               {[1, 2, 3, 4].map((i) => (
@@ -595,7 +603,7 @@ export const MessagesPage = () => {
                           <button
                             type="button"
                             onClick={(e) => handleDeleteConversation(conv._id, e)}
-                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
+                            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
                             title="Delete conversation & all messages"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -639,18 +647,21 @@ export const MessagesPage = () => {
       {/* RIGHT PANE: Active Chat Conversation */}
       <div
         className={`${
-          activeConversation ? 'flex' : 'hidden md:flex'
-        } flex-col flex-1 h-full overflow-hidden bg-neutral-50/40 dark:bg-black`}
+          activeConversation
+            ? 'fixed inset-0 z-50 md:relative md:inset-auto md:z-auto flex'
+            : 'hidden md:flex'
+        } flex-col flex-1 h-[100dvh] md:h-screen overflow-hidden bg-white dark:bg-black transition-all`}
       >
         {activeConversation ? (
           <>
             {/* Active Chat Header */}
-            <div className="px-4 py-3 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/80 dark:bg-black/80 backdrop-blur-md flex items-center justify-between shrink-0 z-10">
-              <div className="flex items-center gap-3 min-w-0">
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/95 dark:bg-black/95 backdrop-blur-md flex items-center justify-between shrink-0 z-10">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
-                  onClick={() => setActiveConversation(null)}
-                  className="md:hidden p-1.5 -ml-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 cursor-pointer"
+                  type="button"
+                  onClick={handleBackToConversations}
+                  className="md:hidden p-2 -ml-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 active:scale-95 transition-transform cursor-pointer shrink-0"
                   title="Back to conversations"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -722,7 +733,7 @@ export const MessagesPage = () => {
             </div>
 
             {/* Message Thread Scroll Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-3">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
@@ -861,10 +872,10 @@ export const MessagesPage = () => {
             </div>
 
             {/* Rich Composer Bar */}
-            <div className="p-3 border-t border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black shrink-0">
+            <div className="p-2.5 sm:p-3 border-t border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
               {/* Emoji Drawer */}
               {showEmojiPicker && (
-                <div className="p-2 mb-2 bg-neutral-100 dark:bg-[#16181c] border border-neutral-200 dark:border-neutral-800 rounded-2xl flex flex-wrap gap-1 shadow-inner animate-fade-in">
+                <div className="p-2 mb-2 max-h-36 sm:max-h-48 overflow-y-auto bg-neutral-100 dark:bg-[#16181c] border border-neutral-200 dark:border-neutral-800 rounded-2xl flex flex-wrap gap-1 shadow-inner animate-fade-in">
                   {QUICK_EMOJIS.map((emoji) => (
                     <button
                       key={emoji}
@@ -970,14 +981,17 @@ export const MessagesPage = () => {
                       e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      const isMobile =
+                        typeof window !== 'undefined' &&
+                        (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
+                      if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
                         e.preventDefault();
                         handleSendMessage();
                       }
                     }}
                     placeholder="Start a new message... (Enter to send)"
                     rows={1}
-                    className="w-full py-2 px-3.5 rounded-2xl bg-neutral-100 dark:bg-[#16181c] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none focus:border-sky-500 border border-transparent resize-none max-h-32 min-h-[38px] leading-relaxed transition-all"
+                    className="w-full py-2 px-3 sm:px-3.5 rounded-2xl bg-neutral-100 dark:bg-[#16181c] text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none focus:border-sky-500 border border-transparent resize-none max-h-32 min-h-[38px] leading-relaxed transition-all"
                   />
                 </div>
 
@@ -985,7 +999,7 @@ export const MessagesPage = () => {
                 <button
                   type="submit"
                   disabled={!inputText.trim() && !snippetCode.trim()}
-                  className="p-2.5 rounded-full bg-sky-500 text-white disabled:opacity-40 hover:bg-sky-400 active:bg-sky-600 transition-all cursor-pointer shrink-0 shadow-xs"
+                  className="p-2 sm:p-2.5 rounded-full bg-sky-500 text-white disabled:opacity-40 hover:bg-sky-400 active:bg-sky-600 transition-all cursor-pointer shrink-0 shadow-xs flex items-center justify-center"
                   title="Send message"
                 >
                   <Send className="w-4 h-4" />
