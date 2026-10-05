@@ -34,10 +34,10 @@ export const BookmarkButton = ({ postId, initialIsBookmarked = false, className 
       onClick={handleToggleBookmark}
       disabled={loading}
       title={isBookmarked ? 'Remove bookmark' : 'Save bookmark'}
-      className={`flex items-center gap-1.5 p-1.5 rounded-full cf-btn-transition cursor-pointer ${
+      className={`flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer ${
         isBookmarked
-          ? 'text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-soft)]'
-          : 'text-[var(--color-cf-text-muted)] hover:text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-soft)]'
+          ? 'text-sky-500 hover:bg-sky-500/10'
+          : 'text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10'
       } ${className}`}
       aria-label="Bookmark post"
     >

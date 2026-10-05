@@ -57,7 +57,7 @@ export const CodeSnippetBlock = ({
 
   return (
     <div
-      className={`mt-3 rounded-xl border border-[var(--color-cf-border)] dark:border-[var(--color-cfd-border)] bg-[#1e1e1e] overflow-hidden shadow-md select-text font-mono text-xs group/vscode transition-all ${className}`}
+      className={`mt-3 rounded-2xl border border-neutral-700/80 dark:border-neutral-800 bg-[#1e1e1e] overflow-hidden shadow-lg ring-1 ring-black/10 select-text font-mono text-xs group/vscode transition-all ${className}`}
     >
       {/* VS Code Window Header / Title Bar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#181818] border-b border-[#252526] select-none text-[11px] text-[#858585]">
@@ -70,7 +70,7 @@ export const CodeSnippetBlock = ({
           </div>
 
           <div className="flex items-center gap-1.5 min-w-0 truncate">
-            <span className="text-[var(--color-cf-accent)] font-bold">CF</span>
+            <span className="text-sky-500 font-bold">CF</span>
             <span className="text-[#cccccc] font-medium truncate">
               {snippet.title || 'Clearfeed Workspace'}
             </span>

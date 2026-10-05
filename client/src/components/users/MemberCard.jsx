@@ -34,7 +34,7 @@ export const MemberCard = ({ member }) => {
   };
 
   return (
-    <div className="p-4 rounded-xl cf-surface border cf-border flex flex-col justify-between gap-3 shadow-sm hover:shadow transition-shadow">
+    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 flex flex-col justify-between gap-3 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-200">
       <div className="flex items-start justify-between gap-3">
         <NavLink to={`/profile/${member.username}`} className="flex items-center gap-3 min-w-0">
           <Avatar
@@ -46,16 +46,18 @@ export const MemberCard = ({ member }) => {
           />
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-sans font-bold text-sm cf-text hover:underline truncate">
+              <span className="font-sans font-bold text-sm text-neutral-900 dark:text-neutral-100 hover:underline truncate">
                 {member.name}
               </span>
               {member.role === 'admin' && (
-                <FacultyBadge className="w-3.5 h-3.5 text-[var(--color-cf-amber)]" />
+                <FacultyBadge className="w-3.5 h-3.5 text-amber-500" />
               )}
             </div>
-            <span className="text-xs cf-text-muted block truncate font-sans">@{member.username}</span>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 block truncate font-sans">
+              @{member.username}
+            </span>
             {member.status && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--color-cf-accent-soft)] dark:bg-[var(--color-cfd-accent-soft)] text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] font-medium inline-block mt-1">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium inline-block mt-1">
                 {member.status}
               </span>
             )}
@@ -76,18 +78,18 @@ export const MemberCard = ({ member }) => {
       </div>
 
       {member.bio && (
-        <p className="text-xs cf-text/90 line-clamp-2 leading-relaxed font-serif">
+        <p className="text-xs text-neutral-600 dark:text-neutral-300 line-clamp-2 leading-relaxed font-sans">
           {member.bio}
         </p>
       )}
 
-      <div className="pt-2 border-t cf-border flex items-center justify-between text-xs cf-text-muted font-sans">
+      <div className="pt-2.5 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 font-sans">
         <span>
-          <strong className="cf-text font-bold">{followersCount}</strong> follower{followersCount === 1 ? '' : 's'}
+          <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{followersCount}</strong> follower{followersCount === 1 ? '' : 's'}
         </span>
         <NavLink
           to={`/profile/${member.username}`}
-          className="text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] hover:underline font-semibold text-xs"
+          className="text-sky-500 hover:underline font-semibold text-xs"
         >
           View profile &rarr;
         </NavLink>

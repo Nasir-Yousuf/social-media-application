@@ -17,6 +17,7 @@ import { useNotifications } from '../context/NotificationContext';
 export const NotificationsPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('all');
   const { setUnreadCount, showToast } = useNotifications();
 
   const fetchNotifications = async () => {
@@ -49,15 +50,35 @@ export const NotificationsPage = () => {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'like':
-        return <Heart className="w-5 h-5 text-[var(--color-cf-like)] fill-[var(--color-cf-like)]" />;
+        return (
+          <div className="p-2 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-500 ring-1 ring-rose-200 dark:ring-rose-900/50">
+            <Heart className="w-4 h-4 fill-rose-500" />
+          </div>
+        );
       case 'comment':
-        return <MessageCircle className="w-5 h-5 text-[var(--color-cf-accent)]" />;
+        return (
+          <div className="p-2 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-500 ring-1 ring-sky-200 dark:ring-sky-900/50">
+            <MessageCircle className="w-4 h-4" />
+          </div>
+        );
       case 'follow':
-        return <UserPlus className="w-5 h-5 text-[var(--color-cf-accent)]" />;
+        return (
+          <div className="p-2 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 ring-1 ring-emerald-200 dark:ring-emerald-900/50">
+            <UserPlus className="w-4 h-4" />
+          </div>
+        );
       case 'announcement':
-        return <Flame className="w-5 h-5 text-[var(--color-cf-amber)]" />;
+        return (
+          <div className="p-2 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-500 ring-1 ring-amber-200 dark:ring-amber-900/50">
+            <Flame className="w-4 h-4" />
+          </div>
+        );
       default:
-        return <Bell className="w-5 h-5 cf-text-muted" />;
+        return (
+          <div className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 ring-1 ring-neutral-200 dark:ring-neutral-700">
+            <Bell className="w-4 h-4" />
+          </div>
+        );
     }
   };
 
@@ -69,55 +90,97 @@ export const NotificationsPage = () => {
     }
   };
 
+  const filteredNotifications = notifications.filter((n) => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'likes') return n.type === 'like';
+    if (activeFilter === 'comments') return n.type === 'comment';
+    if (activeFilter === 'follows') return n.type === 'follow';
+    return true;
+  });
+
   return (
-    <div className="space-y-5 font-sans">
+    <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="pb-3 border-b cf-border flex items-center justify-between">
+      <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <Bell className="w-5 h-5 text-[var(--color-cf-accent)]" />
-            <h1 className="text-xl font-bold tracking-tight cf-text">Notifications</h1>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-500">
+              <Bell className="w-5 h-5" />
+            </div>
+            <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Notifications</h1>
           </div>
-          <p className="text-xs cf-text-muted mt-0.5 font-serif italic">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
             Direct interactions: replies, appreciations, and new connections.
           </p>
         </div>
 
         {notifications.some((n) => !n.read) && (
-          <Button variant="outline" size="xs" onClick={handleMarkAllRead} className="text-xs px-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMarkAllRead}
+            className="text-xs px-3 font-semibold"
+          >
             <CheckCheck className="w-3.5 h-3.5" />
             <span>Mark all read</span>
           </Button>
         )}
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
+        {[
+          { id: 'all', label: 'All' },
+          { id: 'likes', label: 'Likes' },
+          { id: 'comments', label: 'Comments' },
+          { id: 'follows', label: 'Followers' },
+        ].map((tab) => {
+          const isActive = activeFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveFilter(tab.id)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95 ${
+                isActive
+                  ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+                  : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Notifications List */}
       {loading ? (
         <div className="space-y-3 animate-pulse">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="p-4 rounded-xl cf-surface border cf-border h-16" />
+            <div key={i} className="p-4 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 h-20" />
           ))}
         </div>
-      ) : notifications.length === 0 ? (
-        <div className="p-12 text-center cf-surface border cf-border rounded-xl">
-          <Bell className="w-8 h-8 mx-auto mb-2 cf-text-muted" />
-          <p className="text-sm font-semibold cf-text">No alerts yet</p>
-          <p className="text-xs cf-text-muted mt-1 font-serif italic">
+      ) : filteredNotifications.length === 0 ? (
+        <div className="p-12 text-center bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-3 text-neutral-400">
+            <Bell className="w-6 h-6" />
+          </div>
+          <p className="text-base font-bold text-neutral-900 dark:text-neutral-100">No alerts found</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-sm mx-auto font-sans leading-relaxed">
             When someone responds to your posts or follows your work, you will see it here.
           </p>
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {notifications.map((n) => (
+        <div className="space-y-3">
+          {filteredNotifications.map((n) => (
             <div
               key={n._id}
-              className={`p-4 rounded-xl border cf-border cf-btn-transition flex items-start gap-3.5 ${
+              className={`p-4 rounded-2xl border transition-all duration-200 flex items-start gap-3.5 shadow-2xs ${
                 !n.read
-                  ? 'bg-[var(--color-cf-accent-soft)]/40 dark:bg-[var(--color-cfd-accent-soft)]/20'
-                  : 'cf-surface'
+                  ? 'bg-sky-50/60 dark:bg-sky-500/10 border-sky-200/80 dark:border-sky-500/30'
+                  : 'bg-white dark:bg-[#121519] border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
               }`}
             >
-              <div className="pt-0.5">{getNotificationIcon(n.type)}</div>
+              <div className="shrink-0 pt-0.5">{getNotificationIcon(n.type)}</div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -131,14 +194,17 @@ export const NotificationsPage = () => {
                       />
                     </NavLink>
                   )}
-                  <span className="text-xs cf-text-muted">{formatTime(n.createdAt)}</span>
+                  <span className="text-[11px] text-neutral-400 font-sans">{formatTime(n.createdAt)}</span>
+                  {!n.read && (
+                    <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0 ml-auto" />
+                  )}
                 </div>
 
-                <p className="text-sm cf-text leading-snug">
+                <p className="text-sm text-neutral-900 dark:text-neutral-100 leading-snug">
                   {n.sender && (
                     <NavLink
                       to={`/profile/${n.sender.username}`}
-                      className="font-bold hover:underline mr-1"
+                      className="font-bold hover:underline mr-1 text-neutral-900 dark:text-white"
                     >
                       {n.sender.name}
                     </NavLink>
@@ -150,7 +216,7 @@ export const NotificationsPage = () => {
                 </p>
 
                 {n.post && (
-                  <p className="text-xs cf-text-muted line-clamp-1 mt-1 font-serif italic">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1 mt-1 font-serif italic">
                     "{n.post.content}"
                   </p>
                 )}

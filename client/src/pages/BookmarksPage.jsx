@@ -46,14 +46,16 @@ export const BookmarksPage = () => {
   };
 
   return (
-    <div className="flex flex-col space-y-5 font-sans">
-      <div className="flex items-center justify-between pb-3 border-b cf-border">
+    <div className="flex flex-col space-y-6 font-sans">
+      <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <div className="flex items-center gap-2">
-            <Bookmark className="w-5 h-5 text-[var(--color-cf-accent)]" />
-            <h1 className="text-xl font-bold tracking-tight cf-text">Saved Posts</h1>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-500">
+              <Bookmark className="w-5 h-5" />
+            </div>
+            <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Saved Posts</h1>
           </div>
-          <p className="text-xs cf-text-muted mt-0.5 font-sans">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
             Your private collection of posts and code snippets.
           </p>
         </div>
@@ -62,9 +64,9 @@ export const BookmarksPage = () => {
           onClick={() => fetchBookmarks(true, 1)}
           disabled={refreshing || loading}
           title="Refresh bookmarks"
-          className="p-2 cf-text-muted hover:text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)] rounded-full transition-colors cursor-pointer"
+          className="p-2 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors cursor-pointer active:scale-90"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[var(--color-cf-accent)]' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-sky-500' : ''}`} />
         </button>
       </div>
 

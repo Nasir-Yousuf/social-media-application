@@ -41,36 +41,40 @@ export const ExplorePage = () => {
     : posts;
 
   return (
-    <div className="space-y-5 font-sans">
+    <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="pb-3 border-b cf-border">
-        <div className="flex items-center gap-2">
-          <Compass className="w-5 h-5 text-[var(--color-cf-accent)]" />
-          <h1 className="text-xl font-bold tracking-tight cf-text">Discover</h1>
+      <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-500">
+            <Compass className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Discover</h1>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+              Explore thoughtful posts, notes, and discussions across the network.
+            </p>
+          </div>
         </div>
-        <p className="text-xs cf-text-muted mt-0.5 font-serif italic">
-          Explore thoughtful posts, notes, and discussions across the network.
-        </p>
       </div>
 
       {/* Topic Filter Pills */}
       <div>
-        <div className="flex items-center gap-1.5 text-xs cf-text-muted mb-2 font-medium">
+        <div className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 mb-2.5 font-medium">
           <Tag className="w-3.5 h-3.5" />
-          <span>Browse topics:</span>
+          <span>Browse popular topics:</span>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {topics.map((tag) => {
             const isSelected = selectedTag === tag;
             return (
               <button
                 key={tag}
                 onClick={() => setSelectedTag(isSelected ? null : tag)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cf-btn-transition cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 active:scale-95 cursor-pointer ${
                   isSelected
-                    ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-                    : 'cf-surface border cf-border cf-text hover:bg-[var(--color-cf-elevated)] dark:hover:bg-[var(--color-cfd-elevated)]'
+                    ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+                    : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
                 }`}
               >
                 #{tag}
@@ -81,7 +85,7 @@ export const ExplorePage = () => {
           {selectedTag && (
             <button
               onClick={() => setSelectedTag(null)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium text-[var(--color-cf-danger)] hover:bg-[var(--color-cf-danger-soft)] cf-btn-transition cursor-pointer flex items-center gap-1"
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer flex items-center gap-1 active:scale-95"
             >
               <X className="w-3.5 h-3.5" />
               <span>Clear filter</span>

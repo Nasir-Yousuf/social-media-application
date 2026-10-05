@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Code2, Search, RefreshCw, Terminal, X } from 'lucide-react';
+import { Code2, Search, RefreshCw, X } from 'lucide-react';
 import PostComposer from '../components/posts/PostComposer';
 import PostList from '../components/posts/PostList';
 import api from '../api/client';
@@ -98,18 +98,20 @@ export const CodeHubPage = () => {
   };
 
   return (
-    <div className="space-y-5 font-sans">
+    <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="pb-3 border-b cf-border flex items-center justify-between">
+      <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <Code2 className="w-5 h-5 text-[var(--color-cf-accent)]" />
-            <h1 className="text-xl font-bold tracking-tight cf-text">Code Hub</h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full cf-surface border cf-border text-[var(--color-cf-accent)] font-mono font-semibold">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-500">
+              <Code2 className="w-5 h-5" />
+            </div>
+            <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Code Hub</h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 border border-sky-200/60 dark:border-sky-500/20 text-sky-600 dark:text-sky-400 font-mono font-semibold">
               {totalCount} workspaces
             </span>
           </div>
-          <p className="text-xs cf-text-muted mt-0.5 font-serif italic">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
             Multi-file VS Code snippets, algorithms, and experiments.
           </p>
         </div>
@@ -118,49 +120,52 @@ export const CodeHubPage = () => {
           onClick={() => fetchCodeFeed(true)}
           disabled={refreshing || loading}
           title="Refresh code feed"
-          className="p-2 cf-text-muted hover:text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
+          className="p-2 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50 cursor-pointer active:scale-90"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[var(--color-cf-accent)]' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-sky-500' : ''}`} />
         </button>
       </div>
 
       {/* Search & Language Filters */}
       <div className="space-y-3">
-        {/* Search */}
+        {/* Search Bar */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 cf-text-muted" />
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search code by language, keyword, filename, or syntax..."
-            className="w-full cf-surface text-sm cf-text placeholder:cf-text-muted pl-11 pr-4 py-2.5 rounded-full border cf-border focus:outline-none cf-focus-ring"
+            className="w-full bg-white dark:bg-[#121519] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-11 pr-4 py-2.5 rounded-full border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors shadow-2xs"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-xs cf-text-muted hover:cf-text cursor-pointer"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Language Pills */}
+        {/* Language Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
-          {LANGUAGES.map((lang) => (
-            <button
-              key={lang.id}
-              onClick={() => setSelectedLanguage(lang.id)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold cf-btn-transition shrink-0 cursor-pointer ${
-                selectedLanguage === lang.id
-                  ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-                  : 'cf-surface border cf-border cf-text hover:bg-[var(--color-cf-elevated)] dark:hover:bg-[var(--color-cfd-elevated)]'
-              }`}
-            >
-              {lang.label}
-            </button>
-          ))}
+          {LANGUAGES.map((lang) => {
+            const isSelected = selectedLanguage === lang.id;
+            return (
+              <button
+                key={lang.id}
+                onClick={() => setSelectedLanguage(lang.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 shrink-0 cursor-pointer active:scale-95 ${
+                  isSelected
+                    ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+                    : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
+              >
+                {lang.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -12,23 +12,25 @@ export const Button = ({
   ...props
 }) => {
   const baseStyles =
-    'relative inline-flex items-center justify-center font-bold cf-btn-transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none rounded-full cf-focus-ring';
+    'relative inline-flex items-center justify-center font-bold tracking-tight rounded-full select-none cursor-pointer transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900';
 
   const variants = {
     primary:
-      'bg-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-hover)] text-white border-0 shadow-sm',
+      'bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white shadow-sm shadow-sky-500/20 hover:shadow-sky-500/35 border border-sky-400/30',
     secondary:
-      'bg-white text-black hover:bg-neutral-200 border-0 shadow-sm dark:bg-white dark:text-black dark:hover:bg-neutral-200',
+      'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 shadow-sm border border-transparent',
     outline:
-      'bg-transparent hover:bg-white/10 text-[var(--color-cf-text)] border border-[var(--color-cf-border)]',
+      'bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800/80 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700/80',
     ghost:
-      'bg-transparent hover:bg-[var(--color-cf-elevated)] text-[var(--color-cf-text-secondary)] border-0',
+      'bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800/70 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white',
     danger:
-      'bg-[var(--color-cf-danger-soft)] hover:bg-[var(--color-cf-danger)] text-[var(--color-cf-danger)] hover:text-white border border-[var(--color-cf-danger)]/30',
+      'bg-rose-500/10 hover:bg-rose-500 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-500/25',
+    accent:
+      'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-md shadow-sky-500/25',
   };
 
   const sizes = {
-    xs: 'text-xs px-3 py-1 gap-1',
+    xs: 'text-xs px-2.5 py-1 gap-1',
     sm: 'text-xs px-3.5 py-1.5 gap-1.5',
     md: 'text-sm px-4.5 py-2 gap-2',
     lg: 'text-base px-6 py-2.5 gap-2.5',

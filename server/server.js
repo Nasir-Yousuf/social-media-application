@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 5180;
 
 // Middleware
 app.use(cors({
-  origin: '*', // Allow Vite frontend
+  origin: true, // Dynamically allows requesting origin (Vercel, localhost, etc.) and supports credentials
   credentials: true,
 }));
 app.use(express.json({ limit: '2mb' }));

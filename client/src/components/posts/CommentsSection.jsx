@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import api from '../../api/client';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
@@ -85,11 +85,13 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
       {/* Existing Comments */}
       {loading ? (
         <div className="py-2 space-y-2">
-          <div className="h-4 bg-[var(--color-cf-border)] rounded w-1/3 animate-pulse" />
-          <div className="h-4 bg-[var(--color-cf-border)]/60 rounded w-1/2 animate-pulse" />
+          <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-1/3 animate-pulse" />
+          <div className="h-4 bg-neutral-100 dark:bg-neutral-800/60 rounded w-1/2 animate-pulse" />
         </div>
       ) : comments.length === 0 ? (
-        <p className="text-xs cf-text-muted py-1">No responses yet. Share your thoughts below.</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 py-1">
+          No responses yet. Share your thoughts below.
+        </p>
       ) : (
         <div className="space-y-2.5">
           {comments.map((comment) => {
@@ -99,7 +101,7 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
             return (
               <div
                 key={comment._id}
-                className="flex items-start justify-between gap-2.5 p-3 rounded-xl cf-bg border cf-border text-xs"
+                className="flex items-start justify-between gap-2.5 p-3 rounded-2xl bg-neutral-50/80 dark:bg-black/40 border border-neutral-200/80 dark:border-neutral-800 text-xs transition-colors"
               >
                 <div className="flex items-start gap-2.5 min-w-0">
                   <NavLink to={`/profile/${comment.author?.username}`}>
@@ -114,18 +116,24 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <NavLink
                         to={`/profile/${comment.author?.username}`}
-                        className="font-bold cf-text hover:underline truncate"
+                        className="font-bold text-neutral-900 dark:text-neutral-100 hover:underline truncate"
                       >
                         {comment.author?.name}
                       </NavLink>
                       {comment.author?.role === 'admin' && (
-                        <FacultyBadge className="w-3 h-3 text-[var(--color-cf-amber)]" />
+                        <FacultyBadge className="w-3 h-3 text-amber-500" />
                       )}
-                      <span className="cf-text-muted text-[11px]">@{comment.author?.username}</span>
-                      <span className="cf-text-muted">·</span>
-                      <span className="cf-text-muted text-[11px]">{formatTime(comment.createdAt)}</span>
+                      <span className="text-neutral-500 dark:text-neutral-400 text-[11px]">
+                        @{comment.author?.username}
+                      </span>
+                      <span className="text-neutral-400">·</span>
+                      <span className="text-neutral-400 text-[11px]">
+                        {formatTime(comment.createdAt)}
+                      </span>
                     </div>
-                    <p className="cf-text mt-1 leading-relaxed break-words font-serif text-[13px]">{comment.content}</p>
+                    <p className="text-neutral-800 dark:text-neutral-200 mt-1 leading-relaxed break-words font-sans text-xs">
+                      {comment.content}
+                    </p>
                   </div>
                 </div>
 
@@ -133,7 +141,7 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
                   <button
                     onClick={() => handleDeleteComment(comment._id)}
                     title="Delete response"
-                    className="cf-text-muted hover:text-[var(--color-cf-danger)] p-1 rounded-lg transition-colors shrink-0 cursor-pointer"
+                    className="text-neutral-400 hover:text-rose-500 p-1 rounded-full hover:bg-rose-500/10 transition-colors shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -144,7 +152,7 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
         </div>
       )}
 
-      {/* Add Reply Input */}
+      {/* Add Reply Input Form */}
       <form onSubmit={handleAddComment} className="flex items-center gap-2 mt-2">
         <input
           type="text"
@@ -152,7 +160,7 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
           onChange={(e) => setNewComment(e.target.value)}
           placeholder="Write a response..."
           maxLength={1000}
-          className="flex-1 cf-bg text-xs cf-text placeholder:cf-text-muted px-3.5 py-2 rounded-lg border cf-border cf-focus-ring transition-colors"
+          className="flex-1 bg-white dark:bg-[#121519] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 px-3.5 py-2 rounded-full border border-neutral-300 dark:border-neutral-700/80 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
         />
         <Button
           type="submit"
@@ -160,9 +168,9 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
           size="sm"
           disabled={!newComment.trim() || submitting}
           isLoading={submitting}
-          className="px-4 py-2 font-semibold"
+          className="px-4 py-1.5 font-bold"
         >
-          Respond
+          Reply
         </Button>
       </form>
     </div>

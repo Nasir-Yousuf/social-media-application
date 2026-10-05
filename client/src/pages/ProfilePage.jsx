@@ -4,10 +4,6 @@ import {
   Calendar,
   Code2,
   FileText,
-  UserCheck,
-  UserPlus,
-  ArrowLeft,
-  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -108,10 +104,10 @@ export const ProfilePage = () => {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="p-6 rounded-xl cf-surface border cf-border space-y-4">
-          <div className="w-20 h-20 rounded-full bg-[var(--color-cf-border)]" />
-          <div className="h-5 bg-[var(--color-cf-border)] rounded w-44" />
-          <div className="h-3 bg-[var(--color-cf-border)]/60 rounded w-28" />
+        <div className="p-6 rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 space-y-4">
+          <div className="w-20 h-20 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-5 bg-neutral-200 dark:bg-neutral-800 rounded w-44" />
+          <div className="h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded w-28" />
         </div>
       </div>
     );
@@ -119,12 +115,12 @@ export const ProfilePage = () => {
 
   if (!profile) {
     return (
-      <div className="py-20 text-center cf-text-muted">
-        <h2 className="text-xl font-bold cf-text">Member not found</h2>
+      <div className="py-20 text-center text-neutral-500 dark:text-neutral-400">
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Member not found</h2>
         <p className="text-sm mt-1">This user profile does not exist.</p>
         <NavLink
           to="/"
-          className="inline-block mt-4 text-sm text-[var(--color-cf-accent)] hover:underline font-semibold"
+          className="inline-block mt-4 text-sm text-sky-500 hover:underline font-semibold"
         >
           &larr; Back to Feed
         </NavLink>
@@ -145,7 +141,7 @@ export const ProfilePage = () => {
   return (
     <div className="space-y-6 font-sans">
       {/* Profile Card */}
-      <div className="p-6 rounded-xl cf-surface border cf-border shadow-sm">
+      <div className="p-6 sm:p-7 rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
             <Avatar
@@ -158,16 +154,16 @@ export const ProfilePage = () => {
 
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h1 className="text-2xl font-bold tracking-tight cf-text">{profile.name}</h1>
+                <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">{profile.name}</h1>
                 {profile.role === 'admin' && (
-                  <FacultyBadge className="w-4 h-4 text-[var(--color-cf-amber)]" />
+                  <FacultyBadge className="w-4 h-4 text-amber-500" />
                 )}
               </div>
-              <p className="text-sm cf-text-muted">@{profile.username}</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
 
               {profile.status && (
                 <div className="pt-1">
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-[var(--color-cf-accent-soft)] dark:bg-[var(--color-cfd-accent-soft)] text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] font-medium inline-block">
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium inline-block">
                     {profile.status}
                   </span>
                 </div>
@@ -181,7 +177,7 @@ export const ProfilePage = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsEditModalOpen(true)}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto font-semibold"
               >
                 Edit Profile
               </Button>
@@ -191,7 +187,7 @@ export const ProfilePage = () => {
                 size="sm"
                 onClick={handleFollowToggle}
                 isLoading={followLoading}
-                className="w-full sm:w-auto px-5"
+                className="w-full sm:w-auto px-5 font-bold"
               >
                 {profile.isFollowing ? 'Following' : 'Follow'}
               </Button>
@@ -201,14 +197,14 @@ export const ProfilePage = () => {
 
         {/* Bio */}
         {profile.bio && (
-          <p className="mt-4 cf-text font-sans text-sm leading-relaxed whitespace-pre-wrap">
+          <p className="mt-4 text-neutral-700 dark:text-neutral-300 font-sans text-sm leading-relaxed whitespace-pre-wrap">
             {profile.bio}
           </p>
         )}
 
         {/* Stats Row */}
-        <div className="flex items-center gap-6 mt-5 pt-4 border-t cf-border text-xs cf-text-muted flex-wrap">
-          <span className="flex items-center gap-1">
+        <div className="flex items-center gap-6 mt-5 pt-4 border-t border-neutral-100 dark:border-neutral-800/80 text-xs text-neutral-500 dark:text-neutral-400 flex-wrap">
+          <span className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
             <span>
               Joined {profile.createdAt ? format(new Date(profile.createdAt), 'MMMM yyyy') : 'recently'}
@@ -217,32 +213,32 @@ export const ProfilePage = () => {
 
           <button
             onClick={() => openConnectionsModal('following')}
-            className="hover:cf-text transition-colors cursor-pointer"
+            className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
           >
-            <strong className="cf-text font-bold">{profile.followingCount || 0}</strong> Following
+            <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followingCount || 0}</strong> Following
           </button>
 
           <button
             onClick={() => openConnectionsModal('followers')}
-            className="hover:cf-text transition-colors cursor-pointer"
+            className="hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
           >
-            <strong className="cf-text font-bold">{profile.followersCount || 0}</strong> Followers
+            <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followersCount || 0}</strong> Followers
           </button>
 
           <span>
-            <strong className="cf-text font-bold">{profile.postsCount || 0}</strong> Posts
+            <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.postsCount || 0}</strong> Posts
           </span>
         </div>
       </div>
 
       {/* Profile Tabs */}
-      <div className="flex items-center gap-2 border-b cf-border pb-2">
+      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2">
         <button
           onClick={() => setActiveTab('posts')}
-          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold cf-btn-transition cursor-pointer ${
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95 ${
             activeTab === 'posts'
-              ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-              : 'cf-text-muted hover:cf-text hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)]'
+              ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -251,10 +247,10 @@ export const ProfilePage = () => {
 
         <button
           onClick={() => setActiveTab('code')}
-          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold cf-btn-transition cursor-pointer ${
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95 ${
             activeTab === 'code'
-              ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-              : 'cf-text-muted hover:cf-text hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)]'
+              ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
           }`}
         >
           <Code2 className="w-4 h-4" />
@@ -290,16 +286,16 @@ export const ProfilePage = () => {
       >
         <div className="space-y-3 py-1">
           {connectionsLoading ? (
-            <div className="py-6 text-center text-xs cf-text-muted">Loading...</div>
+            <div className="py-6 text-center text-xs text-neutral-500">Loading...</div>
           ) : connectionsModal.users.length === 0 ? (
-            <div className="py-8 text-center text-xs cf-text-muted">
+            <div className="py-8 text-center text-xs text-neutral-500">
               No {connectionsModal.title.toLowerCase()} yet.
             </div>
           ) : (
             connectionsModal.users.map((u) => (
               <div
                 key={u._id}
-                className="flex items-center justify-between gap-3 p-2.5 rounded-lg cf-surface border cf-border"
+                className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-neutral-50/70 dark:bg-black/40 border border-neutral-200 dark:border-neutral-800"
               >
                 <NavLink
                   to={`/profile/${u.username}`}
@@ -308,15 +304,15 @@ export const ProfilePage = () => {
                 >
                   <Avatar src={u.avatarUrl} name={u.name} size="sm" />
                   <div className="min-w-0">
-                    <p className="font-semibold text-xs cf-text truncate">{u.name}</p>
-                    <p className="text-[11px] cf-text-muted truncate">@{u.username}</p>
+                    <p className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 truncate">{u.name}</p>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">@{u.username}</p>
                   </div>
                 </NavLink>
 
                 <NavLink
                   to={`/profile/${u.username}`}
                   onClick={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
-                  className="text-xs text-[var(--color-cf-accent)] hover:underline font-semibold"
+                  className="text-xs text-sky-500 hover:underline font-semibold"
                 >
                   View &rarr;
                 </NavLink>

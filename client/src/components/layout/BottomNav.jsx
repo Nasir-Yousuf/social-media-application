@@ -22,8 +22,8 @@ export const BottomNav = () => {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 cf-bg border-t cf-border backdrop-blur-md bg-opacity-95 px-2 py-1 safe-area-pb">
-      <div className="flex items-center justify-around">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl bg-white/90 dark:bg-black/90 border-t border-neutral-200/80 dark:border-neutral-800/80 px-3 py-1.5 transition-colors">
+      <div className="flex items-center justify-around max-w-md mx-auto">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -32,22 +32,22 @@ export const BottomNav = () => {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center py-1.5 px-3 rounded-lg text-xs font-medium transition-colors ${
+                `flex flex-col items-center justify-center py-1 px-3 rounded-xl text-xs transition-all duration-150 active:scale-95 ${
                   isActive
-                    ? 'text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)]'
-                    : 'text-[var(--color-cf-text-secondary)] dark:text-[var(--color-cfd-text-secondary)]'
+                    ? 'text-sky-500 font-bold'
+                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                 }`
               }
             >
               <div className="relative">
                 <Icon className="w-5 h-5" />
                 {item.badge > 0 && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] px-1 text-[9px] font-bold rounded-full bg-[var(--color-cf-like)] text-white flex items-center justify-center">
+                  <span className="absolute -top-1 -right-2 min-w-3.5 h-3.5 px-1 text-[9px] font-bold rounded-full bg-rose-500 text-white flex items-center justify-center">
                     {item.badge > 9 ? '9+' : item.badge}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] mt-0.5">{item.label}</span>
+              <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
             </NavLink>
           );
         })}

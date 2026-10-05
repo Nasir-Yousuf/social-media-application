@@ -16,12 +16,6 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
   const paragraphs = content.split(/\n\n+/);
 
   const parseInline = (text) => {
-    // Regex for inline code: `code`
-    // Regex for links: [text](url)
-    // Regex for bold: **text**
-    // Regex for italic: *text*
-    // Split tokenization safely without dangerouslySetInnerHTML
-
     const elements = [];
     let remaining = text;
     let key = 0;
@@ -47,7 +41,7 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
         elements.push(
           <code
             key={key++}
-            className="px-1.5 py-0.5 rounded font-mono text-[0.88em] bg-[var(--color-cf-surface)] dark:bg-[var(--color-cfd-surface)] text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] border border-[var(--color-cf-border)] dark:border-[var(--color-cfd-border)]"
+            className="px-1.5 py-0.5 rounded-md font-mono text-[0.88em] bg-neutral-100 dark:bg-neutral-800/90 text-sky-600 dark:text-sky-400 border border-neutral-200 dark:border-neutral-700/60"
           >
             {codeText}
           </code>
@@ -63,7 +57,7 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
             href={safeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] underline underline-offset-2 hover:opacity-80 transition-opacity"
+            className="text-sky-500 hover:text-sky-400 underline underline-offset-2 transition-colors font-medium"
           >
             {label}
           </a>
@@ -71,14 +65,14 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
       } else if (matchedStr.startsWith('**') && matchedStr.endsWith('**')) {
         const boldText = matchedStr.slice(2, -2);
         elements.push(
-          <strong key={key++} className="font-bold text-[var(--color-cf-text)] dark:text-[var(--color-cfd-text)]">
+          <strong key={key++} className="font-bold text-neutral-900 dark:text-neutral-100">
             {boldText}
           </strong>
         );
       } else if (matchedStr.startsWith('*') && matchedStr.endsWith('*')) {
         const italicText = matchedStr.slice(1, -1);
         elements.push(
-          <em key={key++} className="italic">
+          <em key={key++} className="italic text-neutral-800 dark:text-neutral-200">
             {italicText}
           </em>
         );
@@ -91,7 +85,7 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
   };
 
   return (
-    <div className={`cf-post-body space-y-3 ${className}`}>
+    <div className={`text-neutral-800 dark:text-neutral-200 text-sm sm:text-[15px] leading-relaxed font-sans space-y-3 ${className}`}>
       {paragraphs.map((p, pIdx) => {
         const lines = p.split('\n');
 

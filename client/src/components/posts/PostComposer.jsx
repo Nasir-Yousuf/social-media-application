@@ -79,7 +79,7 @@ export const PostComposer = ({
   // Listen for fork events from PostCard
   useEffect(() => {
     const handleForkEvent = (e) => {
-      const { originalPostId, originalAuthor, codeSnippet, content: forkContent } = e.detail || {};
+      const { originalPostId, codeSnippet, content: forkContent } = e.detail || {};
       if (originalPostId) {
         setForkedFromId(originalPostId);
       }
@@ -267,7 +267,7 @@ export const PostComposer = ({
       className={`transition-colors ${
         compact
           ? 'p-0'
-          : 'rounded-xl border cf-border cf-surface p-4 md:p-5 mb-5 shadow-sm'
+          : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-4 sm:p-5 mb-5 shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-200'
       }`}
     >
       <div className="flex gap-3.5">
@@ -291,12 +291,12 @@ export const PostComposer = ({
                 : 'Write something thoughtful... (Markdown supported)'
             }
             rows={compact ? 2 : showCodeEditor ? 2 : 3}
-            className="w-full bg-transparent cf-text placeholder:cf-text-muted cf-post-body text-base resize-none focus:outline-none leading-relaxed"
+            className="w-full bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-base resize-none focus:outline-none leading-relaxed font-sans"
           />
 
           {/* Markdown Hint Accordion */}
           {showMarkdownHint && (
-            <div className="mb-3 p-2.5 rounded-lg bg-[var(--color-cf-accent-soft)] dark:bg-[var(--color-cfd-accent-soft)] text-xs text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] space-y-1 font-mono">
+            <div className="mb-3 p-3 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-xs text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-500/20 space-y-1 font-mono">
               <p className="font-sans font-semibold">Markdown formatting supported:</p>
               <p>• **bold text** • *italic text* • `inline code`</p>
               <p>• [Link title](https://example.com)</p>
@@ -462,13 +462,13 @@ export const PostComposer = ({
 
           {/* Admin Announcement Toggle */}
           {isAdmin && (
-            <div className="flex items-center gap-2 py-2 mb-2 border-t cf-border text-xs">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-[var(--color-cf-amber)] hover:opacity-90">
+            <div className="flex items-center gap-2 py-2 mb-2 border-t border-neutral-100 dark:border-neutral-800 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-amber-500 hover:text-amber-400">
                 <input
                   type="checkbox"
                   checked={isAnnouncement}
                   onChange={(e) => setIsAnnouncement(e.target.checked)}
-                  className="rounded border-[var(--color-cf-border)] text-[var(--color-cf-amber)] focus:ring-0 cursor-pointer"
+                  className="rounded border-neutral-300 dark:border-neutral-700 text-amber-500 focus:ring-0 cursor-pointer"
                 />
                 <Flame className="w-3.5 h-3.5" />
                 <span className="font-bold">Official Announcement</span>
@@ -477,17 +477,17 @@ export const PostComposer = ({
           )}
 
           {/* Composer Bottom Action Bar */}
-          <div className="flex items-center justify-between pt-3 border-t cf-border">
+          <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
             {/* Snippet & Markdown hints */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 title={showCodeEditor ? 'Hide code editor' : 'Attach code snippet'}
                 onClick={() => setShowCodeEditor(!showCodeEditor)}
-                className={`px-3 py-1.5 rounded-lg cf-btn-transition cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
+                className={`px-3 py-1.5 rounded-full transition-all duration-150 cursor-pointer flex items-center gap-1.5 text-xs font-semibold ${
                   showCodeEditor
-                    ? 'bg-[var(--color-cf-accent)] text-white'
-                    : 'text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] hover:bg-[var(--color-cf-accent-soft)] dark:hover:bg-[var(--color-cfd-accent-soft)] border cf-border'
+                    ? 'bg-sky-500 text-white shadow-xs'
+                    : 'text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-500/10 border border-neutral-200 dark:border-neutral-800'
                 }`}
               >
                 <Code2 className="w-4 h-4" />
@@ -503,10 +503,10 @@ export const PostComposer = ({
                 type="button"
                 title="Formatting help"
                 onClick={() => setShowMarkdownHint(!showMarkdownHint)}
-                className={`p-1.5 rounded-lg cf-btn-transition cursor-pointer ${
+                className={`p-1.5 rounded-full transition-all duration-150 cursor-pointer ${
                   showMarkdownHint
-                    ? 'text-[var(--color-cf-accent)] bg-[var(--color-cf-accent-soft)]'
-                    : 'text-[var(--color-cf-text-muted)] hover:text-[var(--color-cf-text)] hover:bg-[var(--color-cf-surface)]'
+                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
+                    : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                 }`}
               >
                 <Info className="w-4 h-4" />
@@ -525,7 +525,7 @@ export const PostComposer = ({
                         r="7.5"
                         stroke="currentColor"
                         strokeWidth="2"
-                        className="text-[var(--color-cf-border)]"
+                        className="text-neutral-200 dark:text-neutral-800"
                         fill="none"
                       />
                       <circle
@@ -538,10 +538,10 @@ export const PostComposer = ({
                         strokeDashoffset={47.1 - (47.1 * charPercent) / 100}
                         className={
                           remaining < 0
-                            ? 'text-[var(--color-cf-danger)]'
+                            ? 'text-rose-500'
                             : remaining < 100
-                            ? 'text-[var(--color-cf-amber)]'
-                            : 'text-[var(--color-cf-accent)]'
+                            ? 'text-amber-500'
+                            : 'text-sky-500'
                         }
                         fill="none"
                         strokeLinecap="round"
@@ -552,8 +552,8 @@ export const PostComposer = ({
                     <span
                       className={
                         remaining < 0
-                          ? 'text-[var(--color-cf-danger)] font-bold'
-                          : 'text-[var(--color-cf-amber)]'
+                          ? 'text-rose-500 font-bold'
+                          : 'text-amber-500'
                       }
                     >
                       {remaining}

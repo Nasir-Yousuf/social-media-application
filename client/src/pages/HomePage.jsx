@@ -74,23 +74,23 @@ export const HomePage = () => {
     <div className="flex flex-col space-y-5 font-sans">
       {/* Feed Filter Header */}
       <div className="flex items-center justify-between pb-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 p-1 rounded-full bg-neutral-100 dark:bg-[#14161a] border border-neutral-200 dark:border-neutral-800">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-1.5 rounded-full text-sm font-bold cf-btn-transition cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${
               activeTab === 'all'
-                ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-                : 'cf-text-muted hover:cf-text hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)]'
+                ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
             }`}
           >
             All Feed
           </button>
           <button
             onClick={() => setActiveTab('following')}
-            className={`px-4 py-1.5 rounded-full text-sm font-bold cf-btn-transition cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${
               activeTab === 'following'
-                ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-                : 'cf-text-muted hover:cf-text hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)]'
+                ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25'
+                : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'
             }`}
           >
             Following
@@ -101,9 +101,9 @@ export const HomePage = () => {
           onClick={() => fetchFeed(true, 1)}
           disabled={refreshing || loading}
           title="Refresh feed"
-          className="p-2 cf-text-muted hover:text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)] rounded-full transition-colors disabled:opacity-50 cursor-pointer"
+          className="p-2 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors disabled:opacity-50 cursor-pointer active:scale-90"
         >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-[var(--color-cf-accent)]' : ''}`} />
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-sky-500' : ''}`} />
         </button>
       </div>
 

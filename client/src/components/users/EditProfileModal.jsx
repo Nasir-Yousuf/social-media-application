@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Camera } from 'lucide-react';
+import { Upload, Camera } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Avatar from '../common/Avatar';
@@ -101,11 +101,15 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Profile">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 font-sans">
-        {/* Avatar Upload with 100KB Client Compression */}
-        <div className="flex flex-col items-center gap-3 py-2 border-b cf-border">
-          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+        {/* Avatar Upload */}
+        <div className="flex flex-col items-center gap-3 py-2 border-b border-neutral-100 dark:border-neutral-800">
+          <div
+            className="relative group cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+            title="Change profile avatar"
+          >
             <Avatar src={avatarPreview} name={name} size="xl" />
-            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               <Camera className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -122,12 +126,12 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="text-xs font-semibold text-[var(--color-cf-accent)] hover:underline flex items-center gap-1.5 cursor-pointer mx-auto"
+              className="text-xs font-semibold text-sky-500 hover:underline flex items-center gap-1.5 cursor-pointer mx-auto"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>Upload photo (auto-compressed ≤ 100KB)</span>
             </button>
-            <span className="text-[11px] cf-text-muted mt-0.5 block">
+            <span className="text-[11px] text-neutral-400 mt-0.5 block">
               JPG, PNG, or WebP. Stored locally in MongoDB database.
             </span>
           </div>
@@ -135,22 +139,22 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
 
         {/* Full Name */}
         <div>
-          <label className="block text-xs font-semibold cf-text mb-1">Display Name</label>
+          <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">Display Name</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             maxLength={50}
-            className="w-full cf-bg px-3.5 py-2 rounded-lg border cf-border cf-text placeholder:cf-text-muted text-sm focus:outline-none cf-focus-ring"
+            className="w-full bg-neutral-50 dark:bg-black/50 px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors"
           />
         </div>
 
         {/* Status / Mood */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="block text-xs font-semibold cf-text">Current Status</label>
-            <span className="text-[11px] cf-text-muted">{60 - status.length}</span>
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">Current Status</label>
+            <span className="text-[11px] text-neutral-400">{60 - status.length}</span>
           </div>
           <input
             type="text"
@@ -158,28 +162,28 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
             onChange={(e) => setStatus(e.target.value)}
             maxLength={60}
             placeholder="e.g. 🔨 Building a compiler, 📚 Reading Clean Code"
-            className="w-full cf-bg px-3.5 py-2 rounded-lg border cf-border cf-text placeholder:cf-text-muted text-sm focus:outline-none cf-focus-ring"
+            className="w-full bg-neutral-50 dark:bg-black/50 px-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors"
           />
         </div>
 
         {/* Bio */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="block text-xs font-semibold cf-text">Bio</label>
-            <span className="text-[11px] cf-text-muted">{160 - bio.length}</span>
+            <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">Bio</label>
+            <span className="text-[11px] text-neutral-400">{160 - bio.length}</span>
           </div>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             maxLength={160}
             rows={3}
-            className="w-full cf-bg p-3 rounded-lg border cf-border cf-text placeholder:cf-text-muted text-sm focus:outline-none cf-focus-ring resize-none leading-relaxed font-serif"
+            className="w-full bg-neutral-50 dark:bg-black/50 p-3 rounded-xl border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors resize-none leading-relaxed font-sans"
             placeholder="A brief intro about what you think about and build..."
           />
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t cf-border">
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-neutral-800">
           <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
@@ -188,7 +192,7 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
             variant="primary"
             size="sm"
             isLoading={loading}
-            className="px-5 py-1.5"
+            className="px-5 py-1.5 font-bold"
           >
             Save Profile
           </Button>

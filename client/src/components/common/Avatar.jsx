@@ -9,27 +9,30 @@ const sizeMap = {
   xl: 'w-20 h-20 text-xl',
 };
 
-// Generate vibrant initials color from name (Twitter style)
-const getInitialsColor = (name = '') => {
-  const twitterColors = [
-    '#1d9bf0', // twitter blue
-    '#00ba7c', // twitter green
-    '#f91880', // twitter pink
-    '#ffd700', // gold
-    '#7856ff', // purple
-    '#ff7a00', // orange
-    '#00bcd4', // cyan
-  ];
+// Curated avatar background palette
+const AVATAR_BG_COLORS = [
+  'bg-sky-500',
+  'bg-emerald-500',
+  'bg-rose-500',
+  'bg-amber-500',
+  'bg-indigo-500',
+  'bg-purple-500',
+  'bg-teal-500',
+  'bg-cyan-500',
+];
+
+const getInitialsClass = (name = '') => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return twitterColors[Math.abs(hash) % twitterColors.length];
+  return AVATAR_BG_COLORS[Math.abs(hash) % AVATAR_BG_COLORS.length];
 };
 
 const getInitials = (name = '') => {
   return name
     .split(' ')
+    .filter(Boolean)
     .map((w) => w[0])
     .join('')
     .toUpperCase()
@@ -47,18 +50,17 @@ export const Avatar = ({
 }) => {
   const sizeClasses = sizeMap[size] || sizeMap.md;
   const initials = getInitials(name);
-  const bgColor = getInitialsColor(name);
+  const bgClass = getInitialsClass(name);
 
-  // Use DiceBear as fallback URL avatar
   const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'user')}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
 
   return (
-    <div className={`relative inline-block shrink-0 ${className}`}>
+    <div className={`relative inline-block shrink-0 select-none ${className}`}>
       {src ? (
         <img
           src={src}
           alt={alt}
-          className={`${sizeClasses} rounded-full object-cover ring-1 ring-[var(--color-cf-border)] dark:ring-[var(--color-cfd-border)] transition-opacity duration-200 hover:opacity-90`}
+          className={`${sizeClasses} rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-800 transition-opacity duration-200 hover:opacity-90 shadow-2xs`}
           onError={(e) => {
             e.target.onerror = null;
             e.target.src = defaultAvatar;
@@ -66,8 +68,7 @@ export const Avatar = ({
         />
       ) : (
         <div
-          className={`${sizeClasses} rounded-full flex items-center justify-center font-sans font-bold text-white ring-1 ring-[var(--color-cf-border)] dark:ring-[var(--color-cfd-border)]`}
-          style={{ backgroundColor: bgColor }}
+          className={`${sizeClasses} rounded-full flex items-center justify-center font-sans font-bold text-white shadow-2xs ring-1 ring-neutral-200 dark:ring-neutral-800 ${bgClass}`}
           title={name}
         >
           {initials || '?'}
@@ -75,10 +76,10 @@ export const Avatar = ({
       )}
       {showRoleBadge && role === 'admin' && (
         <span
-          title="Faculty"
-          className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-[var(--color-cf-bg)] dark:ring-[var(--color-cfd-bg)]"
+          title="Faculty / Staff"
+          className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-white dark:ring-black bg-amber-500 text-white p-0.5 shadow-xs"
         >
-          <FacultyBadge className="w-4 h-4 text-[var(--color-cf-amber)] dark:text-[var(--color-cfd-amber)]" />
+          <FacultyBadge className="w-3.5 h-3.5" />
         </span>
       )}
     </div>

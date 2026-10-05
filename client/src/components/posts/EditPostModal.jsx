@@ -136,30 +136,30 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Post">
       <form onSubmit={handleSave} className="flex flex-col gap-4 font-sans">
         <div>
-          <label className="block text-xs font-semibold cf-text mb-1.5">Post Content</label>
+          <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">Post Content</label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={4}
             maxLength={MAX_CHARS}
-            className="w-full cf-bg p-3.5 rounded-xl border cf-border cf-text cf-post-body placeholder:cf-text-muted focus:outline-none cf-focus-ring text-sm leading-relaxed"
+            className="w-full bg-neutral-50 dark:bg-black/50 p-3.5 rounded-2xl border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 text-sm leading-relaxed"
             placeholder="Edit your post..."
           />
         </div>
 
         {/* Code Snippet Editor */}
         {hasSnippet ? (
-          <div className="rounded-xl border border-[var(--color-cf-border)] dark:border-[var(--color-cfd-border)] bg-[#1e1e1e] overflow-hidden">
+          <div className="rounded-2xl border border-neutral-700/80 dark:border-neutral-800 bg-[#1e1e1e] overflow-hidden shadow-lg">
             {/* Header */}
             <div className="flex items-center justify-between px-3 py-2 bg-[#181818] border-b border-[#252526] flex-wrap gap-2 text-xs">
               <div className="flex items-center gap-2 flex-1 min-w-[150px]">
-                <span className="text-[var(--color-cf-accent)] font-bold font-mono">CF</span>
+                <span className="text-sky-500 font-bold font-mono">CF</span>
                 <input
                   type="text"
                   value={snippetTitle}
                   onChange={(e) => setSnippetTitle(e.target.value)}
                   placeholder="Snippet title"
-                  className="bg-[#252526] text-xs font-mono text-[#e7e9ea] placeholder-[#71767b] px-3 py-1 rounded border border-[#3c3c3c] focus:outline-none focus:border-[var(--color-cf-accent)] flex-1"
+                  className="bg-[#252526] text-xs font-mono text-[#e7e9ea] placeholder-[#71767b] px-3 py-1 rounded border border-[#3c3c3c] focus:outline-none focus:border-sky-500 flex-1"
                 />
               </div>
 
@@ -167,7 +167,7 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
                 type="button"
                 onClick={() => setHasSnippet(false)}
                 title="Remove snippet"
-                className="p-1 text-[#71767b] hover:text-[var(--color-cf-danger)] rounded cursor-pointer"
+                className="p-1 text-[#71767b] hover:text-rose-500 rounded cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -183,7 +183,7 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
                     onClick={() => setActiveFileIndex(idx)}
                     className={`flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-r border-[#252526] cursor-pointer transition-colors shrink-0 group ${
                       isActive
-                        ? 'bg-[#1e1e1e] text-white font-medium border-t-2 border-t-[var(--color-cf-accent)]'
+                        ? 'bg-[#1e1e1e] text-white font-medium border-t-2 border-t-sky-500'
                         : 'bg-[#141414] text-[#858585] hover:bg-[#1a1a1a] hover:text-[#cccccc] border-t-2 border-t-transparent'
                     }`}
                   >
@@ -205,7 +205,7 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
               <button
                 type="button"
                 onClick={handleAddFile}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-mono text-[var(--color-cf-accent)] hover:underline cursor-pointer shrink-0"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-mono text-sky-500 hover:underline cursor-pointer shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>New Tab</span>
@@ -220,7 +220,7 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
                   type="text"
                   value={currentFile.name}
                   onChange={(e) => updateCurrentFile({ name: e.target.value })}
-                  className="bg-[#252526] text-xs font-mono text-white px-2 py-0.5 rounded border border-[#3c3c3c] focus:outline-none focus:border-[var(--color-cf-accent)] flex-1 max-w-[180px]"
+                  className="bg-[#252526] text-xs font-mono text-white px-2 py-0.5 rounded border border-[#3c3c3c] focus:outline-none focus:border-sky-500 flex-1 max-w-[180px]"
                 />
               </div>
 
@@ -253,16 +253,16 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
           <button
             type="button"
             onClick={() => setHasSnippet(true)}
-            className="text-xs font-semibold text-[var(--color-cf-accent)] hover:underline self-start cursor-pointer flex items-center gap-1.5"
+            className="text-xs font-semibold text-sky-500 hover:underline self-start cursor-pointer flex items-center gap-1.5"
           >
             <Plus className="w-3.5 h-3.5" /> Attach code snippet
           </button>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t cf-border">
+        <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
           <span
             className={`text-xs font-mono ${
-              remaining < 100 ? 'text-[var(--color-cf-amber)] font-bold' : 'cf-text-muted'
+              remaining < 100 ? 'text-amber-500 font-bold' : 'text-neutral-400'
             }`}
           >
             {remaining} characters left

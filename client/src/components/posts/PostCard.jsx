@@ -10,7 +10,7 @@ import {
   Pin,
   Flame,
 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import Avatar from '../common/Avatar';
 import CommentsSection from './CommentsSection';
 import EditPostModal from './EditPostModal';
@@ -127,15 +127,15 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   return (
     <article
       id={`post-${currentPost._id}`}
-      className={`rounded-xl border cf-border cf-surface p-5 mb-4 shadow-sm cf-post-card transition-all ${
+      className={`rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-4 sm:p-5 mb-4 shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-200 ${
         currentPost.isAnnouncement
-          ? 'border-l-4 border-l-[var(--color-cf-amber)] bg-[var(--color-cf-amber-soft)]/20'
+          ? 'border-l-4 border-l-amber-500 bg-amber-50/20 dark:bg-amber-950/10'
           : ''
       }`}
     >
       {/* Pinned / Announcement / Forked Header Tag */}
       {(currentPost.isPinned || currentPost.isAnnouncement || currentPost.forkedFrom) && (
-        <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-[var(--color-cf-amber)]">
+        <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-amber-500">
           {currentPost.isPinned && (
             <span className="flex items-center gap-1">
               <Pin className="w-3.5 h-3.5" /> Pinned
@@ -147,7 +147,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
             </span>
           )}
           {currentPost.forkedFrom && (
-            <span className="flex items-center gap-1 text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)]">
+            <span className="flex items-center gap-1 text-sky-500">
               <ForkIcon className="w-3.5 h-3.5" />
               <span>
                 Forked from{' '}
@@ -180,25 +180,25 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
             <div className="flex items-center gap-1.5 flex-wrap">
               <NavLink
                 to={`/profile/${author.username}`}
-                className="font-sans font-bold text-sm cf-text hover:underline truncate"
+                className="font-sans font-bold text-sm text-neutral-900 dark:text-neutral-100 hover:underline truncate"
               >
                 {author.name || 'Member'}
               </NavLink>
 
               {author.role === 'admin' && (
-                <FacultyBadge className="w-3.5 h-3.5 text-[var(--color-cf-amber)]" />
+                <FacultyBadge className="w-3.5 h-3.5 text-amber-500" />
               )}
 
-              <span className="text-xs cf-text-muted truncate">@{author.username}</span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">@{author.username}</span>
 
               {author.status && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-cf-accent-soft)] dark:bg-[var(--color-cfd-accent-soft)] text-[var(--color-cf-accent)] dark:text-[var(--color-cfd-accent)] font-medium">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium">
                   {author.status}
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 text-[11px] cf-text-muted mt-0.5 font-sans">
+            <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 font-sans">
               <time dateTime={currentPost.createdAt}>{formatDate(currentPost.createdAt)}</time>
               {currentPost.isEdited && <span className="italic">· edited</span>}
             </div>
@@ -210,7 +210,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
           <div className="relative">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-1.5 text-[var(--color-cf-text-muted)] hover:text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-soft)] rounded-full transition-colors cursor-pointer"
+              className="p-1.5 text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors cursor-pointer"
               aria-label="Post options"
             >
               <MoreHorizontal className="w-4 h-4" />
@@ -218,7 +218,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
 
             {isMenuOpen && (
               <div
-                className="absolute right-0 top-full mt-1 w-36 cf-bg border cf-border rounded-xl py-1 z-30 shadow-lg animate-fade-in"
+                className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-[#181b20] border border-neutral-200 dark:border-neutral-800 rounded-2xl py-1 z-30 shadow-xl animate-fade-in"
                 onMouseLeave={() => setIsMenuOpen(false)}
               >
                 {canEdit && (
@@ -227,9 +227,9 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
                       setIsMenuOpen(false);
                       setIsEditModalOpen(true);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold cf-text hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)] transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-[var(--color-cf-accent)]" />
+                    <Edit3 className="w-3.5 h-3.5 text-sky-500" />
                     <span>Edit Post</span>
                   </button>
                 )}
@@ -240,7 +240,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
                       setIsMenuOpen(false);
                       handleDelete();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--color-cf-danger)] hover:bg-[var(--color-cf-danger-soft)] transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/15 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Delete</span>
@@ -252,7 +252,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
         )}
       </div>
 
-      {/* Main Post Content (Serif Reading Typography + Markdown) */}
+      {/* Main Post Content */}
       <div className="mt-3.5">
         <MarkdownRenderer content={currentPost.content} />
 
@@ -264,56 +264,56 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
         )}
       </div>
 
-      {/* Action Bar: Quiet, intentional, non-distracting */}
-      <div className="flex items-center justify-between mt-4 pt-3 border-t cf-border text-xs cf-text-muted select-none">
-        <div className="flex items-center gap-5">
-          {/* Like / Heart (Twitter Pink #f91880) */}
+      {/* Action Bar: Modern, responsive icons with micro-interactions */}
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 text-xs text-neutral-500 dark:text-neutral-400 select-none">
+        <div className="flex items-center gap-4 sm:gap-6">
+          {/* Like / Heart */}
           <button
             onClick={handleLikeToggle}
-            className={`flex items-center gap-1.5 p-1.5 rounded-full cf-btn-transition cursor-pointer ${
+            className={`flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer ${
               isLiked
-                ? 'text-[var(--color-cf-like)]'
-                : 'hover:text-[var(--color-cf-like)] hover:bg-[var(--color-cf-like-soft)]'
+                ? 'text-rose-500'
+                : 'hover:text-rose-500 hover:bg-rose-500/10'
             }`}
             title="Like"
           >
             <Heart
-              className={`w-4 h-4 ${isLiked ? 'fill-[var(--color-cf-like)] text-[var(--color-cf-like)]' : ''} ${
+              className={`w-4 h-4 ${isLiked ? 'fill-rose-500 text-rose-500' : ''} ${
                 animatingHeart ? 'scale-125' : ''
               } transition-transform`}
             />
-            <span className="font-medium text-xs">{likesCount > 0 ? likesCount : ''}</span>
+            <span className="font-semibold text-xs">{likesCount > 0 ? likesCount : ''}</span>
           </button>
 
-          {/* Comments Toggle (Twitter Blue #1d9bf0) */}
+          {/* Comments Toggle */}
           <button
             onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 p-1.5 rounded-full hover:text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-soft)] cf-btn-transition cursor-pointer"
+            className="flex items-center gap-1.5 p-1.5 rounded-full hover:text-sky-500 hover:bg-sky-500/10 transition-all duration-150 active:scale-90 cursor-pointer"
             title="Reply"
           >
             <MessageCircle className="w-4 h-4" />
-            <span className="font-medium text-xs">{commentsCount > 0 ? commentsCount : ''}</span>
+            <span className="font-semibold text-xs">{commentsCount > 0 ? commentsCount : ''}</span>
           </button>
 
-          {/* Repost / Retweet (Twitter Green #00ba7c) */}
+          {/* Repost / Retweet */}
           <button
             onClick={handleRepostToggle}
-            className={`flex items-center gap-1.5 p-1.5 rounded-full cf-btn-transition cursor-pointer ${
+            className={`flex items-center gap-1.5 p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer ${
               reposted
-                ? 'text-[var(--color-cf-boost)]'
-                : 'hover:text-[var(--color-cf-boost)] hover:bg-[var(--color-cf-boost-soft)]'
+                ? 'text-emerald-500'
+                : 'hover:text-emerald-500 hover:bg-emerald-500/10'
             }`}
             title="Repost"
           >
             <BoostIcon className="w-4 h-4" />
-            <span className="font-medium text-xs">{reposted ? 1 : ''}</span>
+            <span className="font-semibold text-xs">{reposted ? 1 : ''}</span>
           </button>
 
-          {/* Fork Code Button (only shown if post has code) */}
+          {/* Fork Code Button */}
           {hasCode && (
             <button
               onClick={handleFork}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-soft)] cf-btn-transition cursor-pointer font-medium"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-sky-500 hover:bg-sky-500/10 transition-all duration-150 active:scale-95 cursor-pointer font-semibold"
               title="Fork code into your editor"
             >
               <ForkIcon className="w-3.5 h-3.5" />
@@ -332,7 +332,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
           <button
             onClick={handleShare}
             title="Share post"
-            className="p-1.5 rounded-full hover:text-[var(--color-cf-accent)] hover:bg-[var(--color-cf-accent-soft)] cf-btn-transition cursor-pointer"
+            className="p-1.5 rounded-full hover:text-sky-500 hover:bg-sky-500/10 transition-all duration-150 active:scale-90 cursor-pointer"
           >
             <Share2 className="w-4 h-4" />
           </button>
@@ -341,7 +341,7 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
 
       {/* Inline Comments Section */}
       {showComments && (
-        <div className="mt-4 pt-3 border-t cf-border">
+        <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800">
           <CommentsSection
             postId={currentPost._id}
             onCommentCountChange={(newCount) => setCommentsCount(newCount)}

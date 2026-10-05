@@ -19,25 +19,28 @@ export const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Modal Card */}
       <div
-        className={`relative w-full ${maxWidth} rounded-xl cf-bg border cf-border shadow-xl p-6 z-10 overflow-hidden max-h-[90vh] flex flex-col animate-fade-in`}
+        className={`relative w-full ${maxWidth} rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 shadow-2xl p-5 sm:p-6 z-10 overflow-hidden max-h-[92vh] flex flex-col animate-fade-in`}
       >
-        <div className="flex items-center justify-between pb-3 border-b cf-border mb-4">
+        <div className="flex items-center justify-between pb-3.5 border-b border-neutral-100 dark:border-neutral-800/80 mb-4">
+          <h3 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 font-sans tracking-tight">
+            {title}
+          </h3>
           <button
             onClick={onClose}
-            className="cf-text-muted hover:cf-text p-2 rounded-lg hover:bg-[var(--color-cf-surface)] dark:hover:bg-[var(--color-cfd-surface)] transition-colors cursor-pointer"
+            className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
-          <h3 className="text-lg font-bold cf-text flex-1 ml-3 font-sans">{title}</h3>
         </div>
         <div className="overflow-y-auto pr-1 flex-1">{children}</div>
       </div>

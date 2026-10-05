@@ -8,8 +8,6 @@ import {
   Heart,
   Flame,
   Trash2,
-  Lock,
-  Unlock,
 } from 'lucide-react';
 import api from '../api/client';
 import Avatar from '../components/common/Avatar';
@@ -33,11 +31,6 @@ export const AdminPage = () => {
   const [announcementText, setAnnouncementText] = useState('');
   const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
 
-  // Non-admins cannot access this page
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
   const fetchAdminData = async () => {
     setLoading(true);
     try {
@@ -49,7 +42,7 @@ export const AdminPage = () => {
       setStats(overviewRes.data.stats);
       setUsersList(usersRes.data.users || []);
       setPostsList(postsRes.data.posts || []);
-    } catch (err) {
+    } catch {
       showToast('Failed to load admin data', 'error');
     } finally {
       setLoading(false);
@@ -57,8 +50,15 @@ export const AdminPage = () => {
   };
 
   useEffect(() => {
-    fetchAdminData();
-  }, []);
+    if (isAdmin) {
+      fetchAdminData();
+    }
+  }, [isAdmin]);
+
+  // Non-admins cannot access this page
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleToggleRole = async (targetUser) => {
     try {
@@ -100,28 +100,28 @@ export const AdminPage = () => {
     try {
       await api.delete(`/posts/${postId}`);
       setPostsList((prev) => prev.filter((p) => p._id !== postId));
-      showToast('Post moderated and removed', 'info');
+      showToast('Post removed', 'info');
     } catch (err) {
-      showToast('Failed to remove post', 'error');
+      showToast(err.response?.data?.message || 'Failed to remove post', 'error');
     }
   };
 
   const handleBroadcastAnnouncement = async (e) => {
     e.preventDefault();
-    if (!announcementText.trim()) return;
+    if (!announcementText.trim() || sendingAnnouncement) return;
 
     setSendingAnnouncement(true);
     try {
       await api.post('/posts', {
         content: announcementText.trim(),
         isAnnouncement: true,
-        isPinned: true,
       });
+      showToast('Official announcement published to all feeds', 'success');
       setAnnouncementText('');
-      showToast('Official announcement published!', 'success');
+      window.dispatchEvent(new CustomEvent('clearfeed:newPost'));
       fetchAdminData();
     } catch (err) {
-      showToast('Failed to publish announcement', 'error');
+      showToast(err.response?.data?.message || 'Failed to broadcast announcement', 'error');
     } finally {
       setSendingAnnouncement(false);
     }
@@ -130,76 +130,88 @@ export const AdminPage = () => {
   return (
     <div className="space-y-6 font-sans">
       {/* Top Header */}
-      <div className="pb-3 border-b cf-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="w-5 h-5 text-[var(--color-cf-amber)]" />
-          <h1 className="text-xl font-bold tracking-tight cf-text">Administration</h1>
+      <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-500">
+            <ShieldAlert className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Administration</h1>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 font-sans mt-0.5">
+              Platform metrics, governance, moderation, and broadcast tools.
+            </p>
+          </div>
         </div>
-        <span className="text-xs px-2.5 py-1 rounded-md bg-[var(--color-cf-amber-soft)] text-[var(--color-cf-amber)] font-bold flex items-center gap-1.5 border border-[var(--color-cf-amber)]/25">
+        <span className="text-xs px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1.5 border border-amber-200 dark:border-amber-800/60 shadow-2xs">
           <FacultyBadge className="w-3.5 h-3.5" />
           Administrator
         </span>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1.5 border-b cf-border pb-2 select-none overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-1.5 border-b border-neutral-200 dark:border-neutral-800 pb-2 select-none overflow-x-auto no-scrollbar">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'users', label: `Users (${usersList.length})` },
           { id: 'posts', label: `Moderation (${postsList.length})` },
           { id: 'announcement', label: 'Broadcast' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold cf-btn-transition cursor-pointer shrink-0 ${
-              activeTab === tab.id
-                ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-                : 'cf-surface border cf-border cf-text hover:bg-[var(--color-cf-elevated)]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer shrink-0 active:scale-95 ${
+                isActive
+                  ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+                  : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <div>
         {loading ? (
-          <div className="py-12 text-center text-xs cf-text-muted animate-pulse">Loading administration data...</div>
+          <div className="py-16 text-center text-xs text-neutral-400 animate-pulse">Loading administration data...</div>
         ) : (
           <>
             {/* OVERVIEW TAB */}
             {activeTab === 'overview' && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-4 rounded-xl cf-surface border cf-border">
-                    <Users className="w-4 h-4 text-[var(--color-cf-accent)] mb-1" />
-                    <p className="text-[11px] cf-text-muted">Total Users</p>
-                    <p className="text-xl font-extrabold cf-text">{stats?.totalUsers || 0}</p>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 shadow-2xs">
+                    <Users className="w-5 h-5 text-sky-500 mb-2" />
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Total Users</p>
+                    <p className="text-2xl font-black text-neutral-900 dark:text-white mt-0.5">{stats?.totalUsers || 0}</p>
                   </div>
 
-                  <div className="p-4 rounded-xl cf-surface border cf-border">
-                    <FileText className="w-4 h-4 text-[var(--color-cf-accent)] mb-1" />
-                    <p className="text-[11px] cf-text-muted">Total Posts</p>
-                    <p className="text-xl font-extrabold cf-text">{stats?.totalPosts || 0}</p>
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 shadow-2xs">
+                    <FileText className="w-5 h-5 text-sky-500 mb-2" />
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Total Posts</p>
+                    <p className="text-2xl font-black text-neutral-900 dark:text-white mt-0.5">{stats?.totalPosts || 0}</p>
                   </div>
 
-                  <div className="p-4 rounded-xl cf-surface border cf-border">
-                    <MessageCircle className="w-4 h-4 text-[var(--color-cf-accent)] mb-1" />
-                    <p className="text-[11px] cf-text-muted">Comments</p>
-                    <p className="text-xl font-extrabold cf-text">{stats?.totalComments || 0}</p>
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 shadow-2xs">
+                    <MessageCircle className="w-5 h-5 text-sky-500 mb-2" />
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Comments</p>
+                    <p className="text-2xl font-black text-neutral-900 dark:text-white mt-0.5">{stats?.totalComments || 0}</p>
                   </div>
 
-                  <div className="p-4 rounded-xl cf-surface border cf-border">
-                    <Heart className="w-4 h-4 text-[var(--color-cf-like)] mb-1" />
-                    <p className="text-[11px] cf-text-muted">Likes</p>
-                    <p className="text-xl font-extrabold cf-text">{stats?.totalLikes || 0}</p>
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 shadow-2xs">
+                    <Heart className="w-5 h-5 text-rose-500 mb-2" />
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">Likes</p>
+                    <p className="text-2xl font-black text-neutral-900 dark:text-white mt-0.5">{stats?.totalLikes || 0}</p>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl cf-surface border cf-border text-xs cf-text-muted">
-                  <h3 className="font-bold text-sm cf-text mb-1">Clearfeed Administration & Governance</h3>
-                  <p className="leading-relaxed font-serif text-sm">
+                <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-500 dark:text-neutral-400 shadow-2xs">
+                  <h3 className="font-bold text-sm text-neutral-900 dark:text-neutral-100 mb-1.5">
+                    Clearfeed Administration & Governance
+                  </h3>
+                  <p className="leading-relaxed font-sans text-xs">
                     As an administrator, you have full oversight over user accounts, content moderation, and platform announcements. Use the Broadcast tab to publish announcements that pin to the top of all feeds.
                   </p>
                 </div>
@@ -208,42 +220,42 @@ export const AdminPage = () => {
 
             {/* USERS MANAGEMENT TAB */}
             {activeTab === 'users' && (
-              <div className="overflow-x-auto rounded-xl border cf-border cf-surface">
-                <table className="w-full text-left text-xs cf-text">
-                  <thead className="border-b cf-border text-[11px] cf-text-muted uppercase">
+              <div className="overflow-x-auto rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] shadow-2xs">
+                <table className="w-full text-left text-xs text-neutral-900 dark:text-neutral-100">
+                  <thead className="border-b border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-400 uppercase">
                     <tr>
-                      <th className="p-3">Member</th>
-                      <th className="p-3">Email</th>
-                      <th className="p-3">Role</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Actions</th>
+                      <th className="p-3.5">Member</th>
+                      <th className="p-3.5">Email</th>
+                      <th className="p-3.5">Role</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y cf-border">
+                  <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {usersList.map((u) => (
-                      <tr key={u._id} className="hover:bg-[var(--color-cf-elevated)] transition-colors">
-                        <td className="p-3 flex items-center gap-2">
+                      <tr key={u._id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors">
+                        <td className="p-3.5 flex items-center gap-2.5">
                           <Avatar src={u.avatarUrl} name={u.name} size="xs" />
                           <div>
                             <span className="font-semibold block">{u.name}</span>
-                            <span className="text-[10px] cf-text-muted">@{u.username}</span>
+                            <span className="text-[10px] text-neutral-400">@{u.username}</span>
                           </div>
                         </td>
-                        <td className="p-3 cf-text-muted">{u.email}</td>
-                        <td className="p-3">
+                        <td className="p-3.5 text-neutral-500 dark:text-neutral-400">{u.email}</td>
+                        <td className="p-3.5">
                           <Badge variant={u.role === 'admin' ? 'admin' : 'neutral'}>
                             {u.role === 'admin' ? 'Admin' : 'Member'}
                           </Badge>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3.5">
                           <span
                             className={`inline-block w-2 h-2 rounded-full mr-1.5 ${
-                              u.isApproved ? 'bg-[var(--color-cf-success)]' : 'bg-[var(--color-cf-danger)]'
+                              u.isApproved ? 'bg-emerald-500' : 'bg-rose-500'
                             }`}
                           />
-                          <span className="text-[11px]">{u.isApproved ? 'Active' : 'Suspended'}</span>
+                          <span className="text-[11px] font-medium">{u.isApproved ? 'Active' : 'Suspended'}</span>
                         </td>
-                        <td className="p-3 text-right space-x-1">
+                        <td className="p-3.5 text-right space-x-1">
                           <Button
                             variant="ghost"
                             size="xs"
@@ -280,21 +292,21 @@ export const AdminPage = () => {
             {activeTab === 'posts' && (
               <div className="space-y-3">
                 {postsList.length === 0 ? (
-                  <p className="text-xs cf-text-muted py-6 text-center">No posts to moderate.</p>
+                  <p className="text-xs text-neutral-400 py-8 text-center">No posts to moderate.</p>
                 ) : (
                   postsList.map((p) => (
                     <div
                       key={p._id}
-                      className="p-3.5 rounded-xl border cf-border cf-surface flex items-start justify-between gap-3 text-xs"
+                      className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] flex items-start justify-between gap-3 text-xs shadow-2xs"
                     >
                       <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold cf-text">@{p.author?.username || 'unknown'}</span>
-                          <span className="text-[11px] cf-text-muted">
+                          <span className="font-bold text-neutral-900 dark:text-neutral-100">@{p.author?.username || 'unknown'}</span>
+                          <span className="text-[11px] text-neutral-400">
                             {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : ''}
                           </span>
                         </div>
-                        <p className="cf-text font-serif line-clamp-2">{p.content}</p>
+                        <p className="text-neutral-700 dark:text-neutral-300 font-sans line-clamp-2">{p.content}</p>
                       </div>
 
                       <Button
@@ -315,8 +327,8 @@ export const AdminPage = () => {
             {/* BROADCAST TAB */}
             {activeTab === 'announcement' && (
               <form onSubmit={handleBroadcastAnnouncement} className="space-y-4 max-w-xl">
-                <div className="p-4 rounded-xl cf-surface border cf-border space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[var(--color-cf-amber)]">
+                <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 space-y-3 shadow-2xs">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-500">
                     <Flame className="w-4 h-4" />
                     <span>Publish Announcement to All Members</span>
                   </div>
@@ -326,7 +338,7 @@ export const AdminPage = () => {
                     onChange={(e) => setAnnouncementText(e.target.value)}
                     rows={4}
                     placeholder="Write an announcement to pin to the top of all members' feeds..."
-                    className="w-full cf-bg p-3 rounded-lg border cf-border cf-text placeholder:cf-text-muted text-sm focus:outline-none cf-focus-ring resize-none font-serif leading-relaxed"
+                    className="w-full bg-neutral-50 dark:bg-black/50 p-3.5 rounded-2xl border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/25 focus:border-amber-500 resize-none font-sans leading-relaxed"
                     required
                   />
 
@@ -336,7 +348,7 @@ export const AdminPage = () => {
                     size="sm"
                     disabled={!announcementText.trim() || sendingAnnouncement}
                     isLoading={sendingAnnouncement}
-                    className="font-semibold"
+                    className="font-bold"
                   >
                     Broadcast Announcement
                   </Button>

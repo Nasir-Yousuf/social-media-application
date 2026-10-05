@@ -44,18 +44,20 @@ export const MembersPage = () => {
   });
 
   return (
-    <div className="space-y-5 font-sans">
+    <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="pb-3 border-b cf-border flex items-center justify-between">
+      <div className="pb-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-[var(--color-cf-accent)]" />
-            <h1 className="text-xl font-bold tracking-tight cf-text">Community</h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full cf-surface border cf-border text-xs cf-text-muted font-semibold">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-sky-500">
+              <Users className="w-5 h-5" />
+            </div>
+            <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Community</h1>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700/80 text-neutral-600 dark:text-neutral-400 font-semibold">
               {members.length} members
             </span>
           </div>
-          <p className="text-xs cf-text-muted mt-0.5 font-serif italic">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
             Connect with thinkers, writers, and developers.
           </p>
         </div>
@@ -64,18 +66,18 @@ export const MembersPage = () => {
       {/* Search & Filter Bar */}
       <div className="space-y-3">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 cf-text-muted" />
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search members by name, @username, or interest..."
-            className="w-full cf-bg text-sm cf-text placeholder:cf-text-muted pl-10 pr-4 py-2.5 rounded-lg border cf-border focus:outline-none cf-focus-ring"
+            className="w-full bg-white dark:bg-[#121519] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-11 pr-10 py-2.5 rounded-full border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors shadow-2xs"
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-xs cf-text-muted hover:cf-text cursor-pointer"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -83,45 +85,45 @@ export const MembersPage = () => {
         </div>
 
         <div className="flex items-center gap-1.5 select-none">
-          <button
-            onClick={() => setRoleFilter('all')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold cf-btn-transition cursor-pointer ${
-              roleFilter === 'all'
-                ? 'bg-[var(--color-cf-accent)] text-white shadow-sm'
-                : 'cf-surface border cf-border cf-text hover:bg-[var(--color-cf-elevated)] dark:hover:bg-[var(--color-cfd-elevated)]'
-            }`}
-          >
-            All Members
-          </button>
-          <button
-            onClick={() => setRoleFilter('admin')}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold cf-btn-transition cursor-pointer ${
-              roleFilter === 'admin'
-                ? 'bg-[var(--color-cf-amber)] text-black shadow-sm font-bold'
-                : 'cf-surface border cf-border cf-text hover:bg-[var(--color-cf-elevated)] dark:hover:bg-[var(--color-cfd-elevated)]'
-            }`}
-          >
-            Staff & Admins
-          </button>
+          {[
+            { id: 'all', label: 'All Members' },
+            { id: 'admin', label: 'Faculty / Staff' },
+            { id: 'member', label: 'Students / Peers' },
+          ].map((tab) => {
+            const isActive = roleFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setRoleFilter(tab.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer active:scale-95 ${
+                  isActive
+                    ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+                    : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Members Grid */}
+      {/* Directory Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="p-4 rounded-xl cf-surface border cf-border animate-pulse h-28" />
+            <div key={i} className="p-5 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 h-36" />
           ))}
         </div>
       ) : filteredMembers.length === 0 ? (
-        <div className="py-16 text-center cf-surface border cf-border rounded-xl">
-          <p className="text-sm font-semibold cf-text">No members match your search.</p>
-          <p className="text-xs cf-text-muted mt-1">Try another keyword or clear the search.</p>
+        <div className="py-16 text-center bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-2xs">
+          <p className="text-base font-bold text-neutral-900 dark:text-neutral-100">No members found</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Try another search keyword.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {filteredMembers.map((member) => (
-            <MemberCard key={member._id} member={member} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {filteredMembers.map((m) => (
+            <MemberCard key={m._id} member={m} />
           ))}
         </div>
       )}
