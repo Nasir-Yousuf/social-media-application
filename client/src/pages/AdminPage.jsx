@@ -6,7 +6,6 @@ import {
   FileText,
   MessageCircle,
   Heart,
-  Flame,
   Trash2,
 } from 'lucide-react';
 import api from '../api/client';
@@ -21,17 +20,13 @@ export const AdminPage = () => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
 
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'users', 'posts', 'announcement'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'users', 'posts'
   const [stats, setStats] = useState(null);
   const [usersList, setUsersList] = useState([]);
   const [postsList, setPostsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingUserId, setDeletingUserId] = useState(null);
   const [deletingPostId, setDeletingPostId] = useState(null);
-
-  // Announcement Form
-  const [announcementText, setAnnouncementText] = useState('');
-  const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -114,26 +109,6 @@ export const AdminPage = () => {
     }
   };
 
-  const handleBroadcastAnnouncement = async (e) => {
-    e.preventDefault();
-    if (!announcementText.trim() || sendingAnnouncement) return;
-
-    setSendingAnnouncement(true);
-    try {
-      await api.post('/posts', {
-        content: announcementText.trim(),
-        isAnnouncement: true,
-      });
-      showToast('Official announcement published to all feeds', 'success');
-      setAnnouncementText('');
-      window.dispatchEvent(new CustomEvent('clearfeed:newPost'));
-      fetchAdminData();
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to broadcast announcement', 'error');
-    } finally {
-      setSendingAnnouncement(false);
-    }
-  };
 
   const [purging, setPurging] = useState(false);
   const handlePurgeAllData = async () => {
@@ -181,7 +156,6 @@ export const AdminPage = () => {
           { id: 'overview', label: 'Overview' },
           { id: 'users', label: `Users (${usersList.length})` },
           { id: 'posts', label: `Moderation (${postsList.length})` },
-          { id: 'announcement', label: 'Broadcast' },
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -239,7 +213,7 @@ export const AdminPage = () => {
                     Clearfeed Administration & Governance
                   </h3>
                   <p className="leading-relaxed font-sans text-xs">
-                    As an administrator, you have full oversight over user accounts, content moderation, and platform announcements. Use the Broadcast tab to publish announcements that pin to the top of all feeds.
+                    As an administrator, you have full oversight over user accounts, content moderation, and platform activity.
                   </p>
                 </div>
 
@@ -377,38 +351,6 @@ export const AdminPage = () => {
                   ))
                 )}
               </div>
-            )}
-
-            {/* BROADCAST TAB */}
-            {activeTab === 'announcement' && (
-              <form onSubmit={handleBroadcastAnnouncement} className="space-y-4 max-w-xl">
-                <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 space-y-3 shadow-2xs">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-500">
-                    <Flame className="w-4 h-4" />
-                    <span>Publish Announcement to All Members</span>
-                  </div>
-
-                  <textarea
-                    value={announcementText}
-                    onChange={(e) => setAnnouncementText(e.target.value)}
-                    rows={4}
-                    placeholder="Write an announcement to pin to the top of all members' feeds..."
-                    className="w-full bg-neutral-50 dark:bg-black/50 p-3.5 rounded-2xl border border-neutral-300 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/25 focus:border-amber-500 resize-none font-sans leading-relaxed"
-                    required
-                  />
-
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="sm"
-                    disabled={!announcementText.trim() || sendingAnnouncement}
-                    isLoading={sendingAnnouncement}
-                    className="font-bold"
-                  >
-                    Broadcast Announcement
-                  </Button>
-                </div>
-              </form>
             )}
           </>
         )}

@@ -3,7 +3,6 @@ import {
   Code2,
   X,
   Plus,
-  Flame,
   Info,
   FolderGit2,
   MapPin,
@@ -71,7 +70,6 @@ export const PostComposer = ({
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
   const [content, setContent] = useState('');
-  const [isAnnouncement, setIsAnnouncement] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forkedFromId, setForkedFromId] = useState(null);
   const [showMarkdownHint, setShowMarkdownHint] = useState(false);
@@ -307,7 +305,7 @@ export const PostComposer = ({
 
       const payload = {
         content: postText || (formattedSnippet ? `Shared snippet: ${formattedSnippet.title}` : 'Shared a post'),
-        isAnnouncement: isAdmin ? isAnnouncement : false,
+        isAnnouncement: false,
         forkedFrom: forkedFromId || null,
         location: location.trim() || undefined,
       };
@@ -333,7 +331,6 @@ export const PostComposer = ({
       ]);
       setSnippetTitle('');
       setShowCodeEditor(false);
-      setIsAnnouncement(false);
       setForkedFromId(null);
       setActiveFileIndex(0);
 
@@ -579,22 +576,6 @@ export const PostComposer = ({
                   </span>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Admin Announcement Toggle */}
-          {isAdmin && (
-            <div className="flex items-center gap-2 py-2 mb-2 border-t border-neutral-100 dark:border-neutral-800 text-xs">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-amber-500 hover:text-amber-400">
-                <input
-                  type="checkbox"
-                  checked={isAnnouncement}
-                  onChange={(e) => setIsAnnouncement(e.target.checked)}
-                  className="rounded border-neutral-300 dark:border-neutral-700 text-amber-500 focus:ring-0 cursor-pointer"
-                />
-                <Flame className="w-3.5 h-3.5" />
-                <span className="font-bold">Official Announcement</span>
-              </label>
             </div>
           )}
 

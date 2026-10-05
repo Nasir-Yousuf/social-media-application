@@ -8,7 +8,6 @@ import {
   Edit3,
   Trash2,
   Pin,
-  Flame,
   BarChart2,
   MapPin,
   Flag,
@@ -180,10 +179,6 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
         isFadingOut
           ? 'opacity-0 scale-[0.98] -translate-y-2 max-h-0 py-0 my-0 mb-0 overflow-hidden border-transparent pointer-events-none'
           : ''
-      } ${
-        currentPost.isAnnouncement
-          ? 'border-l-4 border-l-amber-500 bg-amber-50/20 dark:bg-amber-950/10'
-          : ''
       }`}
     >
       {/* Twitter-style in-card Deleting overlay with Spinner */}
@@ -195,17 +190,12 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
           </span>
         </div>
       )}
-      {/* Pinned / Announcement / Forked Header Tag */}
-      {(currentPost.isPinned || currentPost.isAnnouncement || currentPost.forkedFrom) && (
+      {/* Pinned / Forked Header Tag */}
+      {(currentPost.isPinned || currentPost.forkedFrom) && (
         <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-amber-500">
           {currentPost.isPinned && (
             <span className="flex items-center gap-1">
               <Pin className="w-3.5 h-3.5" /> Pinned
-            </span>
-          )}
-          {currentPost.isAnnouncement && (
-            <span className="flex items-center gap-1 font-bold">
-              <Flame className="w-3.5 h-3.5" /> Announcement
             </span>
           )}
           {currentPost.forkedFrom && (
