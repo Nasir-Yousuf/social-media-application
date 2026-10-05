@@ -76,8 +76,10 @@ export const AppLayout = () => {
         {/* Center Column: Feed & Main Content */}
         <main
           className={`flex-1 w-full ${
-            isMessages ? 'max-w-[990px] pb-0' : 'max-w-[620px] pb-20 md:pb-12'
-          } min-h-screen border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black`}
+            isMessages
+              ? 'max-w-[1000px] xl:max-w-[1120px] 2xl:max-w-[1240px] pb-0 md:h-screen md:max-h-screen overflow-hidden'
+              : 'max-w-[620px] pb-20 md:pb-12 min-h-screen'
+          } border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black`}
         >
           <Outlet />
         </main>

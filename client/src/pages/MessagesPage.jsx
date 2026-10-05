@@ -13,7 +13,6 @@ import {
   CheckCheck,
   User,
   Copy,
-  ExternalLink,
   Sparkles,
   Trash2,
   Eraser,
@@ -31,13 +30,18 @@ const QUICK_EMOJIS = ['😀', '😂', '🔥', '🚀', '💻', '💡', '⚡', '�
 
 const CODE_LANGUAGES = [
   { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
   { value: 'python', label: 'Python' },
   { value: 'react', label: 'React / JSX' },
-  { value: 'typescript', label: 'TypeScript' },
   { value: 'html', label: 'HTML5' },
   { value: 'css', label: 'CSS3' },
   { value: 'sql', label: 'SQL' },
   { value: 'cpp', label: 'C++' },
+  { value: 'java', label: 'Java' },
+  { value: 'go', label: 'Go' },
+  { value: 'rust', label: 'Rust' },
+  { value: 'json', label: 'JSON' },
+  { value: 'bash', label: 'Bash / Shell' },
 ];
 
 export const MessagesPage = () => {
@@ -61,8 +65,9 @@ export const MessagesPage = () => {
   const [deletingMsgId, setDeletingMsgId] = useState(null);
   const [deletingConvId, setDeletingConvId] = useState(null);
 
-  // Search & New Conversation Modal
+  // Search & Filters
   const [conversationSearch, setConversationSearch] = useState('');
+  const [convFilter, setConvFilter] = useState('all'); // 'all' | 'unread'
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [directoryMembers, setDirectoryMembers] = useState([]);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
@@ -77,17 +82,23 @@ export const MessagesPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   };
 
-  // Format message time
+  // Format message time (clean time since date separators group the days)
   const formatMessageTime = (dateStr) => {
     try {
       const d = new Date(dateStr);
-      if (isToday(d)) {
-        return format(d, 'h:mm a');
-      }
-      if (isYesterday(d)) {
-        return `Yesterday · ${format(d, 'h:mm a')}`;
-      }
-      return format(d, 'MMM d · h:mm a');
+      return format(d, 'h:mm a');
+    } catch {
+      return '';
+    }
+  };
+
+  // Format date header for message stream grouping
+  const getMessageDateLabel = (dateStr) => {
+    try {
+      const d = new Date(dateStr);
+      if (isToday(d)) return 'Today';
+      if (isYesterday(d)) return 'Yesterday';
+      return format(d, 'EEEE, MMMM d, yyyy');
     } catch {
       return '';
     }
@@ -416,6 +427,13 @@ export const MessagesPage = () => {
     showToast('Code copied to clipboard', 'success');
   };
 
+  // Copy message text to clipboard
+  const handleCopyText = (text) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    showToast('Message copied to clipboard', 'success');
+  };
+
   // Delete individual message
   const handleDeleteMessage = async (msgId) => {
     if (!window.confirm('Delete this message? This cannot be undone.')) return;
@@ -466,8 +484,14 @@ export const MessagesPage = () => {
     }
   };
 
-  // Filter conversations
+  // Unread conversations count
+  const unreadTotal = conversations.reduce((acc, c) => acc + (c.unreadCount > 0 ? 1 : 0), 0);
+
+  // Filter conversations by search and filter tab
   const filteredConversations = conversations.filter((c) => {
+    if (convFilter === 'unread' && !(c.unreadCount > 0)) {
+      return false;
+    }
     if (!conversationSearch.trim()) return true;
     const q = conversationSearch.toLowerCase();
     const nameMatch = c.otherUser?.name?.toLowerCase().includes(q);
@@ -493,50 +517,98 @@ export const MessagesPage = () => {
       <div
         className={`${
           activeConversation ? 'hidden md:flex' : 'flex'
-        } flex-col w-full md:w-[320px] lg:w-[350px] border-r border-neutral-200/80 dark:border-neutral-800/80 shrink-0 h-full overflow-hidden select-none bg-white dark:bg-black`}
+        } flex-col w-full md:w-[320px] lg:w-[360px] xl:w-[390px] border-r border-neutral-200/80 dark:border-neutral-800/80 shrink-0 h-full overflow-hidden select-none bg-white dark:bg-black transition-all`}
       >
         {/* Header */}
-        <div className="p-3.5 border-b border-neutral-200/80 dark:border-neutral-800/80 flex items-center justify-between">
+        <div className="px-4 py-3.5 border-b border-neutral-200/80 dark:border-neutral-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h1 className="font-sans font-black text-xl tracking-tight text-neutral-900 dark:text-white">
               Messages
             </h1>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400">
-              1-on-1
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+              Direct
             </span>
           </div>
 
           <button
+            type="button"
             onClick={handleOpenNewChat}
-            className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:text-sky-500 transition-colors cursor-pointer"
-            title="New Message"
+            className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:text-sky-500 active:scale-95 transition-all cursor-pointer shadow-2xs"
+            title="Start new conversation"
           >
             <PenSquare className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Search Conversations */}
-        <div className="p-3 border-b border-neutral-100 dark:border-neutral-900">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+        {/* Search & Filter Tabs */}
+        <div className="p-3 border-b border-neutral-100 dark:border-neutral-900/80 space-y-2.5">
+          <div className="relative flex items-center">
+            <Search className="w-4 h-4 absolute left-3.5 text-neutral-400 pointer-events-none" />
             <input
               type="text"
               value={conversationSearch}
               onChange={(e) => setConversationSearch(e.target.value)}
-              placeholder="Search Direct Messages..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-full bg-neutral-100 dark:bg-[#16181c] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none focus:border-sky-500 border border-transparent transition-all"
+              placeholder="Search conversations..."
+              className="w-full pl-9.5 pr-8 py-2 rounded-full bg-neutral-100 dark:bg-[#16181c] text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none border border-transparent focus:border-sky-500 focus:bg-white dark:focus:bg-[#0c0d10] focus:ring-2 focus:ring-sky-500/15 transition-all"
             />
+            {conversationSearch && (
+              <button
+                type="button"
+                onClick={() => setConversationSearch('')}
+                className="absolute right-2.5 p-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Filter Pills */}
+          <div className="flex items-center gap-1.5 px-0.5">
+            <button
+              type="button"
+              onClick={() => setConvFilter('all')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                convFilter === 'all'
+                  ? 'bg-sky-500 text-white shadow-xs'
+                  : 'bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/70 dark:hover:bg-neutral-700/60'
+              }`}
+            >
+              All {conversations.length > 0 && <span className="opacity-80 text-[11px] ml-0.5">({conversations.length})</span>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConvFilter('unread')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                convFilter === 'unread'
+                  ? 'bg-sky-500 text-white shadow-xs'
+                  : 'bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/70 dark:hover:bg-neutral-700/60'
+              }`}
+            >
+              <span>Unread</span>
+              {unreadTotal > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-black leading-none ${
+                    convFilter === 'unread'
+                      ? 'bg-white text-sky-600'
+                      : 'bg-sky-500 text-white'
+                  }`}
+                >
+                  {unreadTotal}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Conversation List Stream */}
-        <div className="flex-1 overflow-y-auto overscroll-contain divide-y divide-neutral-100/60 dark:divide-neutral-900/60">
+        <div className="flex-1 overflow-y-auto overscroll-contain sidebar-scroll py-1.5">
           {loadingConversations ? (
             <div className="p-4 space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-3 animate-pulse">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-2xl animate-pulse">
                   <div className="w-11 h-11 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0" />
-                  <div className="flex-1 space-y-1.5">
+                  <div className="flex-1 space-y-2">
                     <div className="h-3.5 bg-neutral-200 dark:bg-neutral-800 rounded w-1/2" />
                     <div className="h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded w-4/5" />
                   </div>
@@ -545,19 +617,40 @@ export const MessagesPage = () => {
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-xs text-neutral-500 space-y-3">
-              <MessageSquare className="w-8 h-8 text-neutral-400 mx-auto opacity-60" />
-              <p className="font-semibold text-neutral-800 dark:text-neutral-200">
-                {conversationSearch ? 'No matching conversations' : 'No messages yet'}
+              <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800/60 flex items-center justify-center mx-auto text-neutral-400">
+                <MessageSquare className="w-6 h-6 opacity-75" />
+              </div>
+              <p className="font-bold text-sm text-neutral-800 dark:text-neutral-200">
+                {conversationSearch
+                  ? 'No matching conversations'
+                  : convFilter === 'unread'
+                  ? 'No unread messages'
+                  : 'No messages yet'}
               </p>
-              <p className="max-w-xs mx-auto">
-                Start a direct conversation with classmates to discuss code and assignments privately.
+              <p className="max-w-xs mx-auto leading-relaxed text-neutral-500 dark:text-neutral-400">
+                {conversationSearch
+                  ? 'Try searching with a different name or username.'
+                  : convFilter === 'unread'
+                  ? 'You are all caught up on your conversations!'
+                  : 'Start a direct conversation with classmates to discuss code and assignments privately.'}
               </p>
-              <button
-                onClick={handleOpenNewChat}
-                className="px-4 py-1.5 rounded-full bg-sky-500 text-white font-bold text-xs hover:bg-sky-400 transition-colors shadow-xs cursor-pointer"
-              >
-                Write a message
-              </button>
+              {convFilter === 'unread' ? (
+                <button
+                  type="button"
+                  onClick={() => setConvFilter('all')}
+                  className="px-4 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-bold text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                >
+                  View all conversations
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleOpenNewChat}
+                  className="px-4 py-1.5 rounded-full bg-sky-500 text-white font-bold text-xs hover:bg-sky-400 active:scale-95 transition-all shadow-xs cursor-pointer"
+                >
+                  Write a message
+                </button>
+              )}
             </div>
           ) : (
             filteredConversations.map((conv) => {
@@ -568,31 +661,37 @@ export const MessagesPage = () => {
                 <div
                   key={conv._id}
                   onClick={() => handleSelectConversation(conv)}
-                  className={`group relative flex items-start gap-3 p-3.5 hover:bg-neutral-50 dark:hover:bg-neutral-900/60 transition-colors cursor-pointer ${
+                  className={`group relative flex items-start gap-3 mx-2 my-1 p-3 rounded-2xl transition-all duration-150 cursor-pointer ${
                     isSelected
-                      ? 'bg-neutral-100/90 dark:bg-neutral-900/90 border-l-3 border-l-sky-500'
-                      : ''
+                      ? 'bg-sky-500/10 dark:bg-sky-500/15 border border-sky-400/40 dark:border-sky-500/30 shadow-xs'
+                      : 'border border-transparent hover:bg-neutral-100/80 dark:hover:bg-neutral-800/60'
                   }`}
                 >
-                  <Avatar
-                    src={conv.otherUser?.avatarUrl}
-                    name={conv.otherUser?.name}
-                    size="md"
-                    showRoleBadge={false}
-                  />
+                  {isSelected && (
+                    <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-7 rounded-full bg-sky-500" />
+                  )}
+
+                  <div className="shrink-0 relative">
+                    <Avatar
+                      src={conv.otherUser?.avatarUrl}
+                      name={conv.otherUser?.name}
+                      size="md"
+                      showRoleBadge={false}
+                    />
+                  </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 truncate">
+                        <span className={`text-xs sm:text-sm truncate ${isSelected ? 'font-black text-sky-950 dark:text-sky-100' : 'font-bold text-neutral-900 dark:text-neutral-100'}`}>
                           {conv.otherUser?.name || 'Classmate'}
                         </span>
-                        <span className="text-[11px] text-neutral-500 truncate">
+                        <span className="text-[11px] text-neutral-500 truncate hidden sm:inline">
                           @{conv.otherUser?.username}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <span className="text-[10px] text-neutral-400">
+                        <span className="text-[10px] text-neutral-400 font-medium">
                           {formatConvDate(conv.lastMessage?.createdAt || conv.updatedAt)}
                         </span>
                         {deletingConvId === conv._id ? (
@@ -603,8 +702,8 @@ export const MessagesPage = () => {
                           <button
                             type="button"
                             onClick={(e) => handleDeleteConversation(conv._id, e)}
-                            className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
-                            title="Delete conversation & all messages"
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
+                            title="Delete conversation"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -621,8 +720,8 @@ export const MessagesPage = () => {
                         }`}
                       >
                         {conv.lastMessage?.hasCode ? (
-                          <span className="text-sky-500 font-mono text-[11px] flex items-center gap-1">
-                            <Code2 className="w-3 h-3" />
+                          <span className="text-sky-500 font-mono text-[11px] inline-flex items-center gap-1">
+                            <Code2 className="w-3.5 h-3.5" />
                             Code snippet
                           </span>
                         ) : (
@@ -631,7 +730,7 @@ export const MessagesPage = () => {
                       </p>
 
                       {hasUnread && (
-                        <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-sky-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                        <span className="min-w-5 h-5 px-1.5 rounded-full bg-sky-500 text-white font-black text-[10px] flex items-center justify-center shrink-0 shadow-xs animate-pulse">
                           {conv.unreadCount}
                         </span>
                       )}
@@ -650,18 +749,18 @@ export const MessagesPage = () => {
           activeConversation
             ? 'fixed inset-0 z-50 md:relative md:inset-auto md:z-auto flex'
             : 'hidden md:flex'
-        } flex-col flex-1 h-[100dvh] md:h-screen overflow-hidden bg-white dark:bg-black transition-all`}
+        } flex-col flex-1 min-w-0 h-[100dvh] md:h-screen overflow-hidden bg-white dark:bg-black transition-all`}
       >
         {activeConversation ? (
           <>
             {/* Active Chat Header */}
-            <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/95 dark:bg-black/95 backdrop-blur-md flex items-center justify-between shrink-0 z-10">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="h-16 px-4 sm:px-6 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/90 dark:bg-black/90 backdrop-blur-md flex items-center justify-between shrink-0 z-10 shadow-2xs">
+              <div className="flex items-center gap-3 min-w-0">
                 {/* Mobile Back Button */}
                 <button
                   type="button"
                   onClick={handleBackToConversations}
-                  className="md:hidden p-2 -ml-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 active:scale-95 transition-transform cursor-pointer shrink-0"
+                  className="md:hidden p-2 -ml-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 active:scale-95 transition-transform cursor-pointer shrink-0"
                   title="Back to conversations"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -669,7 +768,7 @@ export const MessagesPage = () => {
 
                 <NavLink
                   to={`/profile/${activeConversation.otherUser?.username}`}
-                  className="shrink-0"
+                  className="shrink-0 relative group"
                 >
                   <Avatar
                     src={activeConversation.otherUser?.avatarUrl}
@@ -680,32 +779,45 @@ export const MessagesPage = () => {
                 </NavLink>
 
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-2">
                     <NavLink
                       to={`/profile/${activeConversation.otherUser?.username}`}
-                      className="font-bold text-sm text-neutral-900 dark:text-neutral-100 hover:underline truncate"
+                      className="font-bold text-sm sm:text-base text-neutral-900 dark:text-neutral-100 hover:text-sky-500 transition-colors truncate"
                     >
                       {activeConversation.otherUser?.name}
                     </NavLink>
-                    <span className="text-xs text-neutral-500 truncate">
+                    <span className="text-xs text-neutral-500 truncate hidden sm:inline">
                       @{activeConversation.otherUser?.username}
                     </span>
                   </div>
-                  {activeConversation.otherUser?.status && (
-                    <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium truncate">
-                      {activeConversation.otherUser?.status}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Direct chat
+                    </span>
+                    {activeConversation.otherUser?.status && (
+                      <span className="text-neutral-400 truncate hidden md:inline">
+                        · {activeConversation.otherUser?.status}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Header Right Actions */}
               <div className="flex items-center gap-1">
+                <NavLink
+                  to={`/profile/${activeConversation.otherUser?.username}`}
+                  className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-sky-500 transition-colors"
+                  title="View Profile"
+                >
+                  <User className="w-4 h-4" />
+                </NavLink>
                 <button
                   type="button"
                   onClick={() => handleClearConversation(activeConversation._id)}
                   className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-amber-500 transition-colors cursor-pointer"
-                  title="Clear all messages (frees storage)"
+                  title="Clear all messages in chat"
                 >
                   <Eraser className="w-4 h-4" />
                 </button>
@@ -722,29 +834,26 @@ export const MessagesPage = () => {
                     <Trash2 className="w-4 h-4" />
                   )}
                 </button>
-                <NavLink
-                  to={`/profile/${activeConversation.otherUser?.username}`}
-                  className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-sky-500 transition-colors"
-                  title="View Profile"
-                >
-                  <User className="w-4 h-4" />
-                </NavLink>
               </div>
             </div>
 
             {/* Message Thread Scroll Area */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-3 bg-neutral-50/40 dark:bg-[#0b0d11] sidebar-scroll">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-7 h-7 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="py-12 text-center text-xs text-neutral-400 space-y-2">
-                  <Sparkles className="w-6 h-6 text-sky-500 mx-auto" />
-                  <p className="font-semibold text-neutral-700 dark:text-neutral-300">
-                    This is the start of your message history with @{activeConversation.otherUser?.username}
+                <div className="py-16 text-center text-xs text-neutral-400 space-y-3 max-w-sm mx-auto">
+                  <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-500/10 text-sky-500 flex items-center justify-center mx-auto shadow-2xs">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <p className="font-bold text-sm text-neutral-800 dark:text-neutral-200">
+                    Start of your conversation
                   </p>
-                  <p>Send a message, an emoji, or a code snippet below.</p>
+                  <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                    Direct messages with @{activeConversation.otherUser?.username} are private. Send a greeting, share questions, or collaborate with code snippets!
+                  </p>
                 </div>
               ) : (
                 messages.map((msg, idx) => {
@@ -755,116 +864,142 @@ export const MessagesPage = () => {
                   const isSending = msg.status === 'sending' || isTemp;
                   const isFailed = msg.status === 'failed';
 
-                  return (
-                    <div
-                      key={msg._id || idx}
-                      className={`group/msg flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full`}
-                    >
-                      <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'} max-w-full`}>
-                        <div
-                          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 text-sm leading-relaxed shadow-xs transition-all ${
-                            isFailed
-                              ? 'border-2 border-rose-500/80 bg-rose-50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200'
-                              : isMe
-                              ? isSending
-                                ? 'bg-sky-500/90 text-white rounded-br-xs'
-                                : 'bg-sky-500 text-white rounded-br-xs'
-                              : 'bg-white dark:bg-[#181a20] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800/80 rounded-bl-xs'
-                          }`}
-                        >
-                          {/* Text Content */}
-                          {msg.text && (
-                            <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                          )}
+                  const currentDateLabel = getMessageDateLabel(msg.createdAt);
+                  const prevDateLabel = idx > 0 ? getMessageDateLabel(messages[idx - 1].createdAt) : null;
+                  const showDateSeparator = currentDateLabel && currentDateLabel !== prevDateLabel;
 
-                          {/* Code Snippet Box */}
-                          {hasSnippet && (
-                            <div
-                              className={`mt-2 rounded-xl overflow-hidden text-xs font-mono border ${
-                                isMe
-                                  ? 'bg-black/40 border-white/20 text-white'
-                                  : 'bg-[#121418] border-neutral-800 text-neutral-200'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between px-3 py-1.5 bg-black/30 border-b border-white/10 text-[10px]">
-                                <span className="font-bold uppercase text-sky-400">
-                                  {msg.codeSnippet.language || 'code'}
-                                </span>
+                  return (
+                    <React.Fragment key={msg._id || idx}>
+                      {showDateSeparator && (
+                        <div className="flex items-center justify-center my-4 select-none">
+                          <span className="px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-neutral-200/70 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 shadow-2xs border border-neutral-300/40 dark:border-neutral-700/50">
+                            {currentDateLabel}
+                          </span>
+                        </div>
+                      )}
+
+                      <div
+                        className={`group/msg flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full my-0.5`}
+                      >
+                        <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'} max-w-full`}>
+                          <div
+                            className={`max-w-[85%] sm:max-w-[75%] lg:max-w-[70%] rounded-2xl p-3 sm:p-3.5 text-sm leading-relaxed shadow-xs transition-all ${
+                              isFailed
+                                ? 'border-2 border-rose-500/80 bg-rose-50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200'
+                                : isMe
+                                ? isSending
+                                  ? 'bg-gradient-to-br from-sky-500/90 to-sky-600/90 text-white rounded-br-xs'
+                                  : 'bg-gradient-to-br from-sky-500 to-sky-600 text-white rounded-br-xs'
+                                : 'bg-white dark:bg-[#181b22] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800/80 rounded-bl-xs'
+                            }`}
+                          >
+                            {/* Text Content */}
+                            {msg.text && (
+                              <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                            )}
+
+                            {/* Code Snippet Box */}
+                            {hasSnippet && (
+                              <div
+                                className={`mt-2 rounded-xl overflow-hidden text-xs font-mono border ${
+                                  isMe
+                                    ? 'bg-neutral-950/90 border-white/20 text-white'
+                                    : 'bg-[#121418] border-neutral-800 text-neutral-200'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/10 text-[10px]">
+                                  <span className="font-bold uppercase tracking-wider text-sky-400">
+                                    {msg.codeSnippet.language || 'code'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyCode(msg.codeSnippet.code)}
+                                    className="flex items-center gap-1 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                                    title="Copy code"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </button>
+                                </div>
+                                <pre className="p-3 overflow-x-auto text-xs leading-relaxed max-h-64 font-mono sidebar-scroll">
+                                  <code>{msg.codeSnippet.code}</code>
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Desktop Hover Action Toolbar */}
+                          <div className={`opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                            {msg.text && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(msg.text)}
+                                className="p-1.5 rounded-full hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+                                title="Copy message text"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {isFailed ? (
+                              <div className="flex items-center gap-0.5">
                                 <button
                                   type="button"
-                                  onClick={() => handleCopyCode(msg.codeSnippet.code)}
-                                  className="flex items-center gap-1 text-neutral-300 hover:text-white transition-colors cursor-pointer"
-                                  title="Copy code"
+                                  onClick={() => handleRetryMessage(msg)}
+                                  className="p-1.5 rounded-full hover:bg-rose-500/10 text-rose-500 transition-colors cursor-pointer"
+                                  title="Retry sending message"
                                 >
-                                  <Copy className="w-3 h-3" />
-                                  <span>Copy</span>
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDismissFailedMessage(msg._id)}
+                                  className="p-1.5 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+                                  title="Dismiss failed message"
+                                >
+                                  <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
-                              <pre className="p-3 overflow-x-auto text-xs leading-relaxed max-h-64 font-mono">
-                                <code>{msg.codeSnippet.code}</code>
-                              </pre>
-                            </div>
-                          )}
+                            ) : isMe && !isSending ? (
+                              deletingMsgId === msg._id ? (
+                                <span className="p-1.5 flex items-center justify-center">
+                                  <TwitterSpinner size="xs" className="text-rose-500" />
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMessage(msg._id)}
+                                  className="p-1.5 rounded-full hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-colors cursor-pointer"
+                                  title="Delete message"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )
+                            ) : null}
+                          </div>
                         </div>
 
-                        {/* Action buttons beside bubble */}
-                        {isFailed ? (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleRetryMessage(msg)}
-                              className="p-1.5 rounded-full hover:bg-rose-500/10 text-rose-500 transition-colors cursor-pointer"
-                              title="Retry sending message"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDismissFailedMessage(msg._id)}
-                              className="p-1.5 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
-                              title="Dismiss failed message"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : !isSending ? (
-                          deletingMsgId === msg._id ? (
-                            <span className="p-1.5 flex items-center justify-center shrink-0">
-                              <TwitterSpinner size="xs" className="text-rose-500" />
+                        {/* Timestamp & Status Indicator */}
+                        <div className="flex items-center gap-1 text-[10px] text-neutral-400 mt-1 px-1 select-none">
+                          <span>{formatMessageTime(msg.createdAt)}</span>
+                          {isMe && (
+                            <span className="inline-flex items-center">
+                              {isFailed ? (
+                                <span className="text-rose-500 font-semibold ml-1">Failed to send</span>
+                              ) : isSending ? (
+                                <span className="inline-flex items-center ml-1 text-sky-400" title="Sending...">
+                                  <span className="w-2.5 h-2.5 border-1.5 border-sky-400 border-t-transparent rounded-full animate-spin inline-block" />
+                                </span>
+                              ) : msg.isRead ? (
+                                <CheckCheck className="w-3.5 h-3.5 text-sky-500 ml-0.5" title="Read" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5 text-neutral-400 ml-0.5" title="Delivered" />
+                              )}
                             </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteMessage(msg._id)}
-                              className="opacity-0 group-hover/msg:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-neutral-200/60 dark:hover:bg-neutral-800 text-neutral-400 hover:text-red-500 cursor-pointer shrink-0"
-                              title="Delete this message"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )
-                        ) : null}
+                          )}
+                        </div>
                       </div>
-
-                      {/* Timestamp & Delivered status */}
-                      <div className="flex items-center gap-1 text-[10px] text-neutral-400 mt-1 px-1">
-                        <span>{formatMessageTime(msg.createdAt)}</span>
-                        {isMe && (
-                          <span className="inline-flex items-center">
-                            {isFailed ? (
-                              <span className="text-rose-500 font-semibold ml-1">Failed to send</span>
-                            ) : isSending ? (
-                              <span className="inline-flex items-center ml-1 text-sky-400" title="Sending...">
-                                <span className="w-2.5 h-2.5 border-1.5 border-sky-400 border-t-transparent rounded-full animate-spin inline-block" />
-                              </span>
-                            ) : msg.isRead ? (
-                              <CheckCheck className="w-3.5 h-3.5 text-sky-500 ml-0.5" title="Read" />
-                            ) : (
-                              <Check className="w-3.5 h-3.5 text-neutral-400 ml-0.5" title="Delivered" />
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    </React.Fragment>
                   );
                 })
               )}
@@ -872,16 +1007,16 @@ export const MessagesPage = () => {
             </div>
 
             {/* Rich Composer Bar */}
-            <div className="p-2.5 sm:p-3 border-t border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black shrink-0 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+            <div className="p-3 sm:p-4 border-t border-neutral-200/80 dark:border-neutral-800/80 bg-white/95 dark:bg-black/95 backdrop-blur-md shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               {/* Emoji Drawer */}
               {showEmojiPicker && (
-                <div className="p-2 mb-2 max-h-36 sm:max-h-48 overflow-y-auto bg-neutral-100 dark:bg-[#16181c] border border-neutral-200 dark:border-neutral-800 rounded-2xl flex flex-wrap gap-1 shadow-inner animate-fade-in">
+                <div className="p-2.5 mb-2 max-h-40 sm:max-h-48 overflow-y-auto bg-neutral-100 dark:bg-[#16181c] border border-neutral-200 dark:border-neutral-800 rounded-2xl flex flex-wrap gap-1.5 shadow-inner sidebar-scroll animate-fade-in">
                   {QUICK_EMOJIS.map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
                       onClick={() => setInputText((prev) => prev + emoji)}
-                      className="text-lg p-1.5 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700/60 active:scale-125 transition-transform cursor-pointer"
+                      className="text-xl p-1.5 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700/60 active:scale-125 transition-transform cursor-pointer"
                     >
                       {emoji}
                     </button>
@@ -891,7 +1026,7 @@ export const MessagesPage = () => {
 
               {/* Code Snippet Drawer */}
               {showCodeEditor && (
-                <div className="p-3 mb-2 bg-[#14161a] border border-[#262930] rounded-2xl space-y-2 text-xs font-mono shadow-inner animate-fade-in">
+                <div className="p-3 mb-2.5 bg-[#14161a] border border-[#262930] rounded-2xl space-y-2 text-xs font-mono shadow-inner animate-fade-in">
                   <div className="flex items-center justify-between text-neutral-300">
                     <div className="flex items-center gap-2">
                       <Code2 className="w-4 h-4 text-sky-400" />
@@ -902,7 +1037,7 @@ export const MessagesPage = () => {
                       <select
                         value={snippetLang}
                         onChange={(e) => setSnippetLang(e.target.value)}
-                        className="bg-[#20232a] text-white px-2 py-1 rounded border border-[#30343e] text-xs outline-none cursor-pointer"
+                        className="bg-[#20232a] text-white px-2 py-1 rounded-lg border border-[#30343e] text-xs outline-none cursor-pointer"
                       >
                         {CODE_LANGUAGES.map((l) => (
                           <option key={l.value} value={l.value}>
@@ -917,6 +1052,7 @@ export const MessagesPage = () => {
                           setSnippetCode('');
                         }}
                         className="p-1 text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Cancel snippet"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -928,103 +1064,121 @@ export const MessagesPage = () => {
                     onChange={(e) => setSnippetCode(e.target.value)}
                     placeholder={`// Paste your ${snippetLang} code here...`}
                     rows={4}
-                    className="w-full bg-[#1b1e24] p-2.5 rounded-xl text-xs font-mono text-neutral-200 placeholder:text-neutral-500 focus:outline-none resize-y border border-[#2a2e38]"
+                    className="w-full bg-[#1b1e24] p-2.5 rounded-xl text-xs font-mono text-neutral-200 placeholder:text-neutral-500 focus:outline-none resize-y border border-[#2a2e38] sidebar-scroll"
                     spellCheck={false}
                   />
                 </div>
               )}
 
               {/* Text Input Row */}
-              <form onSubmit={handleSendMessage} className="flex items-end gap-2">
-                {/* Emoji toggle button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEmojiPicker(!showEmojiPicker);
-                    setShowCodeEditor(false);
-                  }}
-                  className={`p-2 rounded-full transition-colors cursor-pointer ${
-                    showEmojiPicker
-                      ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
-                      : 'text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                  }`}
-                  title="Add emoji"
-                >
-                  <Smile className="w-5 h-5" />
-                </button>
-
-                {/* Code snippet toggle button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCodeEditor(!showCodeEditor);
-                    setShowEmojiPicker(false);
-                  }}
-                  className={`p-2 rounded-full transition-colors cursor-pointer ${
-                    showCodeEditor || snippetCode.trim()
-                      ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
-                      : 'text-neutral-400 hover:text-sky-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                  }`}
-                  title="Attach code snippet"
-                >
-                  <Code2 className="w-5 h-5" />
-                </button>
-
-                {/* Textarea */}
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={inputRef}
-                    value={inputText}
-                    onChange={(e) => {
-                      setInputText(e.target.value);
-                      e.target.style.height = 'auto';
-                      e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
+              <form onSubmit={handleSendMessage} className="space-y-1.5">
+                <div className="flex items-end gap-2 bg-neutral-100 dark:bg-[#16181c] border border-neutral-200/80 dark:border-neutral-800/80 focus-within:border-sky-500/80 focus-within:ring-2 focus-within:ring-sky-500/15 focus-within:bg-white dark:focus-within:bg-[#0c0d10] rounded-2xl p-1.5 sm:p-2 transition-all">
+                  {/* Emoji toggle button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEmojiPicker(!showEmojiPicker);
+                      setShowCodeEditor(false);
                     }}
-                    onKeyDown={(e) => {
-                      const isMobile =
-                        typeof window !== 'undefined' &&
-                        (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
-                      if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
+                    className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                      showEmojiPicker
+                        ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
+                        : 'text-neutral-400 hover:text-sky-500 hover:bg-neutral-200/60 dark:hover:bg-neutral-800'
+                    }`}
+                    title="Add emoji"
+                  >
+                    <Smile className="w-5 h-5" />
+                  </button>
+
+                  {/* Code snippet toggle button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCodeEditor(!showCodeEditor);
+                      setShowEmojiPicker(false);
                     }}
-                    placeholder="Start a new message... (Enter to send)"
-                    rows={1}
-                    className="w-full py-2 px-3 sm:px-3.5 rounded-2xl bg-neutral-100 dark:bg-[#16181c] text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none focus:border-sky-500 border border-transparent resize-none max-h-32 min-h-[38px] leading-relaxed transition-all"
-                  />
+                    className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                      showCodeEditor || snippetCode.trim()
+                        ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
+                        : 'text-neutral-400 hover:text-sky-500 hover:bg-neutral-200/60 dark:hover:bg-neutral-800'
+                    }`}
+                    title="Attach code snippet"
+                  >
+                    <Code2 className="w-5 h-5" />
+                  </button>
+
+                  {/* Textarea */}
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={inputRef}
+                      value={inputText}
+                      onChange={(e) => {
+                        setInputText(e.target.value);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${Math.min(e.target.scrollHeight, 140)}px`;
+                      }}
+                      onKeyDown={(e) => {
+                        const isMobile =
+                          typeof window !== 'undefined' &&
+                          (window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768);
+                        if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Start a new message... (Enter to send)"
+                      rows={1}
+                      className="w-full py-1.5 px-2 bg-transparent text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none resize-none max-h-36 min-h-[36px] leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Send Button */}
+                  <button
+                    type="submit"
+                    disabled={!inputText.trim() && !snippetCode.trim()}
+                    className="p-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 text-white disabled:opacity-40 hover:from-sky-400 hover:to-sky-500 active:scale-95 transition-all cursor-pointer shrink-0 shadow-xs flex items-center justify-center"
+                    title="Send message"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
                 </div>
 
-                {/* Send Button */}
-                <button
-                  type="submit"
-                  disabled={!inputText.trim() && !snippetCode.trim()}
-                  className="p-2 sm:p-2.5 rounded-full bg-sky-500 text-white disabled:opacity-40 hover:bg-sky-400 active:bg-sky-600 transition-all cursor-pointer shrink-0 shadow-xs flex items-center justify-center"
-                  title="Send message"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
+                {/* Desktop keyboard hint */}
+                <div className="hidden sm:flex items-center justify-between px-2 text-[11px] text-neutral-400 dark:text-neutral-500 select-none">
+                  <span>Press <kbd className="px-1.5 py-0.5 rounded bg-neutral-200/80 dark:bg-neutral-800 text-[10px] font-mono text-neutral-600 dark:text-neutral-300">Enter</kbd> to send</span>
+                  <span><kbd className="px-1.5 py-0.5 rounded bg-neutral-200/80 dark:bg-neutral-800 text-[10px] font-mono text-neutral-600 dark:text-neutral-300">Shift + Enter</kbd> for new line</span>
+                </div>
               </form>
             </div>
           </>
         ) : (
-          /* Empty State: No Conversation Selected */
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
-            <div className="w-16 h-16 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-500 flex items-center justify-center mb-4 shadow-sm">
-              <MessageSquare className="w-8 h-8" />
+          /* Empty State: No Conversation Selected (Desktop) */
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none bg-neutral-50/20 dark:bg-[#0b0d11]/40">
+            <div className="relative mb-5">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-sky-500/20 via-sky-500/10 to-indigo-500/20 text-sky-500 flex items-center justify-center shadow-inner border border-sky-500/20">
+                <MessageSquare className="w-10 h-10" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 shadow-xs">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+              </div>
             </div>
             <h2 className="font-sans font-black text-2xl tracking-tight text-neutral-900 dark:text-white">
-              Select a message
+              Select a conversation
             </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mt-1 mb-6 leading-relaxed">
-              Choose from your existing conversations, or start a new one to talk code and concepts directly.
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mt-2 mb-6 leading-relaxed">
+              Choose an existing conversation from the list or start a new direct message with any classmate or instructor.
             </p>
             <button
               onClick={handleOpenNewChat}
-              className="px-6 py-2.5 rounded-full bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold text-sm shadow-md shadow-sky-500/25 transition-all active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold text-sm shadow-md shadow-sky-500/25 transition-all active:scale-95 cursor-pointer"
             >
-              New message
+              <PenSquare className="w-4 h-4" />
+              <span>New message</span>
             </button>
+            <div className="mt-8 flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
+              <Code2 className="w-3.5 h-3.5 text-sky-400" />
+              <span>Tip: You can share live code snippets directly in your chats</span>
+            </div>
           </div>
         )}
       </div>
@@ -1036,22 +1190,33 @@ export const MessagesPage = () => {
         title="New Direct Message"
       >
         <div className="space-y-4">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+          <div className="relative flex items-center">
+            <Search className="w-4 h-4 absolute left-3.5 text-neutral-400 pointer-events-none" />
             <input
               type="text"
               value={memberSearchQuery}
               onChange={(e) => setMemberSearchQuery(e.target.value)}
-              placeholder="Search people by name or @username..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-neutral-100 dark:bg-[#16181c] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none border border-neutral-200 dark:border-neutral-800 focus:border-sky-500"
+              placeholder="Search classmates by name or @username..."
+              className="w-full pl-9.5 pr-8 py-2.5 rounded-xl bg-neutral-100 dark:bg-[#16181c] text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none border border-neutral-200 dark:border-neutral-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
               autoFocus
             />
+            {memberSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setMemberSearchQuery('')}
+                className="absolute right-2.5 p-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="max-h-72 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800">
+          <div className="max-h-80 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800/80 sidebar-scroll pr-1">
             {loadingMembers ? (
-              <div className="py-8 text-center text-xs text-neutral-400">
-                Loading course members...
+              <div className="py-8 text-center text-xs text-neutral-400 space-y-2">
+                <TwitterSpinner size="sm" className="mx-auto text-sky-500" />
+                <p>Loading member directory...</p>
               </div>
             ) : filteredMembers.length === 0 ? (
               <div className="py-8 text-center text-xs text-neutral-400">
@@ -1081,8 +1246,8 @@ export const MessagesPage = () => {
                     </div>
                   </div>
 
-                  <span className="text-xs font-semibold text-sky-500 hover:underline">
-                    Message
+                  <span className="text-xs font-semibold text-sky-500 bg-sky-50 dark:bg-sky-500/10 px-3 py-1 rounded-full hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors">
+                    Chat
                   </span>
                 </div>
               ))
