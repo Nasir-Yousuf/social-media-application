@@ -269,3 +269,135 @@ exports.getUnreadTotal = async (req, res) => {
     return res.status(500).json({ message: 'Error counting unread messages.' });
   }
 };
+
+// Delete a specific individual message
+exports.deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const currentUserId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found.' });
+    }
+
+    const convId = message.conversation;
+    const conversation = await Conversation.findById(convId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found.' });
+    }
+
+    // Sender or participant of the conversation can delete message to free storage
+    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    if (!message.sender.equals(currentUserId) && !isParticipant) {
+      return res.status(403).json({ message: 'You are not authorized to delete this message.' });
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    // If deleted message was the last one, update conversation metadata
+    if (conversation) {
+      const newestRemaining = await Message.findOne({ conversation: convId }).sort({ createdAt: -1 });
+      if (newestRemaining) {
+        conversation.lastMessage = {
+          text: newestRemaining.text || (newestRemaining.codeSnippet?.code ? 'Shared a code snippet' : ''),
+          hasCode: Boolean(newestRemaining.codeSnippet?.code),
+          sender: newestRemaining.sender,
+          createdAt: newestRemaining.createdAt,
+        };
+      } else {
+        conversation.lastMessage = {
+          text: '',
+          hasCode: false,
+          sender: null,
+          createdAt: new Date(),
+        };
+      }
+      await conversation.save();
+    }
+
+    return res.status(200).json({
+      message: 'Message deleted successfully.',
+      messageId,
+    });
+  } catch (err) {
+    console.error('deleteMessage error:', err);
+    return res.status(500).json({ message: 'Failed to delete message.' });
+  }
+};
+
+// Delete the whole conversation and all its messages (frees Atlas storage)
+exports.deleteConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const currentUserId = req.user._id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found.' });
+    }
+
+    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized to delete this conversation.' });
+    }
+
+    // Purge all messages from collection
+    await Message.deleteMany({ conversation: conversationId });
+    // Purge conversation metadata
+    await Conversation.findByIdAndDelete(conversationId);
+
+    return res.status(200).json({
+      message: 'Conversation and all messages permanently deleted.',
+      conversationId,
+    });
+  } catch (err) {
+    console.error('deleteConversation error:', err);
+    return res.status(500).json({ message: 'Failed to delete conversation.' });
+  }
+};
+
+// Clear all messages in a conversation (frees storage, resets conversation)
+exports.clearConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const currentUserId = req.user._id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found.' });
+    }
+
+    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized to clear this conversation.' });
+    }
+
+    // Purge all message records to free Atlas storage
+    await Message.deleteMany({ conversation: conversationId });
+
+    conversation.lastMessage = {
+      text: '',
+      hasCode: false,
+      sender: null,
+      createdAt: new Date(),
+    };
+
+    if (conversation.unreadCounts) {
+      conversation.participants.forEach((p) => {
+        conversation.unreadCounts.set(p.toString(), 0);
+      });
+    }
+
+    await conversation.save();
+
+    return res.status(200).json({
+      message: 'All messages cleared successfully.',
+      conversationId,
+    });
+  } catch (err) {
+    console.error('clearConversation error:', err);
+    return res.status(500).json({ message: 'Failed to clear messages.' });
+  }
+};
+

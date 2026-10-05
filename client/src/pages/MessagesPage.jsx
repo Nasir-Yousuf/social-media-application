@@ -15,6 +15,8 @@ import {
   Copy,
   ExternalLink,
   Sparkles,
+  Trash2,
+  Eraser,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
@@ -284,6 +286,50 @@ export const MessagesPage = () => {
     showToast('Code copied to clipboard', 'success');
   };
 
+  // Delete individual message
+  const handleDeleteMessage = async (msgId) => {
+    if (!window.confirm('Delete this message? This cannot be undone.')) return;
+    try {
+      await api.delete(`/messages/${msgId}`);
+      setMessages((prev) => prev.filter((m) => m._id !== msgId));
+      fetchConversations(true);
+      showToast('Message deleted', 'info');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to delete message', 'error');
+    }
+  };
+
+  // Delete entire conversation and its messages
+  const handleDeleteConversation = async (convId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Delete this entire conversation? All messages will be permanently removed from MongoDB storage.')) return;
+    try {
+      await api.delete(`/messages/conversations/${convId}`);
+      setConversations((prev) => prev.filter((c) => c._id !== convId));
+      if (activeConversation?._id === convId) {
+        setActiveConversation(null);
+        setMessages([]);
+      }
+      showToast('Conversation deleted', 'info');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to delete conversation', 'error');
+    }
+  };
+
+  // Clear all messages in current conversation without deleting conversation
+  const handleClearConversation = async (convId) => {
+    if (!convId) return;
+    if (!window.confirm('Clear all messages in this conversation? All message records will be permanently removed from MongoDB storage.')) return;
+    try {
+      await api.delete(`/messages/conversations/${convId}/messages`);
+      setMessages([]);
+      fetchConversations(true);
+      showToast('All messages cleared', 'info');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to clear messages', 'error');
+    }
+  };
+
   // Filter conversations
   const filteredConversations = conversations.filter((c) => {
     if (!conversationSearch.trim()) return true;
@@ -386,7 +432,7 @@ export const MessagesPage = () => {
                 <div
                   key={conv._id}
                   onClick={() => handleSelectConversation(conv)}
-                  className={`flex items-start gap-3 p-3.5 hover:bg-neutral-50 dark:hover:bg-neutral-900/60 transition-colors cursor-pointer ${
+                  className={`group relative flex items-start gap-3 p-3.5 hover:bg-neutral-50 dark:hover:bg-neutral-900/60 transition-colors cursor-pointer ${
                     isSelected
                       ? 'bg-neutral-100/90 dark:bg-neutral-900/90 border-l-3 border-l-sky-500'
                       : ''
@@ -409,9 +455,19 @@ export const MessagesPage = () => {
                           @{conv.otherUser?.username}
                         </span>
                       </div>
-                      <span className="text-[10px] text-neutral-400 shrink-0">
-                        {formatConvDate(conv.lastMessage?.createdAt || conv.updatedAt)}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[10px] text-neutral-400">
+                          {formatConvDate(conv.lastMessage?.createdAt || conv.updatedAt)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteConversation(conv._id, e)}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded hover:bg-red-500/10 text-neutral-400 hover:text-red-500 transition-all cursor-pointer"
+                          title="Delete conversation & all messages"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between gap-2 mt-1">
@@ -500,6 +556,22 @@ export const MessagesPage = () => {
 
               {/* Header Right Actions */}
               <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleClearConversation(activeConversation._id)}
+                  className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-amber-500 transition-colors cursor-pointer"
+                  title="Clear all messages (frees storage)"
+                >
+                  <Eraser className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => handleDeleteConversation(activeConversation._id, e)}
+                  className="p-2 rounded-full hover:bg-red-500/10 text-neutral-500 hover:text-red-500 transition-colors cursor-pointer"
+                  title="Delete conversation & all messages"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 <NavLink
                   to={`/profile/${activeConversation.otherUser?.username}`}
                   className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-sky-500 transition-colors"
@@ -528,51 +600,66 @@ export const MessagesPage = () => {
                 messages.map((msg, idx) => {
                   const isMe = msg.sender === currentUser?._id;
                   const hasSnippet = msg.codeSnippet && msg.codeSnippet.code;
+                  const isTemp = typeof msg._id === 'string' && msg._id.startsWith('temp-');
 
                   return (
                     <div
                       key={msg._id || idx}
-                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full`}
+                      className={`group/msg flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full`}
                     >
-                      <div
-                        className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 text-sm leading-relaxed shadow-xs ${
-                          isMe
-                            ? 'bg-sky-500 text-white rounded-br-xs'
-                            : 'bg-white dark:bg-[#181a20] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800/80 rounded-bl-xs'
-                        }`}
-                      >
-                        {/* Text Content */}
-                        {msg.text && (
-                          <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                        )}
+                      <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'} max-w-full`}>
+                        <div
+                          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 text-sm leading-relaxed shadow-xs ${
+                            isMe
+                              ? 'bg-sky-500 text-white rounded-br-xs'
+                              : 'bg-white dark:bg-[#181a20] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800/80 rounded-bl-xs'
+                          }`}
+                        >
+                          {/* Text Content */}
+                          {msg.text && (
+                            <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                          )}
 
-                        {/* Code Snippet Box */}
-                        {hasSnippet && (
-                          <div
-                            className={`mt-2 rounded-xl overflow-hidden text-xs font-mono border ${
-                              isMe
-                                ? 'bg-black/40 border-white/20 text-white'
-                                : 'bg-[#121418] border-neutral-800 text-neutral-200'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between px-3 py-1.5 bg-black/30 border-b border-white/10 text-[10px]">
-                              <span className="font-bold uppercase text-sky-400">
-                                {msg.codeSnippet.language || 'code'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyCode(msg.codeSnippet.code)}
-                                className="flex items-center gap-1 text-neutral-300 hover:text-white transition-colors cursor-pointer"
-                                title="Copy code"
-                              >
-                                <Copy className="w-3 h-3" />
-                                <span>Copy</span>
-                              </button>
+                          {/* Code Snippet Box */}
+                          {hasSnippet && (
+                            <div
+                              className={`mt-2 rounded-xl overflow-hidden text-xs font-mono border ${
+                                isMe
+                                  ? 'bg-black/40 border-white/20 text-white'
+                                  : 'bg-[#121418] border-neutral-800 text-neutral-200'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between px-3 py-1.5 bg-black/30 border-b border-white/10 text-[10px]">
+                                <span className="font-bold uppercase text-sky-400">
+                                  {msg.codeSnippet.language || 'code'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyCode(msg.codeSnippet.code)}
+                                  className="flex items-center gap-1 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+                                  title="Copy code"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy</span>
+                                </button>
+                              </div>
+                              <pre className="p-3 overflow-x-auto text-xs leading-relaxed max-h-64 font-mono">
+                                <code>{msg.codeSnippet.code}</code>
+                              </pre>
                             </div>
-                            <pre className="p-3 overflow-x-auto text-xs leading-relaxed max-h-64 font-mono">
-                              <code>{msg.codeSnippet.code}</code>
-                            </pre>
-                          </div>
+                          )}
+                        </div>
+
+                        {/* Delete single message button */}
+                        {!isTemp && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMessage(msg._id)}
+                            className="opacity-0 group-hover/msg:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-neutral-200/60 dark:hover:bg-neutral-800 text-neutral-400 hover:text-red-500 cursor-pointer shrink-0"
+                            title="Delete this message"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
 
