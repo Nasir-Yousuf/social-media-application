@@ -111,12 +111,12 @@ Clearfeed is specifically engineered to run completely free across standard clou
 | Component       | Recommended Platform                           | Free Tier Specifications                                          |
 | --------------- | ---------------------------------------------- | ----------------------------------------------------------------- |
 | **Database**    | [MongoDB Atlas](https://www.mongodb.com/atlas) | Free Shared M0 Cluster (512MB storage, automated backups)         |
-| **Backend API** | [Render](https://render.com)                   | Free Web Service (512MB RAM, Node.js runtime)                     |
+| **Backend API** | [Railway](https://railway.app) / [Render](https://render.com) | Node.js web service runtime                     |
 | **Frontend UI** | [Vercel](https://vercel.com)                   | Free Hobby Plan (Edge CDN, unlimited preview & production builds) |
 
-### Deploying the Backend on Render:
+### Deploying the Backend on Railway / Render:
 
-1. Connect your GitHub repository to Render.
+1. Connect your GitHub repository to Railway or Render.
 2. Create a new **Web Service**.
 3. Set **Root Directory** to `server`.
 4. Set **Build Command** to `npm install`.
@@ -133,7 +133,7 @@ Clearfeed is specifically engineered to run completely free across standard clou
 2. Set **Root Directory** to `client`.
 3. Set **Framework Preset** to `Vite`.
 4. Set Environment Variable:
-   - `VITE_API_URL`: `<your-render-backend-url>/api` (e.g. `https://clearfeed-api.onrender.com/api`)
+   - `VITE_API_URL`: `https://clearfeed518.up.railway.app` (or your deployed backend URL)
 5. Deploy.
 
 ## 📱 React Native Mobile Application (`mobile/`)

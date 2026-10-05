@@ -50,9 +50,8 @@ export const resolveAvatarUrl = (url) => {
   ) {
     return url;
   }
-  const apiBase = import.meta.env.VITE_API_URL
-    ? import.meta.env.VITE_API_URL.replace(/\/$/, '')
-    : '';
+  const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+  const apiBase = rawBase.replace(/\/api$/, '');
   if (url.startsWith('/api') || url.startsWith('/')) {
     return `${apiBase}${url}`;
   }
