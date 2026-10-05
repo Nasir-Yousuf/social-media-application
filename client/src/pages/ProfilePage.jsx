@@ -4,6 +4,7 @@ import {
   Calendar,
   Code2,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -182,15 +183,25 @@ export const ProfilePage = () => {
                 Edit Profile
               </Button>
             ) : (
-              <Button
-                variant={profile.isFollowing ? 'outline' : 'secondary'}
-                size="sm"
-                onClick={handleFollowToggle}
-                isLoading={followLoading}
-                className="w-full sm:w-auto px-5 font-bold"
-              >
-                {profile.isFollowing ? 'Following' : 'Follow'}
-              </Button>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <NavLink
+                  to={`/messages?user=${profile.username}`}
+                  className="p-2 rounded-full border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors shrink-0"
+                  title={`Direct Message @${profile.username}`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </NavLink>
+
+                <Button
+                  variant={profile.isFollowing ? 'outline' : 'secondary'}
+                  size="sm"
+                  onClick={handleFollowToggle}
+                  isLoading={followLoading}
+                  className="flex-1 sm:flex-initial px-5 font-bold"
+                >
+                  {profile.isFollowing ? 'Following' : 'Follow'}
+                </Button>
+              </div>
             )}
           </div>
         </div>

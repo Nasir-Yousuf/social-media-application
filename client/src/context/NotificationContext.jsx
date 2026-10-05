@@ -7,6 +7,7 @@ const NotificationContext = createContext(null);
 export const NotificationProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [toast, setToast] = useState(null);
 
   const showToast = useCallback((message, type = 'info') => {
@@ -19,11 +20,16 @@ export const NotificationProvider = ({ children }) => {
   const fetchUnreadCount = useCallback(async () => {
     if (!isAuthenticated) {
       setUnreadCount(0);
+      setUnreadMessagesCount(0);
       return;
     }
     try {
-      const res = await api.get('/notifications/unread-count');
-      setUnreadCount(res.data.unreadCount || 0);
+      const [notifRes, msgRes] = await Promise.all([
+        api.get('/notifications/unread-count').catch(() => ({ data: {} })),
+        api.get('/messages/unread-total').catch(() => ({ data: {} })),
+      ]);
+      setUnreadCount(notifRes.data.unreadCount || 0);
+      setUnreadMessagesCount(msgRes.data.unreadTotal || 0);
     } catch {
       // Ignore background notification fetch errors
     }
@@ -40,7 +46,9 @@ export const NotificationProvider = ({ children }) => {
     <NotificationContext.Provider
       value={{
         unreadCount,
+        unreadMessagesCount,
         setUnreadCount,
+        setUnreadMessagesCount,
         fetchUnreadCount,
         showToast,
         toast,

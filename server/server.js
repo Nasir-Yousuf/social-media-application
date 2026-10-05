@@ -39,6 +39,7 @@ app.use('/api/comments', require('./routes/commentRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
+app.use('/api/messages', require('./routes/messageRoutes'));
 
 // 404 handler for undefined API routes
 app.use((req, res, next) => {

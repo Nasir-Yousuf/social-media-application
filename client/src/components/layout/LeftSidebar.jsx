@@ -27,7 +27,7 @@ import PostComposer from '../posts/PostComposer';
 
 export const LeftSidebar = () => {
   const { user, logout, isAdmin, isDark, toggleTheme } = useAuth();
-  const { unreadCount } = useNotifications();
+  const { unreadCount, unreadMessagesCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -49,7 +49,12 @@ export const LeftSidebar = () => {
       icon: Bell,
       badge: unreadCount,
     },
-    { to: '/messages', label: 'Chat', icon: MessageSquare },
+    {
+      to: '/messages',
+      label: 'Chat',
+      icon: MessageSquare,
+      badge: unreadMessagesCount,
+    },
     { to: '/code', label: 'CodeHub', icon: Code2 },
     { to: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
     { to: '/members', label: 'Community', icon: Users },
