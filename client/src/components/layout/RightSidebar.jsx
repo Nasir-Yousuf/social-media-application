@@ -26,15 +26,8 @@ export const RightSidebar = () => {
           setTrends(res.data.trends || []);
         }
       } catch (err) {
-        // Fallback trends
         if (isMounted) {
-          setTrends([
-            { hashtag: 'cs518', category: 'Coursework · CS-518', postsCount: 18 },
-            { hashtag: 'react', category: 'Technology · Frontend', postsCount: 14 },
-            { hashtag: 'javascript', category: 'Programming · Trending', postsCount: 12 },
-            { hashtag: 'webdev', category: 'Web Development · Trending', postsCount: 9 },
-            { hashtag: 'cleancode', category: 'Software Architecture · Trending', postsCount: 7 },
-          ]);
+          setTrends([]);
         }
       } finally {
         if (isMounted) setLoadingTrends(false);
@@ -136,8 +129,11 @@ export const RightSidebar = () => {
             ))}
           </div>
         ) : trends.length === 0 ? (
-          <div className="p-4 text-xs text-neutral-500 text-center">
-            No trending tags yet. Post with #hashtags to start!
+          <div className="px-4 py-5 text-center text-xs text-neutral-500 dark:text-neutral-400 space-y-1">
+            <p className="font-semibold text-neutral-700 dark:text-neutral-300">No trending topics yet</p>
+            <p className="text-[11px] leading-relaxed max-w-[200px] mx-auto text-neutral-400 dark:text-neutral-500">
+              Use <span className="font-bold text-sky-500">#hashtags</span> in your posts to start what's happening!
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-neutral-200/40 dark:divide-neutral-800/60">

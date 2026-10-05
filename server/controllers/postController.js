@@ -751,23 +751,26 @@ exports.getTrendingHashtags = async (req, res) => {
     const tagCounts = {};
 
     posts.forEach((p) => {
+      const postTags = new Set();
+
       if (Array.isArray(p.tags)) {
         p.tags.forEach((tag) => {
-          if (tag) {
-            const lower = tag.toLowerCase().trim();
-            tagCounts[lower] = (tagCounts[lower] || 0) + 1;
-          }
+          if (tag) postTags.add(tag.toLowerCase().trim());
         });
       }
       if (p.content) {
         const matches = p.content.match(/#([a-zA-Z0-9_\u00c0-\u017e]+)/g);
         if (matches) {
           matches.forEach((m) => {
-            const lower = m.replace('#', '').toLowerCase();
-            tagCounts[lower] = (tagCounts[lower] || 0) + 1;
+            const clean = m.replace('#', '').toLowerCase().trim();
+            if (clean) postTags.add(clean);
           });
         }
       }
+
+      postTags.forEach((tag) => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
     });
 
     const categoryMap = {
@@ -786,25 +789,12 @@ exports.getTrendingHashtags = async (req, res) => {
       ai: 'Artificial Intelligence · Trending',
     };
 
-    // Ensure baseline curriculum tags exist with realistic volume
-    const seedTrends = [
-      { tag: 'cs518', cat: 'Coursework · CS-518', seed: 18 },
-      { tag: 'react', cat: 'Technology · Frontend', seed: 14 },
-      { tag: 'javascript', cat: 'Programming · Trending', seed: 12 },
-      { tag: 'webdev', cat: 'Web Development · Trending', seed: 9 },
-      { tag: 'cleancode', cat: 'Software Architecture · Trending', seed: 7 },
-      { tag: 'algorithms', cat: 'Computer Science · Trending', seed: 6 },
-    ];
-
-    seedTrends.forEach(({ tag, cat, seed }) => {
-      tagCounts[tag] = (tagCounts[tag] || 0) + seed;
-    });
-
     const trends = Object.entries(tagCounts)
+      .filter(([tag, count]) => count > 0)
       .map(([tag, count]) => ({
         hashtag: tag,
         postsCount: count,
-        category: categoryMap[tag] || 'Topic · Trending',
+        category: categoryMap[tag] || `${tag.charAt(0).toUpperCase() + tag.slice(1)} · Trending`,
       }))
       .sort((a, b) => b.postsCount - a.postsCount)
       .slice(0, 6);
