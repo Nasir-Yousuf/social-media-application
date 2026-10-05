@@ -181,3 +181,44 @@ exports.getMe = async (req, res) => {
     return res.status(500).json({ message: 'Failed to retrieve profile data.' });
   }
 };
+
+// Guest Login (allows exploring Clearfeed without registering or entering credentials)
+exports.guestLogin = async (req, res) => {
+  try {
+    let guestUser = await User.findOne({ username: 'guest' });
+
+    if (!guestUser) {
+      guestUser = new User({
+        name: 'Guest Explorer',
+        username: 'guest',
+        email: 'guest@clearfeed.local',
+        password: 'GuestPassword#2026',
+        bio: 'Exploring Clearfeed as a guest community visitor.',
+        avatarUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=Guest&backgroundColor=0284c7&textColor=ffffff',
+        role: 'student',
+        isApproved: true,
+      });
+      await guestUser.save();
+    }
+
+    const token = generateToken(guestUser._id);
+
+    return res.status(200).json({
+      message: 'Signed in as guest.',
+      token,
+      user: {
+        _id: guestUser._id,
+        name: guestUser.name,
+        username: guestUser.username,
+        email: guestUser.email,
+        bio: guestUser.bio,
+        avatarUrl: guestUser.avatarUrl,
+        role: guestUser.role,
+        createdAt: guestUser.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('guestLogin error:', err);
+    return res.status(500).json({ message: 'Failed to sign in as guest.' });
+  }
+};

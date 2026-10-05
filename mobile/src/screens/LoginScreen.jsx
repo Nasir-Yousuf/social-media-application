@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export const LoginScreen = () => {
   const insets = useSafeAreaInsets();
-  const { login, register } = useAuth();
+  const { login, register, loginGuest } = useAuth();
   const { showToast } = useNotifications();
 
   const [isRegister, setIsRegister] = useState(false);
@@ -46,13 +46,13 @@ export const LoginScreen = () => {
     setShowConfig(false);
   };
 
-  const handleQuickLogin = async (userKey, pass) => {
+  const handleGuestLogin = async () => {
     setLoading(true);
     try {
-      await login(userKey, pass);
-      showToast(`Welcome back, ${userKey}!`, 'success');
+      await loginGuest();
+      showToast('Welcome! Browsing as Guest.', 'success');
     } catch (err) {
-      showToast(err.message || 'Demo login failed. Is the server running?', 'error');
+      showToast(err.message || 'Guest login failed.', 'error');
     } finally {
       setLoading(false);
     }
@@ -191,19 +191,16 @@ export const LoginScreen = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* 1-Click Demo Accounts */}
+          {/* Guest Explorer Login */}
           <View style={styles.demoSection}>
-            <Text style={styles.demoTitle}>Quick Test Sign-in</Text>
-            <View style={styles.demoRow}>
-              <TouchableOpacity
-                onPress={() => handleQuickLogin('nasir', 'password123')}
-                style={[styles.demoBtn, { flex: 1 }]}
-                disabled={loading}
-              >
-                <Text style={styles.demoBtnName}>Nasir</Text>
-                <Text style={styles.demoBtnRole}>@nasir · 1-click test</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={handleGuestLogin}
+              style={[styles.demoBtn, { width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 12 }]}
+              disabled={loading}
+            >
+              <Text style={[styles.demoBtnName, { color: colors.primary, fontSize: 14 }]}>Continue as Guest</Text>
+              <Text style={[styles.demoBtnRole, { marginTop: 2 }]}>Explore without an account</Text>
+            </TouchableOpacity>
           </View>
         </View>
 

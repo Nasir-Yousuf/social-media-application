@@ -64,6 +64,17 @@ export const AuthProvider = ({ children }) => {
     return res.data;
   };
 
+  // Guest login handler
+  const loginGuest = async () => {
+    const res = await api.post('/auth/guest');
+    const { token: newToken, user: newUser } = res.data;
+    localStorage.setItem('pulse518_token', newToken);
+    localStorage.setItem('pulse518_user', JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+    return res.data;
+  };
+
   // Logout handler
   const logout = () => {
     localStorage.removeItem('pulse518_token');
@@ -91,6 +102,7 @@ export const AuthProvider = ({ children }) => {
         isAdmin: user?.role === 'admin',
         login,
         register,
+        loginGuest,
         logout,
         refreshUser,
         updateUser,

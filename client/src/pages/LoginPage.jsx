@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, Navigate } from 'react-router-dom';
-import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { Lock, User, AlertCircle, ArrowRight, Compass } from 'lucide-react';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -8,13 +8,14 @@ import { ClearfeedLogo } from '../components/common/ClearfeedIcons';
 import ThemeToggle from '../components/common/ThemeToggle';
 
 export const LoginPage = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, loginGuest, isAuthenticated } = useAuth();
   const { showToast } = useNotifications();
   const navigate = useNavigate();
 
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [error, setError] = useState('');
 
   if (isAuthenticated) {
@@ -44,10 +45,20 @@ export const LoginPage = () => {
     }
   };
 
-  const handleQuickLogin = (demoId, demoPass) => {
-    setLoginId(demoId);
-    setPassword(demoPass);
+  const handleGuestLogin = async () => {
+    setGuestLoading(true);
     setError('');
+    try {
+      await loginGuest();
+      showToast('Welcome! Browsing as Guest.', 'info');
+      navigate('/');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Could not log in as guest.';
+      setError(msg);
+      showToast(msg, 'error');
+    } finally {
+      setGuestLoading(false);
+    }
   };
 
   return (
@@ -130,23 +141,26 @@ export const LoginPage = () => {
             </Button>
           </form>
 
-          {/* Quick Demo Credentials */}
-          <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-2.5">
-            <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 block text-center uppercase tracking-wider">
-              Quick Test Sign-in
+          {/* Divider */}
+          <div className="relative flex items-center justify-center pt-2">
+            <div className="border-t border-neutral-200 dark:border-neutral-800 w-full" />
+            <span className="bg-white dark:bg-[#121519] px-3 text-[11px] uppercase tracking-wider font-semibold text-neutral-400 shrink-0">
+              or
             </span>
-            <div>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('nasir', 'password123')}
-                className="w-full p-2.5 rounded-xl bg-neutral-50 dark:bg-black/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-xs transition-all duration-150 cursor-pointer group active:scale-95"
-              >
-                <div className="font-bold text-neutral-900 dark:text-neutral-100 group-hover:text-sky-500 transition-colors">
-                  Nasir
-                </div>
-                <div className="text-[11px] text-neutral-500 dark:text-neutral-400">@nasir · 1-click test</div>
-              </button>
-            </div>
+            <div className="border-t border-neutral-200 dark:border-neutral-800 w-full" />
+          </div>
+
+          {/* Continue as Guest Button */}
+          <div>
+            <button
+              type="button"
+              onClick={handleGuestLogin}
+              disabled={guestLoading || loading}
+              className="w-full py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-neutral-200/80 dark:bg-neutral-800/60 dark:hover:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 border border-neutral-200 dark:border-neutral-700/60 transition-all duration-150 cursor-pointer active:scale-[0.98] disabled:opacity-50"
+            >
+              <Compass className="w-4 h-4 text-sky-500" />
+              <span>{guestLoading ? 'Entering as Guest...' : 'Continue as Guest'}</span>
+            </button>
           </div>
         </div>
 

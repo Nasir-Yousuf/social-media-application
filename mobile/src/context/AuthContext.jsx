@@ -56,6 +56,15 @@ export const AuthProvider = ({ children }) => {
     return receivedUser;
   };
 
+  const loginGuest = async () => {
+    const res = await api.post('/auth/guest');
+    const { token: receivedToken, user: receivedUser } = res.data;
+    await AsyncStorage.setItem('token', receivedToken);
+    setToken(receivedToken);
+    setUser(receivedUser);
+    return receivedUser;
+  };
+
   const logout = async () => {
     await AsyncStorage.removeItem('token');
     setToken(null);
@@ -76,6 +85,7 @@ export const AuthProvider = ({ children }) => {
         isAdmin: user?.role === 'admin',
         login,
         register,
+        loginGuest,
         logout,
         updateUser,
       }}
