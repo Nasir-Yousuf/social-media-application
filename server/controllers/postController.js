@@ -6,17 +6,42 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Bookmark = require('../models/Bookmark');
 
+// Helper to compute strictly authentic unique views (author + unique viewers)
+// Caps the view count so it can never mathematically exceed the total registered users
+const computeUniqueViews = (post, totalUsers = null) => {
+  const viewerSet = new Set();
+
+  if (Array.isArray(post.viewedBy)) {
+    for (const v of post.viewedBy) {
+      if (v) {
+        const idStr = v._id ? v._id.toString() : v.toString();
+        if (idStr) viewerSet.add(idStr);
+      }
+    }
+  }
+
+  // Author is always counted as a unique viewer of their own post
+  if (post.author) {
+    const authorIdStr = post.author._id ? post.author._id.toString() : post.author.toString();
+    if (authorIdStr) viewerSet.add(authorIdStr);
+  }
+
+  const rawCount = Math.max(1, viewerSet.size);
+  return typeof totalUsers === 'number' && totalUsers > 0
+    ? Math.min(rawCount, totalUsers)
+    : rawCount;
+};
+
 // Helper to enrich post with currentUser state
 const enrichPost = async (post, currentUserId) => {
-  const [isLiked, isBookmarked] = await Promise.all([
+  const [isLiked, isBookmarked, totalUsers] = await Promise.all([
     currentUserId ? Like.exists({ post: post._id, user: currentUserId }) : false,
     currentUserId ? Bookmark.exists({ post: post._id, user: currentUserId }) : false,
+    User.countDocuments(),
   ]);
   const isOwner = currentUserId ? post.author && post.author._id.equals(currentUserId) : false;
 
-  const uniqueViews = Array.isArray(post.viewedBy) && post.viewedBy.length > 0
-    ? post.viewedBy.length
-    : Math.max(1, post.viewsCount || 1);
+  const uniqueViews = computeUniqueViews(post, totalUsers);
 
   return {
     ...post.toObject(),
@@ -216,15 +241,22 @@ exports.getFeed = async (req, res) => {
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
-    const enrichedPosts = posts.map((post) => ({
-      ...post.toObject(),
-      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
-        ? post.viewedBy.length
-        : Math.max(1, post.viewsCount || 1),
-      isLiked: likedPostIdSet.has(post._id.toString()),
-      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-      isOwner: post.author && post.author._id.equals(currentUserId),
-    }));
+    const totalUsers = await User.countDocuments();
+
+    const enrichedPosts = posts.map((post) => {
+      const uniqueViews = computeUniqueViews(post, totalUsers);
+      // Auto-heal inflated counts in background if mismatched
+      if (post.viewsCount !== uniqueViews) {
+        Post.updateOne({ _id: post._id }, { $set: { viewsCount: uniqueViews } }).catch(() => {});
+      }
+      return {
+        ...post.toObject(),
+        viewsCount: uniqueViews,
+        isLiked: likedPostIdSet.has(post._id.toString()),
+        isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+        isOwner: post.author && post.author._id.equals(currentUserId),
+      };
+    });
 
     return res.status(200).json({
       posts: enrichedPosts,
@@ -486,11 +518,10 @@ exports.getBookmarks = async (req, res) => {
     const userLikes = await Like.find({ post: { $in: postIds }, user: currentUserId }).select('post');
     const likedSet = new Set(userLikes.map((l) => l.post.toString()));
 
+    const totalUsers = await User.countDocuments();
     const posts = validBookmarks.map((b) => ({
       ...b.post.toObject(),
-      viewsCount: Array.isArray(b.post.viewedBy) && b.post.viewedBy.length > 0
-        ? b.post.viewedBy.length
-        : Math.max(1, b.post.viewsCount || 1),
+      viewsCount: computeUniqueViews(b.post, totalUsers),
       isLiked: likedSet.has(b.post._id.toString()),
       isBookmarked: true,
       isOwner: b.post.author && b.post.author._id.equals(currentUserId),
@@ -542,11 +573,10 @@ exports.getUserPosts = async (req, res) => {
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
+    const totalUsers = await User.countDocuments();
     const enriched = posts.map((post) => ({
       ...post.toObject(),
-      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
-        ? post.viewedBy.length
-        : Math.max(1, post.viewsCount || 1),
+      viewsCount: computeUniqueViews(post, totalUsers),
       isLiked: likedPostIdSet.has(post._id.toString()),
       isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
@@ -583,11 +613,10 @@ exports.getExplorePosts = async (req, res) => {
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
+    const totalUsers = await User.countDocuments();
     const enriched = posts.map((post) => ({
       ...post.toObject(),
-      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
-        ? post.viewedBy.length
-        : Math.max(1, post.viewsCount || 1),
+      viewsCount: computeUniqueViews(post, totalUsers),
       isLiked: likedPostIdSet.has(post._id.toString()),
       isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
@@ -664,11 +693,10 @@ exports.getCodeFeed = async (req, res) => {
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
+    const totalUsers = await User.countDocuments();
     const enriched = posts.map((post) => ({
       ...post.toObject(),
-      viewsCount: Array.isArray(post.viewedBy) && post.viewedBy.length > 0
-        ? post.viewedBy.length
-        : Math.max(1, post.viewsCount || 1),
+      viewsCount: computeUniqueViews(post, totalUsers),
       isLiked: likedPostIdSet.has(post._id.toString()),
       isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
       isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
@@ -726,34 +754,53 @@ exports.recordView = async (req, res) => {
     const postId = req.params.id;
     const userId = req.user ? req.user._id : null;
 
-    const post = await Post.findById(postId);
+    const [post, totalUsers] = await Promise.all([
+      Post.findById(postId),
+      User.countDocuments(),
+    ]);
+
     if (!post) {
       return res.status(404).json({ message: 'Post not found.' });
     }
 
     if (!Array.isArray(post.viewedBy)) {
-      post.viewedBy = post.author ? [post.author] : [];
+      post.viewedBy = [];
     }
 
     let changed = false;
 
     // Ensure author is included in viewedBy
-    if (post.author && !post.viewedBy.some((id) => id.toString() === post.author.toString())) {
-      post.viewedBy.push(post.author);
-      changed = true;
+    if (post.author) {
+      const authorStr = post.author.toString();
+      if (!post.viewedBy.some((id) => id.toString() === authorStr)) {
+        post.viewedBy.push(post.author);
+        changed = true;
+      }
     }
 
+    // Add viewing user if authenticated
     if (userId) {
-      const hasViewed = post.viewedBy.some((id) => id.toString() === userId.toString());
-      if (!hasViewed) {
+      const userStr = userId.toString();
+      if (!post.viewedBy.some((id) => id.toString() === userStr)) {
         post.viewedBy.push(userId);
         changed = true;
       }
     }
 
-    const uniqueCount = Math.max(1, post.viewedBy.length);
-    if (post.viewsCount !== uniqueCount) {
-      post.viewsCount = uniqueCount;
+    // Deduplicate viewedBy array
+    const uniqueIds = Array.from(new Set(post.viewedBy.map((id) => id.toString())));
+    if (uniqueIds.length !== post.viewedBy.length) {
+      post.viewedBy = uniqueIds;
+      changed = true;
+    }
+
+    const correctCount = Math.min(
+      Math.max(1, post.viewedBy.length),
+      totalUsers > 0 ? totalUsers : 1
+    );
+
+    if (post.viewsCount !== correctCount) {
+      post.viewsCount = correctCount;
       changed = true;
     }
 
@@ -761,10 +808,52 @@ exports.recordView = async (req, res) => {
       await post.save();
     }
 
-    return res.status(200).json({ viewsCount: post.viewsCount });
+    return res.status(200).json({ viewsCount: post.viewsCount, viewedByCount: post.viewedBy.length });
   } catch (err) {
     console.error('recordView error:', err);
     return res.status(500).json({ message: 'Error recording view.' });
+  }
+};
+
+// Sync and sanitize unique views across all posts
+exports.syncViews = async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const posts = await Post.find().select('_id author viewedBy viewsCount');
+    let updatedCount = 0;
+
+    for (const p of posts) {
+      const viewerSet = new Set();
+      if (Array.isArray(p.viewedBy)) {
+        for (const v of p.viewedBy) {
+          if (v) viewerSet.add(v.toString());
+        }
+      }
+      if (p.author) {
+        viewerSet.add(p.author.toString());
+      }
+      const uniqueArray = Array.from(viewerSet);
+      const correctViews = Math.min(
+        Math.max(1, uniqueArray.length),
+        totalUsers > 0 ? totalUsers : 1
+      );
+
+      if (p.viewsCount !== correctViews || (p.viewedBy || []).length !== uniqueArray.length) {
+        p.viewedBy = uniqueArray;
+        p.viewsCount = correctViews;
+        await p.save();
+        updatedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      message: `Views sanitized successfully. ${updatedCount} posts synchronized.`,
+      updatedCount,
+      totalUsers,
+    });
+  } catch (err) {
+    console.error('syncViews error:', err);
+    return res.status(500).json({ message: 'Failed to sync views.' });
   }
 };
 

@@ -134,11 +134,34 @@ exports.deleteUser = async (req, res) => {
 // Admin Moderation: get all posts
 exports.getAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find({})
-      .populate('author', 'name username email role avatarUrl')
-      .sort({ createdAt: -1 });
+    const [posts, totalUsers] = await Promise.all([
+      Post.find({})
+        .populate('author', 'name username email role avatarUrl')
+        .sort({ createdAt: -1 }),
+      User.countDocuments(),
+    ]);
 
-    return res.status(200).json({ posts });
+    const sanitizedPosts = posts.map((p) => {
+      const viewerSet = new Set();
+      if (Array.isArray(p.viewedBy)) {
+        for (const v of p.viewedBy) {
+          if (v) viewerSet.add(v.toString());
+        }
+      }
+      if (p.author) {
+        viewerSet.add(p.author._id ? p.author._id.toString() : p.author.toString());
+      }
+      const uniqueViews = Math.min(
+        Math.max(1, viewerSet.size),
+        totalUsers > 0 ? totalUsers : 1
+      );
+      return {
+        ...p.toObject(),
+        viewsCount: uniqueViews,
+      };
+    });
+
+    return res.status(200).json({ posts: sanitizedPosts });
   } catch (err) {
     console.error('admin getAllPosts error:', err);
     return res.status(500).json({ message: 'Error retrieving posts for moderation.' });

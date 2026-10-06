@@ -34,7 +34,14 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
-  const [viewsCount, setViewsCount] = useState(post.viewsCount || 0);
+  const resolveViews = (p) => {
+    if (Array.isArray(p?.viewedBy) && p.viewedBy.length > 0) {
+      return p.viewedBy.length;
+    }
+    return typeof p?.viewsCount === 'number' && p.viewsCount > 0 ? p.viewsCount : 1;
+  };
+
+  const [viewsCount, setViewsCount] = useState(() => resolveViews(post));
   const [isFlagged, setIsFlagged] = useState(post.isFlagged || false);
   const [reposted, setReposted] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -47,10 +54,8 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   const viewRecordedRef = useRef(false);
 
   useEffect(() => {
-    if (typeof post.viewsCount === 'number') {
-      setViewsCount(post.viewsCount);
-    }
-  }, [post.viewsCount]);
+    setViewsCount(resolveViews(post));
+  }, [post.viewsCount, post.viewedBy]);
 
   // Record impression view once
   useEffect(() => {
@@ -385,10 +390,10 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
           {/* Views Analytics (Unique Views) */}
           <div
             className="flex items-center gap-1.5 p-1.5 rounded-full text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10 transition-colors cursor-default"
-            title={`${viewsCount || 0} ${viewsCount === 1 ? 'View' : 'Views'}`}
+            title={`${viewsCount || 1} ${viewsCount === 1 ? 'View' : 'Views'}`}
           >
             <BarChart2 className="w-4 h-4" />
-            <span className="font-medium text-xs font-mono">{viewsCount || 0}</span>
+            <span className="font-medium text-xs font-mono">{viewsCount || 1}</span>
           </div>
 
           {/* Fork Code Button */}

@@ -10,6 +10,8 @@ router.get('/code-snippets', optionalAuth, postController.getCodeFeed);
 router.get('/user/:username', optionalAuth, postController.getUserPosts);
 router.post('/', requireAuth, postController.createPost);
 router.get('/trending-hashtags', optionalAuth, postController.getTrendingHashtags);
+router.post('/sync-views', requireAuth, postController.syncViews);
+router.get('/sync-views', requireAuth, postController.syncViews);
 router.post('/:id/view', optionalAuth, postController.recordView);
 router.post('/:id/flag', requireAuth, postController.flagPost);
 router.get('/:id', optionalAuth, postController.getPostById);

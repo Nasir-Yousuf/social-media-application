@@ -116,28 +116,37 @@ const startServer = async () => {
       const User = require('./models/User');
       const totalUsers = await User.countDocuments();
       const posts = await Post.find().select('_id author viewedBy viewsCount');
+      let sanitizedCount = 0;
       for (const p of posts) {
         let changed = false;
-        let viewedBy = Array.isArray(p.viewedBy) ? p.viewedBy : [];
-        if (p.author && !viewedBy.some((id) => id.toString() === p.author.toString())) {
-          viewedBy.push(p.author);
-          changed = true;
+        const viewerSet = new Set();
+        if (Array.isArray(p.viewedBy)) {
+          for (const v of p.viewedBy) {
+            if (v) viewerSet.add(v.toString());
+          }
         }
-        if (viewedBy.length === 0 && p.author) {
-          viewedBy = [p.author];
-          changed = true;
+        if (p.author) {
+          viewerSet.add(p.author.toString());
         }
-        const realCount = Math.min(Math.max(1, viewedBy.length), totalUsers > 0 ? totalUsers : 1);
-        if (p.viewsCount !== realCount || p.viewsCount > totalUsers) {
+        const uniqueArray = Array.from(viewerSet);
+        const realCount = Math.min(
+          Math.max(1, uniqueArray.length),
+          totalUsers > 0 ? totalUsers : 1
+        );
+        if (p.viewsCount !== realCount) {
           p.viewsCount = realCount;
           changed = true;
         }
-        p.viewedBy = viewedBy;
+        if ((p.viewedBy || []).length !== uniqueArray.length) {
+          p.viewedBy = uniqueArray;
+          changed = true;
+        }
         if (changed) {
           await p.save();
+          sanitizedCount++;
         }
       }
-      console.log(`👁️ Verified and synchronized unique views count across all posts.`);
+      console.log(`👁️ Verified and synchronized unique views count across all posts (${sanitizedCount} corrected, totalUsers: ${totalUsers}).`);
     } catch (viewSyncErr) {
       console.warn('Startup views sync note:', viewSyncErr.message);
     }
