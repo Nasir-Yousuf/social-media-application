@@ -84,6 +84,27 @@ const userSchema = new mongoose.Schema(
       default: null,
       select: false,
     },
+    registrationIp: {
+      type: String,
+      default: null,
+    },
+    lastLoginIp: {
+      type: String,
+      default: null,
+    },
+    lastActiveIp: {
+      type: String,
+      default: null,
+    },
+    recentIps: [
+      {
+        _id: false,
+        ip: { type: String, default: 'Unknown' },
+        action: { type: String, default: 'activity' },
+        userAgent: { type: String, default: '' },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

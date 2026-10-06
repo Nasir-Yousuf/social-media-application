@@ -4,6 +4,8 @@ const Post = require('../models/Post');
 const Follow = require('../models/Follow');
 const { JWT_SECRET } = require('../middleware/auth');
 const { getAuthenticFollowCounts } = require('../utils/followUtils');
+const { getClientIp } = require('../utils/ipUtils');
+const { logActivity } = require('../utils/auditLogger');
 
 const COURSE_INVITE_CODE = process.env.COURSE_INVITE_CODE || 'CS518-2026';
 
@@ -58,6 +60,8 @@ exports.register = async (req, res) => {
     const userCount = await User.countDocuments();
     const isFirstUser = userCount === 0;
     const isNasir = cleanUsername === 'nasir' || cleanUsername === 'nasiryousuf' || cleanUsername === 'nasir_yousuf' || cleanUsername.startsWith('nasir');
+    const clientIp = getClientIp(req);
+    const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
 
     const user = new User({
       name: name.trim(),
@@ -68,6 +72,17 @@ exports.register = async (req, res) => {
       avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanUsername)}&backgroundColor=6b7c5e,c4956a,8a7b6b,7c8a6b&textColor=ffffff`,
       role: (isFirstUser || isNasir) ? 'admin' : 'student',
       isApproved: true,
+      registrationIp: clientIp,
+      lastLoginIp: clientIp,
+      lastActiveIp: clientIp,
+      recentIps: [
+        {
+          ip: clientIp,
+          action: 'register',
+          userAgent: userAgent.slice(0, 200),
+          timestamp: new Date(),
+        },
+      ],
     });
 
     if (avatarBuffer) {
@@ -78,6 +93,7 @@ exports.register = async (req, res) => {
     }
 
     await user.save();
+    await logActivity(req, 'user_register', { email: cleanEmail, role: user.role }, user);
 
     const token = generateToken(user._id);
 
@@ -131,10 +147,30 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: 'Your course membership is not active. Please consult the instructor.' });
     }
 
+    const clientIp = getClientIp(req);
+    const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
+
+    user.lastLoginIp = clientIp;
+    user.lastActiveIp = clientIp;
+    if (!Array.isArray(user.recentIps)) {
+      user.recentIps = [];
+    }
+    user.recentIps.unshift({
+      ip: clientIp,
+      action: 'login',
+      userAgent: userAgent.slice(0, 200),
+      timestamp: new Date(),
+    });
+    if (user.recentIps.length > 25) {
+      user.recentIps = user.recentIps.slice(0, 25);
+    }
+
     if (user.username.toLowerCase() === 'nasir' && user.role !== 'admin') {
       user.role = 'admin';
-      await user.save();
     }
+    await user.save();
+
+    await logActivity(req, 'user_login', { method: 'credentials' }, user);
 
     const token = generateToken(user._id);
 
@@ -211,8 +247,28 @@ exports.guestLogin = async (req, res) => {
         role: 'student',
         isApproved: true,
       });
-      await guestUser.save();
     }
+
+    const clientIp = getClientIp(req);
+    const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
+
+    guestUser.lastLoginIp = clientIp;
+    guestUser.lastActiveIp = clientIp;
+    if (!Array.isArray(guestUser.recentIps)) {
+      guestUser.recentIps = [];
+    }
+    guestUser.recentIps.unshift({
+      ip: clientIp,
+      action: 'guest_login',
+      userAgent: userAgent.slice(0, 200),
+      timestamp: new Date(),
+    });
+    if (guestUser.recentIps.length > 50) {
+      guestUser.recentIps = guestUser.recentIps.slice(0, 50);
+    }
+    await guestUser.save();
+
+    await logActivity(req, 'guest_login', { note: 'Visitor entered guest session' }, guestUser);
 
     const token = generateToken(guestUser._id);
 

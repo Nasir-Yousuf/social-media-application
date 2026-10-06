@@ -11,6 +11,7 @@ import {
   BarChart2,
   MapPin,
   Flag,
+  ShieldAlert,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Avatar from '../common/Avatar';
@@ -259,6 +260,15 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
 
             <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 font-sans flex-wrap">
               <time dateTime={currentPost.createdAt}>{formatDate(currentPost.createdAt)}</time>
+              {isAdmin && currentPost.ipAddress && (
+                <span
+                  title={`Author IP Address: ${currentPost.ipAddress} (Visible only to Admin @${user?.username})`}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold tracking-tight"
+                >
+                  <ShieldAlert className="w-2.5 h-2.5" />
+                  IP: {currentPost.ipAddress}
+                </span>
+              )}
               {currentPost.location && (
                 <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-medium">
                   <MapPin className="w-3 h-3 text-sky-500" />

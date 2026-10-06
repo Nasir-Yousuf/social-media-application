@@ -124,6 +124,14 @@ const postSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    ipAddress: {
+      type: String,
+      default: null,
+    },
+    userAgent: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

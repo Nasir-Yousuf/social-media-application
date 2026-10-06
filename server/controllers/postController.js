@@ -5,6 +5,18 @@ const Follow = require('../models/Follow');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Bookmark = require('../models/Bookmark');
+const { getClientIp } = require('../utils/ipUtils');
+const { logActivity } = require('../utils/auditLogger');
+
+// Helper to ensure post IP information is only visible to platform admins
+const sanitizePostForViewer = (postObj, isAdmin = false) => {
+  if (!postObj) return postObj;
+  if (!isAdmin) {
+    delete postObj.ipAddress;
+    delete postObj.userAgent;
+  }
+  return postObj;
+};
 
 // Helper to compute strictly authentic unique views (author + unique viewers)
 // Caps the view count so it can never mathematically exceed the total registered users
@@ -33,7 +45,7 @@ const computeUniqueViews = (post, totalUsers = null) => {
 };
 
 // Helper to enrich post with currentUser state
-const enrichPost = async (post, currentUserId) => {
+const enrichPost = async (post, currentUserId, isAdmin = false) => {
   const [isLiked, isBookmarked, totalUsers] = await Promise.all([
     currentUserId ? Like.exists({ post: post._id, user: currentUserId }) : false,
     currentUserId ? Bookmark.exists({ post: post._id, user: currentUserId }) : false,
@@ -42,9 +54,10 @@ const enrichPost = async (post, currentUserId) => {
   const isOwner = currentUserId ? post.author && post.author._id.equals(currentUserId) : false;
 
   const uniqueViews = computeUniqueViews(post, totalUsers);
+  const raw = sanitizePostForViewer(post.toObject(), isAdmin);
 
   return {
-    ...post.toObject(),
+    ...raw,
     viewsCount: uniqueViews,
     isLiked: !!isLiked,
     isBookmarked: !!isBookmarked,
@@ -121,6 +134,8 @@ exports.createPost = async (req, res) => {
     }
 
     const isAdmin = req.user.role === 'admin';
+    const clientIp = getClientIp(req);
+    const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
 
     const post = new Post({
       author: req.user._id,
@@ -133,9 +148,22 @@ exports.createPost = async (req, res) => {
       tags: extractedTags,
       viewedBy: [req.user._id],
       viewsCount: 1, // Author is the first unique viewer
+      ipAddress: clientIp,
+      userAgent: userAgent.slice(0, 250),
     });
 
     await post.save();
+
+    // Update user's lastActiveIp
+    User.findByIdAndUpdate(req.user._id, { $set: { lastActiveIp: clientIp } }).catch(() => {});
+
+    // Record audit event
+    await logActivity(req, 'create_post', {
+      postId: post._id,
+      contentPreview: trimmedContent.slice(0, 120),
+      isGuest: req.user.username === 'guest',
+      hasCode: Boolean(formattedSnippet),
+    });
 
     if (forkedFrom) {
       await Post.findByIdAndUpdate(forkedFrom, { $inc: { forksCount: 1 } });
@@ -187,12 +215,15 @@ exports.createPost = async (req, res) => {
 
     return res.status(201).json({
       message: 'Post published to Clearfeed.',
-      post: {
-        ...post.toObject(),
-        isLiked: false,
-        isBookmarked: false,
-        isOwner: true,
-      },
+      post: sanitizePostForViewer(
+        {
+          ...post.toObject(),
+          isLiked: false,
+          isBookmarked: false,
+          isOwner: true,
+        },
+        isAdmin
+      ),
     });
   } catch (err) {
     console.error('createPost error:', err);
@@ -243,19 +274,23 @@ exports.getFeed = async (req, res) => {
 
     const totalUsers = await User.countDocuments();
 
+    const isAdmin = req.user?.role === 'admin';
     const enrichedPosts = posts.map((post) => {
       const uniqueViews = computeUniqueViews(post, totalUsers);
       // Auto-heal inflated counts in background if mismatched
       if (post.viewsCount !== uniqueViews) {
         Post.updateOne({ _id: post._id }, { $set: { viewsCount: uniqueViews } }).catch(() => {});
       }
-      return {
-        ...post.toObject(),
-        viewsCount: uniqueViews,
-        isLiked: likedPostIdSet.has(post._id.toString()),
-        isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-        isOwner: post.author && post.author._id.equals(currentUserId),
-      };
+      return sanitizePostForViewer(
+        {
+          ...post.toObject(),
+          viewsCount: uniqueViews,
+          isLiked: likedPostIdSet.has(post._id.toString()),
+          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+          isOwner: post.author && post.author._id.equals(currentUserId),
+        },
+        isAdmin
+      );
     });
 
     return res.status(200).json({
@@ -288,7 +323,8 @@ exports.getPostById = async (req, res) => {
       return res.status(404).json({ message: 'Post not found.' });
     }
 
-    const enriched = await enrichPost(post, req.user ? req.user._id : null);
+    const isAdmin = req.user?.role === 'admin';
+    const enriched = await enrichPost(post, req.user ? req.user._id : null, isAdmin);
     return res.status(200).json({ post: enriched });
   } catch (err) {
     console.error('getPostById error:', err);
@@ -389,6 +425,11 @@ exports.deletePost = async (req, res) => {
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ message: 'Not authorized to delete this post.' });
     }
+
+    await logActivity(req, 'delete_post', {
+      postId: post._id,
+      deletedByAdmin: isAdmin && !isOwner,
+    });
 
     // Cascade delete comments, likes, notifications, bookmarks
     await Promise.all([
@@ -574,13 +615,19 @@ exports.getUserPosts = async (req, res) => {
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const totalUsers = await User.countDocuments();
-    const enriched = posts.map((post) => ({
-      ...post.toObject(),
-      viewsCount: computeUniqueViews(post, totalUsers),
-      isLiked: likedPostIdSet.has(post._id.toString()),
-      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-      isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
-    }));
+    const isAdmin = req.user?.role === 'admin';
+    const enriched = posts.map((post) =>
+      sanitizePostForViewer(
+        {
+          ...post.toObject(),
+          viewsCount: computeUniqueViews(post, totalUsers),
+          isLiked: likedPostIdSet.has(post._id.toString()),
+          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+          isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
+        },
+        isAdmin
+      )
+    );
 
     return res.status(200).json({ posts: enriched });
   } catch (err) {
@@ -614,13 +661,19 @@ exports.getExplorePosts = async (req, res) => {
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const totalUsers = await User.countDocuments();
-    const enriched = posts.map((post) => ({
-      ...post.toObject(),
-      viewsCount: computeUniqueViews(post, totalUsers),
-      isLiked: likedPostIdSet.has(post._id.toString()),
-      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-      isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
-    }));
+    const isAdmin = req.user?.role === 'admin';
+    const enriched = posts.map((post) =>
+      sanitizePostForViewer(
+        {
+          ...post.toObject(),
+          viewsCount: computeUniqueViews(post, totalUsers),
+          isLiked: likedPostIdSet.has(post._id.toString()),
+          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+          isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
+        },
+        isAdmin
+      )
+    );
 
     return res.status(200).json({ posts: enriched });
   } catch (err) {
@@ -694,13 +747,19 @@ exports.getCodeFeed = async (req, res) => {
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const totalUsers = await User.countDocuments();
-    const enriched = posts.map((post) => ({
-      ...post.toObject(),
-      viewsCount: computeUniqueViews(post, totalUsers),
-      isLiked: likedPostIdSet.has(post._id.toString()),
-      isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-      isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
-    }));
+    const isAdmin = req.user?.role === 'admin';
+    const enriched = posts.map((post) =>
+      sanitizePostForViewer(
+        {
+          ...post.toObject(),
+          viewsCount: computeUniqueViews(post, totalUsers),
+          isLiked: likedPostIdSet.has(post._id.toString()),
+          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+          isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
+        },
+        isAdmin
+      )
+    );
 
     return res.status(200).json({
       posts: enriched,

@@ -2,21 +2,31 @@ const Comment = require('../models/Comment');
 const Post = require('../models/Post');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { getClientIp } = require('../utils/ipUtils');
+const { logActivity } = require('../utils/auditLogger');
 
 // Get comments for a post
 exports.getCommentsByPost = async (req, res) => {
   try {
     const { postId } = req.params;
     const currentUserId = req.user ? req.user._id : null;
+    const isAdmin = req.user?.role === 'admin';
 
     const comments = await Comment.find({ post: postId })
       .populate('author', 'name username avatarUrl role')
       .sort({ createdAt: 1 });
 
-    const enriched = comments.map((c) => ({
-      ...c.toObject(),
-      isOwner: currentUserId ? c.author && c.author._id.equals(currentUserId) : false,
-    }));
+    const enriched = comments.map((c) => {
+      const obj = c.toObject();
+      if (!isAdmin) {
+        delete obj.ipAddress;
+        delete obj.userAgent;
+      }
+      return {
+        ...obj,
+        isOwner: currentUserId ? c.author && c.author._id.equals(currentUserId) : false,
+      };
+    });
 
     return res.status(200).json({ comments: enriched });
   } catch (err) {
@@ -44,14 +54,30 @@ exports.createComment = async (req, res) => {
       return res.status(404).json({ message: 'Post not found.' });
     }
 
+    const clientIp = getClientIp(req);
+    const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
+
     const comment = new Comment({
       post: postId,
       author: req.user._id,
       content: content.trim(),
+      ipAddress: clientIp,
+      userAgent: userAgent.slice(0, 250),
     });
 
     await comment.save();
     await comment.populate('author', 'name username avatarUrl role');
+
+    // Update commenter's lastActiveIp
+    User.findByIdAndUpdate(req.user._id, { $set: { lastActiveIp: clientIp } }).catch(() => {});
+
+    // Log comment creation in AuditLog
+    await logActivity(req, 'create_comment', {
+      postId,
+      commentId: comment._id,
+      contentPreview: content.trim().slice(0, 100),
+      isGuest: req.user.username === 'guest',
+    });
 
     // Increment post comment counter
     const updatedPost = await Post.findByIdAndUpdate(
@@ -97,10 +123,17 @@ exports.createComment = async (req, res) => {
       }
     }
 
+    const isAdmin = req.user.role === 'admin';
+    const commentObj = comment.toObject();
+    if (!isAdmin) {
+      delete commentObj.ipAddress;
+      delete commentObj.userAgent;
+    }
+
     return res.status(201).json({
       message: 'Comment added.',
       comment: {
-        ...comment.toObject(),
+        ...commentObj,
         isOwner: true,
       },
       commentsCount: updatedPost.commentsCount,
@@ -127,6 +160,12 @@ exports.deleteComment = async (req, res) => {
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ message: 'You are not authorized to delete this comment.' });
     }
+
+    await logActivity(req, 'delete_comment', {
+      commentId: id,
+      postId: comment.post,
+      deletedByAdmin: isAdmin && !isOwner,
+    });
 
     const postId = comment.post;
     await Comment.findByIdAndDelete(id);

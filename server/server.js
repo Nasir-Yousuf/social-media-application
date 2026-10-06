@@ -13,6 +13,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5180;
 
+// Trust reverse proxies (Railway, Cloudflare, Vercel) for accurate client IP resolution
+app.set('trust proxy', true);
+
 // Middleware
 app.use(cors({
   origin: true, // Dynamically allows requesting origin (Vercel, localhost, etc.) and supports credentials

@@ -168,6 +168,14 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
                       <span className="text-neutral-400 text-[11px]">
                         {formatTime(comment.createdAt)}
                       </span>
+                      {isAdmin && comment.ipAddress && (
+                        <span
+                          title={`Commenter IP Address: ${comment.ipAddress} (Visible only to Admin)`}
+                          className="px-1.5 py-0.2 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[9px] font-bold"
+                        >
+                          IP: {comment.ipAddress}
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-neutral-800 dark:text-neutral-200 mt-1 leading-relaxed break-words font-sans text-xs">

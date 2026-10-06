@@ -4,6 +4,7 @@ const Comment = require('../models/Comment');
 const Like = require('../models/Like');
 const Follow = require('../models/Follow');
 const Notification = require('../models/Notification');
+const AuditLog = require('../models/AuditLog');
 
 // Admin Platform Overview & Analytics
 exports.getOverview = async (req, res) => {
@@ -31,7 +32,7 @@ exports.getOverview = async (req, res) => {
   }
 };
 
-// Get all users
+// Get all users with complete IP address metadata for security
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.find({}).sort({ role: 1, createdAt: -1 });
@@ -42,6 +43,10 @@ exports.getAllUsers = async (req, res) => {
         return {
           ...u.toJSON(),
           postsCount,
+          registrationIp: u.registrationIp || null,
+          lastLoginIp: u.lastLoginIp || u.lastActiveIp || null,
+          lastActiveIp: u.lastActiveIp || null,
+          recentIps: Array.isArray(u.recentIps) ? u.recentIps : [],
         };
       })
     );
@@ -182,3 +187,36 @@ exports.purgeAllData = async (req, res) => {
     return res.status(500).json({ message: 'Failed to purge data: ' + err.message });
   }
 };
+
+// Admin Security & IP Logs
+exports.getAuditLogs = async (req, res) => {
+  try {
+    const { action, ip, username, page = 1, limit = 50 } = req.query;
+    const filter = {};
+    if (action) filter.action = action;
+    if (ip) filter.ipAddress = new RegExp(ip.trim(), 'i');
+    if (username) filter.username = new RegExp(username.trim(), 'i');
+
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [logs, total, totalGuestActions] = await Promise.all([
+      AuditLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+      AuditLog.countDocuments(filter),
+      AuditLog.countDocuments({ username: 'guest' }),
+    ]);
+
+    return res.status(200).json({
+      logs,
+      total,
+      totalGuestActions,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+    });
+  } catch (err) {
+    console.error('getAuditLogs error:', err);
+    return res.status(500).json({ message: 'Failed to retrieve security audit logs.' });
+  }
+};
+
