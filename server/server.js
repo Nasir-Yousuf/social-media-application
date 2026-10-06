@@ -110,6 +110,17 @@ const startServer = async () => {
       console.warn('Startup user role sync note:', cleanErr.message);
     }
 
+    // Automatically purge orphaned follow edges and ensure follow graph integrity
+    try {
+      const { purgeOrphanedFollows } = require('./utils/followUtils');
+      const purgedFollows = await purgeOrphanedFollows();
+      if (purgedFollows > 0) {
+        console.log(`🧹 Synchronized follow graph: purged ${purgedFollows} orphaned follow records.`);
+      }
+    } catch (followSyncErr) {
+      console.warn('Startup follow sync note:', followSyncErr.message);
+    }
+
     // Automatically sanitize and enforce unique views count on all existing posts
     try {
       const Post = require('./models/Post');

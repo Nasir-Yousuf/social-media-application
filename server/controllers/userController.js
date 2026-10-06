@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Follow = require('../models/Follow');
 const Notification = require('../models/Notification');
+const { getAuthenticFollowCounts, purgeOrphanedFollows } = require('../utils/followUtils');
 
 // Get user profile by username
 exports.getProfileByUsername = async (req, res) => {
@@ -15,9 +16,8 @@ exports.getProfileByUsername = async (req, res) => {
 
     const currentUserId = req.user ? req.user._id : null;
 
-    const [followersCount, followingCount, postsCount, isFollowing] = await Promise.all([
-      Follow.countDocuments({ following: targetUser._id }),
-      Follow.countDocuments({ follower: targetUser._id }),
+    const [counts, postsCount, isFollowing] = await Promise.all([
+      getAuthenticFollowCounts(targetUser._id),
       Post.countDocuments({ author: targetUser._id }),
       currentUserId && !currentUserId.equals(targetUser._id)
         ? Follow.exists({ follower: currentUserId, following: targetUser._id })
@@ -27,8 +27,8 @@ exports.getProfileByUsername = async (req, res) => {
     return res.status(200).json({
       user: {
         ...targetUser.toJSON(),
-        followersCount,
-        followingCount,
+        followersCount: counts.followersCount,
+        followingCount: counts.followingCount,
         postsCount,
         isFollowing: !!isFollowing,
         isSelf: currentUserId ? currentUserId.equals(targetUser._id) : false,
@@ -145,20 +145,18 @@ exports.followUser = async (req, res) => {
       type: 'follow',
     });
 
-    const [followersCount, followingCount, currentUserFollowersCount, currentUserFollowingCount] = await Promise.all([
-      Follow.countDocuments({ following: targetUserId }),
-      Follow.countDocuments({ follower: targetUserId }),
-      Follow.countDocuments({ following: currentUserId }),
-      Follow.countDocuments({ follower: currentUserId }),
+    const [targetCounts, currentCounts] = await Promise.all([
+      getAuthenticFollowCounts(targetUserId),
+      getAuthenticFollowCounts(currentUserId),
     ]);
 
     return res.status(200).json({
       message: `You are now following @${targetUser.username}`,
       isFollowing: true,
-      followersCount,
-      followingCount,
-      currentUserFollowersCount,
-      currentUserFollowingCount,
+      followersCount: targetCounts.followersCount,
+      followingCount: targetCounts.followingCount,
+      currentUserFollowersCount: currentCounts.followersCount,
+      currentUserFollowingCount: currentCounts.followingCount,
       targetUserId,
     });
   } catch (err) {
@@ -175,20 +173,18 @@ exports.unfollowUser = async (req, res) => {
 
     await Follow.findOneAndDelete({ follower: currentUserId, following: targetUserId });
 
-    const [followersCount, followingCount, currentUserFollowersCount, currentUserFollowingCount] = await Promise.all([
-      Follow.countDocuments({ following: targetUserId }),
-      Follow.countDocuments({ follower: targetUserId }),
-      Follow.countDocuments({ following: currentUserId }),
-      Follow.countDocuments({ follower: currentUserId }),
+    const [targetCounts, currentCounts] = await Promise.all([
+      getAuthenticFollowCounts(targetUserId),
+      getAuthenticFollowCounts(currentUserId),
     ]);
 
     return res.status(200).json({
       message: 'Unfollowed successfully.',
       isFollowing: false,
-      followersCount,
-      followingCount,
-      currentUserFollowersCount,
-      currentUserFollowingCount,
+      followersCount: targetCounts.followersCount,
+      followingCount: targetCounts.followingCount,
+      currentUserFollowersCount: currentCounts.followersCount,
+      currentUserFollowingCount: currentCounts.followingCount,
       targetUserId,
     });
   } catch (err) {
@@ -201,7 +197,13 @@ exports.unfollowUser = async (req, res) => {
 exports.getFollowers = async (req, res) => {
   try {
     const targetUserId = req.params.id;
-    const follows = await Follow.find({ following: targetUserId })
+    const validUsers = await User.find({}).select('_id');
+    const validUserIds = validUsers.map((u) => u._id);
+
+    const follows = await Follow.find({
+      following: targetUserId,
+      follower: { $in: validUserIds },
+    })
       .populate('follower', 'name username bio avatarUrl role')
       .sort({ createdAt: -1 });
 
@@ -210,17 +212,16 @@ exports.getFollowers = async (req, res) => {
       follows.map(async (f) => {
         const u = f.follower;
         if (!u) return null;
-        const [isFollowing, followersCount, followingCount] = await Promise.all([
+        const [isFollowing, counts] = await Promise.all([
           Follow.exists({ follower: currentUserId, following: u._id }),
-          Follow.countDocuments({ following: u._id }),
-          Follow.countDocuments({ follower: u._id }),
+          getAuthenticFollowCounts(u._id, validUserIds),
         ]);
         return {
           ...u.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId.equals(u._id),
-          followersCount,
-          followingCount,
+          followersCount: counts.followersCount,
+          followingCount: counts.followingCount,
         };
       })
     );
@@ -236,7 +237,13 @@ exports.getFollowers = async (req, res) => {
 exports.getFollowing = async (req, res) => {
   try {
     const targetUserId = req.params.id;
-    const follows = await Follow.find({ follower: targetUserId })
+    const validUsers = await User.find({}).select('_id');
+    const validUserIds = validUsers.map((u) => u._id);
+
+    const follows = await Follow.find({
+      follower: targetUserId,
+      following: { $in: validUserIds },
+    })
       .populate('following', 'name username bio avatarUrl role')
       .sort({ createdAt: -1 });
 
@@ -245,17 +252,16 @@ exports.getFollowing = async (req, res) => {
       follows.map(async (f) => {
         const u = f.following;
         if (!u) return null;
-        const [isFollowing, followersCount, followingCount] = await Promise.all([
+        const [isFollowing, counts] = await Promise.all([
           Follow.exists({ follower: currentUserId, following: u._id }),
-          Follow.countDocuments({ following: u._id }),
-          Follow.countDocuments({ follower: u._id }),
+          getAuthenticFollowCounts(u._id, validUserIds),
         ]);
         return {
           ...u.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId.equals(u._id),
-          followersCount,
-          followingCount,
+          followersCount: counts.followersCount,
+          followingCount: counts.followingCount,
         };
       })
     );
@@ -275,19 +281,20 @@ exports.getCourseDirectory = async (req, res) => {
       .select('name username bio avatarUrl role createdAt')
       .sort({ role: 1, name: 1 });
 
+    const validUserIds = members.map((m) => m._id);
+
     const enriched = await Promise.all(
       members.map(async (m) => {
-        const [isFollowing, followersCount, followingCount] = await Promise.all([
+        const [isFollowing, counts] = await Promise.all([
           Follow.exists({ follower: currentUserId, following: m._id }),
-          Follow.countDocuments({ following: m._id }),
-          Follow.countDocuments({ follower: m._id }),
+          getAuthenticFollowCounts(m._id, validUserIds),
         ]);
         return {
           ...m.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId.equals(m._id),
-          followersCount,
-          followingCount,
+          followersCount: counts.followersCount,
+          followingCount: counts.followingCount,
         };
       })
     );
@@ -319,14 +326,11 @@ exports.getSuggestions = async (req, res) => {
 
     const enrichedSuggestions = await Promise.all(
       suggestions.map(async (s) => {
-        const [followersCount, followingCount] = await Promise.all([
-          Follow.countDocuments({ following: s._id }),
-          Follow.countDocuments({ follower: s._id }),
-        ]);
+        const counts = await getAuthenticFollowCounts(s._id);
         return {
           ...s.toObject(),
-          followersCount,
-          followingCount,
+          followersCount: counts.followersCount,
+          followingCount: counts.followingCount,
         };
       })
     );
@@ -335,5 +339,19 @@ exports.getSuggestions = async (req, res) => {
   } catch (err) {
     console.error('getSuggestions error:', err);
     return res.status(500).json({ message: 'Error fetching suggestions.' });
+  }
+};
+
+// Sync and purge orphaned follows across the system
+exports.syncFollows = async (req, res) => {
+  try {
+    const purgedCount = await purgeOrphanedFollows();
+    return res.status(200).json({
+      message: `Follow graph synchronized. Purged ${purgedCount} invalid/orphaned follow records.`,
+      purgedCount,
+    });
+  } catch (err) {
+    console.error('syncFollows error:', err);
+    return res.status(500).json({ message: 'Failed to sync follow graph.' });
   }
 };

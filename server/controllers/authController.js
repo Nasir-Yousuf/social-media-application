@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Follow = require('../models/Follow');
 const { JWT_SECRET } = require('../middleware/auth');
+const { getAuthenticFollowCounts } = require('../utils/followUtils');
 
 const COURSE_INVITE_CODE = process.env.COURSE_INVITE_CODE || 'CS518-2026';
 
@@ -137,9 +138,8 @@ exports.login = async (req, res) => {
 
     const token = generateToken(user._id);
 
-    const [followersCount, followingCount, postsCount] = await Promise.all([
-      Follow.countDocuments({ following: user._id }),
-      Follow.countDocuments({ follower: user._id }),
+    const [counts, postsCount] = await Promise.all([
+      getAuthenticFollowCounts(user._id),
       Post.countDocuments({ author: user._id }),
     ]);
 
@@ -155,8 +155,8 @@ exports.login = async (req, res) => {
         avatarUrl: user.avatarUrl,
         role: user.role,
         createdAt: user.createdAt,
-        followersCount,
-        followingCount,
+        followersCount: counts.followersCount,
+        followingCount: counts.followingCount,
         postsCount,
       },
     });
@@ -176,17 +176,16 @@ exports.getMe = async (req, res) => {
       await user.save();
     }
 
-    const [followersCount, followingCount, postsCount] = await Promise.all([
-      Follow.countDocuments({ following: user._id }),
-      Follow.countDocuments({ follower: user._id }),
+    const [counts, postsCount] = await Promise.all([
+      getAuthenticFollowCounts(user._id),
       Post.countDocuments({ author: user._id }),
     ]);
 
     return res.status(200).json({
       user: {
         ...user.toJSON(),
-        followersCount,
-        followingCount,
+        followersCount: counts.followersCount,
+        followingCount: counts.followingCount,
         postsCount,
       },
     });
@@ -217,9 +216,8 @@ exports.guestLogin = async (req, res) => {
 
     const token = generateToken(guestUser._id);
 
-    const [followersCount, followingCount, postsCount] = await Promise.all([
-      Follow.countDocuments({ following: guestUser._id }),
-      Follow.countDocuments({ follower: guestUser._id }),
+    const [counts, postsCount] = await Promise.all([
+      getAuthenticFollowCounts(guestUser._id),
       Post.countDocuments({ author: guestUser._id }),
     ]);
 
@@ -235,8 +233,8 @@ exports.guestLogin = async (req, res) => {
         avatarUrl: guestUser.avatarUrl,
         role: guestUser.role,
         createdAt: guestUser.createdAt,
-        followersCount,
-        followingCount,
+        followersCount: counts.followersCount,
+        followingCount: counts.followingCount,
         postsCount,
       },
     });

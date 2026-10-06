@@ -7,6 +7,8 @@ router.get('/directory', requireAuth, userController.getCourseDirectory);
 router.get('/suggestions', requireAuth, userController.getSuggestions);
 router.get('/profile/:username', optionalAuth, userController.getProfileByUsername);
 router.patch('/profile', requireAuth, userController.updateProfile);
+router.post('/sync-follows', requireAuth, userController.syncFollows);
+router.get('/sync-follows', requireAuth, userController.syncFollows);
 router.get('/:id/avatar', userController.getAvatar);
 
 router.post('/:id/follow', requireAuth, userController.followUser);

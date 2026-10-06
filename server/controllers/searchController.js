@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Like = require('../models/Like');
 const Follow = require('../models/Follow');
+const { getAuthenticFollowCounts } = require('../utils/followUtils');
 
 exports.searchAll = async (req, res) => {
   try {
@@ -25,19 +26,18 @@ exports.searchAll = async (req, res) => {
 
     const enrichedUsers = await Promise.all(
       users.map(async (u) => {
-        const [isFollowing, followersCount, followingCount] = await Promise.all([
+        const [isFollowing, counts] = await Promise.all([
           currentUserId
             ? Follow.exists({ follower: currentUserId, following: u._id })
             : false,
-          Follow.countDocuments({ following: u._id }),
-          Follow.countDocuments({ follower: u._id }),
+          getAuthenticFollowCounts(u._id),
         ]);
         return {
           ...u.toObject(),
           isFollowing: !!isFollowing,
           isSelf: currentUserId ? currentUserId.equals(u._id) : false,
-          followersCount,
-          followingCount,
+          followersCount: counts.followersCount,
+          followingCount: counts.followingCount,
         };
       })
     );
