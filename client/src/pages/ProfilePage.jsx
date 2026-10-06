@@ -559,7 +559,7 @@ export const ProfilePage = () => {
       </div>
 
       {/* Posts Stream */}
-      <div>
+      <div className="p-3 sm:p-4 pt-4 sm:pt-5 pb-8 space-y-4">
         <PostList
           posts={displayedPosts}
           emptyMessage={
