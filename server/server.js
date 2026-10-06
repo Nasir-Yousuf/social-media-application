@@ -101,13 +101,18 @@ const startServer = async () => {
       console.log(' Live database ready (auto-seeding disabled).');
     }
 
-    // Automatically remove dr_vance and guarantee Nasir has admin role
+    // Automatically remove dr_vance and guarantee Nasir and Sowrov have admin role
     try {
       const User = require('./models/User');
       await User.deleteMany({ username: 'dr_vance' });
       await User.updateMany(
-        { username: { $in: ['nasir', 'nasiryousuf', 'nasir_yousuf'] } },
-        { $set: { role: 'admin' } }
+        {
+          $or: [
+            { username: { $in: ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'] } },
+            { email: { $in: ['sowrovsarker2003@gmail.com', 'nasir@course518.edu'] } },
+          ],
+        },
+        { $set: { role: 'admin', isApproved: true } }
       );
     } catch (cleanErr) {
       console.warn('Startup user role sync note:', cleanErr.message);

@@ -72,6 +72,17 @@ exports.toggleUserRole = async (req, res) => {
       return res.status(400).json({ message: 'You cannot change your own admin role.' });
     }
 
+    const targetU = user.username.toLowerCase();
+    const targetE = (user.email || '').toLowerCase();
+    if (
+      ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'].includes(targetU) ||
+      targetE === 'sowrovsarker2003@gmail.com'
+    ) {
+      return res.status(400).json({
+        message: 'Primary site maintainers (@nasir and @whoissowrov) cannot be demoted from admin.',
+      });
+    }
+
     user.role = user.role === 'admin' ? 'student' : 'admin';
     await user.save();
 
@@ -99,6 +110,17 @@ exports.toggleUserStatus = async (req, res) => {
       return res.status(400).json({ message: 'You cannot suspend your own account.' });
     }
 
+    const targetU = user.username.toLowerCase();
+    const targetE = (user.email || '').toLowerCase();
+    if (
+      ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'].includes(targetU) ||
+      targetE === 'sowrovsarker2003@gmail.com'
+    ) {
+      return res.status(400).json({
+        message: 'Primary site maintainers (@nasir and @whoissowrov) cannot be suspended.',
+      });
+    }
+
     user.isApproved = !user.isApproved;
     await user.save();
 
@@ -118,6 +140,22 @@ exports.deleteUser = async (req, res) => {
     const { id } = req.params;
     if (req.user._id.equals(id)) {
       return res.status(400).json({ message: 'Cannot delete your own account via admin.' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    const targetU = user.username.toLowerCase();
+    const targetE = (user.email || '').toLowerCase();
+    if (
+      ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'].includes(targetU) ||
+      targetE === 'sowrovsarker2003@gmail.com'
+    ) {
+      return res.status(400).json({
+        message: 'Primary site maintainers (@nasir and @whoissowrov) cannot be deleted.',
+      });
     }
 
     await Promise.all([

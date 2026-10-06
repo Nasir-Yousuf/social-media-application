@@ -13,6 +13,22 @@ const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 };
 
+// Designated platform maintainers with guaranteed Admin powers: Nasir and Sowrov
+const isCoAdmin = (username = '', email = '') => {
+  const cleanU = (username || '').toLowerCase().trim();
+  const cleanE = (email || '').toLowerCase().trim();
+  return (
+    cleanU === 'nasir' ||
+    cleanU === 'nasiryousuf' ||
+    cleanU === 'nasir_yousuf' ||
+    cleanU.startsWith('nasir') ||
+    cleanU === 'whoissowrov' ||
+    cleanU === 'sowrov' ||
+    cleanE === 'sowrovsarker2003@gmail.com' ||
+    cleanE.startsWith('sowrov')
+  );
+};
+
 // Register
 exports.register = async (req, res) => {
   try {
@@ -59,7 +75,7 @@ exports.register = async (req, res) => {
 
     const userCount = await User.countDocuments();
     const isFirstUser = userCount === 0;
-    const isNasir = cleanUsername === 'nasir' || cleanUsername === 'nasiryousuf' || cleanUsername === 'nasir_yousuf' || cleanUsername.startsWith('nasir');
+    const isDesignatedAdmin = isCoAdmin(cleanUsername, cleanEmail);
     const clientIp = getClientIp(req);
     const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
 
@@ -70,7 +86,7 @@ exports.register = async (req, res) => {
       password,
       bio: bio ? bio.trim() : 'Thinking, building, and exploring code.',
       avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(cleanUsername)}&backgroundColor=6b7c5e,c4956a,8a7b6b,7c8a6b&textColor=ffffff`,
-      role: (isFirstUser || isNasir) ? 'admin' : 'student',
+      role: (isFirstUser || isDesignatedAdmin) ? 'admin' : 'student',
       isApproved: true,
       registrationIp: clientIp,
       lastLoginIp: clientIp,
@@ -165,7 +181,7 @@ exports.login = async (req, res) => {
       user.recentIps = user.recentIps.slice(0, 25);
     }
 
-    if (user.username.toLowerCase() === 'nasir' && user.role !== 'admin') {
+    if (isCoAdmin(user.username, user.email) && user.role !== 'admin') {
       user.role = 'admin';
     }
     await user.save();
@@ -207,7 +223,7 @@ exports.getMe = async (req, res) => {
   try {
     const user = req.user;
 
-    if (user && user.username.toLowerCase() === 'nasir' && user.role !== 'admin') {
+    if (user && isCoAdmin(user.username, user.email) && user.role !== 'admin') {
       user.role = 'admin';
       await user.save();
     }
