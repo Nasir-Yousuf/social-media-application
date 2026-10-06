@@ -11,6 +11,7 @@
     "dev:mobile": "npm --prefix mobile run start",
     "mobile": "npm --prefix mobile run start",
     "clean": "npm --prefix server run clean",
+    "install:all": "npm --prefix server install && npm --prefix client install",
     "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:client\""
   }
 }
