@@ -121,6 +121,17 @@ const startServer = async () => {
       console.warn('Startup follow sync note:', followSyncErr.message);
     }
 
+    // Automatically purge any lingering password reset tokens
+    try {
+      const User = require('./models/User');
+      await User.updateMany(
+        { resetPasswordToken: { $exists: true, $ne: null } },
+        { $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 } }
+      );
+    } catch (resetCleanErr) {
+      console.warn('Startup password reset cleanup note:', resetCleanErr.message);
+    }
+
     // Automatically sanitize and enforce unique views count on all existing posts
     try {
       const Post = require('./models/Post');

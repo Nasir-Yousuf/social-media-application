@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { ClearfeedLogo } from '../components/common/ClearfeedIcons';
 import ThemeToggle from '../components/common/ThemeToggle';
-import ForgotPasswordModal from '../components/auth/ForgotPasswordModal';
 
 export const LoginPage = () => {
   const { login, loginGuest, isAuthenticated } = useAuth();
@@ -19,7 +18,6 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -115,18 +113,9 @@ export const LoginPage = () => {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsForgotPasswordOpen(true)}
-                  className="text-xs font-medium text-sky-500 hover:text-sky-400 hover:underline cursor-pointer"
-                >
-                  Forgot password?
-                </button>
-              </div>
+              <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
+                Password
+              </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
@@ -196,12 +185,6 @@ export const LoginPage = () => {
           </NavLink>
         </p>
       </div>
-
-      {/* Forgot Password Modal */}
-      <ForgotPasswordModal
-        isOpen={isForgotPasswordOpen}
-        onClose={() => setIsForgotPasswordOpen(false)}
-      />
     </div>
   );
 };
