@@ -17,6 +17,8 @@ import RegisterPage from './pages/RegisterPage';
 import BookmarksPage from './pages/BookmarksPage';
 import DigestPage from './pages/DigestPage';
 import MessagesPage from './pages/MessagesPage';
+import PostDetailPage from './pages/PostDetailPage';
+import LearnPage from './pages/LearnPage';
 import ThemeModal from './components/common/ThemeModal';
 
 export function App() {
@@ -35,6 +37,12 @@ export function App() {
                 <Route index element={<HomePage />} />
                 <Route path="home" element={<Navigate to="/" replace />} />
                 <Route path="explore" element={<ExplorePage />} />
+                <Route path="learn" element={<LearnPage />} />
+                <Route path="learn/questions" element={<LearnPage />} />
+                <Route path="learn/questions/:id" element={<LearnPage />} />
+                <Route path="learn/:track" element={<LearnPage />} />
+                <Route path="learn/:track/:lessonId" element={<LearnPage />} />
+                <Route path="learn/:track/lesson/:lessonId" element={<LearnPage />} />
                 <Route path="code" element={<CodeHubPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="bookmarks" element={<BookmarksPage />} />
@@ -44,6 +52,8 @@ export function App() {
                 <Route path="search" element={<SearchPage />} />
                 <Route path="profile/:username" element={<ProfilePage />} />
                 <Route path="admin" element={<AdminPage />} />
+                <Route path="posts/:id" element={<PostDetailPage />} />
+                <Route path="post/:id" element={<PostDetailPage />} />
               </Route>
 
               {/* Catch-all redirect */}

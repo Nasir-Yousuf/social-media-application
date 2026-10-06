@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { NavLink, useNavigate, Navigate } from 'react-router-dom';
+import { NavLink, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Lock, User, Mail, AlertCircle, ArrowRight, Camera, Upload, Trash2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import Button from '../components/common/Button';
 import Avatar from '../components/common/Avatar';
@@ -13,7 +13,12 @@ export const RegisterPage = () => {
   const { register, isAuthenticated } = useAuth();
   const { showToast } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef(null);
+
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTarget = location.state?.from?.pathname || searchParams.get('redirect') || '/';
+  const from = redirectTarget === '/login' || redirectTarget === '/register' ? '/' : redirectTarget;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,7 +37,7 @@ export const RegisterPage = () => {
   const [error, setError] = useState('');
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={from} replace />;
   }
 
   const handleChange = (e) => {
@@ -105,7 +110,7 @@ export const RegisterPage = () => {
       await register(payload);
 
       showToast('Account created! Welcome to Clearfeed.', 'success');
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err) {
       const msg = err.response?.data?.message || 'Registration failed. Please check your information.';
       setError(msg);

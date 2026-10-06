@@ -10,6 +10,7 @@ import {
   AtSign,
   MessageSquare,
   Volume2,
+  BookOpen,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -102,6 +103,18 @@ export const NotificationsPage = () => {
         return (
           <div className="p-2 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-500 ring-1 ring-amber-200 dark:ring-amber-900/50">
             <Flame className="w-4 h-4" />
+          </div>
+        );
+      case 'question_answer':
+        return (
+          <div className="p-2 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-500 ring-1 ring-sky-200 dark:ring-sky-900/50">
+            <BookOpen className="w-4 h-4" />
+          </div>
+        );
+      case 'question_accepted':
+        return (
+          <div className="p-2 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 ring-1 ring-emerald-200 dark:ring-emerald-900/50">
+            <CheckCheck className="w-4 h-4" />
           </div>
         );
       default:
@@ -265,6 +278,8 @@ export const NotificationsPage = () => {
                   {n.type === 'mention' && (n.comment ? 'mentioned you in a response.' : 'mentioned you in a post.')}
                   {n.type === 'follow' && 'began following your updates.'}
                   {n.type === 'announcement' && 'published an announcement.'}
+                  {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}
+                  {n.type === 'question_accepted' && 'marked your answer as the accepted solution! 🎉'}
                 </p>
 
                 {n.type === 'message' && (
@@ -280,9 +295,22 @@ export const NotificationsPage = () => {
                 )}
 
                 {n.post && (
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1 mt-1 font-serif italic">
-                    "{n.post.content}"
-                  </p>
+                  <NavLink
+                    to={`/posts/${n.post._id || n.post}`}
+                    className="block text-xs text-neutral-500 dark:text-neutral-400 hover:text-sky-500 dark:hover:text-sky-400 line-clamp-1 mt-1 font-serif italic transition-colors"
+                  >
+                    "{n.post.content || 'View post'}"
+                  </NavLink>
+                )}
+
+                {n.question && (
+                  <NavLink
+                    to={`/learn/questions/${n.question._id || n.question}`}
+                    className="inline-flex items-center gap-1.5 text-xs text-sky-600 dark:text-sky-400 hover:underline line-clamp-1 mt-1 font-semibold transition-colors"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                    <span>"{n.question.title || 'View question'}"</span>
+                  </NavLink>
                 )}
               </div>
             </div>

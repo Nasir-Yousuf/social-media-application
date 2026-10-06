@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Compass, Code2, Bell, User } from 'lucide-react';
+import { Home, Compass, Code2, Bell, User, BookOpen } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -11,7 +11,7 @@ export const BottomNav = () => {
   const items = [
     { to: '/', label: 'Feed', icon: Home, end: true },
     { to: '/explore', label: 'Discover', icon: Compass },
-    { to: '/code', label: 'Code', icon: Code2 },
+    { to: '/learn', label: 'Learn', icon: BookOpen },
     {
       to: '/notifications',
       label: 'Alerts',

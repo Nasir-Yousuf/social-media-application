@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate, Navigate } from 'react-router-dom';
+import { NavLink, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { Lock, User, AlertCircle, ArrowRight, Compass, Eye, EyeOff } from 'lucide-react';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,11 @@ export const LoginPage = () => {
   const { login, loginGuest, isAuthenticated } = useAuth();
   const { showToast } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTarget = location.state?.from?.pathname || searchParams.get('redirect') || '/';
+  const from = redirectTarget === '/login' || redirectTarget === '/register' ? '/' : redirectTarget;
 
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +25,7 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={from} replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -36,7 +41,7 @@ export const LoginPage = () => {
     try {
       await login(loginId.trim(), password);
       showToast('Welcome back to Clearfeed!', 'success');
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err) {
       const msg = err.response?.data?.message || 'Login failed. Please verify your credentials.';
       setError(msg);
@@ -52,7 +57,7 @@ export const LoginPage = () => {
     try {
       await loginGuest();
       showToast('Welcome! Browsing as Guest.', 'info');
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err) {
       const msg = err.response?.data?.message || 'Could not log in as guest.';
       setError(msg);

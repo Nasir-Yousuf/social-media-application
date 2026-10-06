@@ -4,6 +4,9 @@ import {
   Heart,
   MessageCircle,
   Share2,
+  Copy,
+  Check,
+  ExternalLink,
   MoreHorizontal,
   Edit3,
   Trash2,
@@ -27,7 +30,13 @@ import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
-export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
+export const PostCard = ({
+  post,
+  onPostDeleted,
+  onPostUpdated,
+  defaultShowComments = false,
+  isDetailView = false,
+}) => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
 
@@ -45,14 +54,29 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   const [viewsCount, setViewsCount] = useState(() => resolveViews(post));
   const [isFlagged, setIsFlagged] = useState(post.isFlagged || false);
   const [reposted, setReposted] = useState(false);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [animatingHeart, setAnimatingHeart] = useState(false);
   const viewRecordedRef = useRef(false);
+  const shareMenuRef = useRef(null);
+
+  // Close share menu on click outside
+  useEffect(() => {
+    if (!isShareMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target)) {
+        setIsShareMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isShareMenuOpen]);
 
   useEffect(() => {
     setViewsCount(resolveViews(post));
@@ -106,6 +130,11 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   };
 
   const handleLikeToggle = async () => {
+    if (!user) {
+      showToast('Please sign in or continue as guest to like posts', 'info');
+      return;
+    }
+
     const nextLiked = !isLiked;
     const nextCount = nextLiked ? likesCount + 1 : Math.max(0, likesCount - 1);
     setIsLiked(nextLiked);
@@ -128,11 +157,19 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
   };
 
   const handleRepostToggle = () => {
+    if (!user) {
+      showToast('Please sign in or continue as guest to repost', 'info');
+      return;
+    }
     setReposted(!reposted);
     showToast(reposted ? 'Removed repost' : 'Reposted to your followers', 'info');
   };
 
   const handleFork = () => {
+    if (!user) {
+      showToast('Please sign in or continue as guest to fork snippets', 'info');
+      return;
+    }
     // Dispatch event to open composer with forked code
     window.dispatchEvent(
       new CustomEvent('clearfeed:forkPost', {
@@ -165,10 +202,40 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
     }
   };
 
-  const handleShare = () => {
-    const postUrl = `${window.location.origin}/#post-${currentPost._id}`;
+  const postUrl = `${window.location.origin}/posts/${currentPost._id}`;
+
+  const handleCopyLink = (e) => {
+    e?.stopPropagation();
     navigator.clipboard.writeText(postUrl);
-    showToast('Link copied to clipboard', 'success');
+    setShareCopied(true);
+    showToast('Post link copied to clipboard!', 'success');
+    setTimeout(() => setShareCopied(false), 2000);
+    setIsShareMenuOpen(false);
+  };
+
+  const handleNativeShare = async (e) => {
+    e?.stopPropagation();
+    setIsShareMenuOpen(false);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${author.name || 'Clearfeed'} on Clearfeed`,
+          text: (currentPost.content || '').slice(0, 100),
+          url: postUrl,
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          handleCopyLink();
+        }
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  const handleShareButtonClick = (e) => {
+    e?.stopPropagation();
+    setIsShareMenuOpen((prev) => !prev);
   };
 
   const handlePostUpdated = (updated) => {
@@ -188,6 +255,8 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
     <article
       id={`post-${currentPost._id}`}
       className={`relative rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-4 sm:p-5 mb-4 shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-300 ${
+        isDetailView ? 'ring-1 ring-sky-500/20 dark:ring-sky-500/10' : ''
+      } ${
         isFadingOut
           ? 'opacity-0 scale-[0.98] -translate-y-2 max-h-0 py-0 my-0 mb-0 overflow-hidden border-transparent pointer-events-none'
           : ''
@@ -259,7 +328,13 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
             </div>
 
             <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 font-sans flex-wrap">
-              <time dateTime={currentPost.createdAt}>{formatDate(currentPost.createdAt)}</time>
+              <NavLink
+                to={`/posts/${currentPost._id}`}
+                className="hover:underline hover:text-sky-500 transition-colors"
+                title="View full post"
+              >
+                <time dateTime={currentPost.createdAt}>{formatDate(currentPost.createdAt)}</time>
+              </NavLink>
               {isAdmin && currentPost.ipAddress && (
                 <span
                   title={`Author IP Address: ${currentPost.ipAddress} (Visible only to Admin @${user?.username})`}
@@ -426,13 +501,93 @@ export const PostCard = ({ post, onPostDeleted, onPostUpdated }) => {
             initialIsBookmarked={currentPost.isBookmarked || false}
           />
 
-          <button
-            onClick={handleShare}
-            title="Share post"
-            className="p-1.5 rounded-full hover:text-sky-500 hover:bg-sky-500/10 transition-all duration-150 active:scale-90 cursor-pointer"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
+          {/* Share Button & Popover */}
+          <div className="relative" ref={shareMenuRef}>
+            <button
+              onClick={handleShareButtonClick}
+              title="Share post"
+              className={`p-1.5 rounded-full transition-all duration-150 active:scale-90 cursor-pointer ${
+                shareCopied
+                  ? 'text-emerald-500 bg-emerald-500/10'
+                  : 'hover:text-sky-500 hover:bg-sky-500/10'
+              }`}
+              aria-label="Share options"
+            >
+              {shareCopied ? (
+                <Check className="w-4 h-4 text-emerald-500" />
+              ) : (
+                <Share2 className="w-4 h-4" />
+              )}
+            </button>
+
+            {isShareMenuOpen && (
+              <div
+                className="absolute right-0 bottom-full mb-2 w-52 bg-white dark:bg-[#181b20] border border-neutral-200 dark:border-neutral-800 rounded-2xl py-1.5 z-40 shadow-xl shadow-black/10 dark:shadow-black/50 animate-fade-in text-xs font-sans"
+              >
+                {/* Copy Link to Post */}
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors font-medium text-left cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                  <span>Copy Link to Post</span>
+                </button>
+
+                {/* Share via Native OS (Mobile/Desktop) */}
+                {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                  <button
+                    onClick={handleNativeShare}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors font-medium text-left cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                    <span>Share via Device...</span>
+                  </button>
+                )}
+
+                {/* Direct Link / Open in New Tab */}
+                <NavLink
+                  to={`/posts/${currentPost._id}`}
+                  onClick={() => setIsShareMenuOpen(false)}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors font-medium text-left"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                  <span>Open Post</span>
+                </NavLink>
+
+                <div className="h-px bg-neutral-100 dark:bg-neutral-800 my-1" />
+
+                {/* Share to X */}
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                    `Check out this post on Clearfeed:\n"${(currentPost.content || '').slice(0, 100)}..."`
+                  )}&url=${encodeURIComponent(postUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsShareMenuOpen(false)}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors font-medium text-left"
+                >
+                  <svg className="w-3.5 h-3.5 text-neutral-700 dark:text-neutral-300 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  <span>Post on X</span>
+                </a>
+
+                {/* Share to WhatsApp */}
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `Check out this post on Clearfeed: ${postUrl}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsShareMenuOpen(false)}
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors font-medium text-left"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Share to WhatsApp</span>
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

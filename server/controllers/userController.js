@@ -309,12 +309,12 @@ exports.getCourseDirectory = async (req, res) => {
 // Get suggestions for who to follow
 exports.getSuggestions = async (req, res) => {
   try {
-    const currentUserId = req.user._id;
+    const currentUserId = req.user ? req.user._id : null;
 
     // Get IDs of users current user already follows
-    const followingEdges = await Follow.find({ follower: currentUserId }).select('following');
+    const followingEdges = currentUserId ? await Follow.find({ follower: currentUserId }).select('following') : [];
     const followingIds = followingEdges.map((e) => e.following);
-    followingIds.push(currentUserId); // exclude self
+    if (currentUserId) followingIds.push(currentUserId); // exclude self
 
     // Find up to 5 members not followed yet
     const suggestions = await User.find({

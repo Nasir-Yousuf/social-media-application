@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import api from '../../api/client';
 import { BookmarkIcon } from '../common/ClearfeedIcons';
+import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
 export const BookmarkButton = ({ postId, initialIsBookmarked = false, className = '' }) => {
+  const { user } = useAuth();
   const [isBookmarked, setIsBookmarked] = useState(initialIsBookmarked);
   const [loading, setLoading] = useState(false);
   const { showToast } = useNotifications();
 
   const handleToggleBookmark = async (e) => {
     e.stopPropagation();
+    if (!user) {
+      showToast('Please sign in or continue as guest to save bookmarks', 'info');
+      return;
+    }
     if (loading) return;
 
     // Optimistic update

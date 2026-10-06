@@ -14,6 +14,7 @@ export const AppLayout = () => {
   const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
   const isMessages = location.pathname.startsWith('/messages');
+  const isLearn = location.pathname.startsWith('/learn');
 
   if (loading) {
     return (
@@ -28,8 +29,63 @@ export const AppLayout = () => {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  const isPublicPost = location.pathname.startsWith('/posts/') || location.pathname.startsWith('/post/');
+  const isPublicLearn = location.pathname.startsWith('/learn');
+  const isPublicRoute = isPublicPost || isPublicLearn;
+
+  if (!isAuthenticated && !isPublicRoute) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Guest view for shared post links or learn & practice
+  if (!isAuthenticated && isPublicRoute) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-black text-neutral-900 dark:text-neutral-100 selection:bg-sky-500 selection:text-white transition-colors duration-200 font-sans">
+        {/* Guest Top Navigation */}
+        <header className="sticky top-0 z-40 backdrop-blur-xl bg-white/85 dark:bg-black/85 border-b border-neutral-200 dark:border-neutral-800 px-4 h-14 flex items-center justify-between">
+          <NavLink to="/" className="flex items-center gap-2 select-none">
+            <ClearfeedLogo className="w-7 h-7 text-sky-500" />
+            <span className="font-sans font-black text-lg tracking-tight text-neutral-900 dark:text-white">
+              Clear<span className="text-sky-500">feed</span>
+            </span>
+          </NavLink>
+
+          <div className="flex items-center gap-2.5">
+            <NavLink
+              to="/learn"
+              className="text-xs font-semibold px-3 py-1.5 rounded-full text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              Learn & Practice
+            </NavLink>
+            <ThemeToggle />
+            <NavLink
+              to="/login"
+              state={{ from: location }}
+              className="text-xs font-bold px-3.5 py-1.5 rounded-full text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              Log In
+            </NavLink>
+            <NavLink
+              to="/register"
+              state={{ from: location }}
+              className="text-xs font-bold px-4 py-1.5 rounded-full bg-sky-500 text-white hover:bg-sky-600 transition-colors shadow-xs shadow-sky-500/20"
+            >
+              Sign Up
+            </NavLink>
+          </div>
+        </header>
+
+        {/* Center Content */}
+        <div className="max-w-7xl mx-auto flex justify-center items-start min-h-[calc(100vh-56px)]">
+          <main className={`flex-1 w-full ${isPublicLearn ? 'max-w-[1080px] xl:max-w-[1200px]' : 'max-w-[620px]'} pb-16 min-h-screen border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black`}>
+            <Outlet />
+          </main>
+          {!isPublicLearn && <RightSidebar />}
+        </div>
+
+        <Toast />
+      </div>
+    );
   }
 
   return (
@@ -76,7 +132,9 @@ export const AppLayout = () => {
         {/* Center Column: Feed & Main Content */}
         <main
           className={`flex-1 w-full ${
-            isMessages
+            isLearn
+              ? 'max-w-[1080px] xl:max-w-[1200px] 2xl:max-w-[1260px] pb-20 md:pb-12 min-h-screen'
+              : isMessages
               ? 'max-w-[1000px] xl:max-w-[1120px] 2xl:max-w-[1240px] pb-0 md:h-screen md:max-h-screen overflow-hidden'
               : 'max-w-[620px] pb-20 md:pb-12 min-h-screen'
           } border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black`}
@@ -85,7 +143,7 @@ export const AppLayout = () => {
         </main>
 
         {/* Right Column: Search, Trending & Who to follow (hidden on messages to give full width) */}
-        {!isMessages && <RightSidebar />}
+        {!isMessages && !isLearn && <RightSidebar />}
       </div>
 
       {/* Mobile Bottom Navigation (Only on mobile < md) */}

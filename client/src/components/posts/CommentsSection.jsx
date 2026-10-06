@@ -54,6 +54,10 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
 
   const handleAddComment = async (e) => {
     e.preventDefault();
+    if (!user) {
+      showToast('Please sign in or continue as guest to post a response', 'info');
+      return;
+    }
     if (!newComment.trim() || submitting) return;
 
     setSubmitting(true);

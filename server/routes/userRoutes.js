@@ -4,7 +4,7 @@ const userController = require('../controllers/userController');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
 
 router.get('/directory', requireAuth, userController.getCourseDirectory);
-router.get('/suggestions', requireAuth, userController.getSuggestions);
+router.get('/suggestions', optionalAuth, userController.getSuggestions);
 router.get('/profile/:username', optionalAuth, userController.getProfileByUsername);
 router.patch('/profile', requireAuth, userController.updateProfile);
 router.post('/sync-follows', requireAuth, userController.syncFollows);

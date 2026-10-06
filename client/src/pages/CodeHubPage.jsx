@@ -156,11 +156,10 @@ export const CodeHubPage = () => {
               <button
                 key={lang.id}
                 onClick={() => setSelectedLanguage(lang.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 shrink-0 cursor-pointer active:scale-95 ${
-                  isSelected
-                    ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
-                    : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
-                }`}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 shrink-0 cursor-pointer active:scale-95 ${isSelected
+                  ? 'bg-sky-500 text-white shadow-xs shadow-sky-500/25 ring-2 ring-sky-500/30'
+                  : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700'
+                  }`}
               >
                 {lang.label}
               </button>

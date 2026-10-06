@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const Like = require('../models/Like');
@@ -311,6 +312,10 @@ exports.getFeed = async (req, res) => {
 // Get single post
 exports.getPostById = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
     const post = await Post.findById(req.params.id)
       .populate('author', 'name username avatarUrl role status')
       .populate({
