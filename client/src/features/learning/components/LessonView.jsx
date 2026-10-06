@@ -14,6 +14,7 @@ import LanguageToggle from './LanguageToggle';
 import CodeEditor from './CodeEditor';
 import CodePreview from './CodePreview';
 import ExerciseChallenge from './ExerciseChallenge';
+import { useNotifications } from '../../../context/NotificationContext';
 
 export const LessonView = ({
   lessonId,
