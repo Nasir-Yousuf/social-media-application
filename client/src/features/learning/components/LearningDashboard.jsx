@@ -44,6 +44,8 @@ export const LearningDashboard = ({
         return <Layout className="w-5 h-5 text-orange-500" />;
       case 'css':
         return <Palette className="w-5 h-5 text-sky-500" />;
+      case 'bootstrap':
+        return <Code2 className="w-5 h-5 text-purple-500" />;
       case 'javascript':
         return <Sparkles className="w-5 h-5 text-amber-500" />;
       default:

@@ -10,14 +10,14 @@ export const TRACKS = [
       bn: 'ওয়েবসাইটের মূল কাঠামো ও হাড্ডি তৈরি করুন',
     },
     description: {
-      en: 'HTML (HyperText Markup Language) is the foundation of every website on the internet. It defines all the headings, paragraphs, images, links, and buttons that users see.',
-      bn: 'HTML হলো ইন্টারনেটের প্রতিটি ওয়েবসাইটের ভিত্তি। এটি নির্ধারণ করে কোথায় শিরোনাম, লেখা, ছবি, লিঙ্ক এবং বাটন থাকবে।',
+      en: 'HTML (HyperText Markup Language) is the foundation of every website on the internet. It defines all the headings, paragraphs, images, links, forms, and tables that users see.',
+      bn: 'HTML হলো ইন্টারনেটের প্রতিটি ওয়েবসাইটের ভিত্তি। এটি নির্ধারণ করে কোথায় শিরোনাম, লেখা, ছবি, টেবিল, লিঙ্ক এবং বাটন থাকবে।',
     },
     icon: 'layout',
     color: 'from-orange-500 to-amber-500',
     accentColor: '#f97316',
     badge: 'Structure',
-    totalLessons: 8,
+    totalLessons: 12,
   },
   {
     id: 'css',
@@ -35,6 +35,23 @@ export const TRACKS = [
     accentColor: '#0284c7',
     badge: 'Design',
     totalLessons: 8,
+  },
+  {
+    id: 'bootstrap',
+    title: 'Bootstrap 5',
+    subtitle: {
+      en: 'Build responsive UI fast with 12-col grid & components',
+      bn: 'বুটস্ট্র্যাপ গ্রিড ও প্রাক-নির্মিত বাটন, নেভবার ও কার্ড দিয়ে দ্রুত ওয়েবসাইট সাজান',
+    },
+    description: {
+      en: 'Bootstrap is the most popular CSS framework for developing responsive, mobile-first websites. It includes a 12-column grid system, cards, navbars, buttons, and responsive utility classes.',
+      bn: 'বুটস্ট্র্যাপ হলো পৃথিবীখ্যাত ওয়েবসাইট ডিজাইন ফ্রেমওয়ার্ক। এটি দিয়ে অতি সহজে রেসপন্সিভ ১২-কলামের গ্রিড লেআউট এবং তৈরি নেভবার, বাটন, কার্ড ব্যবহার করে দ্রুত ওয়েবসাইট সাজানো যায়।',
+    },
+    icon: 'code',
+    color: 'from-purple-600 to-indigo-600',
+    accentColor: '#9333ea',
+    badge: 'UI Framework',
+    totalLessons: 6,
   },
   {
     id: 'javascript',
@@ -555,6 +572,254 @@ export const LESSONS = [
       },
     },
   },
+  {
+    id: 'html-formatting',
+    track: 'html',
+    order: 9,
+    difficulty: 'Beginner',
+    title: {
+      en: '9. Text Formatting (strong, em, mark, sub, sup, del, ins)',
+      bn: '৯. টেক্সট ফরম্যাটিং ও গাণিতিক চিহ্ন (strong, em, mark, sub, sup)',
+    },
+    subtitle: {
+      en: 'Styling text meaning with bold, italic, underline, highlight, subscript, and superscript.',
+      bn: 'বোল্ড, ইটালিক, আন্ডারলাইন, হাইলাইট ও সংকেত অক্ষরের ব্যবহার।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'HTML provides tags to format text: <strong> & <b> for bold, <em> & <i> for italic, <u> for underline, <mark> for highlight, <small> for small text, <del> & <ins> for revisions, and <sub>/<sup> for formulas like H2O and x².',
+        bn: 'HTML-এ টেক্সটের ভাব ফুটিয়ে তুলতে বিভিন্ন ট্যাগ আছে: <strong> ও <b> দিয়ে মোটা/বোল্ড, <em> ও <i> দিয়ে বাঁকা/ইটালিক, <u> দিয়ে আন্ডারলাইন, <mark> দিয়ে হাইলাইট, এবং <sub>/<sup> দিয়ে H₂O বা x² এর মতো চিহ্ন লেখা হয়।',
+      },
+      whyNeedIt: {
+        en: 'Formatting guides the reader to notice discount prices, scientific formulas, math exponents, and key search terms.',
+        bn: 'ফরম্যাটিং দিয়ে পাঠককে গাণিতিক সংকেত, ছাড় দেওয়া দাম বা গুরুত্বপূর্ণ শব্দে নজর কাড়তে সাহায্য করা হয়।',
+      },
+      analogy: {
+        en: 'Like highlighting notes in a notebook with a yellow highlighter pen (<mark>) or writing powers in algebra (<sup>)!',
+        bn: 'খাতায় হলুদ হাইলাইটার পেন দিয়ে দাগ দেওয়া (<mark>) বা বীজগণিতের পাওয়ার (<sup>) লেখার মতো!',
+      },
+    },
+    exampleCode: {
+      html: `<p>Discount: <del>$100</del> <ins>$80</ins></p>\n<p>Water: H<sub>2</sub>O</p>\n<p>Algebra: x<sup>2</sup> + y<sup>2</sup></p>\n<p><mark>Important Notice</mark></p>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: '<sub> lowers the character for chemical formulas, while <sup> raises it for exponents.',
+      bn: '<sub> সংকেতের সংখ্যাকে নিচে নামায় এবং <sup> সংখ্যাকে উপরে তোলে।',
+    },
+    starterCode: {
+      html: `<!-- Create a paragraph with H2O using <sub> and a highlighted word using <mark> -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a paragraph containing "H<sub>2</sub>O" and a <mark>highlighted</mark> word.',
+        bn: '<sub> ব্যবহার করে "H2O" এবং <mark> ব্যবহার করে একটি হাইলাইট করা শব্দ দিয়ে একটি প্যারাগ্রাফ লিখুন।',
+      },
+      hint: {
+        en: 'Write <p>Water is H<sub>2</sub>O and <mark>essential</mark></p>.',
+        bn: '<p>Water is H<sub>2</sub>O and <mark>essential</mark></p> লিখুন।',
+      },
+      solution: {
+        html: `<p>Water is H<sub>2</sub>O and <mark>essential</mark> for life.</p>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_tags',
+        requiredTags: ['p', 'sub', 'mark'],
+        minTextLength: 10,
+      },
+    },
+  },
+  {
+    id: 'html-tables',
+    track: 'html',
+    order: 10,
+    difficulty: 'Intermediate',
+    title: {
+      en: '10. HTML Data Tables (table, tr, th, td, thead, tbody, tfoot, caption)',
+      bn: '১০. HTML ডাটা টেবিল (table, tr, th, td, thead, tbody, tfoot, caption)',
+    },
+    subtitle: {
+      en: 'Displaying structured tabular data with rows, columns, and captions.',
+      bn: 'রো, কলাম ও হেডার দিয়ে সুন্দর ডাটা টেবিল তৈরি।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Tables are created with <table>. Rows are <tr>, header cells are <th>, and regular data cells are <td>. Semantic sections include <thead>, <tbody>, <tfoot>, and <caption> for the title.',
+        bn: 'টেবিল তৈরি করা হয় <table> দিয়ে। সারি বা রো নির্দেশ করে <tr>, হেডার সেল <th>, এবং সাধারণ ডাটা ঘর হলো <td>। এছাড়াও <thead>, <tbody>, <tfoot> এবং শিরোনামের জন্য <caption> থাকে।',
+      },
+      whyNeedIt: {
+        en: 'Tables are essential for displaying report statistics, pricing plans, student marks, and financial data.',
+        bn: 'পরীক্ষার রেজাল্ট, রুটিন, প্রাইসিং প্ল্যান এবং রিপোর্ট দেখানোর জন্য টেবিল অপরিহার্য।',
+      },
+      analogy: {
+        en: 'Think of an Excel spreadsheet. The whole sheet is <table>, each horizontal line is <tr>, and each box is <td>!',
+        bn: 'এক্সেল শিটের কথা ভাবুন। পুরো শিটটি হলো <table>, প্রতিটি অনুভূমিক লাইন <tr>, আর প্রতিটি ঘর <td>!',
+      },
+    },
+    exampleCode: {
+      html: `<table>\n  <caption>Student Marksheet</caption>\n  <thead>\n    <tr>\n      <th>Name</th>\n      <th>Score</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>Rahim</td>\n      <td>95</td>\n    </tr>\n  </tbody>\n</table>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: '<caption> adds a title above the table, <th> makes headers bold and centered, and <td> holds table values.',
+      bn: '<caption> টেবিলের শিরোনাম দেয়, <th> হেডার লেখাকে বোল্ড করে, আর <td> ডাটা ধারণ করে।',
+    },
+    starterCode: {
+      html: `<!-- Create a <table> with <caption>, <tr>, <th> and <td> -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a <table> containing a <caption>, a <tr> with <th> headers ("Subject", "Grade"), and a <tr> with <td> data.',
+        bn: 'একটি <caption>, <th> সহ <tr> ("Subject", "Grade") এবং <td> ডাটা সহ <tr> নিয়ে একটি <table> তৈরি করুন।',
+      },
+      hint: {
+        en: 'Use <table> <caption>...</caption> <tr><th>Subject</th><th>Grade</th></tr> <tr><td>HTML</td><td>A+</td></tr> </table>',
+        bn: '<table> ট্যাগের ভেতর <caption>, <tr>, <th> এবং <td> ট্যাগগুলো ক্রমানুসারে লিখুন।',
+      },
+      solution: {
+        html: `<table>\n  <caption>My Exam Results</caption>\n  <tr>\n    <th>Subject</th>\n    <th>Grade</th>\n  </tr>\n  <tr>\n    <td>HTML5</td>\n    <td>A+</td>\n  </tr>\n</table>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_tags',
+        requiredTags: ['table', 'tr', 'th', 'td'],
+        minTextLength: 15,
+      },
+    },
+  },
+  {
+    id: 'html-forms-advanced',
+    track: 'html',
+    order: 11,
+    difficulty: 'Intermediate',
+    title: {
+      en: '11. HTML Forms & Controls (form, label, textarea, select, fieldset, legend, datalist)',
+      bn: '১১. HTML অ্যাডভান্সড ফর্ম (form, label, textarea, select, optgroup, fieldset, legend, datalist)',
+    },
+    subtitle: {
+      en: 'Building interactive user input forms with dropdowns, textareas, fieldsets, and datalists.',
+      bn: 'ড্রপডাউন, টেক্সট-এরিয়া, ফিল্ডসেট ও সাজেশনসহ সম্পুর্ণ ইনপুট ফর্ম।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Forms wrapper is <form>. Use <label> for field names, <textarea> for long text, <select> & <option>/<optgroup> for dropdowns, <fieldset> & <legend> to group controls, and <datalist> for suggestions.',
+        bn: '<form> দিয়ে পুরো ইনপুট ফর্মটি ঘেরা হয়। ইনপুটের নামের জন্য <label>, বড় লেখার জন্য <textarea>, ড্রপডাউনের জন্য <select> ও <option>, সেকশন গ্রুপিংয়ের জন্য <fieldset> ও <legend>, এবং টাইপিং সাজেশনের জন্য <datalist> ব্যবহৃত হয়।',
+      },
+      whyNeedIt: {
+        en: 'Forms allow users to submit messages, register accounts, select options, and interact with web applications.',
+        bn: 'ব্যবহারকারীর কাছ থেকে মেসেজ, ফিডব্যাক, একাউন্ট তথ্য ও মতামত নেওয়ার জন্য ফর্ম ব্যবহৃত হয়।',
+      },
+      analogy: {
+        en: 'Like a paper admission form in a college. The box for long address is <textarea>, the checkbox choice is <select>, and the box around Personal Info is <fieldset>!',
+        bn: 'কলেজে ভর্তির কাগজের ফর্মের মতো। ঠিকানার বড় ঘরটি <textarea>, ড্রপডাউন নির্বাচনটি <select>, আর "ব্যক্তিগত তথ্য" ঘেরা ঘরটি হলো <fieldset>!',
+      },
+    },
+    exampleCode: {
+      html: `<form action="/submit">\n  <fieldset>\n    <legend>User Feedback</legend>\n    <label for="comments">Message:</label>\n    <textarea id="comments" rows="3"></textarea>\n    <br>\n    <label for="dept">Department:</label>\n    <select id="dept">\n      <option value="cs">Computer Science</option>\n    </select>\n  </fieldset>\n</form>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: '<fieldset> draws a border around related fields, and <legend> provides a title for the section.',
+      bn: '<fieldset> ইনপুট ফিল্ডগুলোর চারপাশে একটি সুন্দর বর্ডার দেয় এবং <legend> সেই অংশের শিরোনাম নির্ধারণ করে।',
+    },
+    starterCode: {
+      html: `<!-- Create a <form> containing a <label>, a <textarea>, and a <select> with <option> -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a <form> containing a <label>, a <textarea> for feedback, and a <select> with at least one <option>.',
+        bn: 'একটি <form>-এর ভেতরে <label>, ফিডব্যাকের জন্য <textarea> এবং অন্তত একটি <option> সহ <select> ড্রপডাউন তৈরি করুন।',
+      },
+      hint: {
+        en: 'Write <form> <label>Feedback:</label> <textarea></textarea> <select><option>General</option></select> </form>',
+        bn: '<form> ট্যাগের ভেতরে <label>, <textarea> এবং <select>-এর ভেতর <option> ব্যবহার করুন।',
+      },
+      solution: {
+        html: `<form>\n  <label for="msg">Your Feedback:</label>\n  <textarea id="msg" placeholder="Write here..."></textarea>\n  <label for="topic">Topic:</label>\n  <select id="topic">\n    <option value="general">General Query</option>\n  </select>\n</form>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_tags',
+        requiredTags: ['form', 'label', 'textarea', 'select', 'option'],
+        minTextLength: 15,
+      },
+    },
+  },
+  {
+    id: 'html-media-embeds',
+    track: 'html',
+    order: 12,
+    difficulty: 'Intermediate',
+    title: {
+      en: '12. Embeds & Description Lists (iframe, picture, track, dl, dt, dd)',
+      bn: '১২. এম্বেড পেজ ও ডেসক্রিপশন লিস্ট (iframe, picture, track, dl, dt, dd)',
+    },
+    subtitle: {
+      en: 'Embedding external pages, responsive images, subtitles, and term-description pairs.',
+      bn: 'অন্য ওয়েবসাইট এম্বেড করা, রেসপন্সিভ ছবি এবং টার্ম-বিবরণী ডেসক্রিপশন লিস্ট।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: '<iframe> embeds another webpage inside your site, <picture> serves different images for different screens, <track> adds video subtitles, and <dl>, <dt>, <dd> format glossary/definition lists.',
+        bn: '<iframe> দিয়ে অন্য সাইট বা ইউটিউব ভিডিও এম্বেড করা হয়, <picture> দিয়ে বিভিন্ন ডিভাইসে আলাদা ছবি দেখানো হয়, <track> দিয়ে ভিডিওর সাবটাইটেল দেওয়া হয়, এবং <dl>, <dt>, <dd> দিয়ে ডিকশনারি বা টার্মের বিবরণ লিস্ট তৈরি হয়।',
+      },
+      whyNeedIt: {
+        en: 'Useful for embedding Google Maps, YouTube videos, technical glossaries, and responsive image setups.',
+        bn: 'গুগল ম্যাপস, ইউটিউব ভিডিও, টেকনিক্যাল শব্দের অভিধান এবং বিভিন্ন স্ক্রিনের ছবি দেখানোর জন্য এগুলো প্রয়োজন।',
+      },
+      analogy: {
+        en: '<dl> is like an English dictionary. <dt> is the bold word (e.g. HTML), and <dd> is the long definition paragraph underneath!',
+        bn: '<dl> হলো অভিধানের মতো। <dt> হলো বোল্ড করা শব্দটি (যেমন HTML), আর <dd> হলো নিচে লেখা সেই শব্দের ব্যাখ্যা!',
+      },
+    },
+    exampleCode: {
+      html: `<dl>\n  <dt>HTML5</dt>\n  <dd>Modern web markup standard.</dd>\n</dl>\n\n<iframe src="https://example.com" title="Embedded Webpage"></iframe>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: '<dt> is the Description Term, and <dd> is the Description Details.',
+      bn: '<dt> হলো টার্ম বা শব্দ, আর <dd> হলো সেই টার্মের বিস্তারিত বিবরণ।',
+    },
+    starterCode: {
+      html: `<!-- Create a description list <dl> with one <dt> term and one <dd> description -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a description list (<dl>) containing a term (<dt>) and a description (<dd>).',
+        bn: '<dl> ট্যাগ ব্যবহার করে একটি টার্ম (<dt>) এবং একটি বিবরণ (<dd>) তৈরি করুন।',
+      },
+      hint: {
+        en: 'Use <dl> <dt>Web</dt> <dd>World Wide Web</dd> </dl>',
+        bn: '<dl> ট্যাগের ভেতরে <dt>শব্দ</dt> এবং <dd>বিবরণ</dd> লিখুন।',
+      },
+      solution: {
+        html: `<dl>\n  <dt>CSS3</dt>\n  <dd>Cascading Style Sheets version 3.</dd>\n</dl>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_tags',
+        requiredTags: ['dl', 'dt', 'dd'],
+        minTextLength: 10,
+      },
+    },
+  },
 
   // ==========================================
   // CSS TRACK (8 Lessons)
@@ -1044,6 +1309,382 @@ export const LESSONS = [
       validation: {
         type: 'css_contains',
         keyword: ':hover',
+      },
+    },
+  },
+
+  // ==========================================
+  // BOOTSTRAP 5 TRACK (6 Lessons)
+  // ==========================================
+  {
+    id: 'bs-intro',
+    track: 'bootstrap',
+    order: 1,
+    difficulty: 'Beginner',
+    title: {
+      en: '1. What is Bootstrap & Containers',
+      bn: '১. বুটস্ট্র্যাপ কী এবং কন্টেইনার',
+    },
+    subtitle: {
+      en: 'Building mobile-friendly site wrappers fast with pre-made CSS classes.',
+      bn: 'প্রি-মেড সিএসএস ক্লাস দিয়ে দ্রুত রেসপন্সিভ ওয়েবসাইট কাঠামো তৈরি।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Bootstrap is a front-end framework full of pre-written CSS classes. Instead of writing custom CSS for padding and colors, you simply add class names like "container", "bg-primary", or "text-white"!',
+        bn: 'বুটস্ট্র্যাপ হলো আগে থেকে লেখা সিএসএস ক্লাসের সমাহার। নিজে সব কোড না লিখে শুধু "container", "bg-primary" বা "text-white" ক্লাস বসিয়ে দিলেই সুন্দর ডিজাইন হয়ে যায়!',
+      },
+      whyNeedIt: {
+        en: 'It speeds up web development by 10x and ensures your layout looks perfect on phones, tablets, and desktop screens.',
+        bn: 'এটি কাজ ১০ গুণ দ্রুত করে এবং ওয়েবসাইটকে মোবাইল, ট্যাব ও পিসিতে স্বয়ংক্রিয়ভাবে সুন্দর দেখায়।',
+      },
+      analogy: {
+        en: 'Like buying pre-assembled IKEA furniture instead of cutting down trees and sawing wood yourself!',
+        bn: 'নিজে কাঠ কেটে চেয়ার বানানোর বদলে তৈরি আইকিয়া আসবাবপত্র কিনে এনে ঘরে বসানোর মতো!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="container py-4 bg-primary text-white rounded-3">\n  <h1>Bootstrap 5 Magic</h1>\n  <p>Styled instantly with classes!</p>\n</div>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'py-4 sets vertical padding, bg-primary sets brand blue background, and rounded-3 gives rounded corners.',
+      bn: 'py-4 উপর-নিচে প্যাডিং দেয়, bg-primary নীল ব্যাকগ্রাউন্ড দেয়, আর rounded-3 কোণাগুলো গোল করে।',
+    },
+    starterCode: {
+      html: `<!-- Add class="container bg-primary text-white p-4" to the div -->\n<div>\n  <h2>Bootstrap Box</h2>\n</div>`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Add class="container bg-primary text-white p-4" to the <div> tag.',
+        bn: '<div> ট্যাগে class="container bg-primary text-white p-4" যোগ করুন।',
+      },
+      hint: {
+        en: 'Write <div class="container bg-primary text-white p-4">',
+        bn: '<div class="container bg-primary text-white p-4"> লিখুন।',
+      },
+      solution: {
+        html: `<div class="container bg-primary text-white p-4">\n  <h2>Bootstrap Box</h2>\n</div>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_contains_attr',
+        tag: 'div',
+        attr: 'class',
+      },
+    },
+  },
+  {
+    id: 'bs-grid',
+    track: 'bootstrap',
+    order: 2,
+    difficulty: 'Beginner',
+    title: {
+      en: '2. Bootstrap 12-Column Grid System',
+      bn: '২. বুটস্ট্র্যাপ ১২-কলামের রেসপন্সিভ গ্রিড',
+    },
+    subtitle: {
+      en: 'Arranging content side-by-side with row and col-md-6 classes.',
+      bn: 'row এবং col দিয়ে পাশে পাশে সুন্দর কলাম সাজানো।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Bootstrap divides page width into 12 equal vertical columns. You create a <div class="row"> and place <div class="col-6"> inside to take half screen width (6/12 = 50%).',
+        bn: 'বুটস্ট্র্যাপ পেজের চওড়াকে ১২টি সমান কলামে ভাগ করে। <div class="row">-এর ভেতর <div class="col-6"> দিলে এটি স্ক্রিনের অর্ধেক জায়গা (৬/১২) জুড়ে বসে।',
+      },
+      whyNeedIt: {
+        en: 'The 12-column grid is the standard way developers build 2-column, 3-column, and 4-column responsive website layouts.',
+        bn: '১২-কলামের গ্রিড হলো ইন্টারনেটের সব আধুনিক ২-কলাম বা ৩-কলামের ওয়েবসাইট সাজানোর মূল নিয়ম।',
+      },
+      analogy: {
+        en: 'Like a pizza sliced into 12 equal pieces. Taking 6 slices gives you half the pizza!',
+        bn: '১২ টুকরা করা একটি পিৎজার মতো। ৬ টুকরা তুলে নিলে অর্ধেক পিৎজা আপনার!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="container">\n  <div class="row">\n    <div class="col-md-6 border p-3">Left Column (50%)</div>\n    <div class="col-md-6 border p-3">Right Column (50%)</div>\n  </div>\n</div>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'col-md-6 stacks vertically on mobile screens and opens into 2 equal side-by-side columns on laptops.',
+      bn: 'col-md-6 মোবাইলে একটির নিচে আরেকটি থাকে, আর ল্যাপটপে পাশে পাশে দুইটি কলাম হয়ে যায়।',
+    },
+    starterCode: {
+      html: `<div class="container">\n  <div class="row">\n    <!-- Create two col-6 divs inside this row -->\n  </div>\n</div>`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Inside the .row div, create two <div class="col-6"> elements with text.',
+        bn: '.row ফোল্ডারের ভেতরে দুইটি <div class="col-6"> কলাম তৈরি করুন।',
+      },
+      hint: {
+        en: 'Write <div class="col-6">Col A</div> and <div class="col-6">Col B</div> inside <div class="row">.',
+        bn: '<div class="row"> এর ভেতর দুইটি <div class="col-6">...</div> লিখুন।',
+      },
+      solution: {
+        html: `<div class="container">\n  <div class="row">\n    <div class="col-6">Col A</div>\n    <div class="col-6">Col B</div>\n  </div>\n</div>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_tags',
+        requiredTags: ['div'],
+        minTextLength: 15,
+      },
+    },
+  },
+  {
+    id: 'bs-buttons-badges',
+    track: 'bootstrap',
+    order: 3,
+    difficulty: 'Beginner',
+    title: {
+      en: '3. Bootstrap Buttons & Badges (btn, btn-primary, badge)',
+      bn: '৩. বুটস্ট্র্যাপ বাটন ও ব্যাজ (btn, btn-primary, badge)',
+    },
+    subtitle: {
+      en: 'Creating primary buttons, outline styles, and notification badges.',
+      bn: 'আকর্ষণীয় বাটন, আউটলাইন ডিজাইন এবং নোটিফিকেশন ব্যাজ।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Bootstrap provides classes like "btn btn-primary" for solid blue buttons, "btn-outline-success" for border buttons, and "badge bg-danger" for red notification pills.',
+        bn: 'বুটস্ট্র্যাপে "btn btn-primary" দিলে সুন্দর নীল বাটন, "btn-outline-success" দিলে বর্ডার বাটন, এবং "badge bg-danger" দিলে লাল রঙের ছোট ব্যাজ তৈরি হয়।',
+      },
+      whyNeedIt: {
+        en: 'Buttons guide users to submit forms, buy products, and trigger actions.',
+        bn: 'বাটন ব্যবহারকারীকে ফর্মে সাবমিট বা পেজে অ্যাকশন নিতে সাহায্য করে।',
+      },
+      analogy: {
+        en: 'Like stickers on a school bag. A badge is a small colorful tag showing a number or status!',
+        bn: 'স্কুল ব্যাগের ওপর আঁকা লোগো স্টিকারের মতো ছোট রঙিন ব্যাজ!',
+      },
+    },
+    exampleCode: {
+      html: `<button class="btn btn-primary">Submit</button>\n<button class="btn btn-outline-secondary">Cancel</button>\n<span class="badge bg-success">New</span>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'btn-primary gives the main action style, while badge bg-success creates a green pill label.',
+      bn: 'btn-primary প্রধান বাটন বানায় এবং badge bg-success সবুজ ব্যাজ লেবেল তৈরি করে।',
+    },
+    starterCode: {
+      html: `<!-- Add a button with class="btn btn-primary" -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a <button> with class="btn btn-primary" containing the text "Save Changes".',
+        bn: 'class="btn btn-primary" দিয়ে "Save Changes" লেখা একটি <button> তৈরি করুন।',
+      },
+      hint: {
+        en: 'Write <button class="btn btn-primary">Save Changes</button>',
+        bn: '<button class="btn btn-primary">Save Changes</button> লিখুন।',
+      },
+      solution: {
+        html: `<button class="btn btn-primary">Save Changes</button>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_contains_attr',
+        tag: 'button',
+        attr: 'class',
+      },
+    },
+  },
+  {
+    id: 'bs-cards',
+    track: 'bootstrap',
+    order: 4,
+    difficulty: 'Intermediate',
+    title: {
+      en: '4. Bootstrap Cards (card, card-body, card-title)',
+      bn: '৪. বুটস্ট্র্যাপ কার্ড ডিজাইন (card, card-body, card-title)',
+    },
+    subtitle: {
+      en: 'Packaging titles, images, and buttons into stylish product cards.',
+      bn: 'ছবি, শিরোনাম ও বাটনের চমৎকার কার্ড কন্টেইনার তৈরি।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'A Bootstrap Card is a flexible container with class "card". Inside, you add "card-body", "card-title", "card-text", and buttons for clean item previews.',
+        bn: 'বুটস্ট্র্যাপ কার্ড হলো "card" ক্লাসের কন্টেইনার। এর ভেতর "card-body", "card-title", "card-text" এবং বাটন রেখে যেকোনো তথ্যকে গুছিয়ে দেখানো যায়।',
+      },
+      whyNeedIt: {
+        en: 'Cards are used everywhere on modern websites: Facebook posts, e-commerce product grids, and news feeds.',
+        bn: 'ফেইসবুক পোস্ট, অ্যামাজন প্রডাক্ট লিস্ট এবং নিউজ পেপার ওয়েবসাইট তৈরিতে কার্ড সর্বত্র ব্যবহৃত হয়।',
+      },
+      analogy: {
+        en: 'Think of a playing card or a framed photo on a shelf—neatly bounded with rounded edges!',
+        bn: 'খেলার তাশ বা শো-কেসে রাখা সুন্দর ফ্রেম করা ছবির মতো—চারপাশে বর্ডার আর বক্সে মোড়ানো!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="card shadow-sm">\n  <div class="card-body">\n    <h5 class="card-title">Clearfeed Developer</h5>\n    <p class="card-text">Building modern web applications.</p>\n    <a href="#" class="btn btn-primary">View Profile</a>\n  </div>\n</div>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'card creates the border box, card-body adds internal padding, and shadow-sm adds a subtle drop shadow.',
+      bn: 'card বর্ডার বাক্স দেয়, card-body ভেতরের প্যাডিং দেয়, আর shadow-sm হালকা ছায়া দেয়।',
+    },
+    starterCode: {
+      html: `<!-- Create a <div class="card"> containing a <div class="card-body"> with a heading -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a <div class="card"> containing a <div class="card-body"> and an <h3> title.',
+        bn: 'একটি <div class="card">-এর ভেতরে <div class="card-body"> এবং একটি <h3> টাইটেল তৈরি করুন।',
+      },
+      hint: {
+        en: 'Use <div class="card"><div class="card-body"><h3>Card Title</h3></div></div>',
+        bn: '<div class="card"><div class="card-body"><h3>...</h3></div></div> লিখুন।',
+      },
+      solution: {
+        html: `<div class="card">\n  <div class="card-body">\n    <h3>Bootstrap Card</h3>\n  </div>\n</div>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_tags',
+        requiredTags: ['div', 'h3'],
+        minTextLength: 10,
+      },
+    },
+  },
+  {
+    id: 'bs-navbars',
+    track: 'bootstrap',
+    order: 5,
+    difficulty: 'Intermediate',
+    title: {
+      en: '5. Bootstrap Navigation Bar (navbar)',
+      bn: '৫. বুটস্ট্র্যাপ নেভিগেশন বার (navbar)',
+    },
+    subtitle: {
+      en: 'Building responsive site header menus with brand logos and navigation links.',
+      bn: 'লোগো এবং লিঙ্কসহ চমৎকার নেভবার তৈরি।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Bootstrap provides the "navbar" component. Adding "navbar navbar-expand-lg navbar-dark bg-dark" creates a dark top navigation bar with brand logo and menu items.',
+        bn: 'বুটস্ট্র্যাপে "navbar navbar-expand-lg navbar-dark bg-dark" লিখলেই একটি ডার্ক নেভিগেশন বার তৈরি হয়ে যায় যাতে লোগো ও লিঙ্ক রাখা যায়।',
+      },
+      whyNeedIt: {
+        en: 'Every website needs a top navigation header so users can switch between Home, About, and Contact pages.',
+        bn: 'প্রতিটি ওয়েবসাইটেই হোম, সার্ভিস ও যোগাযোগ পেজে যাওয়ার জন্য একটি সুন্দর নেভবার দরকার।',
+      },
+      analogy: {
+        en: 'Like the signboards above store aisles in a supermarket guiding you where to go!',
+        bn: 'সুপারশপের প্রতিটি গলির মুখে টাঙানো দিক-নির্দেশক বোর্ডের মতো!',
+      },
+    },
+    exampleCode: {
+      html: `<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3">\n  <a class="navbar-brand" href="#">MyBrand</a>\n  <div class="navbar-nav">\n    <a class="nav-link active" href="#">Home</a>\n    <a class="nav-link" href="#">Features</a>\n  </div>\n</nav>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'navbar-brand styles the site logo, and nav-link styles each menu item.',
+      bn: 'navbar-brand দিয়ে ব্র্যান্ড লোগো এবং nav-link দিয়ে পেজের লিঙ্কগুলোকে সাজানো হয়।',
+    },
+    starterCode: {
+      html: `<!-- Create a <nav class="navbar navbar-dark bg-primary px-3"> containing a brand link -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a <nav class="navbar navbar-dark bg-primary px-3"> with an <a class="navbar-brand"> element.',
+        bn: 'একটি <a class="navbar-brand"> লিঙ্কসহ <nav class="navbar navbar-dark bg-primary px-3"> তৈরি করুন।',
+      },
+      hint: {
+        en: 'Write <nav class="navbar navbar-dark bg-primary px-3"><a class="navbar-brand" href="#">Logo</a></nav>',
+        bn: '<nav class="..."> ট্যাগের ভেতর <a class="navbar-brand" href="#">Logo</a> লিখুন।',
+      },
+      solution: {
+        html: `<nav class="navbar navbar-dark bg-primary px-3">\n  <a class="navbar-brand" href="#">Clearfeed</a>\n</nav>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_contains_attr',
+        tag: 'nav',
+        attr: 'class',
+      },
+    },
+  },
+  {
+    id: 'bs-alerts-utilities',
+    track: 'bootstrap',
+    order: 6,
+    difficulty: 'Advanced',
+    title: {
+      en: '6. Bootstrap Alerts & Utility Classes (alert, flex, spacing)',
+      bn: '৬. বুটস্ট্র্যাপ এলার্ট ও ফ্লেক্স ইউটিলিটি (alert, flex, spacing)',
+    },
+    subtitle: {
+      en: 'Notification banners, flexbox alignment, margins, and padding utilities.',
+      bn: 'নোটিফিকেশন ব্যানার, ডিসপ্লে ফ্লেক্স ও প্যাডিং-মার্জিন ইউটিলিটি।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Bootstrap includes alert banners ("alert alert-success"), flexbox utilities ("d-flex justify-content-between align-items-center"), and spacing shorthand ("p-3", "m-2").',
+        bn: 'বুটস্ট্র্যাপে নোটিফিকেশন মেসেজের জন্য "alert alert-success", ফ্লেক্সবক্সের জন্য "d-flex justify-content-between", এবং মার্জিন-প্যাডিংয়ের জন্য "p-3", "m-2" ইউটিলিটি রয়েছে।',
+      },
+      whyNeedIt: {
+        en: 'Utilities allow you to fine-tune spacing, align elements side-by-side, and show alert messages without writing custom CSS code.',
+        bn: 'সিএসএস কোড না লিখে সরাসরি এইচটিএমএলে স্পেসিং ও উপাদান সারিবদ্ধ করার জন্য ইউটিলিটি ক্লাস সেরা।',
+      },
+      analogy: {
+        en: 'Like quick shortcut buttons on a TV remote control for Instant Mute or Quick Brightness!',
+        bn: 'টিভির রিমোটের শটকার্ট বাটনের মতো—এক টিপেই সাথে সাথে সব সেটিং পরিবর্তন!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="alert alert-success d-flex justify-content-between align-items-center" role="alert">\n  <span><strong>Success!</strong> Profile updated.</span>\n  <button class="btn btn-sm btn-success">OK</button>\n</div>`,
+      css: ``,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'alert alert-success builds a green alert box, and d-flex justify-content-between pushes the button to the right.',
+      bn: 'alert alert-success সবুজ বার্তা বাক্স তৈরি করে এবং d-flex justify-content-between বাটনকে ডানে ঠেলে দেয়।',
+    },
+    starterCode: {
+      html: `<!-- Create a <div class="alert alert-success"> containing text -->\n`,
+      css: ``,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Create a <div class="alert alert-success"> containing a success message.',
+        bn: 'একটি সফলতার মেসেজসহ <div class="alert alert-success"> তৈরি করুন।',
+      },
+      hint: {
+        en: 'Write <div class="alert alert-success">Task Completed!</div>',
+        bn: '<div class="alert alert-success">Task Completed!</div> লিখুন।',
+      },
+      solution: {
+        html: `<div class="alert alert-success">\n  Task Completed Successfully!\n</div>`,
+        css: ``,
+        javascript: ``,
+      },
+      validation: {
+        type: 'html_contains_attr',
+        tag: 'div',
+        attr: 'class',
       },
     },
   },

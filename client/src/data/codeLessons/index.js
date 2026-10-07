@@ -1,13 +1,15 @@
 import { HTML_LESSONS } from './htmlLessons';
 import { CSS_LESSONS } from './cssLessons';
 import { JAVASCRIPT_LESSONS } from './javascriptLessons';
+import { BOOTSTRAP_LESSONS } from './bootstrapLessons';
 
-export { HTML_LESSONS, CSS_LESSONS, JAVASCRIPT_LESSONS };
+export { HTML_LESSONS, CSS_LESSONS, JAVASCRIPT_LESSONS, BOOTSTRAP_LESSONS };
 
 export const LESSON_MAP = {
   html: HTML_LESSONS,
   css: CSS_LESSONS,
   javascript: JAVASCRIPT_LESSONS,
+  bootstrap: BOOTSTRAP_LESSONS,
 };
 
 export const getLessonsByLanguage = (lang = 'html') => {
@@ -36,6 +38,22 @@ export const generateWeakKeysSnippet = (lang = 'javascript', weakKeys = ['{', '}
       <img src="/avatar.png" alt="Profile avatar" />
     </a>
   </header>
+</div>`,
+    };
+  }
+
+  if (currentLang === 'bootstrap') {
+    return {
+      id: 'weak-bs-practice',
+      title: 'Adaptive Symbol Practice (Bootstrap)',
+      difficulty: 'Targeted',
+      description: 'Snippet tailored to strengthen your Bootstrap utility classes & quotes.',
+      snippet: `<div class="container py-3">
+  <div class="row g-2 justify-content-center">
+    <div class="col-12 col-md-8 text-center bg-dark text-white p-4 rounded-3">
+      <h2 class="display-6 font-bold">Bootstrap Practice</h2>
+    </div>
+  </div>
 </div>`,
     };
   }
@@ -89,6 +107,18 @@ export const DAILY_CHALLENGES = [
   },
   {
     id: 'daily-2',
+    lang: 'bootstrap',
+    title: 'Daily Code Sprint: Bootstrap Card & Badge',
+    difficulty: 'Intermediate',
+    snippet: `<div class="card shadow-sm border-0">
+  <div class="card-body d-flex justify-content-between align-items-center">
+    <h5 class="card-title mb-0">Bootstrap Sprint</h5>
+    <span class="badge bg-primary">v5.3</span>
+  </div>
+</div>`,
+  },
+  {
+    id: 'daily-3',
     lang: 'css',
     title: 'Daily Code Sprint: Glassmorphism Card',
     difficulty: 'Intermediate',
@@ -100,7 +130,7 @@ export const DAILY_CHALLENGES = [
 }`,
   },
   {
-    id: 'daily-3',
+    id: 'daily-4',
     lang: 'html',
     title: 'Daily Code Sprint: Semantic Search Form',
     difficulty: 'Intermediate',

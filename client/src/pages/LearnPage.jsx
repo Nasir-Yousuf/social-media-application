@@ -144,8 +144,8 @@ export const LearnPage = () => {
     );
   }
 
-  // 4. Track Roadmap View: /learn/:track (e.g. /learn/html, /learn/css, /learn/javascript)
-  if (track && ['html', 'css', 'javascript'].includes(track)) {
+  // 4. Track Roadmap View: /learn/:track (e.g. /learn/html, /learn/css, /learn/javascript, /learn/bootstrap)
+  if (track && ['html', 'css', 'javascript', 'bootstrap'].includes(track)) {
     return (
       <div className="p-4 sm:p-6 min-h-screen">
         <TrackView

@@ -1,12 +1,12 @@
 import React from 'react';
-import { Code, Layout, Terminal, CheckCircle2 } from 'lucide-react';
+import { Code, Layout, Terminal, Code2, CheckCircle2 } from 'lucide-react';
 
 const LANGUAGES = [
   {
     id: 'html',
     name: 'HTML',
     subtitle: 'Structure',
-    desc: 'Tags, attributes, forms, accessibility & semantic elements',
+    desc: 'Tags, attributes, forms, tables & semantic elements',
     icon: Layout,
     color: 'from-orange-500/20 to-amber-500/10 border-orange-500/30 text-orange-500 dark:text-orange-400',
     activeBadge: 'bg-orange-500 text-white',
@@ -23,6 +23,17 @@ const LANGUAGES = [
     activeBadge: 'bg-blue-500 text-white',
     iconBg: 'bg-blue-500/10 text-blue-500',
     lessonCount: 34,
+  },
+  {
+    id: 'bootstrap',
+    name: 'Bootstrap',
+    subtitle: 'UI Framework',
+    desc: 'Responsive 12-col grid, cards, navbars, buttons & utilities',
+    icon: Code2,
+    color: 'from-purple-500/20 to-indigo-500/10 border-purple-500/30 text-purple-500 dark:text-purple-400',
+    activeBadge: 'bg-purple-600 text-white font-extrabold',
+    iconBg: 'bg-purple-500/10 text-purple-500',
+    lessonCount: 15,
   },
   {
     id: 'javascript',
@@ -42,18 +53,17 @@ export const LanguageSelector = ({ selectedLanguage = 'html', onSelectLanguage, 
     <div className="w-full space-y-3 font-sans">
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          Select Programming Language
+          Select Technology Card
         </h2>
-        <span className="text-xs text-neutral-400">3 Core Technologies</span>
+        <span className="text-xs text-neutral-400">4 Core Frontend Technologies</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {LANGUAGES.map((lang) => {
           const Icon = lang.icon;
           const isSelected = selectedLanguage === lang.id;
           const completedCount = (progress.completedLessons?.[lang.id] || []).length;
           const bestWpm = progress.bestWpm?.[lang.id] || 0;
-          const percent = Math.min(100, Math.round((completedCount / lang.lessonCount) * 100));
 
           return (
             <button
@@ -73,7 +83,7 @@ export const LanguageSelector = ({ selectedLanguage = 'html', onSelectLanguage, 
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-neutral-900 dark:text-white leading-tight">
+                      <h3 className="text-base font-black text-neutral-900 dark:text-white leading-tight">
                         {lang.name}
                       </h3>
                       <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
