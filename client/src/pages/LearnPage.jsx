@@ -119,6 +119,7 @@ export const LearnPage = () => {
         onLangChange={handleLangChange}
         onLessonCompleted={handleLessonCompleted}
         onOpenAskQuestion={handleOpenAskQuestion}
+        onProgressUpdate={fetchProgress}
       />
     );
   } else if (track && ['html', 'css', 'javascript', 'bootstrap'].includes(track)) {
@@ -129,6 +130,7 @@ export const LearnPage = () => {
         progress={progress}
         lang={lang}
         onLangChange={handleLangChange}
+        onProgressUpdate={fetchProgress}
       />
     );
   } else {

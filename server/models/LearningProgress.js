@@ -42,6 +42,20 @@ const learningProgressSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+    passedQuizzes: {
+      type: [String],
+      default: [],
+    },
+    certificates: [
+      {
+        trackId: { type: String, required: true },
+        trackTitle: { type: String, required: true },
+        certificateId: { type: String, required: true },
+        score: { type: Number, required: true },
+        issuedAt: { type: Date, default: Date.now },
+        studentName: { type: String, required: true },
+      },
+    ],
     lastActiveAt: {
       type: Date,
       default: Date.now,

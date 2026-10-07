@@ -14,6 +14,7 @@ import LanguageToggle from './LanguageToggle';
 import CodeEditor from './CodeEditor';
 import CodePreview from './CodePreview';
 import ExerciseChallenge from './ExerciseChallenge';
+import LessonQuizModal from './LessonQuizModal';
 import { useNotifications } from '../../../context/NotificationContext';
 
 export const LessonView = ({
@@ -23,6 +24,7 @@ export const LessonView = ({
   onLangChange,
   onLessonCompleted,
   onOpenAskQuestion,
+  onProgressUpdate,
 }) => {
   const navigate = useNavigate();
   const { showToast } = useNotifications();
@@ -36,7 +38,11 @@ export const LessonView = ({
   const nextLesson = currentIndex < trackLessons.length - 1 ? trackLessons[currentIndex + 1] : null;
 
   const completedSet = new Set(progress.completedLessons || []);
+  const passedQuizzesSet = new Set(progress.passedQuizzes || []);
   const isCompleted = completedSet.has(lesson.id);
+  const isQuizPassed = passedQuizzesSet.has(lesson.id);
+
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
 
   // Initialize editor code
   const initialCode = {
@@ -311,6 +317,48 @@ export const LessonView = ({
             isCompleted={isCompleted}
             onApplySolution={handleApplySolution}
           />
+
+          {/* Lesson Concept Knowledge Check Test Card */}
+          <div className="rounded-2xl border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2.5 rounded-2xl ${
+                  isQuizPassed ? 'bg-emerald-500 text-white shadow-emerald-500/30' : 'bg-amber-500 text-white shadow-amber-500/30'
+                } shadow-md shrink-0`}
+              >
+                {isQuizPassed ? <CheckCircle2 className="w-5 h-5" /> : <HelpCircle className="w-5 h-5" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                    Lesson Concept Knowledge Check
+                  </h4>
+                  {isQuizPassed && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 font-mono">
+                      PASSED (+25 XP)
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  {isQuizPassed
+                    ? 'You demonstrated solid understanding of this lesson. You can retake anytime.'
+                    : 'Answer 3 interactive questions to test yourself and verify you mastered this concept!'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsQuizModalOpen(true)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs ${
+                isQuizPassed
+                  ? 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25'
+              }`}
+            >
+              {isQuizPassed ? 'Review Test ↺' : 'Take Knowledge Test 🎯'}
+            </button>
+          </div>
         </div>
 
         {/* Right Column: Interactive Editor & Live Sandboxed Preview (7 cols on lg) */}
@@ -363,6 +411,21 @@ export const LessonView = ({
           </div>
         </div>
       </div>
+
+      {/* Lesson Quiz Modal */}
+      <LessonQuizModal
+        lessonId={lesson.id}
+        lessonTitle={lesson.title.en}
+        trackId={lesson.track}
+        isOpen={isQuizModalOpen}
+        onClose={() => setIsQuizModalOpen(false)}
+        onQuizPassed={(lId, score, xp) => {
+          onLessonCompleted(lId, lesson.track);
+          if (onProgressUpdate) onProgressUpdate();
+          showToast(`Lesson mastered! +${xp} XP gained! 🎉`, 'success');
+        }}
+        lang={lang}
+      />
     </div>
   );
 };

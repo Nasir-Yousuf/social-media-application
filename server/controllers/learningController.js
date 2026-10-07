@@ -507,3 +507,151 @@ exports.toggleAnswerUpvote = async (req, res) => {
     return res.status(500).json({ message: 'Error updating answer upvote.' });
   }
 };
+
+// ==========================================
+// 3. Quizzes & Certification Exams
+// ==========================================
+
+// Submit Lesson Quiz & award XP
+exports.submitQuiz = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    const { lessonId, track, score, passed } = req.body;
+    if (!lessonId) {
+      return res.status(400).json({ message: 'lessonId is required.' });
+    }
+
+    let progress = await LearningProgress.findOne({ user: req.user._id });
+    if (!progress) {
+      progress = new LearningProgress({
+        user: req.user._id,
+        completedLessons: [],
+        passedQuizzes: [],
+        xp: 0,
+      });
+    }
+
+    const isAlreadyPassed = progress.passedQuizzes.includes(lessonId);
+    let xpEarned = 0;
+
+    if (passed) {
+      if (!isAlreadyPassed) {
+        progress.passedQuizzes.push(lessonId);
+        xpEarned += 25; // 25 XP for passing quiz
+      }
+      if (!progress.completedLessons.includes(lessonId)) {
+        progress.completedLessons.push(lessonId);
+        xpEarned += 25; // 25 XP for completing lesson
+      }
+      progress.xp += xpEarned;
+    }
+
+    if (track) progress.currentTrack = track;
+    progress.lastActiveAt = new Date();
+    await progress.save();
+
+    return res.status(200).json({
+      message: passed ? 'Knowledge check passed!' : 'Quiz submitted.',
+      passed,
+      score,
+      xpEarned,
+      progress,
+    });
+  } catch (err) {
+    console.error('submitQuiz error:', err);
+    return res.status(500).json({ message: 'Error submitting quiz.' });
+  }
+};
+
+// Submit Final Track Certification Exam & issue certificate
+exports.submitExam = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    const { trackId, trackTitle, score, studentName } = req.body;
+    if (!trackId || score === undefined) {
+      return res.status(400).json({ message: 'trackId and score are required.' });
+    }
+
+    const passed = score >= 80;
+    let progress = await LearningProgress.findOne({ user: req.user._id });
+    if (!progress) {
+      progress = new LearningProgress({ user: req.user._id, completedLessons: [], xp: 0 });
+    }
+
+    let certificate = null;
+    let xpEarned = 0;
+
+    if (passed) {
+      const existingCert = progress.certificates.find((c) => c.trackId === trackId);
+      const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const certificateId = existingCert
+        ? existingCert.certificateId
+        : `CF-CERT-${trackId.toUpperCase()}-${randomSuffix}`;
+
+      certificate = {
+        trackId,
+        trackTitle: trackTitle || trackId.toUpperCase(),
+        certificateId,
+        score,
+        issuedAt: new Date(),
+        studentName: studentName || req.user.name || req.user.username,
+      };
+
+      if (!existingCert) {
+        progress.certificates.push(certificate);
+        xpEarned = 150; // 150 XP for earning certificate
+        progress.xp += xpEarned;
+      } else {
+        // Update score if higher
+        if (score > existingCert.score) {
+          existingCert.score = score;
+        }
+      }
+
+      progress.lastActiveAt = new Date();
+      await progress.save();
+    }
+
+    return res.status(200).json({
+      message: passed ? 'Congratulations! You passed the Certification Exam!' : 'Exam completed.',
+      passed,
+      score,
+      xpEarned,
+      certificate,
+      progress,
+    });
+  } catch (err) {
+    console.error('submitExam error:', err);
+    return res.status(500).json({ message: 'Error submitting exam.' });
+  }
+};
+
+// Get Certificate by Verification ID
+exports.getCertificate = async (req, res) => {
+  try {
+    const { certificateId } = req.params;
+    const progress = await LearningProgress.findOne({
+      'certificates.certificateId': certificateId,
+    }).populate('user', 'username name avatar');
+
+    if (!progress) {
+      return res.status(404).json({ message: 'Certificate not found.' });
+    }
+
+    const cert = progress.certificates.find((c) => c.certificateId === certificateId);
+    return res.status(200).json({
+      certificate: cert,
+      user: progress.user,
+    });
+  } catch (err) {
+    console.error('getCertificate error:', err);
+    return res.status(500).json({ message: 'Error retrieving certificate.' });
+  }
+};
+

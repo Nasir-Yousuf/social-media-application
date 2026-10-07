@@ -8,6 +8,11 @@ router.get('/progress', optionalAuth, learningController.getProgress);
 router.post('/progress/complete', requireAuth, learningController.completeLesson);
 router.post('/progress/save-code', requireAuth, learningController.saveLessonCode);
 
+// Quizzes & Final Certification Exams
+router.post('/quiz/submit', requireAuth, learningController.submitQuiz);
+router.post('/exam/submit', requireAuth, learningController.submitExam);
+router.get('/certificate/:certificateId', optionalAuth, learningController.getCertificate);
+
 // Community Questions & Answers
 router.get('/questions', optionalAuth, learningController.getQuestions);
 router.post('/questions', requireAuth, learningController.createQuestion);

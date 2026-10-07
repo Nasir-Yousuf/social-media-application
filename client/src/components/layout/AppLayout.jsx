@@ -16,7 +16,9 @@ export const AppLayout = () => {
   const isMessages = location.pathname.startsWith('/messages');
   const isLearn = location.pathname.startsWith('/learn');
   const isCodePractice = location.pathname.startsWith('/code-practice');
-  const isTyping = location.pathname.startsWith('/typing');
+  const isTyping =
+    location.pathname.startsWith('/typing') ||
+    location.pathname === '/code-practice/typing';
 
   if (loading) {
     return (
@@ -81,11 +83,11 @@ export const AppLayout = () => {
         </header>
 
         {/* Center Content */}
-        <div className="max-w-7xl mx-auto flex justify-center items-start min-h-[calc(100vh-56px)]">
-          <main className={`flex-1 w-full ${isPublicLearn ? 'max-w-[1080px] xl:max-w-[1200px]' : 'max-w-[620px]'} pb-16 min-h-screen border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black`}>
+        <div className={`${isTyping ? 'max-w-[1440px] 2xl:max-w-[1560px]' : 'max-w-7xl'} mx-auto flex justify-center items-start min-h-[calc(100vh-56px)]`}>
+          <main className={`flex-1 w-full ${isTyping ? 'max-w-full' : isPublicLearn ? 'max-w-[1080px] xl:max-w-[1200px]' : 'max-w-[620px]'} pb-16 min-h-screen border-r md:border-l border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-black`}>
             <Outlet />
           </main>
-          {!isPublicLearn && <RightSidebar />}
+          {!isPublicLearn && !isTyping && <RightSidebar />}
         </div>
 
         <Toast />
@@ -130,14 +132,16 @@ export const AppLayout = () => {
       </header>
 
       {/* Main 3-Column Twitter Layout Container */}
-      <div className="max-w-7xl mx-auto flex justify-center items-start min-h-screen">
+      <div className={`${isTyping ? 'max-w-[1440px] 2xl:max-w-[1560px]' : 'max-w-7xl'} mx-auto flex justify-center items-start min-h-screen`}>
         {/* Left Column: Navigation Sidebar */}
         <LeftSidebar />
 
         {/* Center Column: Feed & Main Content */}
         <main
           className={`flex-1 w-full ${
-            isLearn || isCodePractice
+            isTyping
+              ? 'max-w-[1400px] 2xl:max-w-[1520px] pb-20 md:pb-12 min-h-screen'
+              : isLearn || isCodePractice
               ? 'max-w-[1080px] xl:max-w-[1200px] 2xl:max-w-[1260px] pb-20 md:pb-12 min-h-screen'
               : isMessages
               ? 'max-w-[1000px] xl:max-w-[1120px] 2xl:max-w-[1240px] pb-0 md:h-screen md:max-h-screen overflow-hidden'
@@ -147,8 +151,8 @@ export const AppLayout = () => {
           <Outlet />
         </main>
 
-        {/* Right Column: Search, Trending & Who to follow (hidden on messages & code practice to give full width) */}
-        {!isMessages && !isLearn && !isCodePractice && <RightSidebar />}
+        {/* Right Column: Search, Trending & Who to follow (hidden on messages, learn, code-practice, and typing arena to give full width) */}
+        {!isMessages && !isLearn && !isCodePractice && !isTyping && <RightSidebar />}
       </div>
 
       {/* Mobile Bottom Navigation (Only on mobile < md) */}

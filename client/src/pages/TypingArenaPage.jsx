@@ -442,14 +442,14 @@ export const TypingArenaPage = () => {
 
   return (
     <div
-      className={`mx-auto px-4 py-6 font-sans transition-all duration-300 ${
+      className={`mx-auto px-4 sm:px-6 py-6 font-sans transition-all duration-300 w-full ${
         arenaTheme === 'game'
-          ? 'max-w-7xl'
+          ? 'max-w-[1400px]'
           : arenaTheme === 'hacker'
-          ? 'max-w-5xl'
+          ? 'max-w-6xl'
           : arenaTheme === 'zen'
-          ? 'max-w-3xl'
-          : 'max-w-4xl'
+          ? 'max-w-4xl'
+          : 'max-w-6xl'
       }`}
     >
       {/* Top Header with Multi-mode Switcher */}
