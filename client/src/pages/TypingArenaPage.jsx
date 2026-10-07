@@ -17,6 +17,10 @@ import ComboMeter from '../components/typing/ComboMeter';
 import TypingResultsModal from '../components/typing/TypingResultsModal';
 import TypingLeaderboard from '../components/typing/TypingLeaderboard';
 import TypingContestBanner from '../components/typing/TypingContestBanner';
+import GameArenaLayout from '../components/typing/GameArenaLayout';
+import HackerArenaLayout from '../components/typing/HackerArenaLayout';
+import ZenArenaLayout from '../components/typing/ZenArenaLayout';
+import ArenaThemeSwitcher from '../components/typing/ArenaThemeSwitcher';
 import {
   generateWords,
   calculateWpm,
@@ -34,6 +38,16 @@ export const TypingArenaPage = () => {
   const { user } = useAuth();
   const { showToast } = useNotifications();
 
+  // Multi-theme Arena State ('game' | 'classic' | 'hacker' | 'zen')
+  const [arenaTheme, setArenaThemeState] = useState(() => {
+    return localStorage.getItem('typing_arena_theme') || 'game';
+  });
+
+  const setArenaTheme = (theme) => {
+    setArenaThemeState(theme);
+    localStorage.setItem('typing_arena_theme', theme);
+  };
+
   // Settings
   const [mode, setMode] = useState(searchParams.get('mode') || 'words_200');
   const [duration, setDuration] = useState(
@@ -41,6 +55,10 @@ export const TypingArenaPage = () => {
   );
   const [soundTheme, setSoundTheme] = useState('mechanical');
   const [viewMode, setViewMode] = useState('caret');
+  const [punctuation, setPunctuation] = useState(false);
+  const [numbers, setNumbers] = useState(false);
+  const [leaderboardData, setLeaderboardData] = useState([]);
+  const [userRank, setUserRank] = useState(12);
 
   // Word Stream & Input State
   const [words, setWords] = useState([]);
@@ -122,9 +140,39 @@ export const TypingArenaPage = () => {
     user,
   };
 
+  // Fetch real-time leaderboard data for sidebar
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const res = await api.get('/typing/leaderboard', {
+        params: {
+          period: 'weekly',
+          duration,
+          mode: mode.startsWith('words') ? 'words_200' : mode,
+        },
+      });
+      if (res.data?.leaderboard) {
+        setLeaderboardData(res.data.leaderboard);
+      }
+      if (res.data?.userRank) {
+        setUserRank(res.data.userRank);
+      }
+    } catch (err) {
+      console.warn('Leaderboard fetch in page:', err);
+    }
+  }, [duration, mode]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
   // Initialize or restart test
   const initTest = useCallback(() => {
-    const generated = generateWords(mode, mode === 'quote' ? 1 : 250);
+    const generated = generateWords({
+      mode,
+      punctuation,
+      numbers,
+      count: mode === 'quote' ? 1 : 250,
+    });
     setWords(generated.words);
     setQuoteAuthor(generated.quoteAuthor);
     setCurrentWordIndex(0);
@@ -143,7 +191,7 @@ export const TypingArenaPage = () => {
     if (ghostData) {
       setGhostData((prev) => (prev ? { ...prev, progress: 0 } : null));
     }
-  }, [mode, duration]);
+  }, [mode, duration, punctuation, numbers]);
 
   useEffect(() => {
     initTest();
@@ -393,89 +441,211 @@ export const TypingArenaPage = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 font-sans">
-      {/* Weekly Ongoing Contest Banner */}
-      <TypingContestBanner />
-
-      {/* Main Arena Container */}
-      <div className="space-y-5">
-        {/* Arena Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400">
-              <Keyboard className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                <span>Typing Arena</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono font-bold uppercase">
-                  10FastFingers · Monkeytype
-                </span>
-              </h1>
-              <p className="text-xs text-neutral-400">
-                Sharpen your speed, unlock tiers, and race live ghost runners
-              </p>
-            </div>
+    <div
+      className={`mx-auto px-4 py-6 font-sans transition-all duration-300 ${
+        arenaTheme === 'game'
+          ? 'max-w-7xl'
+          : arenaTheme === 'hacker'
+          ? 'max-w-5xl'
+          : arenaTheme === 'zen'
+          ? 'max-w-3xl'
+          : 'max-w-4xl'
+      }`}
+    >
+      {/* Top Header with Multi-mode Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-2 border-b border-neutral-800/60">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400">
+            <Keyboard className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-
-          {/* Active Combo Streak Badge */}
-          <ComboMeter streak={streak} highestStreak={highestStreak} />
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>Typing Arena</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono font-bold uppercase">
+                {arenaTheme.toUpperCase()} MODE
+              </span>
+            </h1>
+            <p className="text-xs text-neutral-400">
+              Sharpen your speed, climb tiers, and race ghost typists
+            </p>
+          </div>
         </div>
 
-        {/* Controls Bar (Mode, Duration, Sound, Caret/Box) */}
-        <TypingControlsBar
+        {/* Mode & Style Switcher (Arcade, Classic, Hacker, Zen) */}
+        <ArenaThemeSwitcher activeTheme={arenaTheme} onSelectTheme={setArenaTheme} />
+      </div>
+
+      {/* Render Selected Theme View */}
+      {arenaTheme === 'game' && (
+        <GameArenaLayout
           mode={mode}
           setMode={setMode}
           duration={duration}
           setDuration={setDuration}
+          punctuation={punctuation}
+          setPunctuation={setPunctuation}
+          numbers={numbers}
+          setNumbers={setNumbers}
           soundTheme={soundTheme}
           setSoundTheme={setSoundTheme}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onRestart={initTest}
-          disabled={isActive}
-        />
-
-        {/* Speedometer & Countdown Timer */}
-        <LiveSpeedometer
+          timeLeft={timeLeft}
+          streak={streak}
+          highestStreak={highestStreak}
           wpm={liveWpm}
           accuracy={liveAccuracy}
-          timeLeft={timeLeft}
-          totalTime={duration}
-          isActive={isActive}
-        />
-
-        {/* Interactive Typing Stage Canvas */}
-        <TypingStage
-          words={words}
-          currentWordIndex={currentWordIndex}
-          currentInput={currentInput}
-          wordHistory={wordHistory}
-          viewMode={viewMode}
-          onInputChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          isActive={isActive}
-          isFinished={isFinished}
+          typingStageSlot={
+            <TypingStage
+              words={words}
+              currentWordIndex={currentWordIndex}
+              currentInput={currentInput}
+              wordHistory={wordHistory}
+              viewMode={viewMode}
+              onInputChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              isActive={isActive}
+              isFinished={isFinished}
+              ghostData={ghostData}
+              userProgress={userProgress}
+              theme="game"
+            />
+          }
+          leaderboard={leaderboardData}
+          userRank={userRank}
+          currentUser={user}
+          onChallengeGhost={handleChallengeGhost}
           ghostData={ghostData}
-          userProgress={userProgress}
+          isActive={isActive}
         />
+      )}
 
-        {/* Quote Author attribution (if in quotes mode) */}
-        {mode === 'quote' && quoteAuthor && (
-          <div className="text-right text-xs text-neutral-400 italic font-mono pr-2">
-            — {quoteAuthor}
+      {arenaTheme === 'hacker' && (
+        <HackerArenaLayout
+          mode={mode}
+          setMode={setMode}
+          duration={duration}
+          setDuration={setDuration}
+          punctuation={punctuation}
+          setPunctuation={setPunctuation}
+          numbers={numbers}
+          setNumbers={setNumbers}
+          soundTheme={soundTheme}
+          setSoundTheme={setSoundTheme}
+          timeLeft={timeLeft}
+          streak={streak}
+          wpm={liveWpm}
+          accuracy={liveAccuracy}
+          typingStageSlot={
+            <TypingStage
+              words={words}
+              currentWordIndex={currentWordIndex}
+              currentInput={currentInput}
+              wordHistory={wordHistory}
+              viewMode={viewMode}
+              onInputChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              isActive={isActive}
+              isFinished={isFinished}
+              ghostData={ghostData}
+              userProgress={userProgress}
+              theme="hacker"
+            />
+          }
+          leaderboard={leaderboardData}
+          onChallengeGhost={handleChallengeGhost}
+        />
+      )}
+
+      {arenaTheme === 'zen' && (
+        <ZenArenaLayout
+          timeLeft={timeLeft}
+          wpm={liveWpm}
+          accuracy={liveAccuracy}
+          duration={duration}
+          setDuration={setDuration}
+          mode={mode}
+          setMode={setMode}
+          typingStageSlot={
+            <TypingStage
+              words={words}
+              currentWordIndex={currentWordIndex}
+              currentInput={currentInput}
+              wordHistory={wordHistory}
+              viewMode={viewMode}
+              onInputChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              isActive={isActive}
+              isFinished={isFinished}
+              ghostData={ghostData}
+              userProgress={userProgress}
+              theme="zen"
+            />
+          }
+        />
+      )}
+
+      {arenaTheme === 'classic' && (
+        <>
+          <TypingContestBanner />
+          <div className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">Classic Mode</span>
+              </div>
+              <ComboMeter streak={streak} highestStreak={highestStreak} />
+            </div>
+
+            <TypingControlsBar
+              mode={mode}
+              setMode={setMode}
+              duration={duration}
+              setDuration={setDuration}
+              soundTheme={soundTheme}
+              setSoundTheme={setSoundTheme}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+              onRestart={initTest}
+              disabled={isActive}
+            />
+
+            <LiveSpeedometer
+              wpm={liveWpm}
+              accuracy={liveAccuracy}
+              timeLeft={timeLeft}
+              totalTime={duration}
+              isActive={isActive}
+            />
+
+            <TypingStage
+              words={words}
+              currentWordIndex={currentWordIndex}
+              currentInput={currentInput}
+              wordHistory={wordHistory}
+              viewMode={viewMode}
+              onInputChange={handleInputChange}
+              onKeyDown={handleKeyDown}
+              isActive={isActive}
+              isFinished={isFinished}
+              ghostData={ghostData}
+              userProgress={userProgress}
+              theme="classic"
+            />
+
+            {mode === 'quote' && quoteAuthor && (
+              <div className="text-right text-xs text-neutral-400 italic font-mono pr-2">
+                — {quoteAuthor}
+              </div>
+            )}
+
+            <div className="pt-6">
+              <TypingLeaderboard
+                onChallengeGhost={handleChallengeGhost}
+                currentSessionDuration={duration}
+                currentSessionMode={mode}
+              />
+            </div>
           </div>
-        )}
-
-        {/* Real-time Global & Weekly Championship Leaderboard */}
-        <div className="pt-6">
-          <TypingLeaderboard
-            onChallengeGhost={handleChallengeGhost}
-            currentSessionDuration={duration}
-            currentSessionMode={mode}
-          />
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Results Celebration Modal */}
       <TypingResultsModal

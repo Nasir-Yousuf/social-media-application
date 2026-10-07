@@ -11,8 +11,9 @@ export const TypingStage = ({
   onKeyDown,
   isActive = false,
   isFinished = false,
-  ghostData = null, // { wpm, name, progress: 0-100 }
+  ghostData = null, // { wpm, username, progress: 0-100 }
   userProgress = 0, // 0-100
+  theme = 'classic', // 'classic' | 'game' | 'hacker' | 'zen'
 }) => {
   const inputRef = useRef(null);
   const containerRef = useRef(null);
@@ -20,6 +21,12 @@ export const TypingStage = ({
   const wordRefs = useRef([]);
   const boxWordRefs = useRef([]);
   const [scrollOffset, setScrollOffset] = useState(0);
+
+  // In-text Ghost position
+  const ghostWordIndex =
+    ghostData && ghostData.progress > 0
+      ? Math.min(words.length - 1, Math.floor(((ghostData.progress || 0) / 100) * words.length))
+      : -1;
 
   // Focus input automatically
   useEffect(() => {
@@ -59,14 +66,20 @@ export const TypingStage = ({
     }
   };
 
+  const isEmbeddedTheme = theme === 'game' || theme === 'hacker' || theme === 'zen';
+
   return (
     <div
       ref={containerRef}
       onClick={handleContainerClick}
-      className="relative p-6 sm:p-8 rounded-3xl bg-[#0e1116] border border-neutral-800 shadow-2xl cursor-text select-none overflow-hidden transition-all duration-300"
+      className={`relative cursor-text select-none overflow-hidden transition-all duration-300 ${
+        isEmbeddedTheme
+          ? 'p-0 bg-transparent border-0 shadow-none'
+          : 'p-6 sm:p-8 rounded-3xl bg-[#0e1116] border border-neutral-800 shadow-2xl'
+      }`}
     >
-      {/* Ghost Racing Track (Multiplayer / Ghost Challenge mode) */}
-      {ghostData && (
+      {/* Ghost Racing Track Bar (only for classic standalone mode when ghost is active) */}
+      {ghostData && !isEmbeddedTheme && (
         <div className="mb-6 p-3 rounded-2xl bg-black/50 border border-neutral-800/80 font-mono text-xs">
           <div className="flex items-center justify-between text-neutral-400 mb-2">
             <div className="flex items-center gap-1.5 text-purple-400 font-bold">
@@ -81,14 +94,12 @@ export const TypingStage = ({
 
           {/* Race Track Bar */}
           <div className="space-y-2">
-            {/* Ghost Track */}
             <div className="relative h-2 w-full bg-neutral-800/60 rounded-full overflow-hidden">
               <div
                 className="absolute top-0 bottom-0 left-0 bg-purple-500 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min(100, ghostData.progress || 0)}%` }}
               />
             </div>
-            {/* User Track */}
             <div className="relative h-2 w-full bg-neutral-800/60 rounded-full overflow-hidden">
               <div
                 className="absolute top-0 bottom-0 left-0 bg-sky-400 rounded-full transition-all duration-150"
@@ -117,15 +128,18 @@ export const TypingStage = ({
 
       {/* View Mode 1: Monkeytype Flowing Caret (Fixed 3-Line Window with Line Scroll) */}
       {viewMode === 'caret' ? (
-        <div className="relative h-[130px] sm:h-[145px] overflow-hidden">
+        <div className="relative h-[130px] sm:h-[150px] overflow-hidden">
           <div
             ref={wordsWrapperRef}
             style={{ transform: `translateY(-${scrollOffset}px)` }}
-            className="transition-transform duration-200 ease-out flex flex-wrap gap-x-3 gap-y-3 font-mono text-xl sm:text-2xl leading-normal tracking-wide text-neutral-500"
+            className={`transition-transform duration-200 ease-out flex flex-wrap gap-x-3 gap-y-3.5 font-mono text-xl sm:text-2xl leading-normal tracking-wide ${
+              theme === 'hacker' ? 'text-emerald-900' : 'text-neutral-500'
+            }`}
           >
             {words.map((word, idx) => {
               const isCurrent = idx === currentWordIndex;
               const history = wordHistory[idx];
+              const isGhostHere = ghostWordIndex === idx;
 
               if (history) {
                 // Previously typed word
@@ -134,13 +148,22 @@ export const TypingStage = ({
                   <span
                     key={idx}
                     ref={(el) => (wordRefs.current[idx] = el)}
-                    className={`transition-colors whitespace-nowrap ${
+                    className={`transition-colors whitespace-nowrap inline-flex items-center gap-1 ${
                       isCorrect
-                        ? 'text-neutral-400'
+                        ? theme === 'hacker' ? 'text-emerald-600' : 'text-neutral-400'
                         : 'text-rose-500 line-through opacity-75'
                     }`}
                   >
-                    {word}
+                    <span>{word}</span>
+                    {/* Render Ghost Caret if ghost is passing through this word */}
+                    {isGhostHere && (
+                      <span className="inline-flex flex-col items-center select-none pointer-events-none animate-pulse">
+                        <span className="text-purple-400 font-black text-sm -mb-1 leading-none drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]">^</span>
+                        <span className="text-[9px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-[0_0_8px_rgba(192,132,252,0.6)] whitespace-nowrap">
+                          {ghostData?.username ? `@${ghostData.username}` : 'PB ghost'}
+                        </span>
+                      </span>
+                    )}
                   </span>
                 );
               }
@@ -155,13 +178,13 @@ export const TypingStage = ({
                   >
                     {word.split('').map((char, charIdx) => {
                       const typedChar = currentInput[charIdx];
-                      let charColor = 'text-neutral-500';
+                      let charColor = theme === 'hacker' ? 'text-emerald-700' : 'text-neutral-500';
 
                       if (typedChar !== undefined) {
                         charColor =
                           typedChar === char
-                            ? 'text-white font-semibold'
-                            : 'text-rose-500 bg-rose-500/20 rounded-xs';
+                            ? theme === 'hacker' ? 'text-emerald-300 font-semibold' : 'text-white font-semibold'
+                            : 'text-rose-400 bg-rose-500/20 border-b-2 border-rose-500 rounded-xs font-semibold';
                       }
 
                       const isCaretPos = charIdx === currentInput.length;
@@ -169,7 +192,13 @@ export const TypingStage = ({
                       return (
                         <span key={charIdx} className={`relative ${charColor}`}>
                           {isCaretPos && (
-                            <span className="absolute -left-[1.5px] top-0 bottom-0 w-[2.5px] bg-sky-400 rounded-full animate-pulse shadow-sm shadow-sky-400/60" />
+                            <span
+                              className={`absolute -left-[1.5px] top-0 bottom-0 w-[2.5px] rounded-full animate-pulse shadow-sm ${
+                                theme === 'hacker'
+                                  ? 'bg-emerald-400 shadow-emerald-400/60'
+                                  : 'bg-sky-400 shadow-sky-400/60'
+                              }`}
+                            />
                           )}
                           {char}
                         </span>
@@ -178,14 +207,30 @@ export const TypingStage = ({
 
                     {/* Overflow letters typed beyond word length */}
                     {currentInput.length > word.length && (
-                      <span className="text-rose-500 bg-rose-500/20 underline">
+                      <span className="text-rose-400 bg-rose-500/20 border-b-2 border-rose-500">
                         {currentInput.slice(word.length)}
                       </span>
                     )}
 
                     {/* Caret at end of word */}
                     {currentInput.length >= word.length && (
-                      <span className="inline-block w-[2.5px] h-6 bg-sky-400 rounded-full animate-pulse shadow-sm shadow-sky-400/60 ml-0.5" />
+                      <span
+                        className={`inline-block w-[2.5px] h-6 rounded-full animate-pulse shadow-sm ml-0.5 ${
+                          theme === 'hacker'
+                            ? 'bg-emerald-400 shadow-emerald-400/60'
+                            : 'bg-sky-400 shadow-sky-400/60'
+                        }`}
+                      />
+                    )}
+
+                    {/* Render Ghost Caret if ghost is at current active word */}
+                    {isGhostHere && (
+                      <span className="inline-flex flex-col items-center ml-1.5 select-none pointer-events-none animate-pulse">
+                        <span className="text-purple-400 font-black text-sm -mb-1 leading-none drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]">^</span>
+                        <span className="text-[9px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-[0_0_8px_rgba(192,132,252,0.6)] whitespace-nowrap">
+                          {ghostData?.username ? `@${ghostData.username}` : 'PB ghost'}
+                        </span>
+                      </span>
                     )}
                   </span>
                 );
@@ -196,9 +241,20 @@ export const TypingStage = ({
                 <span
                   key={idx}
                   ref={(el) => (wordRefs.current[idx] = el)}
-                  className="text-neutral-500 whitespace-nowrap"
+                  className={`whitespace-nowrap inline-flex items-center gap-1 ${
+                    theme === 'hacker' ? 'text-emerald-800' : 'text-neutral-500'
+                  }`}
                 >
-                  {word}
+                  <span>{word}</span>
+                  {/* Render Ghost Caret if ghost is ahead at this word */}
+                  {isGhostHere && (
+                    <span className="inline-flex flex-col items-center select-none pointer-events-none animate-pulse">
+                      <span className="text-purple-400 font-black text-sm -mb-1 leading-none drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]">^</span>
+                      <span className="text-[9px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-[0_0_8px_rgba(192,132,252,0.6)] whitespace-nowrap">
+                        {ghostData?.username ? `@${ghostData.username}` : 'PB ghost'}
+                      </span>
+                    </span>
+                  )}
                 </span>
               );
             })}
