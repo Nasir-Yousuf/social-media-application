@@ -66,10 +66,16 @@ export const PostComposer = ({
   compact = false,
   initialShowCode = false,
   initialLanguage = 'javascript',
+  initialContent = '',
 }) => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState(initialContent || '');
+  useEffect(() => {
+    if (initialContent) {
+      setContent(initialContent);
+    }
+  }, [initialContent]);
   const [loading, setLoading] = useState(false);
   const [forkedFromId, setForkedFromId] = useState(null);
   const [showMarkdownHint, setShowMarkdownHint] = useState(false);

@@ -15,6 +15,7 @@ export const AppLayout = () => {
   const location = useLocation();
   const isMessages = location.pathname.startsWith('/messages');
   const isLearn = location.pathname.startsWith('/learn');
+  const isCodePractice = location.pathname.startsWith('/code-practice');
 
   if (loading) {
     return (
@@ -30,7 +31,7 @@ export const AppLayout = () => {
   }
 
   const isPublicPost = location.pathname.startsWith('/posts/') || location.pathname.startsWith('/post/');
-  const isPublicLearn = location.pathname.startsWith('/learn');
+  const isPublicLearn = location.pathname.startsWith('/learn') || location.pathname.startsWith('/code-practice');
   const isPublicRoute = isPublicPost || isPublicLearn;
 
   if (!isAuthenticated && !isPublicRoute) {
@@ -132,7 +133,7 @@ export const AppLayout = () => {
         {/* Center Column: Feed & Main Content */}
         <main
           className={`flex-1 w-full ${
-            isLearn
+            isLearn || isCodePractice
               ? 'max-w-[1080px] xl:max-w-[1200px] 2xl:max-w-[1260px] pb-20 md:pb-12 min-h-screen'
               : isMessages
               ? 'max-w-[1000px] xl:max-w-[1120px] 2xl:max-w-[1240px] pb-0 md:h-screen md:max-h-screen overflow-hidden'
@@ -142,8 +143,8 @@ export const AppLayout = () => {
           <Outlet />
         </main>
 
-        {/* Right Column: Search, Trending & Who to follow (hidden on messages to give full width) */}
-        {!isMessages && !isLearn && <RightSidebar />}
+        {/* Right Column: Search, Trending & Who to follow (hidden on messages & code practice to give full width) */}
+        {!isMessages && !isLearn && !isCodePractice && <RightSidebar />}
       </div>
 
       {/* Mobile Bottom Navigation (Only on mobile < md) */}

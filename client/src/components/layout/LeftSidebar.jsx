@@ -20,6 +20,7 @@ import {
   Palette,
   KeyRound,
   BookOpen,
+  Keyboard,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -50,6 +51,7 @@ export const LeftSidebar = () => {
   const navItems = [
     { to: '/', label: 'Home', icon: Home, end: true },
     { to: '/explore', label: 'Explore', icon: Compass },
+    { to: '/code-practice', label: 'Code Practice', icon: Keyboard },
     { to: '/learn', label: 'Learn & Practice', icon: BookOpen },
     {
       to: '/notifications',

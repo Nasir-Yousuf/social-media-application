@@ -14,6 +14,7 @@ import {
   Bookmark,
   Menu,
   X,
+  Keyboard,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -38,6 +39,7 @@ export const TopNav = () => {
   const navItems = [
     { to: '/', label: 'Feed', icon: Home, end: true },
     { to: '/explore', label: 'Discover', icon: Compass },
+    { to: '/code-practice', label: 'Code Practice', icon: Keyboard },
     { to: '/code', label: 'Code', icon: Code2 },
     { to: '/search', label: 'Search', icon: Search },
     {

@@ -19,6 +19,7 @@ import DigestPage from './pages/DigestPage';
 import MessagesPage from './pages/MessagesPage';
 import PostDetailPage from './pages/PostDetailPage';
 import LearnPage from './pages/LearnPage';
+import CodePracticePage from './pages/CodePracticePage';
 import ThemeModal from './components/common/ThemeModal';
 
 export function App() {
@@ -37,6 +38,7 @@ export function App() {
                 <Route index element={<HomePage />} />
                 <Route path="home" element={<Navigate to="/" replace />} />
                 <Route path="explore" element={<ExplorePage />} />
+                <Route path="code-practice" element={<CodePracticePage />} />
                 <Route path="learn" element={<LearnPage />} />
                 <Route path="learn/questions" element={<LearnPage />} />
                 <Route path="learn/questions/:id" element={<LearnPage />} />
