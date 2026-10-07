@@ -5,6 +5,7 @@ import Button from '../common/Button';
 import api from '../../api/client';
 import { useNotifications } from '../../context/NotificationContext';
 import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutocomplete';
+import PostAudienceControl from './PostAudienceControl';
 import {
   FileTabIcon,
   getLanguageFromFilename,
@@ -29,6 +30,8 @@ const SUPPORTED_LANGUAGES = [
 export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
   const initialFiles = normalizeSnippetFiles(post?.codeSnippet);
   const [content, setContent] = useState(post?.content || '');
+  const [visibility, setVisibility] = useState(post?.visibility || 'public');
+  const [replyPolicy, setReplyPolicy] = useState(post?.replyPolicy || 'everyone');
   const [hasSnippet, setHasSnippet] = useState(initialFiles.length > 0);
   const [snippetTitle, setSnippetTitle] = useState(post?.codeSnippet?.title || '');
   const [files, setFiles] = useState(
@@ -128,6 +131,8 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
       const payload = {
         content: content.trim() || (snippetTitle ? `Code: ${snippetTitle}` : 'Shared snippet'),
         codeSnippet: snippetPayload,
+        visibility,
+        replyPolicy,
       };
 
       const res = await api.patch(`/posts/${post._id}`, payload);
@@ -147,6 +152,15 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Post">
       <form onSubmit={handleSave} className="flex flex-col gap-4 font-sans">
+        <div className="flex items-center justify-between pb-1">
+          <PostAudienceControl
+            visibility={visibility}
+            onChangeVisibility={setVisibility}
+            replyPolicy={replyPolicy}
+            onChangeReplyPolicy={setReplyPolicy}
+          />
+        </div>
+
         <div className="relative">
           <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">Post Content</label>
           

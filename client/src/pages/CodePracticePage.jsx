@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { NavLink } from 'react-router-dom';
 import { Keyboard, Zap, Flame, Trophy, Sparkles, BookOpen, Target, Play, RotateCcw, Share2, Layers } from 'lucide-react';
 import LanguageSelector from '../components/code-practice/LanguageSelector';
 import CodeStatsHeader from '../components/code-practice/CodeStatsHeader';
@@ -273,6 +274,18 @@ export const CodePracticePage = () => {
             </button>
           );
         })}
+
+        {/* 10FastFingers / Monkeytype Arena Link */}
+        <NavLink
+          to="/typing"
+          className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer bg-gradient-to-r from-amber-500/20 via-sky-500/20 to-purple-500/20 border border-sky-500/40 text-sky-400 hover:border-sky-400 hover:scale-[1.02] shadow-sm active:scale-95"
+        >
+          <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+          <span>Typing Arena & Contest</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[9px] font-black uppercase">
+            10FastFingers
+          </span>
+        </NavLink>
       </div>
 
       {/* 3. Main Dashboard View Tab (If My Progress Tab Selected) */}

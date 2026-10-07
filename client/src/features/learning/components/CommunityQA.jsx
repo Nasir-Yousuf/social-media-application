@@ -132,13 +132,13 @@ export const CommunityQA = ({ lang = 'both' }) => {
         </div>
 
         {/* Track Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto select-none">
-          {['all', 'html', 'css', 'javascript'].map((t) => (
+        <div className="flex items-center gap-1.5 overflow-x-auto select-none no-scrollbar">
+          {['all', 'html', 'css', 'javascript', 'bootstrap', 'general'].map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setActiveTrack(t)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer shrink-0 ${
                 activeTrack === t
                   ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs'
                   : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   Share2,
   Send,
   AlertCircle,
+  AtSign,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../../api/client';
@@ -20,6 +21,7 @@ import Button from '../../../components/common/Button';
 import MarkdownRenderer from '../../../components/posts/MarkdownRenderer';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
+import { useMentionAutocomplete, MentionDropdown } from '../../../components/common/MentionAutocomplete';
 
 export const QuestionDetail = () => {
   const { id } = useParams();
@@ -37,6 +39,16 @@ export const QuestionDetail = () => {
   const [includeCode, setIncludeCode] = useState(false);
   const [answerCode, setAnswerCode] = useState({ html: '', css: '', javascript: '' });
   const [submitting, setSubmitting] = useState(false);
+
+  const answerRef = useRef(null);
+  const {
+    mentionActive,
+    filteredUsers,
+    selectedIndex,
+    insertMention,
+    handleKeyDown: handleMentionKeyDown,
+    closeMention,
+  } = useMentionAutocomplete(newAnswer, setNewAnswer, answerRef);
 
   const fetchQuestion = useCallback(async () => {
     if (!id) return;
@@ -250,9 +262,9 @@ export const QuestionDetail = () => {
               </div>
             )}
 
-            {/* Description */}
-            <div className="mt-4 text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap">
-              {question.description}
+            {/* Description with full Markdown and @mention support */}
+            <div className="mt-4">
+              <MarkdownRenderer content={question.description} />
             </div>
 
             {/* Attached Code Snippet */}
@@ -372,8 +384,8 @@ export const QuestionDetail = () => {
                       </span>
                     </div>
 
-                    <div className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap">
-                      {answer.content}
+                    <div className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed">
+                      <MarkdownRenderer content={answer.content} />
                     </div>
 
                     {/* Answer Code Snippet */}
@@ -406,19 +418,63 @@ export const QuestionDetail = () => {
 
         {/* Post Answer Form */}
         <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 mb-2">
-            Your Answer / আপনার উত্তর লিখুন
-          </h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+              Your Answer / আপনার উত্তর লিখুন
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                if (!answerRef.current) return;
+                const input = answerRef.current;
+                const cursorPos = input.selectionStart || newAnswer.length;
+                const before = newAnswer.slice(0, cursorPos);
+                const after = newAnswer.slice(cursorPos);
+                const needsSpace = before.length > 0 && !before.endsWith(' ');
+                const nextText = `${before}${needsSpace ? ' ' : ''}@${after}`;
+                setNewAnswer(nextText);
+                setTimeout(() => {
+                  input.focus();
+                  const nextPos = cursorPos + (needsSpace ? 2 : 1);
+                  input.setSelectionRange(nextPos, nextPos);
+                }, 10);
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+              title="Mention a member, @everyone, or @followers"
+            >
+              <AtSign className="w-3 h-3" />
+              <span>Mention (@)</span>
+            </button>
+          </div>
+
           <form onSubmit={handleSubmitAnswer} className="space-y-3">
-            <textarea
-              rows={4}
-              value={newAnswer}
-              onChange={(e) => setNewAnswer(e.target.value)}
-              placeholder="Explain how to solve this problem clearly so a beginner can understand..."
-              maxLength={3000}
-              required
-              className="w-full p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#0c0f14] text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 resize-none"
-            />
+            <div className="relative">
+              <textarea
+                ref={answerRef}
+                rows={4}
+                value={newAnswer}
+                onChange={(e) => setNewAnswer(e.target.value)}
+                onKeyDown={(e) => {
+                  if (mentionActive && handleMentionKeyDown(e)) {
+                    // handled by mention dropdown
+                  }
+                }}
+                placeholder="Explain how to solve this problem clearly. Tip: type @ to mention someone, @everyone or @followers..."
+                maxLength={3000}
+                required
+                className="w-full p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#0c0f14] text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 resize-none font-sans"
+              />
+
+              {mentionActive && (
+                <div className="absolute left-0 bottom-full mb-1 z-50">
+                  <MentionDropdown
+                    users={filteredUsers}
+                    selectedIndex={selectedIndex}
+                    onSelect={insertMention}
+                  />
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center justify-between gap-3 pt-1">
               <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-neutral-600 dark:text-neutral-400">

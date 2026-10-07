@@ -141,8 +141,10 @@ export const NotificationProvider = ({ children }) => {
               notifText = `💬 ${senderName} responded to your post`;
             } else if (latestUnreadNotif.type === 'follow') {
               notifText = `👤 ${senderName} began following you`;
-            } else if (latestUnreadNotif.type === 'mention') {
+            } else if (latestUnreadNotif.type === 'mention' || latestUnreadNotif.type === 'question_mention') {
               notifText = `📢 ${senderName} mentioned you`;
+            } else if (latestUnreadNotif.type === 'everyone_mention') {
+              notifText = `📢 ${senderName} mentioned @everyone`;
             } else if (latestUnreadNotif.type === 'announcement') {
               notifText = `📌 Announcement from ${senderName}`;
             }

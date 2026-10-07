@@ -72,6 +72,23 @@ const postSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    visibility: {
+      type: String,
+      enum: ['public', 'followers', 'mutuals', 'specific', 'private'],
+      default: 'public',
+      index: true,
+    },
+    audience: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    replyPolicy: {
+      type: String,
+      enum: ['everyone', 'following', 'mentioned'],
+      default: 'everyone',
+    },
     likesCount: {
       type: Number,
       default: 0,

@@ -4,6 +4,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { getClientIp } = require('../utils/ipUtils');
 const { logActivity } = require('../utils/auditLogger');
+const { canUserViewPost, canUserReplyToPost } = require('./postController');
 
 // Get comments for a post
 exports.getCommentsByPost = async (req, res) => {
@@ -11,6 +12,16 @@ exports.getCommentsByPost = async (req, res) => {
     const { postId } = req.params;
     const currentUserId = req.user ? req.user._id : null;
     const isAdmin = req.user?.role === 'admin';
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    const canView = await canUserViewPost(post, currentUserId, isAdmin);
+    if (!canView) {
+      return res.status(403).json({ message: 'You do not have permission to view comments on this post.' });
+    }
 
     const comments = await Comment.find({ post: postId })
       .populate('author', 'name username avatarUrl role')
@@ -52,6 +63,17 @@ exports.createComment = async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    const isAdmin = req.user?.role === 'admin';
+    const canView = await canUserViewPost(post, req.user._id, isAdmin);
+    if (!canView) {
+      return res.status(403).json({ message: 'You do not have permission to comment on this post.' });
+    }
+
+    const canReply = await canUserReplyToPost(post, req.user._id, isAdmin);
+    if (!canReply) {
+      return res.status(403).json({ message: 'The author has restricted who can reply to this post.' });
     }
 
     const clientIp = getClientIp(req);
@@ -98,32 +120,20 @@ exports.createComment = async (req, res) => {
     }
 
     // Extract @mentions from comment and notify mentioned users
-    const mentionMatches = content.trim().match(/@([a-zA-Z0-9_]{3,20})/g);
-    if (mentionMatches) {
-      const usernames = [...new Set(mentionMatches.map((m) => m.slice(1).toLowerCase()))];
-      const mentionedUsers = await User.find({
-        username: { $in: usernames },
-        _id: { $ne: req.user._id },
-        isApproved: true,
-      }).select('_id');
-
-      if (mentionedUsers.length > 0) {
-        const mentionNotifs = mentionedUsers
-          .filter((u) => !post.author.equals(u._id))
-          .map((u) => ({
-            recipient: u._id,
-            sender: req.user._id,
-            type: 'mention',
-            post: postId,
-            comment: comment._id,
-          }));
-        if (mentionNotifs.length > 0) {
-          await Notification.insertMany(mentionNotifs);
-        }
-      }
+    try {
+      const { notifyMentions } = require('../utils/mentionUtils');
+      await notifyMentions({
+        texts: [content.trim()],
+        senderId: req.user._id,
+        refs: { post: postId, comment: comment._id },
+        directType: 'mention',
+        broadcastType: 'everyone_mention',
+        excludeIds: [post.author],
+      });
+    } catch (mentionErr) {
+      console.warn('createComment mention notify error:', mentionErr.message);
     }
 
-    const isAdmin = req.user.role === 'admin';
     const commentObj = comment.toObject();
     if (!isAdmin) {
       delete commentObj.ipAddress;

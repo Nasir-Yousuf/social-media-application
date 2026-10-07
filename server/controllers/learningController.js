@@ -3,6 +3,7 @@ const LearningProgress = require('../models/LearningProgress');
 const LearningQuestion = require('../models/LearningQuestion');
 const LearningAnswer = require('../models/LearningAnswer');
 const Notification = require('../models/Notification');
+const { notifyMentions } = require('../utils/mentionUtils');
 
 // ==========================================
 // 1. Progress Tracking
@@ -262,7 +263,7 @@ exports.createQuestion = async (req, res) => {
       author: req.user._id,
       title: title.trim(),
       description: description.trim(),
-      track: ['html', 'css', 'javascript', 'general'].includes(track) ? track : 'general',
+      track: ['html', 'css', 'javascript', 'bootstrap', 'general'].includes(track) ? track : 'general',
       lessonId: (lessonId || '').trim(),
       tags: formattedTags,
       codeSnippet: {
@@ -273,6 +274,19 @@ exports.createQuestion = async (req, res) => {
     });
 
     await newQuestion.populate('author', 'name username avatarUrl role status');
+
+    // Notify mentions (e.g. @username, @everyone, @followers)
+    try {
+      await notifyMentions({
+        texts: [newQuestion.title, newQuestion.description],
+        senderId: req.user._id,
+        refs: { question: newQuestion._id },
+        directType: 'question_mention',
+        broadcastType: 'everyone_mention',
+      });
+    } catch (mentionErr) {
+      console.warn('createQuestion mention notify error:', mentionErr.message);
+    }
 
     return res.status(201).json({
       message: 'Question posted successfully!',
@@ -368,6 +382,20 @@ exports.createAnswer = async (req, res) => {
       } catch (notifyErr) {
         console.warn('Failed to send question answer notification:', notifyErr.message);
       }
+    }
+
+    // Notify any mentions inside answer content (excluding question author who already got question_answer)
+    try {
+      await notifyMentions({
+        texts: [content.trim()],
+        senderId: req.user._id,
+        refs: { question: question._id },
+        directType: 'question_mention',
+        broadcastType: 'everyone_mention',
+        excludeIds: [question.author],
+      });
+    } catch (mentionErr) {
+      console.warn('createAnswer mention notify error:', mentionErr.message);
     }
 
     return res.status(201).json({

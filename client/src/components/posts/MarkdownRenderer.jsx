@@ -64,18 +64,41 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
         );
       } else if (matchedStr.startsWith('@') && matchedStr.length > 1) {
         const username = matchedStr.slice(1);
-        elements.push(
-          <NavLink
-            key={key++}
-            to={`/profile/${username}`}
-            className="text-sky-500 hover:text-sky-400 hover:underline font-semibold cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            {matchedStr}
-          </NavLink>
-        );
+        const lower = username.toLowerCase();
+        if (lower === 'everyone') {
+          elements.push(
+            <span
+              key={key++}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-bold text-xs bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 align-baseline"
+              title="Broadcast mention to all members"
+            >
+              📢 @everyone
+            </span>
+          );
+        } else if (lower === 'followers') {
+          elements.push(
+            <span
+              key={key++}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-bold text-xs bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 align-baseline"
+              title="Broadcast mention to followers"
+            >
+              👥 @followers
+            </span>
+          );
+        } else {
+          elements.push(
+            <NavLink
+              key={key++}
+              to={`/profile/${username}`}
+              className="text-sky-500 hover:text-sky-400 hover:underline font-semibold cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              {matchedStr}
+            </NavLink>
+          );
+        }
       } else if (matchedStr.startsWith('[') && matchedStr.includes('](')) {
         const closeBracket = matchedStr.indexOf('](');
         const label = matchedStr.slice(1, closeBracket);

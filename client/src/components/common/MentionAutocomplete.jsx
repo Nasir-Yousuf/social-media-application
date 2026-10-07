@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Users, Radio, Sparkles } from 'lucide-react';
 import Avatar from './Avatar';
 import { FacultyBadge } from './ClearfeedIcons';
 import api from '../../api/client';
@@ -41,22 +42,55 @@ export const useMentionAutocomplete = (text, setText, inputRef) => {
     });
   }, []);
 
+  // Special broadcast mention items (@everyone and @followers)
+  const SPECIAL_BROADCASTS = React.useMemo(
+    () => [
+      {
+        _id: '__special_everyone__',
+        username: 'everyone',
+        name: 'Everyone',
+        subtitle: 'Notify all members on the platform',
+        isSpecial: true,
+        badge: 'ALL',
+        color: 'amber',
+      },
+      {
+        _id: '__special_followers__',
+        username: 'followers',
+        name: 'Followers',
+        subtitle: 'Notify everyone who follows you',
+        isSpecial: true,
+        badge: 'FOLLOWERS',
+        color: 'sky',
+      },
+    ],
+    []
+  );
+
   // Filter users based on mentionQuery
   const filteredUsers = React.useMemo(() => {
     if (!mentionActive) return [];
     const q = mentionQuery.toLowerCase().trim();
+
+    const matchedSpecials = SPECIAL_BROADCASTS.filter(
+      (s) => !q || s.username.includes(q) || s.name.toLowerCase().includes(q)
+    );
+
     if (!q) {
-      // Return top 6 users when just '@' is typed
-      return allUsers.slice(0, 6);
+      // Top broadcast items + top 5 members
+      return [...matchedSpecials, ...allUsers.slice(0, 5)];
     }
-    return allUsers
+
+    const matchedMembers = allUsers
       .filter((u) => {
         const uName = (u.name || '').toLowerCase();
         const uHandle = (u.username || '').toLowerCase();
         return uHandle.includes(q) || uName.includes(q);
       })
       .slice(0, 6);
-  }, [mentionActive, mentionQuery, allUsers]);
+
+    return [...matchedSpecials, ...matchedMembers];
+  }, [mentionActive, mentionQuery, allUsers, SPECIAL_BROADCASTS]);
 
   // Reset selected index when filtered list changes
   useEffect(() => {
@@ -178,6 +212,53 @@ export const MentionDropdown = ({
       <div className="max-h-60 overflow-y-auto py-1">
         {users.map((u, idx) => {
           const isSelected = idx === selectedIndex;
+          if (u.isSpecial) {
+            const isEveryone = u.username === 'everyone';
+            return (
+              <button
+                key={u._id || u.username}
+                type="button"
+                onClick={() => onSelect(u)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer border-b border-neutral-100/60 dark:border-neutral-800/40 last:border-b-0 ${
+                  isSelected
+                    ? isEveryone
+                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                      : 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200'
+                }`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                    isEveryone
+                      ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                      : 'bg-sky-500/10 text-sky-500 border border-sky-500/30'
+                  }`}
+                >
+                  {isEveryone ? <Radio className="w-3.5 h-3.5 animate-pulse" /> : <Users className="w-3.5 h-3.5" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-xs truncate text-neutral-900 dark:text-neutral-100">
+                      @{u.username}
+                    </span>
+                    <span
+                      className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded-full ${
+                        isEveryone
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                          : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
+                      }`}
+                    >
+                      {u.badge}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400 block truncate">
+                    {u.subtitle}
+                  </span>
+                </div>
+              </button>
+            );
+          }
+
           return (
             <button
               key={u._id || u.username}

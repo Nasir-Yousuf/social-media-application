@@ -16,6 +16,7 @@ import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 import api from '../../api/client';
 import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutocomplete';
+import PostAudienceControl from './PostAudienceControl';
 import {
   FileTabIcon,
   getLanguageFromFilename,
@@ -92,6 +93,8 @@ export const PostComposer = ({
 
   // Twitter-style Location and Emoji state
   const [location, setLocation] = useState('');
+  const [visibility, setVisibility] = useState('public');
+  const [replyPolicy, setReplyPolicy] = useState('everyone');
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [customLocationInput, setCustomLocationInput] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -314,6 +317,8 @@ export const PostComposer = ({
         isAnnouncement: false,
         forkedFrom: forkedFromId || null,
         location: location.trim() || undefined,
+        visibility,
+        replyPolicy,
       };
 
       if (formattedSnippet) {
@@ -326,6 +331,8 @@ export const PostComposer = ({
       setContent('');
       closeMention();
       setLocation('');
+      setVisibility('public');
+      setReplyPolicy('everyone');
       setShowLocationPicker(false);
       setShowEmojiPicker(false);
       setFiles([
@@ -370,6 +377,17 @@ export const PostComposer = ({
         />
 
         <div className="flex-1 min-w-0">
+          {/* Audience & Reply Policy Selector */}
+          <div className="mb-2.5">
+            <PostAudienceControl
+              visibility={visibility}
+              onChangeVisibility={setVisibility}
+              replyPolicy={replyPolicy}
+              onChangeReplyPolicy={setReplyPolicy}
+              compact={compact}
+            />
+          </div>
+
           <div className="relative">
             {/* Mention Autocomplete Dropdown */}
             {mentionActive && (

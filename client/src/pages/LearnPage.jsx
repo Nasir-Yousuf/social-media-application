@@ -101,70 +101,62 @@ export const LearnPage = () => {
   // Determine which sub-view to display based on URL
   const pathname = location.pathname;
 
+  let mainContent = null;
+
   // 1. Single Question Detail: /learn/questions/:id
   if (pathname.startsWith('/learn/questions/') && id) {
-    return (
-      <div className="p-4 sm:p-6 min-h-screen">
-        <QuestionDetail />
-      </div>
+    mainContent = <QuestionDetail />;
+  } else if (pathname === '/learn/questions') {
+    // 2. Questions Hub: /learn/questions
+    mainContent = <CommunityQA lang={lang} />;
+  } else if (track && lessonId) {
+    // 3. Lesson & Playground View: /learn/:track/:lessonId
+    mainContent = (
+      <LessonView
+        lessonId={lessonId}
+        progress={progress}
+        lang={lang}
+        onLangChange={handleLangChange}
+        onLessonCompleted={handleLessonCompleted}
+        onOpenAskQuestion={handleOpenAskQuestion}
+      />
     );
-  }
-
-  // 2. Questions Hub: /learn/questions
-  if (pathname === '/learn/questions') {
-    return (
-      <div className="p-4 sm:p-6 min-h-screen">
-        <CommunityQA lang={lang} />
-      </div>
+  } else if (track && ['html', 'css', 'javascript', 'bootstrap'].includes(track)) {
+    // 4. Track Roadmap View: /learn/:track
+    mainContent = (
+      <TrackView
+        trackId={track}
+        progress={progress}
+        lang={lang}
+        onLangChange={handleLangChange}
+      />
     );
-  }
-
-  // 3. Lesson & Playground View: /learn/:track/:lessonId
-  if (track && lessonId) {
-    return (
-      <div className="p-4 sm:p-6 min-h-screen">
-        <LessonView
-          lessonId={lessonId}
-          progress={progress}
-          lang={lang}
-          onLangChange={handleLangChange}
-          onLessonCompleted={handleLessonCompleted}
-          onOpenAskQuestion={handleOpenAskQuestion}
-        />
-
-        <AskQuestionModal
-          isOpen={isAskModalOpen}
-          onClose={() => setIsAskModalOpen(false)}
-          initialLesson={askModalLesson}
-          onQuestionCreated={(newQ) => {
-            navigate(`/learn/questions/${newQ._id}`);
-          }}
-        />
-      </div>
-    );
-  }
-
-  // 4. Track Roadmap View: /learn/:track (e.g. /learn/html, /learn/css, /learn/javascript, /learn/bootstrap)
-  if (track && ['html', 'css', 'javascript', 'bootstrap'].includes(track)) {
-    return (
-      <div className="p-4 sm:p-6 min-h-screen">
-        <TrackView
-          trackId={track}
-          progress={progress}
-          lang={lang}
-          onLangChange={handleLangChange}
-        />
-      </div>
-    );
-  }
-
-  // 5. Default: Learning Dashboard: /learn
-  return (
-    <div className="p-4 sm:p-6 min-h-screen">
+  } else {
+    // 5. Default: Learning Dashboard: /learn
+    mainContent = (
       <LearningDashboard
         progress={progress}
         lang={lang}
         onLangChange={handleLangChange}
+        onOpenAskQuestion={handleOpenAskQuestion}
+      />
+    );
+  }
+
+  return (
+    <div className="p-4 sm:p-6 min-h-screen">
+      {mainContent}
+
+      <AskQuestionModal
+        isOpen={isAskModalOpen}
+        onClose={() => {
+          setIsAskModalOpen(false);
+          setAskModalLesson(null);
+        }}
+        initialLesson={askModalLesson}
+        onQuestionCreated={(newQ) => {
+          navigate(`/learn/questions/${newQ._id}`);
+        }}
       />
     </div>
   );

@@ -21,6 +21,7 @@ export const LearningDashboard = ({
   progress = {},
   lang = 'both',
   onLangChange,
+  onOpenAskQuestion,
 }) => {
   const completedSet = new Set(progress.completedLessons || []);
   const totalCompleted = completedSet.size;
@@ -243,13 +244,26 @@ export const LearningDashboard = ({
           </div>
         </div>
 
-        <NavLink
-          to="/learn/questions"
-          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-bold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
-        >
-          <MessageSquare className="w-3.5 h-3.5 text-sky-500" />
-          <span>Browse Questions</span>
-        </NavLink>
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenAskQuestion && (
+            <button
+              type="button"
+              onClick={() => onOpenAskQuestion(null)}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shadow-xs cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Ask a Question</span>
+            </button>
+          )}
+
+          <NavLink
+            to="/learn/questions"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-bold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-sky-500" />
+            <span>Browse Questions</span>
+          </NavLink>
+        </div>
       </div>
     </div>
   );

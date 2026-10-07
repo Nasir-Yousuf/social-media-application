@@ -8,6 +8,102 @@ const User = require('../models/User');
 const Bookmark = require('../models/Bookmark');
 const { getClientIp } = require('../utils/ipUtils');
 const { logActivity } = require('../utils/auditLogger');
+const { extractMentions, notifyMentions } = require('../utils/mentionUtils');
+
+// Build Mongo query filter matching viewer's visibility permissions
+const buildVisibilityFilter = async (currentUserId, isAdmin = false) => {
+  if (isAdmin) return {};
+
+  if (!currentUserId) {
+    return {
+      $or: [
+        { visibility: 'public' },
+        { visibility: { $exists: false } },
+        { visibility: null },
+      ],
+    };
+  }
+
+  const [followingEdges, followerEdges] = await Promise.all([
+    Follow.find({ follower: currentUserId }).select('following'),
+    Follow.find({ following: currentUserId }).select('follower'),
+  ]);
+
+  const followingIds = followingEdges.map((e) => e.following);
+  const followerIdSet = new Set(followerEdges.map((e) => e.follower.toString()));
+  const mutualIds = followingIds.filter((id) => followerIdSet.has(id.toString()));
+
+  return {
+    $or: [
+      { author: currentUserId },
+      { visibility: 'public' },
+      { visibility: { $exists: false } },
+      { visibility: null },
+      { visibility: 'followers', author: { $in: followingIds } },
+      { visibility: 'mutuals', author: { $in: mutualIds } },
+      { visibility: 'specific', audience: currentUserId },
+    ],
+  };
+};
+
+// Check if a specific post document is viewable by current user
+const canUserViewPost = async (post, currentUserId, isAdmin = false) => {
+  if (isAdmin) return true;
+  if (!post) return false;
+
+  const authorId = post.author?._id || post.author;
+  if (currentUserId && authorId && authorId.toString() === currentUserId.toString()) return true;
+
+  const vis = post.visibility || 'public';
+  if (vis === 'public') return true;
+  if (!currentUserId) return false;
+  if (vis === 'private') return false;
+
+  if (vis === 'followers') {
+    return Boolean(await Follow.exists({ follower: currentUserId, following: authorId }));
+  }
+
+  if (vis === 'mutuals') {
+    const [followsAuthor, authorFollows] = await Promise.all([
+      Follow.exists({ follower: currentUserId, following: authorId }),
+      Follow.exists({ follower: authorId, following: currentUserId }),
+    ]);
+    return Boolean(followsAuthor && authorFollows);
+  }
+
+  if (vis === 'specific') {
+    const aud = post.audience || [];
+    const currentStr = currentUserId.toString();
+    return aud.some((id) => (id?._id ? id._id.toString() : id.toString()) === currentStr);
+  }
+
+  return true;
+};
+
+// Check if user has permission to comment/reply on post based on replyPolicy
+const canUserReplyToPost = async (post, currentUserId, isAdmin = false) => {
+  if (isAdmin) return true;
+  if (!currentUserId) return false;
+
+  const authorId = post.author?._id || post.author;
+  if (authorId && authorId.toString() === currentUserId.toString()) return true;
+
+  const policy = post.replyPolicy || 'everyone';
+  if (policy === 'everyone') return true;
+
+  if (policy === 'following') {
+    // Only users the post author follows can reply
+    return Boolean(await Follow.exists({ follower: authorId, following: currentUserId }));
+  }
+
+  if (policy === 'mentioned') {
+    const { usernames } = extractMentions(post.content || '');
+    const user = await User.findById(currentUserId).select('username');
+    return user ? usernames.includes(user.username.toLowerCase()) : false;
+  }
+
+  return true;
+};
 
 // Helper to ensure post IP information is only visible to platform admins
 const sanitizePostForViewer = (postObj, isAdmin = false) => {
@@ -47,10 +143,11 @@ const computeUniqueViews = (post, totalUsers = null) => {
 
 // Helper to enrich post with currentUser state
 const enrichPost = async (post, currentUserId, isAdmin = false) => {
-  const [isLiked, isBookmarked, totalUsers] = await Promise.all([
+  const [isLiked, isBookmarked, totalUsers, canReply] = await Promise.all([
     currentUserId ? Like.exists({ post: post._id, user: currentUserId }) : false,
     currentUserId ? Bookmark.exists({ post: post._id, user: currentUserId }) : false,
     User.countDocuments(),
+    canUserReplyToPost(post, currentUserId, isAdmin),
   ]);
   const isOwner = currentUserId ? post.author && post.author._id.equals(currentUserId) : false;
 
@@ -62,6 +159,7 @@ const enrichPost = async (post, currentUserId, isAdmin = false) => {
     viewsCount: uniqueViews,
     isLiked: !!isLiked,
     isBookmarked: !!isBookmarked,
+    canReply,
     isOwner,
   };
 };
@@ -102,7 +200,17 @@ const sanitizeSnippet = (codeSnippet) => {
 // Create a new post
 exports.createPost = async (req, res) => {
   try {
-    const { content, codeSnippet, isAnnouncement, isPinned, forkedFrom, location } = req.body;
+    const {
+      content,
+      codeSnippet,
+      isAnnouncement,
+      isPinned,
+      forkedFrom,
+      location,
+      visibility = 'public',
+      audience = [],
+      replyPolicy = 'everyone',
+    } = req.body;
 
     const formattedSnippet = sanitizeSnippet(codeSnippet);
     let trimmedContent = content ? content.trim() : '';
@@ -138,6 +246,16 @@ exports.createPost = async (req, res) => {
     const clientIp = getClientIp(req);
     const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
 
+    const validVis = ['public', 'followers', 'mutuals', 'specific', 'private'];
+    const sanitizedVisibility = validVis.includes(visibility) ? visibility : 'public';
+
+    const validPol = ['everyone', 'following', 'mentioned'];
+    const sanitizedReplyPolicy = validPol.includes(replyPolicy) ? replyPolicy : 'everyone';
+
+    const sanitizedAudience = Array.isArray(audience)
+      ? audience.filter((id) => mongoose.Types.ObjectId.isValid(id))
+      : [];
+
     const post = new Post({
       author: req.user._id,
       content: trimmedContent,
@@ -145,6 +263,9 @@ exports.createPost = async (req, res) => {
       forkedFrom: forkedFrom || null,
       isAnnouncement: isAdmin ? !!isAnnouncement : false,
       isPinned: isAdmin ? !!isPinned : false,
+      visibility: sanitizedVisibility,
+      audience: sanitizedAudience,
+      replyPolicy: sanitizedReplyPolicy,
       location: location ? location.trim().slice(0, 100) : '',
       tags: extractedTags,
       viewedBy: [req.user._id],
@@ -164,6 +285,7 @@ exports.createPost = async (req, res) => {
       contentPreview: trimmedContent.slice(0, 120),
       isGuest: req.user.username === 'guest',
       hasCode: Boolean(formattedSnippet),
+      visibility: post.visibility,
     });
 
     if (forkedFrom) {
@@ -193,24 +315,29 @@ exports.createPost = async (req, res) => {
       }
     }
 
-    // Extract @mentions from post content and notify mentioned members
-    const mentionMatches = trimmedContent.match(/@([a-zA-Z0-9_]{3,20})/g);
-    if (mentionMatches) {
-      const usernames = [...new Set(mentionMatches.map((m) => m.slice(1).toLowerCase()))];
-      const mentionedUsers = await User.find({
-        username: { $in: usernames },
-        _id: { $ne: req.user._id },
-        isApproved: true,
-      }).select('_id');
-
-      if (mentionedUsers.length > 0) {
-        const mentionNotifs = mentionedUsers.map((u) => ({
-          recipient: u._id,
-          sender: req.user._id,
-          type: 'mention',
-          post: post._id,
-        }));
-        await Notification.insertMany(mentionNotifs);
+    // Extract @mentions (incl. @everyone / @followers) and notify - one notification per person.
+    // Announcements already notified every member above, so skip to avoid duplicate alerts.
+    if (!post.isAnnouncement) {
+      try {
+        await notifyMentions({
+          texts: [trimmedContent],
+          senderId: req.user._id,
+          refs: { post: post._id },
+          directType: 'mention',
+          broadcastType: 'everyone_mention',
+          filterRecipients: async (candidateIds) => {
+            if (post.visibility === 'public') return candidateIds;
+            const allowed = [];
+            for (const cid of candidateIds) {
+              if (await canUserViewPost(post, cid, false)) {
+                allowed.push(cid);
+              }
+            }
+            return allowed;
+          },
+        });
+      } catch (mentionErr) {
+        console.warn('createPost mention notify failed:', mentionErr.message);
       }
     }
 
@@ -221,6 +348,7 @@ exports.createPost = async (req, res) => {
           ...post.toObject(),
           isLiked: false,
           isBookmarked: false,
+          canReply: true,
           isOwner: true,
         },
         isAdmin
@@ -241,14 +369,18 @@ exports.getFeed = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const currentUserId = req.user._id;
-    let query = {};
+    const isAdmin = req.user?.role === 'admin';
+    const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
 
+    let baseQuery = {};
     if (tab === 'following') {
       const followingEdges = await Follow.find({ follower: currentUserId }).select('following');
       const followingIds = followingEdges.map((e) => e.following);
       followingIds.push(currentUserId); // include own posts in following feed
-      query = { author: { $in: followingIds } };
+      baseQuery = { author: { $in: followingIds } };
     }
+
+    const query = Object.keys(visFilter).length > 0 ? { $and: [baseQuery, visFilter] } : baseQuery;
 
     const posts = await Post.find(query)
       .populate('author', 'name username avatarUrl role status')
@@ -275,24 +407,27 @@ exports.getFeed = async (req, res) => {
 
     const totalUsers = await User.countDocuments();
 
-    const isAdmin = req.user?.role === 'admin';
-    const enrichedPosts = posts.map((post) => {
-      const uniqueViews = computeUniqueViews(post, totalUsers);
-      // Auto-heal inflated counts in background if mismatched
-      if (post.viewsCount !== uniqueViews) {
-        Post.updateOne({ _id: post._id }, { $set: { viewsCount: uniqueViews } }).catch(() => {});
-      }
-      return sanitizePostForViewer(
-        {
-          ...post.toObject(),
-          viewsCount: uniqueViews,
-          isLiked: likedPostIdSet.has(post._id.toString()),
-          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-          isOwner: post.author && post.author._id.equals(currentUserId),
-        },
-        isAdmin
-      );
-    });
+    const enrichedPosts = await Promise.all(
+      posts.map(async (post) => {
+        const uniqueViews = computeUniqueViews(post, totalUsers);
+        const canReply = await canUserReplyToPost(post, currentUserId, isAdmin);
+        // Auto-heal inflated counts in background if mismatched
+        if (post.viewsCount !== uniqueViews) {
+          Post.updateOne({ _id: post._id }, { $set: { viewsCount: uniqueViews } }).catch(() => {});
+        }
+        return sanitizePostForViewer(
+          {
+            ...post.toObject(),
+            viewsCount: uniqueViews,
+            isLiked: likedPostIdSet.has(post._id.toString()),
+            isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+            canReply,
+            isOwner: post.author && post.author._id.equals(currentUserId),
+          },
+          isAdmin
+        );
+      })
+    );
 
     return res.status(200).json({
       posts: enrichedPosts,
@@ -329,7 +464,13 @@ exports.getPostById = async (req, res) => {
     }
 
     const isAdmin = req.user?.role === 'admin';
-    const enriched = await enrichPost(post, req.user ? req.user._id : null, isAdmin);
+    const currentUserId = req.user ? req.user._id : null;
+    const canView = await canUserViewPost(post, currentUserId, isAdmin);
+    if (!canView) {
+      return res.status(403).json({ message: 'This post is private or restricted to a specific audience.' });
+    }
+
+    const enriched = await enrichPost(post, currentUserId, isAdmin);
     return res.status(200).json({ post: enriched });
   } catch (err) {
     console.error('getPostById error:', err);
@@ -340,7 +481,7 @@ exports.getPostById = async (req, res) => {
 // Update own post
 exports.updatePost = async (req, res) => {
   try {
-    const { content, codeSnippet } = req.body;
+    const { content, codeSnippet, visibility, audience, replyPolicy } = req.body;
     if (!content || !content.trim()) {
       return res.status(400).json({ message: 'Content cannot be empty.' });
     }
@@ -365,34 +506,42 @@ exports.updatePost = async (req, res) => {
       post.codeSnippet = sanitizeSnippet(codeSnippet);
     }
 
+    if (visibility !== undefined) {
+      const validVis = ['public', 'followers', 'mutuals', 'specific', 'private'];
+      if (validVis.includes(visibility)) {
+        post.visibility = visibility;
+      }
+    }
+
+    if (audience !== undefined && Array.isArray(audience)) {
+      post.audience = audience.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    }
+
+    if (replyPolicy !== undefined) {
+      const validPol = ['everyone', 'following', 'mentioned'];
+      if (validPol.includes(replyPolicy)) {
+        post.replyPolicy = replyPolicy;
+      }
+    }
+
     post.isEdited = true;
     await post.save();
 
-    // Extract @mentions from updated post content and notify new mentions
-    const mentionMatches = content.trim().match(/@([a-zA-Z0-9_]{3,20})/g);
-    if (mentionMatches) {
-      const usernames = [...new Set(mentionMatches.map((m) => m.slice(1).toLowerCase()))];
-      const mentionedUsers = await User.find({
-        username: { $in: usernames },
-        _id: { $ne: req.user._id },
-        isApproved: true,
-      }).select('_id');
-
-      for (const u of mentionedUsers) {
-        const alreadyNotified = await Notification.exists({
-          recipient: u._id,
-          post: post._id,
-          type: 'mention',
-        });
-        if (!alreadyNotified) {
-          await Notification.create({
-            recipient: u._id,
-            sender: req.user._id,
-            type: 'mention',
-            post: post._id,
-          });
-        }
-      }
+    // Notify only NEW mentions introduced by this edit (never re-notify anyone)
+    try {
+      const previous = await Notification.find({
+        post: post._id,
+        comment: { $exists: false },
+        type: { $in: ['mention', 'everyone_mention', 'announcement'] },
+      }).select('recipient');
+      await notifyMentions({
+        texts: [content.trim()],
+        senderId: req.user._id,
+        refs: { post: post._id },
+        alreadyNotified: new Set(previous.map((n) => n.recipient.toString())),
+      });
+    } catch (mentionErr) {
+      console.warn('updatePost mention notify failed:', mentionErr.message);
     }
 
     await post.populate('author', 'name username avatarUrl role status');
@@ -595,13 +744,18 @@ exports.getUserPosts = async (req, res) => {
   try {
     const { username } = req.params;
     const currentUserId = req.user ? req.user._id : null;
+    const isAdmin = req.user?.role === 'admin';
 
     const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    const posts = await Post.find({ author: user._id })
+    const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
+    const authorFilter = { author: user._id };
+    const query = Object.keys(visFilter).length > 0 ? { $and: [authorFilter, visFilter] } : authorFilter;
+
+    const posts = await Post.find(query)
       .populate('author', 'name username avatarUrl role status')
       .populate({
         path: 'forkedFrom',
@@ -620,18 +774,21 @@ exports.getUserPosts = async (req, res) => {
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const totalUsers = await User.countDocuments();
-    const isAdmin = req.user?.role === 'admin';
-    const enriched = posts.map((post) =>
-      sanitizePostForViewer(
-        {
-          ...post.toObject(),
-          viewsCount: computeUniqueViews(post, totalUsers),
-          isLiked: likedPostIdSet.has(post._id.toString()),
-          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-          isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
-        },
-        isAdmin
-      )
+    const enriched = await Promise.all(
+      posts.map(async (post) => {
+        const canReply = await canUserReplyToPost(post, currentUserId, isAdmin);
+        return sanitizePostForViewer(
+          {
+            ...post.toObject(),
+            viewsCount: computeUniqueViews(post, totalUsers),
+            isLiked: likedPostIdSet.has(post._id.toString()),
+            isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+            canReply,
+            isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
+          },
+          isAdmin
+        );
+      })
     );
 
     return res.status(200).json({ posts: enriched });
@@ -645,8 +802,10 @@ exports.getUserPosts = async (req, res) => {
 exports.getExplorePosts = async (req, res) => {
   try {
     const currentUserId = req.user ? req.user._id : null;
+    const isAdmin = req.user?.role === 'admin';
+    const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
 
-    const posts = await Post.find({})
+    const posts = await Post.find(visFilter)
       .populate('author', 'name username avatarUrl role status')
       .populate({
         path: 'forkedFrom',
@@ -666,18 +825,21 @@ exports.getExplorePosts = async (req, res) => {
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const totalUsers = await User.countDocuments();
-    const isAdmin = req.user?.role === 'admin';
-    const enriched = posts.map((post) =>
-      sanitizePostForViewer(
-        {
-          ...post.toObject(),
-          viewsCount: computeUniqueViews(post, totalUsers),
-          isLiked: likedPostIdSet.has(post._id.toString()),
-          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-          isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
-        },
-        isAdmin
-      )
+    const enriched = await Promise.all(
+      posts.map(async (post) => {
+        const canReply = await canUserReplyToPost(post, currentUserId, isAdmin);
+        return sanitizePostForViewer(
+          {
+            ...post.toObject(),
+            viewsCount: computeUniqueViews(post, totalUsers),
+            isLiked: likedPostIdSet.has(post._id.toString()),
+            isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+            canReply,
+            isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
+          },
+          isAdmin
+        );
+      })
     );
 
     return res.status(200).json({ posts: enriched });
@@ -694,6 +856,10 @@ exports.getCodeFeed = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 30;
     const skip = (page - 1) * limit;
+
+    const currentUserId = req.user ? req.user._id : null;
+    const isAdmin = req.user?.role === 'admin';
+    const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
 
     const filter = {
       $or: [
@@ -727,8 +893,10 @@ exports.getCodeFeed = async (req, res) => {
       });
     }
 
+    const finalQuery = Object.keys(visFilter).length > 0 ? { $and: [filter, visFilter] } : filter;
+
     const [posts, total] = await Promise.all([
-      Post.find(filter)
+      Post.find(finalQuery)
         .sort({ isPinned: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -738,10 +906,9 @@ exports.getCodeFeed = async (req, res) => {
           select: 'content codeSnippet author createdAt',
           populate: { path: 'author', select: 'name username avatarUrl' },
         }),
-      Post.countDocuments(filter),
+      Post.countDocuments(finalQuery),
     ]);
 
-    const currentUserId = req.user ? req.user._id : null;
     const postIds = posts.map((p) => p._id);
     const [userLikes, userBookmarks] = await Promise.all([
       currentUserId ? Like.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
@@ -752,18 +919,21 @@ exports.getCodeFeed = async (req, res) => {
     const bookmarkedPostIdSet = new Set(userBookmarks.map((b) => b.post.toString()));
 
     const totalUsers = await User.countDocuments();
-    const isAdmin = req.user?.role === 'admin';
-    const enriched = posts.map((post) =>
-      sanitizePostForViewer(
-        {
-          ...post.toObject(),
-          viewsCount: computeUniqueViews(post, totalUsers),
-          isLiked: likedPostIdSet.has(post._id.toString()),
-          isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
-          isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
-        },
-        isAdmin
-      )
+    const enriched = await Promise.all(
+      posts.map(async (post) => {
+        const canReply = await canUserReplyToPost(post, currentUserId, isAdmin);
+        return sanitizePostForViewer(
+          {
+            ...post.toObject(),
+            viewsCount: computeUniqueViews(post, totalUsers),
+            isLiked: likedPostIdSet.has(post._id.toString()),
+            isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
+            canReply,
+            isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
+          },
+          isAdmin
+        );
+      })
     );
 
     return res.status(200).json({
@@ -1010,4 +1180,8 @@ exports.getTrendingHashtags = async (req, res) => {
     return res.status(500).json({ message: 'Failed to retrieve trending topics.' });
   }
 };
+
+exports.canUserViewPost = canUserViewPost;
+exports.canUserReplyToPost = canUserReplyToPost;
+exports.buildVisibilityFilter = buildVisibilityFilter;
 

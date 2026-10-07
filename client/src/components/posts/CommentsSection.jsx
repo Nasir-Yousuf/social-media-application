@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Trash2, AtSign } from 'lucide-react';
+import { Trash2, AtSign, Lock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../api/client';
 import Avatar from '../common/Avatar';
@@ -12,7 +12,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { FacultyBadge } from '../common/ClearfeedIcons';
 import TwitterSpinner from '../common/TwitterSpinner';
 
-export const CommentsSection = ({ postId, onCommentCountChange }) => {
+export const CommentsSection = ({ postId, onCommentCountChange, canReply = true }) => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
   const [comments, setComments] = useState([]);
@@ -208,58 +208,65 @@ export const CommentsSection = ({ postId, onCommentCountChange }) => {
         </div>
       )}
 
-      {/* Add Reply Input Form */}
-      <div className="relative mt-2">
-        {/* Floating Mention Autocomplete Dropdown above input */}
-        {mentionActive && (
-          <div className="absolute bottom-full mb-1 left-0 z-50">
-            <MentionDropdown
-              users={filteredUsers}
-              selectedIndex={selectedIndex}
-              onSelect={insertMention}
-            />
-          </div>
-        )}
+      {/* Reply restriction notice OR Add Reply Input Form */}
+      {!canReply ? (
+        <div className="flex items-center gap-2 p-3 mt-2 rounded-2xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400 text-xs">
+          <Lock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+          <span>The author has limited who can reply to this post.</span>
+        </div>
+      ) : (
+        <div className="relative mt-2">
+          {/* Floating Mention Autocomplete Dropdown above input */}
+          {mentionActive && (
+            <div className="absolute bottom-full mb-1 left-0 z-50">
+              <MentionDropdown
+                users={filteredUsers}
+                selectedIndex={selectedIndex}
+                onSelect={insertMention}
+              />
+            </div>
+          )}
 
-        <form onSubmit={handleAddComment} className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              ref={commentInputRef}
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              onKeyDown={(e) => {
-                if (mentionActive && handleMentionKeyDown(e)) {
-                  return;
-                }
-              }}
-              placeholder="Write a response or type @ to mention someone..."
-              maxLength={1000}
-              className="w-full bg-white dark:bg-[#121519] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-3.5 pr-8 py-2 rounded-full border border-neutral-300 dark:border-neutral-700/80 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-            />
+          <form onSubmit={handleAddComment} className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <input
+                ref={commentInputRef}
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (mentionActive && handleMentionKeyDown(e)) {
+                    return;
+                  }
+                }}
+                placeholder="Write a response or type @ to mention someone..."
+                maxLength={1000}
+                className="w-full bg-white dark:bg-[#121519] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-3.5 pr-8 py-2 rounded-full border border-neutral-300 dark:border-neutral-700/80 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+              />
 
-            <button
-              type="button"
-              onClick={handleTriggerMention}
-              title="Mention a member (@)"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-sky-500 transition-colors p-1 cursor-pointer"
+              <button
+                type="button"
+                onClick={handleTriggerMention}
+                title="Mention a member (@)"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-sky-500 transition-colors p-1 cursor-pointer"
+              >
+                <AtSign className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={!newComment.trim() || submitting}
+              isLoading={submitting}
+              className="px-4 py-1.5 font-bold"
             >
-              <AtSign className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            disabled={!newComment.trim() || submitting}
-            isLoading={submitting}
-            className="px-4 py-1.5 font-bold"
-          >
-            Reply
-          </Button>
-        </form>
-      </div>
+              Reply
+            </Button>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

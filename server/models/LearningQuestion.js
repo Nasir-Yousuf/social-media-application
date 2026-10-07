@@ -21,7 +21,7 @@ const learningQuestionSchema = new mongoose.Schema(
     },
     track: {
       type: String,
-      enum: ['html', 'css', 'javascript', 'general'],
+      enum: ['html', 'css', 'javascript', 'bootstrap', 'general'],
       default: 'general',
       index: true,
     },

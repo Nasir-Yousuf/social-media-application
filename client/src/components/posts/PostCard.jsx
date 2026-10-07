@@ -15,6 +15,9 @@ import {
   MapPin,
   Flag,
   ShieldAlert,
+  Users,
+  Handshake,
+  Lock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import Avatar from '../common/Avatar';
@@ -23,6 +26,7 @@ import EditPostModal from './EditPostModal';
 import CodeSnippetBlock from './CodeSnippetBlock';
 import MarkdownRenderer from './MarkdownRenderer';
 import BookmarkButton from './BookmarkButton';
+import TypingSharePostCard from '../typing/TypingSharePostCard';
 import { FacultyBadge, BoostIcon, ForkIcon } from '../common/ClearfeedIcons';
 import TwitterSpinner from '../common/TwitterSpinner';
 import DeleteConfirmModal from '../common/DeleteConfirmModal';
@@ -251,6 +255,25 @@ export const PostCard = ({
         currentPost.codeSnippet.code)
   );
 
+  const typingScoreData = React.useMemo(() => {
+    if (!currentPost.content) return null;
+    const match = currentPost.content.match(
+      /scored\s+(\d+)\s+WPM\s+\((\d+)\s+Raw\)\s+with\s+(\d+)%\s+accuracy\s+and\s+a\s+(\d+)x\s+streak/i
+    );
+    if (match) {
+      return {
+        wpm: Number(match[1]),
+        rawWpm: Number(match[2]),
+        accuracy: Number(match[3]),
+        highestCombo: Number(match[4]),
+        duration: 60,
+        mode: 'words_200',
+        rivalUsername: author.username || '',
+      };
+    }
+    return null;
+  }, [currentPost.content, author.username]);
+
   return (
     <article
       id={`post-${currentPost._id}`}
@@ -350,6 +373,25 @@ export const PostCard = ({
                   <span>{currentPost.location}</span>
                 </span>
               )}
+              {currentPost.visibility && currentPost.visibility !== 'public' && (
+                <span
+                  title={
+                    currentPost.visibility === 'followers'
+                      ? 'Followers only'
+                      : currentPost.visibility === 'mutuals'
+                      ? 'Mutual follows only'
+                      : currentPost.visibility === 'private'
+                      ? 'Only me (private)'
+                      : 'Specific audience'
+                  }
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-medium text-[10px]"
+                >
+                  {currentPost.visibility === 'followers' && <Users className="w-2.5 h-2.5 text-purple-400" />}
+                  {currentPost.visibility === 'mutuals' && <Handshake className="w-2.5 h-2.5 text-emerald-400" />}
+                  {currentPost.visibility === 'private' && <Lock className="w-2.5 h-2.5 text-amber-400" />}
+                  <span className="capitalize">{currentPost.visibility}</span>
+                </span>
+              )}
               {currentPost.isEdited && <span className="italic">· edited</span>}
               {isFlagged && (
                 <span className="text-amber-500 font-semibold text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10">
@@ -418,6 +460,11 @@ export const PostCard = ({
       {/* Main Post Content */}
       <div className="mt-3.5">
         <MarkdownRenderer content={currentPost.content} />
+
+        {/* Typing Score Challenge Card */}
+        {typingScoreData && (
+          <TypingSharePostCard data={typingScoreData} />
+        )}
 
         {/* Code Snippet Block */}
         {hasCode && (
@@ -596,6 +643,7 @@ export const PostCard = ({
         <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800">
           <CommentsSection
             postId={currentPost._id}
+            canReply={currentPost.canReply !== false}
             onCommentCountChange={(newCount) => setCommentsCount(newCount)}
           />
         </div>

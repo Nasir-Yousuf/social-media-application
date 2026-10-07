@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Volume2,
   BookOpen,
+  Radio,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -82,9 +83,16 @@ export const NotificationsPage = () => {
           </div>
         );
       case 'mention':
+      case 'question_mention':
         return (
           <div className="p-2 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-500 ring-1 ring-purple-200 dark:ring-purple-900/50">
             <AtSign className="w-4 h-4" />
+          </div>
+        );
+      case 'everyone_mention':
+        return (
+          <div className="p-2 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-500 ring-1 ring-amber-200 dark:ring-amber-900/50">
+            <Radio className="w-4 h-4 animate-pulse" />
           </div>
         );
       case 'message':
@@ -137,7 +145,8 @@ export const NotificationsPage = () => {
   const filteredNotifications = notifications.filter((n) => {
     if (activeFilter === 'all') return true;
     if (activeFilter === 'messages') return n.type === 'message';
-    if (activeFilter === 'mentions') return n.type === 'mention';
+    if (activeFilter === 'mentions')
+      return n.type === 'mention' || n.type === 'question_mention' || n.type === 'everyone_mention';
     if (activeFilter === 'likes') return n.type === 'like';
     if (activeFilter === 'comments') return n.type === 'comment';
     if (activeFilter === 'follows') return n.type === 'follow';
@@ -276,6 +285,8 @@ export const NotificationsPage = () => {
                   {n.type === 'like' && 'appreciated your post.'}
                   {n.type === 'comment' && 'responded to your post.'}
                   {n.type === 'mention' && (n.comment ? 'mentioned you in a response.' : 'mentioned you in a post.')}
+                  {n.type === 'question_mention' && 'mentioned you in a learning question or answer.'}
+                  {n.type === 'everyone_mention' && (n.question ? 'broadcasted an @everyone mention in a question/answer.' : 'broadcasted an @everyone mention to the community.')}
                   {n.type === 'follow' && 'began following your updates.'}
                   {n.type === 'announcement' && 'published an announcement.'}
                   {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}

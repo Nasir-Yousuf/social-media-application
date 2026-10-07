@@ -44,6 +44,7 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/learning', require('./routes/learningRoutes'));
+app.use('/api/typing', require('./routes/typingRoutes'));
 
 // Secure Maintenance Purge Endpoint (for clearing dummy data on remote host without direct mongo shell)
 app.post('/api/maintenance/clean', async (req, res) => {
