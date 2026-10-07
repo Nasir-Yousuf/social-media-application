@@ -1,5 +1,5 @@
 // 1000 common English words corpus
-import { WORDS_TOP_200 } from './wordsTop200';
+import { WORDS_TOP_200 } from './wordsTop200.js';
 
 const ADDITIONAL_800 = [
   'ability', 'able', 'about', 'above', 'accept', 'according', 'account', 'across', 'act', 'action',

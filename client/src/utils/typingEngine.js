@@ -1,8 +1,8 @@
 // Typing Arena calculation engine, metrics, tiers, and word stream helpers
-import { WORDS_TOP_200 } from '../data/typing/wordsTop200';
-import { WORDS_TOP_1000 } from '../data/typing/wordsTop1000';
-import { CODE_KEYWORDS } from '../data/typing/codeKeywords';
-import { PROGRAMMING_QUOTES } from '../data/typing/quotes';
+import { WORDS_TOP_200 } from '../data/typing/wordsTop200.js';
+import { WORDS_TOP_1000 } from '../data/typing/wordsTop1000.js';
+import { CODE_KEYWORDS } from '../data/typing/codeKeywords.js';
+import { PROGRAMMING_QUOTES } from '../data/typing/quotes.js';
 
 export const SPEED_TIERS = [
   { min: 0, max: 39, name: 'Novice', badge: '🥉', color: 'text-amber-700', bg: 'bg-amber-900/20', border: 'border-amber-700/30' },
@@ -27,13 +27,13 @@ export const getComboInfo = (streak) => {
 };
 
 export const calculateWpm = (correctChars, elapsedSeconds) => {
-  if (!elapsedSeconds || elapsedSeconds <= 0) return 0;
+  if (!elapsedSeconds || elapsedSeconds < 1) return 0;
   const minutes = elapsedSeconds / 60;
   return Math.max(0, Math.round((correctChars / 5) / minutes));
 };
 
 export const calculateRawWpm = (totalTypedChars, elapsedSeconds) => {
-  if (!elapsedSeconds || elapsedSeconds <= 0) return 0;
+  if (!elapsedSeconds || elapsedSeconds < 1) return 0;
   const minutes = elapsedSeconds / 60;
   return Math.max(0, Math.round((totalTypedChars / 5) / minutes));
 };

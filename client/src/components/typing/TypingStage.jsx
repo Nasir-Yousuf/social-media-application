@@ -1,6 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Ghost, Trophy } from 'lucide-react';
-import typingSounds from '../../utils/typingSounds';
 
 export const TypingStage = ({
   words = [],
@@ -17,6 +16,10 @@ export const TypingStage = ({
 }) => {
   const inputRef = useRef(null);
   const containerRef = useRef(null);
+  const wordsWrapperRef = useRef(null);
+  const wordRefs = useRef([]);
+  const boxWordRefs = useRef([]);
+  const [scrollOffset, setScrollOffset] = useState(0);
 
   // Focus input automatically
   useEffect(() => {
@@ -25,13 +28,36 @@ export const TypingStage = ({
     }
   }, [isFinished, currentWordIndex]);
 
+  // Handle smooth line-by-line scrolling so words NEVER shift horizontally
+  useEffect(() => {
+    const targetRefs = viewMode === 'caret' ? wordRefs.current : boxWordRefs.current;
+    const activeEl = targetRefs[currentWordIndex];
+    const firstEl = targetRefs[0];
+
+    if (activeEl && firstEl) {
+      const activeTop = activeEl.offsetTop;
+      const initialTop = firstEl.offsetTop;
+      const lineDiff = activeTop - initialTop;
+
+      // Only scroll when reaching a new line
+      if (lineDiff >= 0 && lineDiff !== scrollOffset) {
+        setScrollOffset(lineDiff);
+      }
+    }
+  }, [currentWordIndex, words, viewMode]);
+
+  // Reset scroll offset on new test
+  useEffect(() => {
+    if (currentWordIndex === 0) {
+      setScrollOffset(0);
+    }
+  }, [currentWordIndex, words]);
+
   const handleContainerClick = () => {
     if (!isFinished && inputRef.current) {
       inputRef.current.focus();
     }
   };
-
-  const currentWord = words[currentWordIndex] || '';
 
   return (
     <div
@@ -89,94 +115,29 @@ export const TypingStage = ({
         className="absolute opacity-0 pointer-events-none w-0 h-0"
       />
 
-      {/* View Mode 1: Monkeytype Flowing Smooth Caret */}
+      {/* View Mode 1: Monkeytype Flowing Caret (Fixed 3-Line Window with Line Scroll) */}
       {viewMode === 'caret' ? (
-        <div className="font-mono text-xl sm:text-2xl leading-relaxed tracking-wider min-h-[140px] max-h-[220px] overflow-hidden flex flex-wrap gap-x-3 gap-y-2 text-neutral-600 transition-all">
-          {words.slice(Math.max(0, currentWordIndex - 2), currentWordIndex + 30).map((word, relIdx) => {
-            const actualIdx = Math.max(0, currentWordIndex - 2) + relIdx;
-            const isCurrent = actualIdx === currentWordIndex;
-            const history = wordHistory[actualIdx];
-
-            if (history) {
-              // Word has already been submitted
-              const isCorrect = history.status === 'correct';
-              return (
-                <span
-                  key={actualIdx}
-                  className={`transition-colors ${
-                    isCorrect ? 'text-neutral-300' : 'text-rose-500 line-through opacity-80'
-                  }`}
-                >
-                  {word}
-                </span>
-              );
-            }
-
-            if (isCurrent) {
-              // Active Word being typed letter-by-letter
-              return (
-                <span key={actualIdx} className="relative inline-flex items-center">
-                  {word.split('').map((char, charIdx) => {
-                    const typedChar = currentInput[charIdx];
-                    let charColor = 'text-neutral-500';
-
-                    if (typedChar !== undefined) {
-                      charColor = typedChar === char ? 'text-white font-bold' : 'text-rose-500 bg-rose-500/20';
-                    }
-
-                    const isCaretPos = charIdx === currentInput.length;
-
-                    return (
-                      <span key={charIdx} className={`relative ${charColor}`}>
-                        {isCaretPos && (
-                          <span className="absolute -left-[1px] top-1 bottom-1 w-[2.5px] bg-sky-400 rounded-full animate-pulse shadow-sm shadow-sky-400/50" />
-                        )}
-                        {char}
-                      </span>
-                    );
-                  })}
-
-                  {/* Overflow letters typed beyond word length */}
-                  {currentInput.length > word.length && (
-                    <span className="text-rose-500 bg-rose-500/20 underline">
-                      {currentInput.slice(word.length)}
-                    </span>
-                  )}
-
-                  {/* Caret at very end of word */}
-                  {currentInput.length >= word.length && (
-                    <span className="inline-block w-[2.5px] h-6 bg-sky-400 rounded-full animate-pulse shadow-sm shadow-sky-400/50 ml-0.5" />
-                  )}
-                </span>
-              );
-            }
-
-            // Upcoming words
-            return (
-              <span key={actualIdx} className="text-neutral-600">
-                {word}
-              </span>
-            );
-          })}
-        </div>
-      ) : (
-        /* View Mode 2: 10FastFingers Classic Input Box */
-        <div className="space-y-5">
-          {/* Word Cloud Box */}
-          <div className="font-mono text-lg sm:text-xl leading-relaxed flex flex-wrap gap-2.5 p-4 rounded-2xl bg-black/40 border border-neutral-800/80 min-h-[90px] max-h-[140px] overflow-hidden">
-            {words.slice(Math.max(0, currentWordIndex - 3), currentWordIndex + 20).map((word, relIdx) => {
-              const actualIdx = Math.max(0, currentWordIndex - 3) + relIdx;
-              const isCurrent = actualIdx === currentWordIndex;
-              const history = wordHistory[actualIdx];
+        <div className="relative h-[130px] sm:h-[145px] overflow-hidden">
+          <div
+            ref={wordsWrapperRef}
+            style={{ transform: `translateY(-${scrollOffset}px)` }}
+            className="transition-transform duration-200 ease-out flex flex-wrap gap-x-3 gap-y-3 font-mono text-xl sm:text-2xl leading-normal tracking-wide text-neutral-500"
+          >
+            {words.map((word, idx) => {
+              const isCurrent = idx === currentWordIndex;
+              const history = wordHistory[idx];
 
               if (history) {
+                // Previously typed word
+                const isCorrect = history.status === 'correct';
                 return (
                   <span
-                    key={actualIdx}
-                    className={`px-2 py-0.5 rounded-lg text-sm ${
-                      history.status === 'correct'
-                        ? 'text-emerald-400 bg-emerald-500/10'
-                        : 'text-rose-400 bg-rose-500/10 line-through'
+                    key={idx}
+                    ref={(el) => (wordRefs.current[idx] = el)}
+                    className={`transition-colors whitespace-nowrap ${
+                      isCorrect
+                        ? 'text-neutral-400'
+                        : 'text-rose-500 line-through opacity-75'
                     }`}
                   >
                     {word}
@@ -185,25 +146,119 @@ export const TypingStage = ({
               }
 
               if (isCurrent) {
+                // Active Word with live letter matching and caret
                 return (
                   <span
-                    key={actualIdx}
-                    className="px-2.5 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 font-bold text-sm shadow-xs"
+                    key={idx}
+                    ref={(el) => (wordRefs.current[idx] = el)}
+                    className="relative inline-flex items-center whitespace-nowrap"
                   >
-                    {word}
+                    {word.split('').map((char, charIdx) => {
+                      const typedChar = currentInput[charIdx];
+                      let charColor = 'text-neutral-500';
+
+                      if (typedChar !== undefined) {
+                        charColor =
+                          typedChar === char
+                            ? 'text-white font-semibold'
+                            : 'text-rose-500 bg-rose-500/20 rounded-xs';
+                      }
+
+                      const isCaretPos = charIdx === currentInput.length;
+
+                      return (
+                        <span key={charIdx} className={`relative ${charColor}`}>
+                          {isCaretPos && (
+                            <span className="absolute -left-[1.5px] top-0 bottom-0 w-[2.5px] bg-sky-400 rounded-full animate-pulse shadow-sm shadow-sky-400/60" />
+                          )}
+                          {char}
+                        </span>
+                      );
+                    })}
+
+                    {/* Overflow letters typed beyond word length */}
+                    {currentInput.length > word.length && (
+                      <span className="text-rose-500 bg-rose-500/20 underline">
+                        {currentInput.slice(word.length)}
+                      </span>
+                    )}
+
+                    {/* Caret at end of word */}
+                    {currentInput.length >= word.length && (
+                      <span className="inline-block w-[2.5px] h-6 bg-sky-400 rounded-full animate-pulse shadow-sm shadow-sky-400/60 ml-0.5" />
+                    )}
                   </span>
                 );
               }
 
+              // Upcoming words: fixed and completely static in place
               return (
-                <span key={actualIdx} className="px-1.5 py-0.5 text-neutral-500 text-sm">
+                <span
+                  key={idx}
+                  ref={(el) => (wordRefs.current[idx] = el)}
+                  className="text-neutral-500 whitespace-nowrap"
+                >
                   {word}
                 </span>
               );
             })}
           </div>
+        </div>
+      ) : (
+        /* View Mode 2: 10FastFingers Classic Input Box (Fixed Line Scroll) */
+        <div className="space-y-5">
+          {/* Word Cloud Box with 2 Fixed Stationary Lines */}
+          <div className="relative h-[95px] sm:h-[110px] overflow-hidden p-4 rounded-2xl bg-black/40 border border-neutral-800/80">
+            <div
+              style={{ transform: `translateY(-${scrollOffset}px)` }}
+              className="transition-transform duration-200 ease-out flex flex-wrap gap-2.5 font-mono text-lg sm:text-xl leading-normal"
+            >
+              {words.map((word, idx) => {
+                const isCurrent = idx === currentWordIndex;
+                const history = wordHistory[idx];
 
-          {/* Classic 10FastFingers Input Box */}
+                if (history) {
+                  return (
+                    <span
+                      key={idx}
+                      ref={(el) => (boxWordRefs.current[idx] = el)}
+                      className={`px-2 py-0.5 rounded-lg text-sm whitespace-nowrap ${
+                        history.status === 'correct'
+                          ? 'text-emerald-400 bg-emerald-500/10'
+                          : 'text-rose-400 bg-rose-500/10 line-through'
+                      }`}
+                    >
+                      {word}
+                    </span>
+                  );
+                }
+
+                if (isCurrent) {
+                  return (
+                    <span
+                      key={idx}
+                      ref={(el) => (boxWordRefs.current[idx] = el)}
+                      className="px-2.5 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 font-bold text-sm shadow-xs whitespace-nowrap"
+                    >
+                      {word}
+                    </span>
+                  );
+                }
+
+                return (
+                  <span
+                    key={idx}
+                    ref={(el) => (boxWordRefs.current[idx] = el)}
+                    className="px-1.5 py-0.5 text-neutral-500 text-sm whitespace-nowrap"
+                  >
+                    {word}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Classic 10FastFingers Stationary Input Box */}
           <div className="relative">
             <input
               type="text"
@@ -222,7 +277,7 @@ export const TypingStage = ({
       {!isActive && !isFinished && (
         <div className="mt-4 text-center">
           <span className="text-xs text-neutral-500 font-sans tracking-wide">
-            💡 Click anywhere or start typing to begin the countdown
+            💡 Click anywhere or start typing to begin
           </span>
         </div>
       )}

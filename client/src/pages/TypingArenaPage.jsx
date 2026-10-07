@@ -55,10 +55,11 @@ export const TypingArenaPage = () => {
   const [timeLeft, setTimeLeft] = useState(duration);
   const [streak, setStreak] = useState(0);
   const [highestStreak, setHighestStreak] = useState(0);
-  const [correctKeystrokes, setCorrectKeystrokes] = useState(0);
+  const [completedCorrectChars, setCompletedCorrectChars] = useState(0);
   const [totalKeystrokes, setTotalKeystrokes] = useState(0);
-  const [totalTypedChars, setTotalTypedChars] = useState(0);
   const [telemetry, setTelemetry] = useState([]);
+  const startTimeRef = useRef(null);
+  const stateRef = useRef({});
 
   // Ghost Racer Setup (if challenging)
   const [ghostData, setGhostData] = useState(null);
@@ -86,9 +87,44 @@ export const TypingArenaPage = () => {
     }
   }, [searchParams]);
 
+  // Compute live correct characters for current incomplete word
+  const currentWordTarget = words[currentWordIndex] || '';
+  let currentWordCorrectChars = 0;
+  for (let i = 0; i < currentInput.length && i < currentWordTarget.length; i++) {
+    if (currentInput[i] === currentWordTarget[i]) {
+      currentWordCorrectChars++;
+    } else {
+      break;
+    }
+  }
+  const liveTotalCorrectChars = completedCorrectChars + currentWordCorrectChars;
+
+  // Compute live elapsed seconds from actual high-res clock
+  const elapsedSeconds = startTimeRef.current
+    ? Math.max(1, (Date.now() - startTimeRef.current) / 1000)
+    : 1;
+  const liveWpm = isActive ? calculateWpm(liveTotalCorrectChars, elapsedSeconds) : 0;
+  const liveRawWpm = isActive ? calculateRawWpm(totalKeystrokes, elapsedSeconds) : 0;
+  const liveAccuracy = calculateAccuracy(liveTotalCorrectChars, totalKeystrokes);
+  const userProgress = Math.min(100, Math.round((currentWordIndex / Math.max(1, words.length)) * 100));
+
+  // Synchronize stateRef for callbacks
+  stateRef.current = {
+    completedCorrectChars,
+    totalKeystrokes,
+    highestStreak,
+    telemetry,
+    currentInput,
+    currentWordIndex,
+    words,
+    duration,
+    mode,
+    user,
+  };
+
   // Initialize or restart test
   const initTest = useCallback(() => {
-    const generated = generateWords(mode, mode === 'quote' ? 1 : 120);
+    const generated = generateWords(mode, mode === 'quote' ? 1 : 250);
     setWords(generated.words);
     setQuoteAuthor(generated.quoteAuthor);
     setCurrentWordIndex(0);
@@ -99,11 +135,11 @@ export const TypingArenaPage = () => {
     setTimeLeft(duration);
     setStreak(0);
     setHighestStreak(0);
-    setCorrectKeystrokes(0);
+    setCompletedCorrectChars(0);
     setTotalKeystrokes(0);
-    setTotalTypedChars(0);
     setTelemetry([]);
     setIsResultsOpen(false);
+    startTimeRef.current = null;
     if (ghostData) {
       setGhostData((prev) => (prev ? { ...prev, progress: 0 } : null));
     }
@@ -113,82 +149,68 @@ export const TypingArenaPage = () => {
     initTest();
   }, [initTest]);
 
-  // Timer loop
-  useEffect(() => {
-    let interval = null;
-    if (isActive && !isFinished && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          const next = prev - 1;
-          const elapsed = duration - next;
-
-          // Sample current WPM for telemetry graph
-          const currentWpm = calculateWpm(correctKeystrokes, elapsed);
-          setTelemetry((t) => [...t, currentWpm]);
-
-          // Update ghost progress if ghost exists
-          if (ghostData && ghostData.wpm) {
-            const expectedTotalWords = (ghostData.wpm * (duration / 60));
-            const wordsPerSec = expectedTotalWords / duration;
-            const ghostCurrentWords = wordsPerSec * elapsed;
-            const progress = Math.min(100, Math.round((ghostCurrentWords / Math.max(1, words.length)) * 100));
-            setGhostData((g) => (g ? { ...g, progress } : null));
-          }
-
-          if (next <= 0) {
-            finishTest();
-            return 0;
-          }
-          return next;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isActive, isFinished, timeLeft, duration, correctKeystrokes, ghostData, words.length]);
-
-  // Calculate live stats
-  const elapsedSeconds = Math.max(1, duration - timeLeft);
-  const liveWpm = calculateWpm(correctKeystrokes, elapsedSeconds);
-  const liveRawWpm = calculateRawWpm(totalTypedChars, elapsedSeconds);
-  const liveAccuracy = calculateAccuracy(correctKeystrokes, totalKeystrokes);
-  const userProgress = Math.min(100, Math.round((currentWordIndex / Math.max(1, words.length)) * 100));
-
   // Finish test
   const finishTest = useCallback(async () => {
     setIsFinished(true);
     setIsActive(false);
     typingSounds.playFinish();
 
-    const finalWpm = calculateWpm(correctKeystrokes, duration);
-    const finalRawWpm = calculateRawWpm(totalTypedChars, duration);
-    const finalAccuracy = calculateAccuracy(correctKeystrokes, totalKeystrokes);
+    const {
+      completedCorrectChars: cChars,
+      totalKeystrokes: tKeys,
+      highestStreak: hStreak,
+      telemetry: tData,
+      currentInput: cInput,
+      currentWordIndex: cWordIdx,
+      words: wList,
+      duration: dSec,
+      mode: mMode,
+      user: currentUser,
+    } = stateRef.current;
+
+    const actualDuration = startTimeRef.current
+      ? Math.min(dSec, Math.max(1, (Date.now() - startTimeRef.current) / 1000))
+      : dSec;
+
+    // In-progress word correct matching prefix
+    const currentWordTarget = wList[cWordIdx] || '';
+    let inProgressCorrect = 0;
+    for (let i = 0; i < cInput.length && i < currentWordTarget.length; i++) {
+      if (cInput[i] === currentWordTarget[i]) {
+        inProgressCorrect++;
+      } else {
+        break;
+      }
+    }
+    const finalCorrectChars = cChars + inProgressCorrect;
+
+    const finalWpm = calculateWpm(finalCorrectChars, actualDuration);
+    const finalRawWpm = calculateRawWpm(tKeys, actualDuration);
+    const finalAccuracy = calculateAccuracy(finalCorrectChars, tKeys);
 
     const testResult = {
       wpm: finalWpm,
       rawWpm: finalRawWpm,
       accuracy: finalAccuracy,
-      duration,
-      mode,
-      highestCombo: highestStreak,
-      telemetry,
+      duration: dSec,
+      mode: mMode,
+      highestCombo: hStreak,
+      telemetry: tData,
       xpGained: 0,
     };
 
     // Save to backend if user is authenticated
-    if (user) {
+    if (currentUser) {
       try {
         const res = await api.post('/typing/submit', {
           wpm: finalWpm,
           rawWpm: finalRawWpm,
           accuracy: finalAccuracy,
-          duration,
-          mode,
-          charCount: totalTypedChars,
-          highestCombo: highestStreak,
-          telemetry,
+          duration: dSec,
+          mode: mMode,
+          charCount: finalCorrectChars,
+          highestCombo: hStreak,
+          telemetry: tData,
         });
         testResult.xpGained = res.data.xpGained || 0;
       } catch (err) {
@@ -198,24 +220,59 @@ export const TypingArenaPage = () => {
 
     setResults(testResult);
     setIsResultsOpen(true);
-  }, [
-    correctKeystrokes,
-    totalTypedChars,
-    totalKeystrokes,
-    duration,
-    mode,
-    highestStreak,
-    telemetry,
-    user,
-  ]);
+  }, []);
+
+  // Timer loop
+  useEffect(() => {
+    let interval = null;
+    if (isActive && !isFinished && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) return 0;
+          return prev - 1;
+        });
+
+        const currentElapsed = startTimeRef.current
+          ? Math.max(1, (Date.now() - startTimeRef.current) / 1000)
+          : Math.max(1, duration - timeLeft);
+
+        // Sample authentic live WPM for telemetry graph
+        const currentWpm = calculateWpm(liveTotalCorrectChars, currentElapsed);
+        setTelemetry((t) => [...t, currentWpm]);
+
+        // Update ghost progress if ghost exists
+        if (ghostData && ghostData.wpm) {
+          const expectedTotalWords = ghostData.wpm * (duration / 60);
+          const wordsPerSec = expectedTotalWords / duration;
+          const ghostCurrentWords = wordsPerSec * currentElapsed;
+          const progress = Math.min(100, Math.round((ghostCurrentWords / Math.max(1, words.length)) * 100));
+          setGhostData((g) => (g ? { ...g, progress } : null));
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive, isFinished, timeLeft, duration, liveTotalCorrectChars, ghostData, words.length]);
+
+  // When timer hits 0 while active, trigger finish
+  useEffect(() => {
+    if (isActive && !isFinished && timeLeft <= 0) {
+      finishTest();
+    }
+  }, [timeLeft, isActive, isFinished, finishTest]);
 
   // Handle keystrokes
   const handleKeyDown = (e) => {
     if (isFinished) return;
 
     // Start timer on first non-modifier keystroke
-    if (!isActive && e.key.length === 1) {
+    if (!isActive && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
       setIsActive(true);
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now();
+      }
     }
 
     // Play keystroke sound
@@ -223,7 +280,7 @@ export const TypingArenaPage = () => {
       typingSounds.playKey(e.key);
     }
 
-    // Quick restart shortcut: Tab + Enter
+    // Quick restart shortcut: Tab
     if (e.key === 'Tab') {
       e.preventDefault();
       initTest();
@@ -241,12 +298,11 @@ export const TypingArenaPage = () => {
       setTotalKeystrokes((prev) => prev + 1);
 
       if (isWordCorrect) {
-        // Correct word
+        // Correct word: reward target length + 1 (for space)
         const nextStreak = streak + 1;
         setStreak(nextStreak);
         setHighestStreak((prev) => Math.max(prev, nextStreak));
-        setCorrectKeystrokes((prev) => prev + targetWord.length + 1); // +1 for space
-        setTotalTypedChars((prev) => prev + targetWord.length + 1);
+        setCompletedCorrectChars((prev) => prev + targetWord.length + 1);
 
         if ([10, 25, 50, 100].includes(nextStreak)) {
           typingSounds.playCombo(Math.min(4, Math.floor(nextStreak / 25) + 1));
@@ -260,7 +316,6 @@ export const TypingArenaPage = () => {
         // Mistake made
         setStreak(0);
         typingSounds.playError();
-        setTotalTypedChars((prev) => prev + currentInput.length + 1);
 
         setWordHistory((prev) => ({
           ...prev,
@@ -279,20 +334,21 @@ export const TypingArenaPage = () => {
     }
 
     // Normal typing keystrokes
-    if (e.key.length === 1) {
+    if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
       setTotalKeystrokes((prev) => prev + 1);
-      const targetWord = words[currentWordIndex] || '';
-      const nextCharIndex = currentInput.length;
-
-      // Check if letter matches
-      if (nextCharIndex < targetWord.length && e.key === targetWord[nextCharIndex]) {
-        setCorrectKeystrokes((prev) => prev + 1);
-      }
+    } else if (e.key === 'Backspace') {
+      setTotalKeystrokes((prev) => prev + 1);
     }
   };
 
   const handleInputChange = (e) => {
     if (isFinished) return;
+    if (!isActive && e.target.value.length > 0) {
+      setIsActive(true);
+      if (!startTimeRef.current) {
+        startTimeRef.current = Date.now();
+      }
+    }
     const val = e.target.value;
     if (val.includes(' ')) return; // Handled in onKeyDown
     setCurrentInput(val);
