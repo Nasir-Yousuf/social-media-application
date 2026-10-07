@@ -129,6 +129,7 @@ export const TypingArenaPage = () => {
   // Synchronize stateRef for callbacks
   stateRef.current = {
     completedCorrectChars,
+    liveTotalCorrectChars,
     totalKeystrokes,
     highestStreak,
     telemetry,
@@ -138,6 +139,7 @@ export const TypingArenaPage = () => {
     duration,
     mode,
     user,
+    ghostData,
   };
 
   // Fetch real-time leaderboard data for sidebar
@@ -145,7 +147,7 @@ export const TypingArenaPage = () => {
     try {
       const res = await api.get('/typing/leaderboard', {
         params: {
-          period: 'weekly',
+          period: 'all',
           duration,
           mode: mode.startsWith('words') ? 'words_200' : mode,
         },
@@ -155,6 +157,8 @@ export const TypingArenaPage = () => {
       }
       if (res.data?.userRank) {
         setUserRank(res.data.userRank);
+      } else {
+        setUserRank(null);
       }
     } catch (err) {
       console.warn('Leaderboard fetch in page:', err);
@@ -217,7 +221,7 @@ export const TypingArenaPage = () => {
     } = stateRef.current;
 
     const actualDuration = startTimeRef.current
-      ? Math.min(dSec, Math.max(1, (Date.now() - startTimeRef.current) / 1000))
+      ? Math.max(1, (Date.now() - startTimeRef.current) / 1000)
       : dSec;
 
     // In-progress word correct matching prefix
@@ -232,8 +236,10 @@ export const TypingArenaPage = () => {
     }
     const finalCorrectChars = cChars + inProgressCorrect;
 
-    const finalWpm = calculateWpm(finalCorrectChars, actualDuration);
-    const finalRawWpm = calculateRawWpm(tKeys, actualDuration);
+    // Use full test duration if time expired, else actual high-res elapsed
+    const effectiveDuration = timeLeft <= 1 ? dSec : actualDuration;
+    const finalWpm = calculateWpm(finalCorrectChars, effectiveDuration);
+    const finalRawWpm = calculateRawWpm(tKeys, effectiveDuration);
     const finalAccuracy = calculateAccuracy(finalCorrectChars, tKeys);
 
     const testResult = {
@@ -261,6 +267,8 @@ export const TypingArenaPage = () => {
           telemetry: tData,
         });
         testResult.xpGained = res.data.xpGained || 0;
+        // Dynamically refresh live leaderboard immediately after submission!
+        fetchLeaderboard();
       } catch (err) {
         console.warn('Failed to submit score:', err);
       }
@@ -268,48 +276,49 @@ export const TypingArenaPage = () => {
 
     setResults(testResult);
     setIsResultsOpen(true);
-  }, []);
+  }, [fetchLeaderboard, timeLeft]);
 
-  // Timer loop
+  // Rock-solid wall-clock countdown timer loop
   useEffect(() => {
-    let interval = null;
-    if (isActive && !isFinished && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) return 0;
-          return prev - 1;
-        });
+    if (!isActive || isFinished) return;
 
-        const currentElapsed = startTimeRef.current
-          ? Math.max(1, (Date.now() - startTimeRef.current) / 1000)
-          : Math.max(1, duration - timeLeft);
-
-        // Sample authentic live WPM for telemetry graph
-        const currentWpm = calculateWpm(liveTotalCorrectChars, currentElapsed);
-        setTelemetry((t) => [...t, currentWpm]);
-
-        // Update ghost progress if ghost exists
-        if (ghostData && ghostData.wpm) {
-          const expectedTotalWords = ghostData.wpm * (duration / 60);
-          const wordsPerSec = expectedTotalWords / duration;
-          const ghostCurrentWords = wordsPerSec * currentElapsed;
-          const progress = Math.min(100, Math.round((ghostCurrentWords / Math.max(1, words.length)) * 100));
-          setGhostData((g) => (g ? { ...g, progress } : null));
-        }
-      }, 1000);
+    if (!startTimeRef.current) {
+      startTimeRef.current = Date.now();
     }
+
+    const interval = setInterval(() => {
+      if (!startTimeRef.current) return;
+
+      const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+      const remainingSec = Math.max(0, Math.ceil(duration - elapsedSec));
+
+      setTimeLeft(remainingSec);
+
+      // Sample telemetry using latest correct chars from ref
+      const currentCorrect = stateRef.current.liveTotalCorrectChars || 0;
+      const sampleWpm = calculateWpm(currentCorrect, Math.max(1, elapsedSec));
+      setTelemetry((t) => [...t, sampleWpm]);
+
+      // Update ghost progress if ghost exists
+      const ghost = stateRef.current.ghostData;
+      if (ghost && ghost.wpm) {
+        const wordsPerSec = (ghost.wpm * (duration / 60)) / duration;
+        const ghostCurrentWords = wordsPerSec * elapsedSec;
+        const totalWords = stateRef.current.words?.length || 1;
+        const progress = Math.min(100, Math.round((ghostCurrentWords / totalWords) * 100));
+        setGhostData((g) => (g ? { ...g, progress } : null));
+      }
+
+      if (remainingSec <= 0) {
+        clearInterval(interval);
+        finishTest();
+      }
+    }, 200);
 
     return () => {
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
     };
-  }, [isActive, isFinished, timeLeft, duration, liveTotalCorrectChars, ghostData, words.length]);
-
-  // When timer hits 0 while active, trigger finish
-  useEffect(() => {
-    if (isActive && !isFinished && timeLeft <= 0) {
-      finishTest();
-    }
-  }, [timeLeft, isActive, isFinished, finishTest]);
+  }, [isActive, isFinished, duration, finishTest]);
 
   // Handle keystrokes
   const handleKeyDown = (e) => {
@@ -343,6 +352,7 @@ export const TypingArenaPage = () => {
       const targetWord = words[currentWordIndex] || '';
       const isWordCorrect = currentInput.trim() === targetWord;
 
+      // Count space as one keystroke
       setTotalKeystrokes((prev) => prev + 1);
 
       if (isWordCorrect) {
@@ -381,10 +391,8 @@ export const TypingArenaPage = () => {
       return;
     }
 
-    // Normal typing keystrokes
+    // Normal typing keystrokes (count printable characters once)
     if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-      setTotalKeystrokes((prev) => prev + 1);
-    } else if (e.key === 'Backspace') {
       setTotalKeystrokes((prev) => prev + 1);
     }
   };

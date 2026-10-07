@@ -60,6 +60,7 @@ export const resolveAvatarUrl = (url) => {
 
 export const Avatar = ({
   src,
+  user,
   alt = 'Avatar',
   name = '',
   size = 'md',
@@ -67,12 +68,16 @@ export const Avatar = ({
   showRoleBadge = false,
   role = 'student',
 }) => {
-  const sizeClasses = sizeMap[size] || sizeMap.md;
-  const initials = getInitials(name);
-  const bgClass = getInitialsClass(name);
+  const effectiveSrc = src || user?.avatarUrl;
+  const effectiveName = name || user?.name || user?.username || '';
+  const effectiveRole = user?.role || role;
 
-  const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name || 'user')}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
-  const resolvedSrc = resolveAvatarUrl(src);
+  const sizeClasses = sizeMap[size] || sizeMap.md;
+  const initials = getInitials(effectiveName);
+  const bgClass = getInitialsClass(effectiveName);
+
+  const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(effectiveName || 'user')}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
+  const resolvedSrc = resolveAvatarUrl(effectiveSrc);
 
   return (
     <div className={`relative inline-block shrink-0 select-none ${className}`}>

@@ -48,11 +48,11 @@ export const GameArenaLayout = ({
   isActive,
 }) => {
   // Speed tier calculation for Tier Card
-  const currentTier = getSpeedTier(wpm || 84);
-  const wpmToNext = Math.max(0, (currentTier.nextMin || 100) - Math.round(wpm || 84));
+  const currentTier = getSpeedTier(wpm || 0);
+  const wpmToNext = Math.max(0, (currentTier.nextMin || 40) - Math.round(wpm || 0));
   const tierProgress = Math.min(
     100,
-    Math.max(10, Math.round(((wpm || 84) / (currentTier.nextMin || 100)) * 100))
+    Math.max(5, Math.round(((wpm || 0) / (currentTier.nextMin || 40)) * 100))
   );
 
   // Sound theme cycler
@@ -71,15 +71,8 @@ export const GameArenaLayout = ({
     { id: 'weekly', label: 'Weekly Contest 🏆', icon: Trophy, isLive: true },
   ];
 
-  // Mock top leaderboard entries if empty from backend
-  const displayLeaderboard = leaderboard.length > 0 ? leaderboard.slice(0, 6) : [
-    { id: 1, rank: 1, user: { username: 'Roni', name: 'Roni' }, wpm: 94 },
-    { id: 2, rank: 2, user: { username: 'Adam', name: 'Adam' }, wpm: 92 },
-    { id: 3, rank: 3, user: { username: 'Darry', name: 'Darry' }, wpm: 90 },
-    { id: 4, rank: 4, user: { username: 'Aabu', name: 'Aabu' }, wpm: 88 },
-    { id: 5, rank: 5, user: { username: 'Shaman', name: 'Shaman' }, wpm: 84 },
-    { id: 6, rank: 6, user: { username: 'rahim', name: 'rahim' }, wpm: 83 },
-  ];
+  // Real leaderboard entries from backend (strictly real users, no dummy mock data)
+  const displayLeaderboard = Array.isArray(leaderboard) ? leaderboard.slice(0, 8) : [];
 
   // Circular gauge circumference
   const radius = 34;
@@ -342,51 +335,86 @@ export const GameArenaLayout = ({
 
             {/* Leaderboard entries */}
             <div className="space-y-1.5">
-              {displayLeaderboard.map((item, idx) => {
-                const medals = ['🥇', '🥈', '🥉'];
-                const rankDisplay = medals[idx] || `${idx + 1}`;
-                const isLeader = idx === 0;
+              {displayLeaderboard.length === 0 ? (
+                <div className="py-6 px-3 text-center rounded-2xl bg-black/30 border border-neutral-800/60 font-sans space-y-1.5">
+                  <Trophy className="w-7 h-7 text-neutral-600 mx-auto opacity-40 mb-1" />
+                  <p className="text-xs font-bold text-neutral-300">No typists ranked yet</p>
+                  <p className="text-[11px] text-neutral-500 leading-tight">
+                    Type a test above to record your score and claim #1 on the leaderboard!
+                  </p>
+                </div>
+              ) : (
+                displayLeaderboard.map((item, idx) => {
+                  const medals = ['🥇', '🥈', '🥉'];
+                  const rankDisplay = medals[idx] || `${idx + 1}`;
 
-                return (
-                  <div
-                    key={item.id || idx}
-                    onClick={() => onChallengeGhost && onChallengeGhost(item)}
-                    title="Click to race ghost"
-                    className="flex items-center justify-between px-3 py-2 rounded-xl bg-black/30 hover:bg-neutral-800/50 border border-neutral-800/50 hover:border-sky-500/30 transition-all duration-150 cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-5 text-center text-sm font-mono font-bold text-neutral-400">
-                        {rankDisplay}
-                      </span>
-                      <Avatar user={item.user} size="xs" />
-                      <span className="text-xs font-semibold text-neutral-200 truncate group-hover:text-sky-300 transition-colors">
-                        {item.user?.username || item.user?.name || `Player ${idx + 1}`}
-                      </span>
-                    </div>
+                  return (
+                    <div
+                      key={item._id || item.id || idx}
+                      onClick={() => onChallengeGhost && onChallengeGhost(item)}
+                      title="Click to race ghost"
+                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-black/30 hover:bg-neutral-800/50 border border-neutral-800/50 hover:border-sky-500/30 transition-all duration-150 cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-5 text-center text-sm font-mono font-bold text-neutral-400">
+                          {rankDisplay}
+                        </span>
+                        <Avatar
+                          src={item.user?.avatarUrl}
+                          name={item.user?.name || item.user?.username}
+                          size="xs"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-neutral-200 truncate group-hover:text-sky-300 transition-colors block">
+                            {item.user?.name || item.user?.username || `Player ${idx + 1}`}
+                          </span>
+                          {item.user?.username && (
+                            <span className="text-[10px] text-neutral-500 truncate block">
+                              @{item.user?.username}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-neutral-300">
-                      <span>{item.wpm}</span>
-                      <span className="text-[10px] text-neutral-500">WPM</span>
+                      <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-neutral-300">
+                        <span>{item.wpm}</span>
+                        <span className="text-[10px] text-neutral-500">WPM</span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
 
               {/* Pinned User Row */}
-              <div className="pt-2 border-t border-neutral-800/80">
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sky-500/15 border border-sky-400/40 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="text-xs font-mono font-bold text-sky-400">#{userRank}</span>
-                    <Avatar user={currentUser} size="xs" />
-                    <span className="text-xs font-bold text-white">You</span>
-                  </div>
+              {currentUser && (
+                <div className="pt-2 border-t border-neutral-800/80">
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sky-500/15 border border-sky-400/40 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-xs font-mono font-bold text-sky-400">
+                        {userRank ? `#${userRank}` : '—'}
+                      </span>
+                      <Avatar
+                        src={currentUser?.avatarUrl}
+                        name={currentUser?.name || currentUser?.username}
+                        size="xs"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white block truncate">
+                          {currentUser?.name || currentUser?.username || 'You'}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 block font-mono">
+                          {userRank ? `Rank #${userRank}` : 'Unranked'}
+                        </span>
+                      </div>
+                    </div>
 
-                  <div className="flex items-center gap-1.5 font-mono text-xs font-black text-sky-300">
-                    <span>{wpm || 84}</span>
-                    <span className="text-[10px] text-sky-400/80">WPM</span>
+                    <div className="flex items-center gap-1.5 font-mono text-xs font-black text-sky-300">
+                      <span>{wpm || 0}</span>
+                      <span className="text-[10px] text-sky-400/80">WPM</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

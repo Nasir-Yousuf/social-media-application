@@ -108,7 +108,7 @@ export const AskQuestionModal = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) {
-      showToast('Please sign in or continue as guest to ask questions', 'info');
+      showToast('Please sign in to post questions to the community', 'info');
       return;
     }
     if (!title.trim() || !description.trim()) {

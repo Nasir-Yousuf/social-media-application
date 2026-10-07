@@ -148,20 +148,20 @@ export const TypingStage = ({
                   <span
                     key={idx}
                     ref={(el) => (wordRefs.current[idx] = el)}
-                    className={`transition-colors whitespace-nowrap inline-flex items-center gap-1 ${
+                    className={`relative whitespace-nowrap inline-flex items-center font-mono ${
                       isCorrect
                         ? theme === 'hacker' ? 'text-emerald-600' : 'text-neutral-400'
                         : 'text-rose-500 line-through opacity-75'
                     }`}
                   >
                     <span>{word}</span>
-                    {/* Render Ghost Caret if ghost is passing through this word */}
+                    {/* Render Ghost Caret as absolute badge (0 flow width to prevent word movement) */}
                     {isGhostHere && (
-                      <span className="inline-flex flex-col items-center select-none pointer-events-none animate-pulse">
-                        <span className="text-purple-400 font-black text-sm -mb-1 leading-none drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]">^</span>
-                        <span className="text-[9px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-[0_0_8px_rgba(192,132,252,0.6)] whitespace-nowrap">
-                          {ghostData?.username ? `@${ghostData.username}` : 'PB ghost'}
+                      <span className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 flex flex-col items-center">
+                        <span className="text-[8px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-sm whitespace-nowrap">
+                          @{ghostData?.username || 'ghost'}
                         </span>
+                        <span className="w-1 h-1 rotate-45 bg-purple-500 -mt-0.5" />
                       </span>
                     )}
                   </span>
@@ -174,26 +174,26 @@ export const TypingStage = ({
                   <span
                     key={idx}
                     ref={(el) => (wordRefs.current[idx] = el)}
-                    className="relative inline-flex items-center whitespace-nowrap"
+                    className="relative inline-flex items-center whitespace-nowrap font-mono"
                   >
                     {word.split('').map((char, charIdx) => {
                       const typedChar = currentInput[charIdx];
-                      let charColor = theme === 'hacker' ? 'text-emerald-700' : 'text-neutral-500';
+                      let charClass = theme === 'hacker' ? 'text-emerald-700' : 'text-neutral-500';
 
                       if (typedChar !== undefined) {
-                        charColor =
+                        charClass =
                           typedChar === char
-                            ? theme === 'hacker' ? 'text-emerald-300 font-semibold' : 'text-white font-semibold'
-                            : 'text-rose-400 bg-rose-500/20 border-b-2 border-rose-500 rounded-xs font-semibold';
+                            ? theme === 'hacker' ? 'text-emerald-300' : 'text-white'
+                            : 'text-rose-400 bg-rose-500/20 underline decoration-rose-500 decoration-2 underline-offset-4';
                       }
 
                       const isCaretPos = charIdx === currentInput.length;
 
                       return (
-                        <span key={charIdx} className={`relative ${charColor}`}>
+                        <span key={charIdx} className={`relative font-mono ${charClass}`}>
                           {isCaretPos && (
                             <span
-                              className={`absolute -left-[1.5px] top-0 bottom-0 w-[2.5px] rounded-full animate-pulse shadow-sm ${
+                              className={`absolute -left-[1.5px] top-[10%] bottom-[10%] w-[2.5px] rounded-full animate-pulse shadow-sm pointer-events-none ${
                                 theme === 'hacker'
                                   ? 'bg-emerald-400 shadow-emerald-400/60'
                                   : 'bg-sky-400 shadow-sky-400/60'
@@ -207,15 +207,15 @@ export const TypingStage = ({
 
                     {/* Overflow letters typed beyond word length */}
                     {currentInput.length > word.length && (
-                      <span className="text-rose-400 bg-rose-500/20 border-b-2 border-rose-500">
+                      <span className="text-rose-400 bg-rose-500/20 underline decoration-rose-500">
                         {currentInput.slice(word.length)}
                       </span>
                     )}
 
-                    {/* Caret at end of word */}
+                    {/* Caret at end of word (Absolute position with 0 flow width so words NEVER move) */}
                     {currentInput.length >= word.length && (
                       <span
-                        className={`inline-block w-[2.5px] h-6 rounded-full animate-pulse shadow-sm ml-0.5 ${
+                        className={`absolute -right-[2px] top-[10%] bottom-[10%] w-[2.5px] rounded-full animate-pulse shadow-sm pointer-events-none ${
                           theme === 'hacker'
                             ? 'bg-emerald-400 shadow-emerald-400/60'
                             : 'bg-sky-400 shadow-sky-400/60'
@@ -223,13 +223,13 @@ export const TypingStage = ({
                       />
                     )}
 
-                    {/* Render Ghost Caret if ghost is at current active word */}
+                    {/* Render Ghost Caret as absolute badge */}
                     {isGhostHere && (
-                      <span className="inline-flex flex-col items-center ml-1.5 select-none pointer-events-none animate-pulse">
-                        <span className="text-purple-400 font-black text-sm -mb-1 leading-none drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]">^</span>
-                        <span className="text-[9px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-[0_0_8px_rgba(192,132,252,0.6)] whitespace-nowrap">
-                          {ghostData?.username ? `@${ghostData.username}` : 'PB ghost'}
+                      <span className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 flex flex-col items-center">
+                        <span className="text-[8px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-sm whitespace-nowrap">
+                          @{ghostData?.username || 'ghost'}
                         </span>
+                        <span className="w-1 h-1 rotate-45 bg-purple-500 -mt-0.5" />
                       </span>
                     )}
                   </span>
@@ -241,18 +241,18 @@ export const TypingStage = ({
                 <span
                   key={idx}
                   ref={(el) => (wordRefs.current[idx] = el)}
-                  className={`whitespace-nowrap inline-flex items-center gap-1 ${
+                  className={`relative whitespace-nowrap inline-flex items-center font-mono ${
                     theme === 'hacker' ? 'text-emerald-800' : 'text-neutral-500'
                   }`}
                 >
                   <span>{word}</span>
-                  {/* Render Ghost Caret if ghost is ahead at this word */}
+                  {/* Render Ghost Caret as absolute badge */}
                   {isGhostHere && (
-                    <span className="inline-flex flex-col items-center select-none pointer-events-none animate-pulse">
-                      <span className="text-purple-400 font-black text-sm -mb-1 leading-none drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]">^</span>
-                      <span className="text-[9px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-[0_0_8px_rgba(192,132,252,0.6)] whitespace-nowrap">
-                        {ghostData?.username ? `@${ghostData.username}` : 'PB ghost'}
+                    <span className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 flex flex-col items-center">
+                      <span className="text-[8px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-sm whitespace-nowrap">
+                        @{ghostData?.username || 'ghost'}
                       </span>
+                      <span className="w-1 h-1 rotate-45 bg-purple-500 -mt-0.5" />
                     </span>
                   )}
                 </span>
@@ -278,7 +278,7 @@ export const TypingStage = ({
                     <span
                       key={idx}
                       ref={(el) => (boxWordRefs.current[idx] = el)}
-                      className={`px-2 py-0.5 rounded-lg text-sm whitespace-nowrap ${
+                      className={`px-2 py-0.5 rounded-lg text-sm whitespace-nowrap font-mono border border-transparent ${
                         history.status === 'correct'
                           ? 'text-emerald-400 bg-emerald-500/10'
                           : 'text-rose-400 bg-rose-500/10 line-through'
@@ -294,7 +294,7 @@ export const TypingStage = ({
                     <span
                       key={idx}
                       ref={(el) => (boxWordRefs.current[idx] = el)}
-                      className="px-2.5 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 font-bold text-sm shadow-xs whitespace-nowrap"
+                      className="px-2 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 text-sm whitespace-nowrap font-mono"
                     >
                       {word}
                     </span>
@@ -305,7 +305,7 @@ export const TypingStage = ({
                   <span
                     key={idx}
                     ref={(el) => (boxWordRefs.current[idx] = el)}
-                    className="px-1.5 py-0.5 text-neutral-500 text-sm whitespace-nowrap"
+                    className="px-2 py-0.5 rounded-lg text-neutral-500 text-sm whitespace-nowrap font-mono border border-transparent"
                   >
                     {word}
                   </span>
