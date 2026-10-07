@@ -13,5 +13,15 @@
     "clean": "npm --prefix server run clean",
     "install:all": "npm --prefix server install && npm --prefix client install",
     "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:client\""
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.3",
+    "morgan": "^1.12.1"
   }
 }
