@@ -179,28 +179,27 @@ export const NotificationProvider = ({ children }) => {
               targetUrl = `/posts/${latestUnreadNotif.post?._id || latestUnreadNotif.post}`;
             } else if (latestUnreadNotif.type === 'typing_challenge') {
               const tc = latestUnreadNotif.typingChallenge;
-              const isRace = tc?.isRace || tc?.mode === 'race_highway';
               const carId = tc?.carId || 'street_phantom';
               const chId = tc?._id || tc;
 
-              if (isRace) {
-                notifText = `🏎️⚡ ${senderName} challenged you to a Supercar Race! Click to race!`;
-                targetUrl = `/typing?theme=race&duelWith=${senderUsername}&car=${carId}&challengeId=${chId}`;
-              } else {
-                notifText = `⚔️ ${senderName} challenged you to a 1v1 Typing Duel!`;
-                targetUrl = `/typing?challengeId=${chId}`;
-              }
+              notifText = `🏎️⚡ ${senderName} challenged you to a Highway Supercar Race! Click to race!`;
+              targetUrl = `/typing?theme=race&duelWith=${senderUsername}&car=${carId}&challengeId=${chId}`;
             } else if (latestUnreadNotif.type === 'typing_challenge_result') {
-              notifText = `🏆 ${senderName} finished your 1v1 Typing Duel!`;
-              targetUrl = '/typing';
+              notifText = `🏆 ${senderName} completed your Highway Supercar Race duel!`;
+              targetUrl = '/typing?theme=race';
             }
 
+            const isRaceChallenge = latestUnreadNotif.type === 'typing_challenge';
             showToast(notifText, 'info', {
               avatarUrl: latestUnreadNotif.sender?.avatarUrl,
+              actionLabel: isRaceChallenge ? 'RACE NOW 🏎️' : (latestUnreadNotif.type === 'new_post' ? 'VIEW POST' : undefined),
+              actionOnClick: () => {
+                window.location.assign(targetUrl);
+              },
               onClick: () => {
                 window.location.assign(targetUrl);
               },
-              duration: 7000,
+              duration: isRaceChallenge ? 10000 : 7000,
             });
 
             // Native Browser Notification
@@ -330,13 +329,24 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     fetchUnreadCount();
-    // Poll every 5 seconds for fast real-time message notification
+    // Poll every 3.5 seconds for snappy real-time race & message alerts
     const interval = setInterval(() => {
       if (!document.hidden) {
         fetchUnreadCount();
       }
-    }, 5000);
-    return () => clearInterval(interval);
+    }, 3500);
+
+    const handleWindowFocus = () => {
+      fetchUnreadCount();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('visibilitychange', handleWindowFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('visibilitychange', handleWindowFocus);
+    };
   }, [fetchUnreadCount]);
 
   return (

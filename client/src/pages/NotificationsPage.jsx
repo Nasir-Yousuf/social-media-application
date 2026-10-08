@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Bell,
   Heart,
@@ -23,10 +23,38 @@ import Button from '../components/common/Button';
 import { useNotifications } from '../context/NotificationContext';
 
 export const NotificationsPage = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const { setUnreadCount, showToast, markAllNotificationsAsRead, playNotificationSound } = useNotifications();
+
+  const getNotificationTargetUrl = (n) => {
+    if (!n) return null;
+    if (n.type === 'typing_challenge') {
+      const tc = n.typingChallenge;
+      const carId = tc?.carId || 'street_phantom';
+      const chId = tc?._id || tc;
+      const username = n.sender?.username || 'player';
+      return `/typing?theme=race&duelWith=${username}&car=${carId}&challengeId=${chId}`;
+    }
+    if (n.type === 'typing_challenge_result') {
+      return '/typing?theme=race';
+    }
+    if (n.type === 'message') {
+      return `/messages?user=${n.sender?.username}`;
+    }
+    if (n.type === 'new_post' || n.type === 'like' || n.type === 'comment') {
+      if (n.post?._id || n.post) return `/posts/${n.post?._id || n.post}`;
+    }
+    if (n.type === 'question_answer' || n.type === 'question_accepted' || n.type === 'question_mention') {
+      if (n.question?._id || n.question) return `/learn/questions/${n.question?._id || n.question}`;
+    }
+    if (n.type === 'follow' && n.sender?.username) {
+      return `/profile/${n.sender.username}`;
+    }
+    return null;
+  };
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -271,120 +299,116 @@ export const NotificationsPage = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredNotifications.map((n) => (
-            <div
-              key={n._id}
-              className={`p-4 rounded-2xl border transition-all duration-200 flex items-start gap-3.5 shadow-2xs ${
-                !n.read
-                  ? 'bg-sky-50/60 dark:bg-sky-500/10 border-sky-200/80 dark:border-sky-500/30'
-                  : 'bg-white dark:bg-[#121519] border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
-              }`}
-            >
-              <div className="shrink-0 pt-0.5">{getNotificationIcon(n.type, n)}</div>
+          {filteredNotifications.map((n) => {
+            const targetUrl = getNotificationTargetUrl(n);
+            const isRaceChallenge = n.type === 'typing_challenge';
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  {n.sender && (
-                    <NavLink to={`/profile/${n.sender.username}`} className="shrink-0">
-                      <Avatar
-                        src={n.sender.avatarUrl}
-                        name={n.sender.name}
-                        size="xs"
-                        role={n.sender.role}
-                      />
-                    </NavLink>
-                  )}
-                  <span className="text-[11px] text-neutral-400 font-sans">{formatTime(n.createdAt)}</span>
-                  {!n.read && (
-                    <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0 ml-auto" />
-                  )}
-                </div>
+            return (
+              <div
+                key={n._id}
+                onClick={(e) => {
+                  if (e.target.closest('a') || e.target.closest('button')) return;
+                  if (targetUrl) navigate(targetUrl);
+                }}
+                className={`p-4 rounded-2xl border transition-all duration-200 flex items-start gap-3.5 shadow-2xs ${
+                  targetUrl ? 'cursor-pointer hover:shadow-md hover:border-cyan-500/50 dark:hover:border-cyan-500/40' : ''
+                } ${
+                  !n.read
+                    ? 'bg-sky-50/60 dark:bg-sky-500/10 border-sky-200/80 dark:border-sky-500/30'
+                    : 'bg-white dark:bg-[#121519] border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
+              >
+                <div className="shrink-0 pt-0.5">{getNotificationIcon(n.type, n)}</div>
 
-                <p className="text-sm text-neutral-900 dark:text-neutral-100 leading-snug">
-                  {n.sender && (
-                    <NavLink
-                      to={`/profile/${n.sender.username}`}
-                      className="font-bold hover:underline mr-1 text-neutral-900 dark:text-white"
-                    >
-                      {n.sender.name}
-                    </NavLink>
-                  )}
-                  {n.type === 'message' && 'sent you a direct message.'}
-                  {n.type === 'like' && 'appreciated your post.'}
-                  {n.type === 'comment' && 'responded to your post.'}
-                  {n.type === 'mention' && (n.comment ? 'mentioned you in a response.' : 'mentioned you in a post.')}
-                  {n.type === 'question_mention' && 'mentioned you in a learning question or answer.'}
-                  {n.type === 'everyone_mention' && (n.question ? 'broadcasted an @everyone mention in a question/answer.' : 'broadcasted an @everyone mention to the community.')}
-                  {n.type === 'follow' && 'began following your updates.'}
-                  {n.type === 'announcement' && 'published an announcement.'}
-                  {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}
-                  {n.type === 'question_accepted' && 'marked your answer as the accepted solution! 🎉'}
-                  {n.type === 'typing_challenge' && (
-                    n.typingChallenge?.isRace || n.typingChallenge?.mode === 'race_highway'
-                      ? 'challenged you to a Highway Supercar Race in Typing Arena! 🏎️⚡'
-                      : 'challenged you to a 1v1 Typing Duel in Clearfeed Arena! ⚡'
-                  )}
-                  {n.type === 'typing_challenge_result' && 'completed your 1v1 Typing Duel!'}
-                  {n.type === 'new_post' && 'published a new post.'}
-                </p>
-
-                {n.type === 'new_post' && n.post && (
-                  <div className="mt-2">
-                    <NavLink
-                      to={`/posts/${n.post._id || n.post}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
-                    >
-                      <PenSquare className="w-3.5 h-3.5" />
-                      <span>View post</span>
-                    </NavLink>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    {n.sender && (
+                      <NavLink to={`/profile/${n.sender.username}`} className="shrink-0">
+                        <Avatar
+                          src={n.sender.avatarUrl}
+                          name={n.sender.name}
+                          size="xs"
+                          role={n.sender.role}
+                        />
+                      </NavLink>
+                    )}
+                    <span className="text-[11px] text-neutral-400 font-sans">{formatTime(n.createdAt)}</span>
+                    {!n.read && (
+                      <span className="w-2 h-2 rounded-full bg-sky-500 shrink-0 ml-auto" />
+                    )}
                   </div>
-                )}
 
-                {n.type === 'message' && (
-                  <div className="mt-2">
-                    <NavLink
-                      to={`/messages?user=${n.sender?.username}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Reply to message</span>
-                    </NavLink>
-                  </div>
-                )}
-
-                {n.type === 'typing_challenge' && (
-                  <div className="mt-2.5 flex items-center gap-2">
-                    {n.typingChallenge?.isRace || n.typingChallenge?.mode === 'race_highway' ? (
+                  <p className="text-sm text-neutral-900 dark:text-neutral-100 leading-snug">
+                    {n.sender && (
                       <NavLink
-                        to={`/typing?theme=race&duelWith=${n.sender?.username}&car=${n.typingChallenge?.carId || 'street_phantom'}&challengeId=${n.typingChallenge?._id || n.typingChallenge}`}
+                        to={`/profile/${n.sender.username}`}
+                        className="font-bold hover:underline mr-1 text-neutral-900 dark:text-white"
+                      >
+                        {n.sender.name}
+                      </NavLink>
+                    )}
+                    {n.type === 'message' && 'sent you a direct message.'}
+                    {n.type === 'like' && 'appreciated your post.'}
+                    {n.type === 'comment' && 'responded to your post.'}
+                    {n.type === 'mention' && (n.comment ? 'mentioned you in a response.' : 'mentioned you in a post.')}
+                    {n.type === 'question_mention' && 'mentioned you in a learning question or answer.'}
+                    {n.type === 'everyone_mention' && (n.question ? 'broadcasted an @everyone mention in a question/answer.' : 'broadcasted an @everyone mention to the community.')}
+                    {n.type === 'follow' && 'began following your updates.'}
+                    {n.type === 'announcement' && 'published an announcement.'}
+                    {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}
+                    {n.type === 'question_accepted' && 'marked your answer as the accepted solution! 🎉'}
+                    {n.type === 'typing_challenge' && 'challenged you to a Highway Supercar Race in Typing Arena! 🏎️⚡'}
+                    {n.type === 'typing_challenge_result' && 'completed your Highway Supercar Race Duel! 🏆'}
+                    {n.type === 'new_post' && 'published a new post.'}
+                  </p>
+
+                  {n.type === 'new_post' && n.post && (
+                    <div className="mt-2">
+                      <NavLink
+                        to={`/posts/${n.post._id || n.post}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                      >
+                        <PenSquare className="w-3.5 h-3.5" />
+                        <span>View post</span>
+                      </NavLink>
+                    </div>
+                  )}
+
+                  {n.type === 'message' && (
+                    <div className="mt-2">
+                      <NavLink
+                        to={`/messages?user=${n.sender?.username}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Reply to message</span>
+                      </NavLink>
+                    </div>
+                  )}
+
+                  {isRaceChallenge && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <NavLink
+                        to={targetUrl}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 via-amber-500 to-cyan-400 hover:from-red-400 hover:to-cyan-300 text-slate-950 font-black text-xs shadow-md shadow-cyan-500/20 transition-all hover:scale-105 active:scale-95"
                       >
                         <Flame className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
-                        <span>🏎️ Start Race Against @{n.sender?.username} &rarr;</span>
+                        <span>🏎️ Start Supercar Race Against @{n.sender?.username} &rarr;</span>
                       </NavLink>
-                    ) : (
-                      <NavLink
-                        to={`/typing?challengeId=${n.typingChallenge?._id || n.typingChallenge}`}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-xs transition-transform active:scale-95"
-                      >
-                        <Swords className="w-3.5 h-3.5" />
-                        <span>Accept & Race Rival &rarr;</span>
-                      </NavLink>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                {n.type === 'typing_challenge_result' && (
-                  <div className="mt-2">
-                    <NavLink
-                      to="/typing"
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
-                    >
-                      <Trophy className="w-3.5 h-3.5" />
-                      <span>View Duel Results</span>
-                    </NavLink>
-                  </div>
-                )}
+                  {n.type === 'typing_challenge_result' && (
+                    <div className="mt-2">
+                      <NavLink
+                        to="/typing?theme=race"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 font-bold text-xs hover:bg-cyan-500/30 transition-colors"
+                      >
+                        <Trophy className="w-3.5 h-3.5" />
+                        <span>🏆 View Supercar Duel Results</span>
+                      </NavLink>
+                    </div>
+                  )}
 
                 {n.post && (
                   <NavLink
@@ -406,7 +430,8 @@ export const NotificationsPage = () => {
                 )}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

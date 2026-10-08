@@ -29,6 +29,7 @@ export const RacingArenaScreen = ({
   onShareRace = () => {},
   currentUser = null,
   initialRival = null,
+  initialText = null,
 }) => {
   const [garage, setGarage] = useState(() => getPlayerGarage(currentUser));
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -36,7 +37,7 @@ export const RacingArenaScreen = ({
   const selectedCar =
     CAR_CATALOG.find((c) => c.id === garage.selectedCarId) || CAR_CATALOG[0];
 
-  const [raceText] = useState(DEFAULT_RACE_TEXT);
+  const [raceText, setRaceText] = useState(() => (initialText && initialText.trim()) || DEFAULT_RACE_TEXT);
   const [typedIndex, setTypedIndex] = useState(0);
   const [countdown, setCountdown] = useState(3); // 3, 2, 1, 0 (Started)
   const [raceActive, setRaceActive] = useState(false);
@@ -133,9 +134,10 @@ export const RacingArenaScreen = ({
     },
   ]);
 
-  // Synchronize dynamic rival when passed or updated from challenge URL
+  // Synchronize dynamic rival and challenge words when passed or updated from challenge URL
   useEffect(() => {
     if (initialRival) {
+      setActiveRival(initialRival);
       setOpponents((prev) => {
         const rivalOpponent = {
           id: initialRival.username || initialRival._id || 'rival',
@@ -154,6 +156,12 @@ export const RacingArenaScreen = ({
       });
     }
   }, [initialRival]);
+
+  useEffect(() => {
+    if (initialText && initialText.trim()) {
+      setRaceText(initialText.trim());
+    }
+  }, [initialText]);
 
   // Start countdown sequence
   useEffect(() => {

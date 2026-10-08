@@ -97,9 +97,12 @@ export const RaceInviteModal = ({
   const [activeTab, setActiveTab] = useState('invite'); // 'invite' | 'incoming'
   const [searchTerm, setSearchTerm] = useState('');
   const [directoryRacers, setDirectoryRacers] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [searchingRemote, setSearchingRemote] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [invitedUsers, setInvitedUsers] = useState(new Set());
+  const [sendingInviteId, setSendingInviteId] = useState(null);
 
   // Fetch real users from platform directory
   useEffect(() => {
@@ -108,8 +111,9 @@ export const RaceInviteModal = ({
     setLoadingMembers(true);
     api.get('/users/directory')
       .then((res) => {
-        const members = (res.data.members || []).filter(
-          (m) => m._id !== currentUser?._id && m.username !== currentUser?.username
+        const rawList = res.data.members || res.data.users || (Array.isArray(res.data) ? res.data : []);
+        const members = rawList.filter(
+          (m) => m && m._id !== currentUser?._id && m.username !== currentUser?.username
         );
 
         // Map platform users to racer format with assigned cars
@@ -125,7 +129,8 @@ export const RaceInviteModal = ({
             carImage: assignedCar.image,
             bestWpm: 80 + Math.floor(Math.sin(idx + 1) * 20 + 20),
             status: 'online',
-            tag: 'Platform Racer',
+            isRealUser: true,
+            tag: 'Clearfeed Member',
           };
         });
 
@@ -139,13 +144,69 @@ export const RaceInviteModal = ({
       });
   }, [isOpen, currentUser]);
 
-  // Combine real directory racers with top rivals
-  const allRacers = [
-    ...directoryRacers,
-    ...DEFAULT_RIVAL_RACERS.filter(
-      (r) => !directoryRacers.some((d) => d.username === r.username)
-    ),
-  ];
+  // Live remote search for users if typed
+  useEffect(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q || q.length < 2) {
+      setSearchResults([]);
+      setSearchingRemote(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchingRemote(true);
+      try {
+        const res = await api.get(`/search?q=${encodeURIComponent(q)}`);
+        const found = (res.data?.users || []).filter(
+          (u) => u._id !== currentUser?._id && u.username !== currentUser?.username
+        );
+        const mapped = found.map((m, idx) => {
+          const assignedCar = CAR_CATALOG[(idx + 1) % CAR_CATALOG.length];
+          return {
+            _id: m._id,
+            username: m.username,
+            name: m.name,
+            avatarUrl: m.avatarUrl,
+            carName: assignedCar.name,
+            carColor: assignedCar.color,
+            carImage: assignedCar.image,
+            bestWpm: 90,
+            status: 'online',
+            isRealUser: true,
+            tag: 'Community Member',
+          };
+        });
+        setSearchResults(mapped);
+      } catch (err) {
+        console.warn('Live racer search error:', err);
+      } finally {
+        setSearchingRemote(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, currentUser]);
+
+  // Merge real directory and search results (unique by _id)
+  const realRacers = React.useMemo(() => {
+    const map = new Map();
+    for (const r of directoryRacers) {
+      map.set(r._id.toString(), r);
+    }
+    for (const r of searchResults) {
+      map.set(r._id.toString(), r);
+    }
+    return Array.from(map.values());
+  }, [directoryRacers, searchResults]);
+
+  // Combine real racers with fallback AI bot racers
+  const allRacers = React.useMemo(() => {
+    const aiRacers = DEFAULT_RIVAL_RACERS.map((bot) => ({
+      ...bot,
+      isRealUser: false,
+    }));
+    return [...realRacers, ...aiRacers];
+  }, [realRacers]);
 
   const filteredRacers = allRacers.filter((r) => {
     if (!searchTerm.trim()) return true;
@@ -159,7 +220,7 @@ export const RaceInviteModal = ({
 
   // Copy shareable race link
   const handleCopyRaceLink = () => {
-    const inviteUrl = `${window.location.origin}/typing?theme=race&duelWith=${currentUser?.username || 'player'}&car=${selectedCar?.id || 'shadow_v12'}`;
+    const inviteUrl = `${window.location.origin}/typing?theme=race&duelWith=${currentUser?.username || 'guest'}&car=${selectedCar?.id || 'shadow_v12'}`;
     navigator.clipboard.writeText(inviteUrl).then(() => {
       setCopiedLink(true);
       showToast('🔗 Race duel link copied to clipboard! Share it anywhere.', 'success');
@@ -170,6 +231,14 @@ export const RaceInviteModal = ({
 
   // Send race invitation
   const handleInviteRacer = async (racer) => {
+    if (!racer.isRealUser) {
+      // It's a simulated AI practice rival
+      showToast(`🤖 @${racer.username} is a CPU Practice Bot. Click 'RACE NOW' to duel them immediately!`, 'info');
+      handleStartDuelNow(racer);
+      return;
+    }
+
+    setSendingInviteId(racer._id);
     try {
       const payload = {
         challengedUserId: racer._id,
@@ -182,33 +251,32 @@ export const RaceInviteModal = ({
         isRace: true,
         duration: 30,
         customMessage: `🏎️ I challenge you to a Highway Race in the Typing Arena! My car is the ${selectedCar?.name || 'Shadow V12'}. Let's burn some rubber! ⚡`,
-        challengerWpm: 100,
+        challengerWpm: 95,
         challengerAccuracy: 98,
         carId: selectedCar?.id || 'shadow_v12',
         carName: selectedCar?.name || 'Shadow V12',
       };
 
-      // 1. Save local challenge
-      saveLocalChallenge(payload, currentUser);
+      // 1. Send remote server challenge and notification
+      const res = await api.post('/typing/challenges', payload);
+      const createdChallenge = res.data?.challenge || payload;
 
-      // 2. Dispatch event for other components
+      // 2. Save local challenge for offline resiliency
+      saveLocalChallenge(createdChallenge, currentUser);
+
+      // 3. Dispatch event for other components
       window.dispatchEvent(
-        new CustomEvent('clearfeed:typingChallengesUpdated', { detail: payload })
+        new CustomEvent('clearfeed:typingChallengesUpdated', { detail: createdChallenge })
       );
-
-      // 3. Try server sync
-      try {
-        await api.post('/typing/challenges', payload);
-      } catch (e) {
-        console.info('Race invite registered locally:', e.message);
-      }
 
       setInvitedUsers((prev) => new Set(prev).add(racer._id));
       racingAudio.playVictory();
-      showToast(`🏁 Race invitation sent to @${racer.username}! Match is ready.`, 'success');
+      showToast(`🏁 Race invitation sent to @${racer.username}! Real-time notification dispatched.`, 'success');
     } catch (err) {
       console.warn('Failed to send race invite:', err);
-      showToast(`Race challenge ready for @${racer.username}!`, 'info');
+      showToast(err.response?.data?.message || `Could not deliver challenge to @${racer.username}`, 'error');
+    } finally {
+      setSendingInviteId(null);
     }
   };
 
@@ -333,6 +401,15 @@ export const RaceInviteModal = ({
                           <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">
                             @{racer.username}
                           </span>
+                          {racer.isRealUser ? (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                              Real Player
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 font-bold">
+                              CPU AI
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
@@ -353,22 +430,43 @@ export const RaceInviteModal = ({
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2 self-end sm:self-center">
-                      <button
-                        onClick={() => handleInviteRacer(racer)}
-                        disabled={hasInvited}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                          hasInvited
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-                        }`}
-                      >
-                        {hasInvited ? <Check size={12} /> : <Send size={12} />}
-                        <span>{hasInvited ? 'INVITED' : 'INVITE'}</span>
-                      </button>
+                      {racer.isRealUser ? (
+                        <button
+                          onClick={() => handleInviteRacer(racer)}
+                          disabled={hasInvited || sendingInviteId === racer._id}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                            hasInvited
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black shadow-md shadow-cyan-950/30 active:scale-95'
+                          }`}
+                        >
+                          {hasInvited ? (
+                            <>
+                              <Check size={12} />
+                              <span>INVITED</span>
+                            </>
+                          ) : sendingInviteId === racer._id ? (
+                            <span>SENDING...</span>
+                          ) : (
+                            <>
+                              <Send size={12} />
+                              <span>INVITE</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleStartDuelNow(racer)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Play size={12} />
+                          <span>PRACTICE</span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() => handleStartDuelNow(racer)}
-                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-fuchsia-950/40 active:scale-95 transition flex items-center gap-1.5"
+                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-fuchsia-950/40 active:scale-95 transition flex items-center gap-1.5 cursor-pointer"
                       >
                         <Play size={12} className="fill-white" />
                         <span>RACE NOW</span>

@@ -103,6 +103,8 @@ export default function TypingChallengeModal({
       }
 
       const payload = {
+        challengedUserId: selectedUser._id,
+        challengedUsername: selectedUser.username,
         targetUserId: selectedUser._id,
         targetUsername: selectedUser.username,
         targetName: selectedUser.name,
@@ -112,7 +114,10 @@ export default function TypingChallengeModal({
         challengerRawWpm,
         challengerTelemetry,
         duration: Number(duration),
-        mode,
+        mode: mode === 'words_200' ? 'race_highway' : mode,
+        isRace: true,
+        carId: 'street_phantom',
+        carName: 'Street Phantom',
         words: initialWords && initialWords.length > 0 ? initialWords : undefined,
         customMessage: customMessage.trim() || undefined,
       };
@@ -132,12 +137,12 @@ export default function TypingChallengeModal({
         console.info('Remote challenge sync queued (operating in offline-resilient mode):', remoteErr?.message);
       }
 
-      showToast(`⚔️ Challenge sent to @${selectedUser.username}! Duel is live and ready.`, 'success');
+      showToast(`🏎️⚡ Highway Race Challenge sent to @${selectedUser.username}! Duel is live and ready.`, 'success');
       onClose();
 
       // If user chose to race right now to set benchmark
       if (challengerOption === 'race_now' || (initialWpm == null && challengerWpm === 0)) {
-        navigate(`/typing?challengeId=${createdChallenge._id}`);
+        navigate(`/typing?theme=race&duelWith=${selectedUser.username}&car=street_phantom&challengeId=${createdChallenge._id}`);
       }
     } catch (err) {
       console.error('Challenge error:', err);

@@ -57,6 +57,13 @@ export const TypingArenaPage = () => {
 
   // Multi-theme Arena State ('racing_hub' | 'race' | 'garage' | 'arcade' | 'classic' | 'leaderboard' | 'game' | 'hacker' | 'zen')
   const [arenaTheme, setArenaThemeState] = useState(() => {
+    const duelWith = searchParams.get('duelWith') || searchParams.get('raceInvite');
+    const themeParam = searchParams.get('theme');
+    const challengeId = searchParams.get('challengeId');
+    if (duelWith || themeParam === 'race' || challengeId) return 'race';
+    if (themeParam && ['racing_hub', 'garage', 'arcade', 'classic', 'game', 'hacker', 'zen'].includes(themeParam)) {
+      return themeParam;
+    }
     const saved = localStorage.getItem('typing_arena_theme');
     if (!saved || saved === 'game') return 'racing_hub';
     return saved;
@@ -117,7 +124,24 @@ export const TypingArenaPage = () => {
   const activeChallengeRef = useRef(null);
   const [challenges, setChallenges] = useState({ incoming: [], outgoing: [], history: [] });
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
-  const [raceRival, setRaceRival] = useState(null);
+  const [raceRival, setRaceRival] = useState(() => {
+    const duelWith = searchParams.get('duelWith') || searchParams.get('raceInvite');
+    if (duelWith) {
+      const carParam = searchParams.get('car') || 'street_phantom';
+      const catalogCar = CAR_CATALOG.find((c) => c.id === carParam) || CAR_CATALOG[2];
+      return {
+        username: duelWith,
+        name: duelWith,
+        carName: catalogCar.name,
+        carColor: catalogCar.color,
+        carImage: catalogCar.image,
+        bestWpm: 120,
+        isLeader: true,
+        isRival: true,
+      };
+    }
+    return null;
+  });
 
   // Handle direct race duel query params or mode links
   useEffect(() => {
@@ -931,6 +955,34 @@ export const TypingArenaPage = () => {
     }
   };
 
+  const handleFinishRace = async (res) => {
+    fetchLeaderboard();
+    const chId = searchParams.get('challengeId') || activeChallenge?._id || activeChallengeRef.current?._id;
+    if (chId && user) {
+      try {
+        const compRes = await api.post(`/typing/challenges/${chId}/complete`, {
+          wpm: res.wpm,
+          accuracy: res.accuracy,
+          rawWpm: res.wpm,
+          telemetry: [res.wpm],
+        });
+        const ch = compRes.data?.challenge;
+        if (ch) {
+          showToast(
+            `🏆 Highway Supercar Race against @${ch.challenger?.username || raceRival?.username || 'rival'} completed! Duel score posted.`,
+            'success'
+          );
+        }
+      } catch (err) {
+        console.warn('Could not complete challenge on server:', err.message);
+      }
+    }
+    showToast(
+      `🏁 Race finished in #${res.race?.position || 1}! +${res.xpEarned} XP • +${res.starsEarned} 🪙`,
+      'success'
+    );
+  };
+
   return (
     <div
       className={`mx-auto font-sans transition-all duration-300 w-full ${
@@ -1026,15 +1078,10 @@ export const TypingArenaPage = () => {
             fetchLeaderboard();
           }}
           onShareRace={handleShareRacingPost}
-          onFinishRace={(res) => {
-            fetchLeaderboard();
-            showToast(
-              `🏁 Race finished in #${res.race?.position || 1}! +${res.xpEarned} XP • +${res.starsEarned} 🪙`,
-              'success'
-            );
-          }}
+          onFinishRace={handleFinishRace}
           currentUser={user}
           initialRival={raceRival}
+          initialText={Array.isArray(words) && words.length > 0 ? words.slice(0, 35).join(' ') : undefined}
         />
       )}
 
