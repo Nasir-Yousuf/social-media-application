@@ -94,6 +94,8 @@ export const PostComposer = ({
   // Twitter-style Location and Emoji state
   const [location, setLocation] = useState('');
   const [visibility, setVisibility] = useState('public');
+  const [audience, setAudience] = useState([]);
+  const [excludedAudience, setExcludedAudience] = useState([]);
   const [replyPolicy, setReplyPolicy] = useState('everyone');
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [customLocationInput, setCustomLocationInput] = useState('');
@@ -312,12 +314,23 @@ export const PostComposer = ({
         }
       }
 
+      if (visibility === 'specific' && (!audience || audience.length === 0)) {
+        showToast('Please select at least one person for specific audience, or select Everyone.', 'info');
+        return;
+      }
+      if (visibility === 'exclude' && (!excludedAudience || excludedAudience.length === 0)) {
+        showToast('Please select at least one person to exclude, or select Everyone.', 'info');
+        return;
+      }
+
       const payload = {
         content: postText || (formattedSnippet ? `Shared snippet: ${formattedSnippet.title}` : 'Shared a post'),
         isAnnouncement: false,
         forkedFrom: forkedFromId || null,
         location: location.trim() || undefined,
         visibility,
+        audience: (audience || []).map((u) => u._id || u),
+        excludedAudience: (excludedAudience || []).map((u) => u._id || u),
         replyPolicy,
       };
 
@@ -332,6 +345,8 @@ export const PostComposer = ({
       closeMention();
       setLocation('');
       setVisibility('public');
+      setAudience([]);
+      setExcludedAudience([]);
       setReplyPolicy('everyone');
       setShowLocationPicker(false);
       setShowEmojiPicker(false);
@@ -382,6 +397,10 @@ export const PostComposer = ({
             <PostAudienceControl
               visibility={visibility}
               onChangeVisibility={setVisibility}
+              audience={audience}
+              onChangeAudience={setAudience}
+              excludedAudience={excludedAudience}
+              onChangeExcludedAudience={setExcludedAudience}
               replyPolicy={replyPolicy}
               onChangeReplyPolicy={setReplyPolicy}
               compact={compact}

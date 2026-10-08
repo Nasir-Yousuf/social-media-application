@@ -3,6 +3,7 @@ const Post = require('../models/Post');
 const Like = require('../models/Like');
 const Follow = require('../models/Follow');
 const { getAuthenticFollowCounts } = require('../utils/followUtils');
+const { buildVisibilityFilter, sanitizePostForViewer } = require('./postController');
 
 exports.searchAll = async (req, res) => {
   try {
@@ -15,6 +16,7 @@ exports.searchAll = async (req, res) => {
     const cleanQ = q.replace(/^#/, '').trim();
     const regex = new RegExp(cleanQ || q, 'i');
     const currentUserId = req.user ? req.user._id : null;
+    const isAdmin = req.user?.role === 'admin';
 
     // Search users
     const users = await User.find({
@@ -42,16 +44,22 @@ exports.searchAll = async (req, res) => {
       })
     );
 
-    // Search posts (by text, hashtag in tags array, or snippet)
-    const posts = await Post.find({
+    // Search posts with visibility filter (by text, hashtag in tags array, or snippet)
+    const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
+    const searchFilter = {
       $or: [
         { content: regex },
         { tags: cleanQ.toLowerCase() },
         { 'codeSnippet.title': regex },
         { 'codeSnippet.language': cleanQ.toLowerCase() },
       ],
-    })
+    };
+    const finalPostQuery = Object.keys(visFilter).length > 0 ? { $and: [searchFilter, visFilter] } : searchFilter;
+
+    const posts = await Post.find(finalPostQuery)
       .populate('author', 'name username avatarUrl role')
+      .populate('audience', 'name username avatarUrl role')
+      .populate('excludedAudience', 'name username avatarUrl role')
       .sort({ createdAt: -1 })
       .limit(25);
 
@@ -76,12 +84,16 @@ exports.searchAll = async (req, res) => {
         Math.max(1, viewerSet.size),
         totalUsers > 0 ? totalUsers : 1
       );
-      return {
-        ...p.toObject(),
-        viewsCount: uniqueViews,
-        isLiked: likedSet.has(p._id.toString()),
-        isOwner: currentUserId ? p.author && p.author._id.equals(currentUserId) : false,
-      };
+      return sanitizePostForViewer(
+        {
+          ...p.toObject(),
+          viewsCount: uniqueViews,
+          isLiked: likedSet.has(p._id.toString()),
+          isOwner: currentUserId ? p.author && p.author._id.equals(currentUserId) : false,
+        },
+        currentUserId,
+        isAdmin
+      );
     });
 
     return res.status(200).json({

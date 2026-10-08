@@ -749,6 +749,32 @@ export const TypingArenaPage = () => {
       return;
     }
 
+    // Backspace: Allow moving back to previous word to fix mistakes when current input is empty
+    if (e.key === 'Backspace' && currentInput.length === 0 && currentWordIndex > 0) {
+      e.preventDefault();
+      const prevIndex = currentWordIndex - 1;
+      const prevRecord = wordHistory[prevIndex];
+      const prevTargetWord = words[prevIndex] || '';
+      const prevTyped = prevRecord ? prevRecord.typed : prevTargetWord;
+
+      // If the previous word was marked correct, revert its awarded correct characters & streak
+      if (prevRecord?.status === 'correct') {
+        setCompletedCorrectChars((prev) => Math.max(0, prev - (prevTargetWord.length + 1)));
+        setStreak((prev) => Math.max(0, prev - 1));
+      }
+
+      // Uncommit the previous word from wordHistory so it becomes actively editable again
+      setWordHistory((prev) => {
+        const next = { ...prev };
+        delete next[prevIndex];
+        return next;
+      });
+
+      setCurrentWordIndex(prevIndex);
+      setCurrentInput(e.ctrlKey ? '' : prevTyped);
+      return;
+    }
+
     // Space commits current word
     if (e.key === ' ') {
       e.preventDefault();
@@ -814,6 +840,36 @@ export const TypingArenaPage = () => {
     if (val.includes(' ')) return; // Handled in onKeyDown
     setCurrentInput(val);
   };
+
+  // Allow clicking directly on any previously typed word to jump back and fix mistakes
+  const handleJumpToWord = useCallback(
+    (targetIdx) => {
+      if (isFinished || targetIdx >= currentWordIndex) return;
+
+      let charsToDeduct = 0;
+      setWordHistory((prev) => {
+        const next = { ...prev };
+        for (let i = targetIdx; i < currentWordIndex; i++) {
+          if (next[i]?.status === 'correct') {
+            charsToDeduct += (words[i]?.length || 0) + 1;
+          }
+          delete next[i];
+        }
+        return next;
+      });
+
+      if (charsToDeduct > 0) {
+        setCompletedCorrectChars((prev) => Math.max(0, prev - charsToDeduct));
+      }
+
+      const targetRecord = wordHistory[targetIdx];
+      const targetTyped = targetRecord ? targetRecord.typed : (words[targetIdx] || '');
+
+      setCurrentWordIndex(targetIdx);
+      setCurrentInput(targetTyped);
+    },
+    [isFinished, currentWordIndex, wordHistory, words]
+  );
 
   // Launch Ghost race from leaderboard
   const handleChallengeGhost = (entry) => {
@@ -1019,6 +1075,7 @@ export const TypingArenaPage = () => {
               viewMode={viewMode}
               onInputChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onJumpToWord={handleJumpToWord}
               isActive={isActive}
               isFinished={isFinished}
               ghostData={ghostData}
@@ -1068,6 +1125,7 @@ export const TypingArenaPage = () => {
               viewMode={viewMode}
               onInputChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onJumpToWord={handleJumpToWord}
               isActive={isActive}
               isFinished={isFinished}
               ghostData={ghostData}
@@ -1098,6 +1156,7 @@ export const TypingArenaPage = () => {
               viewMode={viewMode}
               onInputChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onJumpToWord={handleJumpToWord}
               isActive={isActive}
               isFinished={isFinished}
               ghostData={ghostData}
@@ -1148,6 +1207,7 @@ export const TypingArenaPage = () => {
               viewMode={viewMode}
               onInputChange={handleInputChange}
               onKeyDown={handleKeyDown}
+              onJumpToWord={handleJumpToWord}
               isActive={isActive}
               isFinished={isFinished}
               ghostData={ghostData}

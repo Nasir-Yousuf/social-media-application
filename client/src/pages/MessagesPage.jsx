@@ -17,6 +17,7 @@ import {
   Trash2,
   Eraser,
   RotateCcw,
+  Swords,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +25,7 @@ import { useNotifications } from '../context/NotificationContext';
 import Avatar from '../components/common/Avatar';
 import Modal from '../components/common/Modal';
 import TwitterSpinner from '../components/common/TwitterSpinner';
+import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 import api from '../api/client';
 import {
   WhatsAppReactionPicker,
@@ -83,11 +85,72 @@ export const MessagesPage = () => {
   const [directoryMembers, setDirectoryMembers] = useState([]);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const activeConvIdRef = useRef(null);
   activeConvIdRef.current = activeConversation?._id;
+
+  // Track mobile visualViewport to resize chat container when software keyboard opens
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateHeight = () => {
+      const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      setViewportHeight(height);
+      if (activeConversation) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    updateHeight();
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateHeight);
+      window.visualViewport.addEventListener('scroll', updateHeight);
+    }
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateHeight);
+        window.visualViewport.removeEventListener('scroll', updateHeight);
+      }
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [activeConversation]);
+
+  // Lock document body scroll on mobile while inside an active DM so the header cannot scroll off-screen
+  useEffect(() => {
+    if (!activeConversation) return;
+
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (!isMobile) return;
+
+    const prevOverflow = document.body.style.overflow;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+    const prevWidth = document.body.style.width;
+    const prevHeight = document.body.style.height;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = '0px';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = prevOverflow;
+      document.body.style.position = prevPosition;
+      document.body.style.top = prevTop;
+      document.body.style.width = prevWidth;
+      document.body.style.height = prevHeight;
+    };
+  }, [activeConversation]);
 
   const scrollToBottom = (smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
@@ -858,27 +921,34 @@ export const MessagesPage = () => {
 
       {/* RIGHT PANE: Active Chat Conversation */}
       <div
+        style={
+          (activeConversation || userParam) && typeof window !== 'undefined' && window.innerWidth < 768 && viewportHeight
+            ? { height: `${viewportHeight}px`, top: 0, left: 0, right: 0, bottom: 'auto' }
+            : undefined
+        }
         className={`${
-          activeConversation
+          activeConversation || userParam
             ? 'fixed inset-0 z-50 md:relative md:inset-auto md:z-auto flex'
             : 'hidden md:flex'
-        } flex-col flex-1 min-w-0 h-[100dvh] md:h-screen overflow-hidden bg-white dark:bg-black transition-all`}
+        } flex-col flex-1 min-w-0 h-[100dvh] md:h-screen overflow-hidden bg-white dark:bg-black transition-none`}
       >
         {activeConversation ? (
           <>
-            {/* Active Chat Header */}
-            <div className="h-16 px-4 sm:px-6 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/90 dark:bg-black/90 backdrop-blur-md flex items-center justify-between shrink-0 z-10 shadow-2xs">
-              <div className="flex items-center gap-3 min-w-0">
+            {/* Active Chat Header: Permanently pinned on mobile with recipient avatar, name, and @username */}
+            <div className="sticky top-0 z-20 h-16 px-3 sm:px-6 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-white/95 dark:bg-black/95 backdrop-blur-md flex items-center justify-between shrink-0 shadow-2xs">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 mr-2">
                 {/* Mobile Back Button */}
                 <button
                   type="button"
                   onClick={handleBackToConversations}
-                  className="md:hidden p-2 -ml-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 active:scale-95 transition-transform cursor-pointer shrink-0"
+                  className="md:hidden p-2 -ml-1 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 active:scale-95 transition-transform cursor-pointer shrink-0"
                   title="Back to conversations"
+                  aria-label="Back to conversations list"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
 
+                {/* Avatar with live status dot */}
                 <NavLink
                   to={`/profile/${activeConversation.otherUser?.username}`}
                   className="shrink-0 relative group"
@@ -889,36 +959,50 @@ export const MessagesPage = () => {
                     size="md"
                     showRoleBadge={false}
                   />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-black" />
                 </NavLink>
 
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                {/* Recipient info: Name + Username (ALWAYS clearly visible on mobile) */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <NavLink
                       to={`/profile/${activeConversation.otherUser?.username}`}
-                      className="font-bold text-sm sm:text-base text-neutral-900 dark:text-neutral-100 hover:text-sky-500 transition-colors truncate"
+                      className="font-black text-sm sm:text-base text-neutral-900 dark:text-neutral-100 hover:text-sky-500 transition-colors truncate block"
                     >
-                      {activeConversation.otherUser?.name}
+                      {activeConversation.otherUser?.name || 'Classmate'}
                     </NavLink>
-                    <span className="text-xs text-neutral-500 truncate hidden sm:inline">
-                      @{activeConversation.otherUser?.username}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Direct chat
-                    </span>
-                    {activeConversation.otherUser?.status && (
-                      <span className="text-neutral-400 truncate hidden md:inline">
-                        · {activeConversation.otherUser?.status}
+                    {activeConversation.otherUser?.role === 'admin' && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
+                        Admin
                       </span>
                     )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-[11px] sm:text-xs font-semibold text-neutral-500 dark:text-neutral-400 truncate">
+                      @{activeConversation.otherUser?.username}
+                    </span>
+                    <span className="text-neutral-300 dark:text-neutral-700">·</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-medium shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Direct chat</span>
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Header Right Actions */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                {/* Quick 1v1 Typing Duel Challenge Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsChallengeModalOpen(true)}
+                  className="p-2 rounded-full hover:bg-amber-500/10 text-amber-500 active:scale-95 transition-all cursor-pointer"
+                  title={`Challenge @${activeConversation.otherUser?.username} to a 1v1 Typing Duel`}
+                  aria-label="Challenge to typing duel"
+                >
+                  <Swords className="w-4 h-4" />
+                </button>
+
                 <NavLink
                   to={`/profile/${activeConversation.otherUser?.username}`}
                   className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-sky-500 transition-colors"
@@ -926,6 +1010,7 @@ export const MessagesPage = () => {
                 >
                   <User className="w-4 h-4" />
                 </NavLink>
+
                 <button
                   type="button"
                   onClick={() => handleClearConversation(activeConversation._id)}
@@ -934,6 +1019,7 @@ export const MessagesPage = () => {
                 >
                   <Eraser className="w-4 h-4" />
                 </button>
+
                 <button
                   type="button"
                   disabled={deletingConvId === activeConversation._id}
@@ -1325,7 +1411,14 @@ export const MessagesPage = () => {
                       }}
                       placeholder="Start a new message... (Enter to send)"
                       rows={1}
-                      className="w-full py-1.5 px-2 bg-transparent text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none resize-none max-h-36 min-h-[36px] leading-relaxed"
+                      onFocus={() => {
+                        window.scrollTo(0, 0);
+                        setTimeout(() => {
+                          window.scrollTo(0, 0);
+                          scrollToBottom(true);
+                        }, 120);
+                      }}
+                      className="w-full py-1.5 px-2 bg-transparent text-[16px] sm:text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 outline-none resize-none max-h-36 min-h-[36px] leading-relaxed"
                     />
                   </div>
 
@@ -1348,6 +1441,19 @@ export const MessagesPage = () => {
               </form>
             </div>
           </>
+        ) : userParam ? (
+          /* Connecting Deep-Link User State */
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none bg-white dark:bg-black">
+            <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-500/10 text-sky-500 flex items-center justify-center mb-3">
+              <TwitterSpinner size="md" className="text-sky-500" />
+            </div>
+            <p className="font-bold text-sm text-neutral-900 dark:text-white">
+              Connecting with @{userParam}...
+            </p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              Loading direct conversation
+            </p>
+          </div>
         ) : (
           /* Empty State: No Conversation Selected (Desktop) */
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none bg-neutral-50/20 dark:bg-[#0b0d11]/40">
@@ -1465,6 +1571,22 @@ export const MessagesPage = () => {
           }
         }}
       />
+
+      {/* 1v1 Typing Duel Challenge Modal */}
+      {isChallengeModalOpen && activeConversation?.otherUser && (
+        <TypingChallengeModal
+          isOpen={isChallengeModalOpen}
+          onClose={() => setIsChallengeModalOpen(false)}
+          targetUser={activeConversation.otherUser}
+          currentUser={currentUser}
+          onChallengeCreated={() => {
+            showToast(`Challenged @${activeConversation.otherUser.username} to a 1v1 Typing Duel! ⚔️`, 'success');
+            if (activeConversation._id) {
+              fetchMessages(activeConversation._id, true);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

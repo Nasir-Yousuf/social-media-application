@@ -18,6 +18,11 @@ export const RacingTrackCanvas = ({
   opponents = [],
   licensePlate = 'NASIR',
   trackTheme = 'neon_coast',
+  activeWord = '',
+  activeWordTyped = 0,
+  nextWord = '',
+  isSpaceNeeded = false,
+  userRank = 1,
 }) => {
   const canvasRef = useRef(null);
   const stateRef = useRef({
@@ -39,6 +44,11 @@ export const RacingTrackCanvas = ({
     opponents,
     licensePlate,
     trackTheme,
+    activeWord,
+    activeWordTyped,
+    nextWord,
+    isSpaceNeeded,
+    userRank,
   });
 
   useEffect(() => {
@@ -51,8 +61,27 @@ export const RacingTrackCanvas = ({
       opponents,
       licensePlate,
       trackTheme,
+      activeWord,
+      activeWordTyped,
+      nextWord,
+      isSpaceNeeded,
+      userRank,
     };
-  }, [playerProgress, playerSpeedKmH, isNitroActive, isFinished, playerCar, opponents, licensePlate, trackTheme]);
+  }, [
+    playerProgress,
+    playerSpeedKmH,
+    isNitroActive,
+    isFinished,
+    playerCar,
+    opponents,
+    licensePlate,
+    trackTheme,
+    activeWord,
+    activeWordTyped,
+    nextWord,
+    isSpaceNeeded,
+    userRank,
+  ]);
 
   // Preload track background and all car models
   useEffect(() => {
@@ -271,19 +300,44 @@ export const RacingTrackCanvas = ({
         'apex_x',         // Liam (Silver)
       ];
 
-      (props.opponents || []).slice(0, 5).forEach((opp, idx) => {
-        const progressDiff = (opp.progress || 0) - props.playerProgress;
-        let oppDepth = 0.48 + progressDiff * 0.016;
-        oppDepth = Math.max(0.12, Math.min(0.72, oppDepth));
+      // Sort opponents by depth so closer cars are rendered in front of farther cars!
+      const sortedOpponents = (props.opponents || [])
+        .slice(0, 5)
+        .map((opp, idx) => {
+          // progressDiff > 0 means opponent has more progress than player (ahead)
+          // progressDiff < 0 means player has passed opponent (behind)
+          const progressDiff = (opp.progress || 0) - props.playerProgress;
 
+          // Grand Prix starting grid staging:
+          // Rank 1/Pole starts further ahead (depth ~0.56); lower ranks staged progressively closer.
+          const gridStagger = (2 - idx) * 0.055;
+          const totalProgress = props.playerProgress + (opp.progress || 0);
+          const dynamicWeight = Math.min(1, totalProgress / 10);
+
+          // Canonical depth when tied during race is 0.70
+          const raceDepth = 0.70 - progressDiff * 0.038;
+          const initialGridDepth = 0.68 - gridStagger;
+
+          let oppDepth = initialGridDepth * (1 - dynamicWeight) + raceDepth * dynamicWeight;
+          oppDepth = Math.max(0.12, Math.min(1.15, oppDepth));
+
+          const sway = Math.sin((state.frame * 0.03) + idx * 1.5) * 0.025;
+          const baseLaneRatio = opponentLanes[idx % opponentLanes.length];
+          const laneRatio = Math.max(-0.40, Math.min(0.40, baseLaneRatio + sway));
+
+          return { opp, idx, oppDepth, laneRatio };
+        })
+        .filter((item) => item.oppDepth <= 1.08)
+        .sort((a, b) => a.oppDepth - b.oppDepth); // Far away cars draw first, close cars draw on top!
+
+      sortedOpponents.forEach(({ opp, idx, oppDepth, laneRatio }) => {
         const nonLinearDepth = Math.pow(oppDepth, 2.1);
         const oppY = vanishY + (H - vanishY) * nonLinearDepth;
         const currentRoadW = roadTopWidth + (roadBottomWidth - roadTopWidth) * nonLinearDepth;
-        const laneRatio = opponentLanes[idx % opponentLanes.length];
         const oppX = vanishX + laneRatio * currentRoadW;
 
-        const carScale = Math.max(0.22, nonLinearDepth * 0.78);
-        const oppCarW = Math.max(36, 260 * carScale);
+        const carScale = Math.max(0.20, nonLinearDepth * 0.76);
+        const oppCarW = Math.max(34, 260 * carScale);
         const oppCarH = oppCarW * 0.58;
 
         const modelId = opponentCarModels[idx % opponentCarModels.length];
@@ -435,30 +489,161 @@ export const RacingTrackCanvas = ({
       const cleanPlate = (props.licensePlate || 'NASIR').toUpperCase().slice(0, 8);
       ctx.fillText(cleanPlate, 0, plateY + plateH / 2 + 1);
 
-      // Player identity marker (👤 YOU ▼)
-      const pTagY = -pCarH - 24;
-      ctx.font = 'bold 12px system-ui, sans-serif';
-      const pTextW = ctx.measureText('YOU').width;
+      // ========================================================
+      // 5B. HOLOGRAPHIC FLOATING ON-CAR TYPING PROMPT (HUD)
+      // ========================================================
+      if (props.activeWord) {
+        const word = props.activeWord;
+        const typedCount =
+          typeof props.activeWordTyped === 'string'
+            ? props.activeWordTyped.length
+            : Math.min(word.length, props.activeWordTyped || 0);
+        const isSpaceNeeded = !!props.isSpaceNeeded;
 
-      ctx.fillStyle = 'rgba(147, 51, 234, 0.9)';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.roundRect(-pTextW / 2 - 12, pTagY - 14, pTextW + 24, 18, 9);
-      ctx.fill();
-      ctx.stroke();
+        ctx.font = 'bold 18px ui-monospace, SFMono-Regular, Menlo, Monaco, monospace';
+        const baseWordWidth = ctx.measureText(word).width;
+        const spaceExtra = isSpaceNeeded ? 72 : 0;
+        const totalContentWidth = baseWordWidth + spaceExtra;
 
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.fillText('YOU', 0, pTagY);
+        const hudW = Math.max(180, Math.min(pCarW * 1.15, totalContentWidth + 48));
+        const hudH = 58;
+        const hudY = -pCarH - hudH - 14;
 
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(-4, pTagY + 4);
-      ctx.lineTo(4, pTagY + 4);
-      ctx.lineTo(0, pTagY + 8);
-      ctx.closePath();
-      ctx.fill();
+        // Glassmorphism HUD Backing
+        ctx.save();
+        ctx.fillStyle = 'rgba(3, 7, 18, 0.92)';
+        ctx.strokeStyle = props.isNitroActive ? '#06b6d4' : 'rgba(56, 189, 248, 0.85)';
+        ctx.lineWidth = 1.6;
+        ctx.shadowColor = props.isNitroActive ? '#06b6d4' : '#38bdf8';
+        ctx.shadowBlur = props.isNitroActive ? 18 : 10;
+        ctx.beginPath();
+        ctx.roundRect(-hudW / 2, hudY, hudW, hudH, 12);
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Top mini status badge: [ P#1 • 143 KM/H • NITRO ]
+        const rankPrefix = props.userRank ? `P#${props.userRank} • ` : '';
+        const speedText = `${rankPrefix}${Math.round(props.playerSpeedKmH || 0)} KM/H ${
+          props.isNitroActive ? '• 🚀 NITRO' : ''
+        }`;
+        ctx.fillStyle = props.isNitroActive ? '#22d3ee' : '#38bdf8';
+        ctx.font = 'bold 9px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(speedText, 0, hudY + 5);
+
+        // Word text rendering
+        ctx.font = 'bold 18px ui-monospace, SFMono-Regular, Menlo, Monaco, monospace';
+        ctx.textBaseline = 'middle';
+        const wordY = hudY + 29;
+
+        let startX = -totalContentWidth / 2;
+
+        for (let i = 0; i < word.length; i++) {
+          const char = word[i];
+          const charW = ctx.measureText(char).width;
+          const isTyped = i < typedCount;
+          const isCurrent = !isSpaceNeeded && i === typedCount;
+
+          if (isCurrent) {
+            // Glowing neon cursor box behind active letter
+            ctx.fillStyle = 'rgba(6, 182, 212, 0.35)';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.roundRect(startX - 2, wordY - 11, charW + 4, 22, 4);
+            ctx.fill();
+            ctx.stroke();
+          }
+
+          if (isTyped) {
+            ctx.fillStyle = '#34d399'; // Emerald glowing typed char
+            ctx.shadowColor = 'rgba(52, 211, 153, 0.7)';
+            ctx.shadowBlur = 6;
+          } else if (isCurrent) {
+            ctx.fillStyle = '#ffffff'; // Crisp white active char
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 10;
+          } else {
+            ctx.fillStyle = '#94a3b8'; // Slate upcoming char
+            ctx.shadowBlur = 0;
+          }
+
+          ctx.textAlign = 'left';
+          ctx.fillText(char, startX, wordY);
+          ctx.shadowBlur = 0;
+
+          startX += charW;
+        }
+
+        // If word is typed and waiting for space, show glowing [␣ SPACE] pill
+        if (isSpaceNeeded) {
+          const pillX = startX + 8;
+          const pillW = 58;
+          const pillH = 20;
+
+          ctx.fillStyle = 'rgba(6, 182, 212, 0.35)';
+          ctx.strokeStyle = '#22d3ee';
+          ctx.lineWidth = 1.4;
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.roundRect(pillX, wordY - pillH / 2, pillW, pillH, 5);
+          ctx.fill();
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('␣ SPACE', pillX + pillW / 2, wordY);
+        }
+
+        // Preview next word in subtle muted text below
+        if (props.nextWord) {
+          ctx.font = 'bold 10px ui-monospace, monospace';
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
+          ctx.textAlign = 'center';
+          ctx.fillText(`next: ${props.nextWord}`, 0, hudY + hudH - 9);
+        }
+
+        // Downward pointer arrow connecting HUD to car roof
+        ctx.fillStyle = props.isNitroActive ? '#22d3ee' : 'rgba(56, 189, 248, 0.9)';
+        ctx.beginPath();
+        ctx.moveTo(-5, hudY + hudH);
+        ctx.lineTo(5, hudY + hudH);
+        ctx.lineTo(0, hudY + hudH + 6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      } else {
+        // Fallback simple "YOU" tag if no word prompt is active
+        const pTagY = -pCarH - 24;
+        ctx.font = 'bold 12px system-ui, sans-serif';
+        const pTextW = ctx.measureText('YOU').width;
+
+        ctx.fillStyle = 'rgba(147, 51, 234, 0.9)';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.roundRect(-pTextW / 2 - 12, pTagY - 14, pTextW + 24, 18, 9);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText('YOU', 0, pTagY);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(-4, pTagY + 4);
+        ctx.lineTo(4, pTagY + 4);
+        ctx.lineTo(0, pTagY + 8);
+        ctx.closePath();
+        ctx.fill();
+      }
 
       ctx.restore();
 

@@ -14,6 +14,7 @@ import {
   Radio,
   Swords,
   Trophy,
+  PenSquare,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -144,6 +145,12 @@ export const NotificationsPage = () => {
         return (
           <div className="p-2 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-500 ring-1 ring-sky-200 dark:ring-sky-900/50">
             <Trophy className="w-4 h-4" />
+          </div>
+        );
+      case 'new_post':
+        return (
+          <div className="p-2 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-500 ring-1 ring-sky-200 dark:ring-sky-900/50">
+            <PenSquare className="w-4 h-4" />
           </div>
         );
       default:
@@ -318,7 +325,20 @@ export const NotificationsPage = () => {
                       : 'challenged you to a 1v1 Typing Duel in Clearfeed Arena! ⚡'
                   )}
                   {n.type === 'typing_challenge_result' && 'completed your 1v1 Typing Duel!'}
+                  {n.type === 'new_post' && 'published a new post.'}
                 </p>
+
+                {n.type === 'new_post' && n.post && (
+                  <div className="mt-2">
+                    <NavLink
+                      to={`/posts/${n.post._id || n.post}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                    >
+                      <PenSquare className="w-3.5 h-3.5" />
+                      <span>View post</span>
+                    </NavLink>
+                  </div>
+                )}
 
                 {n.type === 'message' && (
                   <div className="mt-2">

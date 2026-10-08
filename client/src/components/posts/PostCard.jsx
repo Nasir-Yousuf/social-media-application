@@ -16,7 +16,10 @@ import {
   Flag,
   ShieldAlert,
   Users,
+  UserCheck,
   Handshake,
+  Target,
+  UserX,
   Lock,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -373,25 +376,55 @@ export const PostCard = ({
                   <span>{currentPost.location}</span>
                 </span>
               )}
-              {currentPost.visibility && currentPost.visibility !== 'public' && (
-                <span
-                  title={
-                    currentPost.visibility === 'followers'
-                      ? 'Followers only'
-                      : currentPost.visibility === 'mutuals'
-                      ? 'Mutual follows only'
-                      : currentPost.visibility === 'private'
-                      ? 'Only me (private)'
-                      : 'Specific audience'
-                  }
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-medium text-[10px]"
-                >
-                  {currentPost.visibility === 'followers' && <Users className="w-2.5 h-2.5 text-purple-400" />}
-                  {currentPost.visibility === 'mutuals' && <Handshake className="w-2.5 h-2.5 text-emerald-400" />}
-                  {currentPost.visibility === 'private' && <Lock className="w-2.5 h-2.5 text-amber-400" />}
-                  <span className="capitalize">{currentPost.visibility}</span>
-                </span>
-              )}
+              {currentPost.visibility && currentPost.visibility !== 'public' && (() => {
+                const vis = currentPost.visibility;
+                const specCount = Array.isArray(currentPost.audience) ? currentPost.audience.length : 0;
+                const exclCount = Array.isArray(currentPost.excludedAudience) ? currentPost.excludedAudience.length : 0;
+
+                let icon = <Users className="w-2.5 h-2.5 text-purple-400" />;
+                let label = vis;
+                let title = 'Custom audience';
+
+                if (vis === 'following') {
+                  icon = <UserCheck className="w-2.5 h-2.5 text-sky-400" />;
+                  label = 'Following';
+                  title = 'Visible only to people author follows';
+                } else if (vis === 'followers') {
+                  icon = <Users className="w-2.5 h-2.5 text-purple-400" />;
+                  label = 'Followers';
+                  title = 'Visible to followers only';
+                } else if (vis === 'mutuals') {
+                  icon = <Handshake className="w-2.5 h-2.5 text-emerald-400" />;
+                  label = 'Mutuals';
+                  title = 'Mutual follows only';
+                } else if (vis === 'specific') {
+                  icon = <Target className="w-2.5 h-2.5 text-indigo-400" />;
+                  label = specCount > 0 ? `Specific (${specCount})` : 'Specific';
+                  title = isOwner && specCount > 0
+                    ? `Only visible to ${specCount} specific chosen user${specCount === 1 ? '' : 's'}`
+                    : 'Visible only to specific people chosen by author';
+                } else if (vis === 'exclude') {
+                  icon = <UserX className="w-2.5 h-2.5 text-rose-400" />;
+                  label = isOwner && exclCount > 0 ? `Except (${exclCount})` : 'Limited';
+                  title = isOwner && exclCount > 0
+                    ? `Everyone except ${exclCount} user${exclCount === 1 ? '' : 's'}`
+                    : 'Visible to everyone except excluded users';
+                } else if (vis === 'private' || vis === 'only_me') {
+                  icon = <Lock className="w-2.5 h-2.5 text-amber-400" />;
+                  label = 'Only me';
+                  title = 'Only visible to you (private)';
+                }
+
+                return (
+                  <span
+                    title={title}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-medium text-[10px]"
+                  >
+                    {icon}
+                    <span>{label}</span>
+                  </span>
+                );
+              })()}
               {currentPost.isEdited && <span className="italic">· edited</span>}
               {isFlagged && (
                 <span className="text-amber-500 font-semibold text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10">

@@ -31,6 +31,8 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
   const initialFiles = normalizeSnippetFiles(post?.codeSnippet);
   const [content, setContent] = useState(post?.content || '');
   const [visibility, setVisibility] = useState(post?.visibility || 'public');
+  const [audience, setAudience] = useState(post?.audience || []);
+  const [excludedAudience, setExcludedAudience] = useState(post?.excludedAudience || []);
   const [replyPolicy, setReplyPolicy] = useState(post?.replyPolicy || 'everyone');
   const [hasSnippet, setHasSnippet] = useState(initialFiles.length > 0);
   const [snippetTitle, setSnippetTitle] = useState(post?.codeSnippet?.title || '');
@@ -128,10 +130,21 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
         };
       }
 
+      if (visibility === 'specific' && (!audience || audience.length === 0)) {
+        showToast('Please select at least one person for specific audience, or select Everyone.', 'info');
+        return;
+      }
+      if (visibility === 'exclude' && (!excludedAudience || excludedAudience.length === 0)) {
+        showToast('Please select at least one person to exclude, or select Everyone.', 'info');
+        return;
+      }
+
       const payload = {
         content: content.trim() || (snippetTitle ? `Code: ${snippetTitle}` : 'Shared snippet'),
         codeSnippet: snippetPayload,
         visibility,
+        audience: (audience || []).map((u) => u._id || u),
+        excludedAudience: (excludedAudience || []).map((u) => u._id || u),
         replyPolicy,
       };
 
@@ -156,6 +169,10 @@ export const EditPostModal = ({ isOpen, onClose, post, onPostUpdated }) => {
           <PostAudienceControl
             visibility={visibility}
             onChangeVisibility={setVisibility}
+            audience={audience}
+            onChangeAudience={setAudience}
+            excludedAudience={excludedAudience}
+            onChangeExcludedAudience={setExcludedAudience}
             replyPolicy={replyPolicy}
             onChangeReplyPolicy={setReplyPolicy}
           />

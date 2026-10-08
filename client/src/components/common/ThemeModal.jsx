@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, CloudMoon, Terminal, Sunset, Check, Sparkles, X } from 'lucide-react';
+import { Sun, Moon, CloudMoon, Terminal, Sunset, Check, Sparkles, X, Binary, Code2 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import Modal from './Modal';
 import Avatar from './Avatar';
@@ -8,8 +8,9 @@ const ICONS = {
   light: Sun,
   dark: Moon,
   dim: CloudMoon,
-  emerald: Terminal,
+  emerald: Code2,
   sunset: Sunset,
+  hacker: Terminal,
 };
 
 export const ThemeModal = () => {

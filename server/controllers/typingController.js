@@ -414,10 +414,14 @@ exports.createChallenge = async (req, res) => {
     const actualTargetUsername = challengedUsername || targetUsername;
 
     let targetUser = null;
-    if (actualTargetId) {
+    if (actualTargetId && mongoose.Types.ObjectId.isValid(actualTargetId)) {
       targetUser = await User.findById(actualTargetId);
-    } else if (actualTargetUsername) {
+    }
+    if (!targetUser && actualTargetUsername) {
       targetUser = await User.findOne({ username: String(actualTargetUsername).toLowerCase().trim() });
+    }
+    if (!targetUser && actualTargetId && typeof actualTargetId === 'string') {
+      targetUser = await User.findOne({ username: actualTargetId.toLowerCase().trim() });
     }
 
     if (!targetUser) {

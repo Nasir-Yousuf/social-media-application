@@ -533,4 +533,34 @@ exports.reactToMessage = async (req, res) => {
   }
 };
 
+// Get total unread message count across all conversations and latest unread message
+exports.getUnreadTotal = async (req, res) => {
+  try {
+    const currentUserId = req.user._id;
+
+    const [conversations, latestUnread] = await Promise.all([
+      Conversation.find({ participants: currentUserId }).select('unreadCounts'),
+      Message.findOne({ recipient: currentUserId, isRead: false })
+        .sort({ createdAt: -1 })
+        .populate('sender', 'name username avatarUrl role status'),
+    ]);
+
+    let unreadTotal = 0;
+    const userIdStr = currentUserId.toString();
+    for (const conv of conversations) {
+      if (conv.unreadCounts) {
+        unreadTotal += conv.unreadCounts.get(userIdStr) || 0;
+      }
+    }
+
+    return res.status(200).json({
+      unreadTotal,
+      latestUnread: latestUnread || null,
+    });
+  } catch (err) {
+    console.error('getUnreadTotal error:', err);
+    return res.status(500).json({ message: 'Failed to retrieve unread message count.' });
+  }
+};
+
 

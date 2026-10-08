@@ -61,6 +61,18 @@ export const THEMES = [
     accentColor: '#f97316',
     type: 'dark',
   },
+  {
+    id: 'hacker',
+    name: 'Cyber Hacker',
+    subtitle: 'Matrix CRT & Phosphor Green',
+    bg: '#020603',
+    cardBg: '#051007',
+    border: '#0f3818',
+    previewText: '#34d399',
+    badge: 'Matrix',
+    accentColor: '#00ff66',
+    type: 'dark',
+  },
 ];
 
 const ThemeContext = createContext();
@@ -91,7 +103,14 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     const root = document.documentElement;
     // Remove all previous theme classes
-    root.classList.remove('theme-light', 'theme-dark', 'theme-dim', 'theme-emerald', 'theme-sunset');
+    root.classList.remove(
+      'theme-light',
+      'theme-dark',
+      'theme-dim',
+      'theme-emerald',
+      'theme-sunset',
+      'theme-hacker'
+    );
 
     if (currentTheme.type === 'dark') {
       root.classList.add('dark');

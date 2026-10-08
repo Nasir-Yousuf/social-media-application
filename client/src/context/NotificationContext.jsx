@@ -1,15 +1,32 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/client';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
 
-// Authentic Twitter / X signature notification sound (two-tone melodic chirp)
+// Shared singleton AudioContext to comply with browser autoplay policies
+let sharedAudioCtx = null;
+
+const getSharedAudioContext = () => {
+  try {
+    if (!sharedAudioCtx && typeof window !== 'undefined') {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        sharedAudioCtx = new AudioCtx();
+      }
+    }
+    if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+  } catch {}
+  return sharedAudioCtx;
+};
+
+// Play authentic, crystal-clear Twitter / X melodic chirp notification sound
 export const playTwitterNotificationSound = () => {
   try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const ctx = getSharedAudioContext();
+    if (!ctx) return;
 
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
@@ -19,10 +36,10 @@ export const playTwitterNotificationSound = () => {
 
     // Master volume control
     const master = ctx.createGain();
-    master.gain.setValueAtTime(0.35, t);
+    master.gain.setValueAtTime(0.45, t);
     master.connect(ctx.destination);
 
-    // --- Note 1: Upward initial chirp (grace note) ---
+    // Note 1: Bright upward chirp
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
@@ -30,47 +47,47 @@ export const playTwitterNotificationSound = () => {
     osc1.frequency.exponentialRampToValueAtTime(2150, t + 0.045);
 
     gain1.gain.setValueAtTime(0, t);
-    gain1.gain.linearRampToValueAtTime(0.4, t + 0.008);
-    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+    gain1.gain.linearRampToValueAtTime(0.45, t + 0.008);
+    gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
 
     osc1.connect(gain1);
     gain1.connect(master);
     osc1.start(t);
-    osc1.stop(t + 0.06);
+    osc1.stop(t + 0.065);
 
-    // --- Note 2: Signature bright Twitter tweet whistle ---
+    // Note 2: Signature bright Twitter tweet chime
     const t2 = t + 0.055;
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(2100, t2);
-    osc2.frequency.exponentialRampToValueAtTime(3350, t2 + 0.04);
-    osc2.frequency.exponentialRampToValueAtTime(2700, t2 + 0.13);
+    osc2.frequency.exponentialRampToValueAtTime(3400, t2 + 0.04);
+    osc2.frequency.exponentialRampToValueAtTime(2650, t2 + 0.14);
 
     gain2.gain.setValueAtTime(0, t2);
-    gain2.gain.linearRampToValueAtTime(0.7, t2 + 0.012);
-    gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.16);
+    gain2.gain.linearRampToValueAtTime(0.75, t2 + 0.012);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.18);
 
     osc2.connect(gain2);
     gain2.connect(master);
     osc2.start(t2);
-    osc2.stop(t2 + 0.17);
+    osc2.stop(t2 + 0.19);
 
-    // --- Crystalline overtone layer for modern crispness ---
+    // Note 3: Crystalline overtone sparkle
     const osc3 = ctx.createOscillator();
     const gain3 = ctx.createGain();
     osc3.type = 'triangle';
     osc3.frequency.setValueAtTime(4200, t2);
-    osc3.frequency.exponentialRampToValueAtTime(5500, t2 + 0.05);
+    osc3.frequency.exponentialRampToValueAtTime(5600, t2 + 0.05);
 
     gain3.gain.setValueAtTime(0, t2);
-    gain3.gain.linearRampToValueAtTime(0.09, t2 + 0.01);
-    gain3.gain.exponentialRampToValueAtTime(0.001, t2 + 0.12);
+    gain3.gain.linearRampToValueAtTime(0.12, t2 + 0.01);
+    gain3.gain.exponentialRampToValueAtTime(0.001, t2 + 0.14);
 
     osc3.connect(gain3);
     gain3.connect(master);
     osc3.start(t2);
-    osc3.stop(t2 + 0.13);
+    osc3.stop(t2 + 0.15);
   } catch {
     // Audio restrictions fallback
   }
@@ -82,21 +99,28 @@ export const NotificationProvider = ({ children }) => {
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [toast, setToast] = useState(null);
 
-  const notifiedMessageIdsRef = React.useRef(new Set());
-  const notifiedNotificationIdsRef = React.useRef(new Set());
-  const initialLoadRef = React.useRef(true);
+  const notifiedMessageIdsRef = useRef(new Set());
+  const notifiedNotificationIdsRef = useRef(new Set());
+  const initialLoadRef = useRef(true);
 
   const showToast = useCallback((message, type = 'info', options = {}) => {
+    // Play sound on notification toasts unless explicitly muted
+    if (options.playSound !== false) {
+      playTwitterNotificationSound();
+    }
+
     setToast({
       id: Date.now(),
       message,
       type,
       onClick: options.onClick,
       avatarUrl: options.avatarUrl,
+      actionLabel: options.actionLabel,
+      actionOnClick: options.actionOnClick,
     });
     setTimeout(() => {
       setToast(null);
-    }, options.duration || 4000);
+    }, options.duration || 5000);
   }, []);
 
   const fetchUnreadCount = useCallback(async () => {
@@ -120,7 +144,7 @@ export const NotificationProvider = ({ children }) => {
       setUnreadCount(newNotifCount);
       setUnreadMessagesCount(newMsgCount);
 
-      // Handle new incoming general notification (likes, comments, follows, mentions, announcements)
+      // Handle new incoming general notification (likes, comments, follows, mentions, typing challenges, new posts)
       if (latestUnreadNotif && latestUnreadNotif._id) {
         if (initialLoadRef.current) {
           notifiedNotificationIdsRef.current.add(latestUnreadNotif._id);
@@ -150,6 +174,9 @@ export const NotificationProvider = ({ children }) => {
               notifText = `📢 ${senderName} mentioned @everyone`;
             } else if (latestUnreadNotif.type === 'announcement') {
               notifText = `📌 Announcement from ${senderName}`;
+            } else if (latestUnreadNotif.type === 'new_post') {
+              notifText = `📝 ${senderName} shared a new post: "${(latestUnreadNotif.post?.content || 'Check it out!').slice(0, 45)}"`;
+              targetUrl = `/posts/${latestUnreadNotif.post?._id || latestUnreadNotif.post}`;
             } else if (latestUnreadNotif.type === 'typing_challenge') {
               const tc = latestUnreadNotif.typingChallenge;
               const isRace = tc?.isRace || tc?.mode === 'race_highway';
@@ -160,7 +187,7 @@ export const NotificationProvider = ({ children }) => {
                 notifText = `🏎️⚡ ${senderName} challenged you to a Supercar Race! Click to race!`;
                 targetUrl = `/typing?theme=race&duelWith=${senderUsername}&car=${carId}&challengeId=${chId}`;
               } else {
-                notifText = `⚔️ ${senderName} challenged you to a Typing Duel!`;
+                notifText = `⚔️ ${senderName} challenged you to a 1v1 Typing Duel!`;
                 targetUrl = `/typing?challengeId=${chId}`;
               }
             } else if (latestUnreadNotif.type === 'typing_challenge_result') {
@@ -247,16 +274,13 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [isAuthenticated, showToast]);
 
-  // Unlock AudioContext and request browser notification permission on user interaction
+  // Unlock shared AudioContext and request browser notification permission on user interaction
   useEffect(() => {
     const handleFirstInteraction = () => {
       try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-          const ctx = new AudioCtx();
-          if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
-          }
+        const ctx = getSharedAudioContext();
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
         }
       } catch {}
 
@@ -270,14 +294,20 @@ export const NotificationProvider = ({ children }) => {
       }
 
       window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
+      window.removeEventListener('pointerdown', handleFirstInteraction);
     };
 
-    window.addEventListener('click', handleFirstInteraction, { once: true });
-    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+    window.addEventListener('click', handleFirstInteraction, { passive: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { passive: true });
+    window.addEventListener('keydown', handleFirstInteraction, { passive: true });
+    window.addEventListener('pointerdown', handleFirstInteraction, { passive: true });
     return () => {
       window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
       window.removeEventListener('keydown', handleFirstInteraction);
+      window.removeEventListener('pointerdown', handleFirstInteraction);
     };
   }, [isAuthenticated]);
 

@@ -74,11 +74,17 @@ const postSchema = new mongoose.Schema(
     },
     visibility: {
       type: String,
-      enum: ['public', 'followers', 'mutuals', 'specific', 'private'],
+      enum: ['public', 'followers', 'following', 'mutuals', 'specific', 'exclude', 'private', 'only_me'],
       default: 'public',
       index: true,
     },
     audience: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    excludedAudience: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

@@ -10,6 +10,7 @@ import {
   KeyRound,
   Swords,
   Zap,
+  LogOut,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -28,7 +29,7 @@ import { getLocalTypingProfile } from '../utils/typingStorage';
 export const ProfilePage = () => {
   const { username } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, logout } = useAuth();
   const { showToast } = useNotifications();
 
   const [profile, setProfile] = useState(null);
@@ -469,6 +470,18 @@ export const ProfilePage = () => {
                 >
                   <KeyRound className="w-3.5 h-3.5 text-amber-500" />
                   <span>Password</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                  className="px-3.5 py-1.5 rounded-full border border-rose-300 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer active:scale-95 shadow-2xs"
+                  title="Log out of account"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Log out</span>
                 </button>
               </div>
             ) : (

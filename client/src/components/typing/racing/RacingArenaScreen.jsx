@@ -56,8 +56,28 @@ export const RacingArenaScreen = ({
   const startTimeRef = useRef(null);
   const errorsRef = useRef(0);
   const hiddenInputRef = useRef(null);
+  const prevRankRef = useRef(6);
+  const lastTickRef = useRef(null);
+  const lastErrorTimeRef = useRef(0);
+  const recentErrorsRef = useRef(0);
 
-  // Opponent Racers (Alex, Sophia, Rohan, Emma, Liam matching Reference Image 1)
+  // Resume Web Audio context immediately on any user gesture so engine audio is never blocked
+  useEffect(() => {
+    const unlockAudio = () => {
+      racingAudio.init();
+      if (!racingAudio.getMuted() && !racingAudio.isEngineRunning) {
+        racingAudio.startEngine(speedKmH || 40);
+      }
+    };
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, [speedKmH]);
+
+  // Adaptive Opponent Racers: Dynamically calibrated around player speed tier
   const [opponents, setOpponents] = useState(() => [
     {
       id: initialRival ? (initialRival.username || initialRival._id) : 'alex',
@@ -67,7 +87,7 @@ export const RacingArenaScreen = ({
       carName: initialRival ? (initialRival.carName || 'Street Phantom') : 'Street Phantom',
       image: initialRival ? (initialRival.carImage || '/racing/street_phantom.png') : '/racing/street_phantom.png',
       progress: 0,
-      targetWpm: initialRival ? (initialRival.bestWpm || 115) : 125,
+      speedRatio: 1.04, // Rival Leader: just ahead (+4%), catches podium
       isLeader: true,
       isRival: !!initialRival,
     },
@@ -79,7 +99,7 @@ export const RacingArenaScreen = ({
       carName: 'Neon GT',
       image: '/racing/neon_gt.png',
       progress: 0,
-      targetWpm: 118,
+      speedRatio: 0.98, // Podium contender, neck-and-neck (98%)
     },
     {
       id: 'rohan',
@@ -89,7 +109,7 @@ export const RacingArenaScreen = ({
       carName: 'Cyber Cruiser',
       image: '/racing/cyber_cruiser.png',
       progress: 0,
-      targetWpm: 110,
+      speedRatio: 0.90, // Solid driver (90%)
     },
     {
       id: 'emma',
@@ -99,7 +119,7 @@ export const RacingArenaScreen = ({
       carName: 'Thunder RS',
       image: '/racing/thunder_rs.png',
       progress: 0,
-      targetWpm: 96,
+      speedRatio: 0.79, // Cruiser (79%)
     },
     {
       id: 'liam',
@@ -109,7 +129,7 @@ export const RacingArenaScreen = ({
       carName: 'Apex X',
       image: '/racing/apex_x.png',
       progress: 0,
-      targetWpm: 88,
+      speedRatio: 0.67, // Rookie, easily overtaken (67%)
     },
   ]);
 
@@ -125,7 +145,7 @@ export const RacingArenaScreen = ({
           carName: initialRival.carName || 'Street Phantom',
           image: initialRival.carImage || '/racing/street_phantom.png',
           progress: 0,
-          targetWpm: initialRival.bestWpm || 115,
+          speedRatio: 1.03,
           isLeader: true,
           isRival: true,
         };
@@ -246,6 +266,11 @@ export const RacingArenaScreen = ({
     setIsFinished(false);
     setTypedIndex(0);
     errorsRef.current = 0;
+    lastErrorTimeRef.current = 0;
+    recentErrorsRef.current = 0;
+    lastTickRef.current = null;
+    prevRankRef.current = 6;
+    setUserRank(6);
     setWpm(0);
     setSpeedKmH(0);
     setGear(1);
@@ -285,7 +310,7 @@ export const RacingArenaScreen = ({
         carName: racer.carName || 'Street Phantom',
         image: racer.carImage || '/racing/street_phantom.png',
         progress: 0,
-        targetWpm: racer.bestWpm || 115,
+        speedRatio: 1.03,
         isLeader: true,
         isRival: true,
       },
@@ -297,7 +322,7 @@ export const RacingArenaScreen = ({
         carName: 'Neon GT',
         image: '/racing/neon_gt.png',
         progress: 0,
-        targetWpm: 110,
+        speedRatio: 0.98,
       },
       {
         id: 'rohan',
@@ -307,7 +332,7 @@ export const RacingArenaScreen = ({
         carName: 'Cyber Cruiser',
         image: '/racing/cyber_cruiser.png',
         progress: 0,
-        targetWpm: 105,
+        speedRatio: 0.90,
       },
       {
         id: 'emma',
@@ -317,7 +342,7 @@ export const RacingArenaScreen = ({
         carName: 'Thunder RS',
         image: '/racing/thunder_rs.png',
         progress: 0,
-        targetWpm: 96,
+        speedRatio: 0.79,
       },
       {
         id: 'liam',
@@ -327,7 +352,7 @@ export const RacingArenaScreen = ({
         carName: 'Apex X',
         image: '/racing/apex_x.png',
         progress: 0,
-        targetWpm: 88,
+        speedRatio: 0.67,
       },
     ]);
     handleRestartRace();
@@ -348,6 +373,29 @@ export const RacingArenaScreen = ({
       const key = e.key;
       if (key.length !== 1 && key !== 'Backspace') return;
 
+      // Backspace: Allow navigating back across characters and words to fix mistakes
+      if (key === 'Backspace') {
+        e.preventDefault();
+        if (typedIndex > 0) {
+          let nextIndex = typedIndex - 1;
+          if (e.ctrlKey) {
+            // Ctrl+Backspace: jump back to previous word boundary
+            while (nextIndex > 0 && raceText[nextIndex - 1] === ' ') nextIndex--;
+            while (nextIndex > 0 && raceText[nextIndex - 1] !== ' ') nextIndex--;
+          }
+          setTypedIndex(nextIndex);
+          setStreak((prev) => Math.max(0, prev - 1));
+          racingAudio.playKey(false);
+
+          if (startTimeRef.current) {
+            const elapsedSec = Math.max(1, (Date.now() - startTimeRef.current) / 1000);
+            const currentWpm = Math.max(10, Math.round((nextIndex / 5) / (elapsedSec / 60)));
+            setWpm(currentWpm);
+          }
+        }
+        return;
+      }
+
       const targetChar = raceText[typedIndex];
 
       if (key === targetChar) {
@@ -357,6 +405,11 @@ export const RacingArenaScreen = ({
         setStreak((prev) => prev + 1);
         setNitroPercent((prev) => Math.min(100, prev + 1.2));
         racingAudio.playKey(true);
+        racingAudio.revThrottle(); // Throttle surge on every correct keystroke!
+
+        if (recentErrorsRef.current > 0 && nextIndex % 5 === 0) {
+          recentErrorsRef.current = Math.max(0, recentErrorsRef.current - 1);
+        }
 
         // Update live WPM & Speedometer
         const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
@@ -374,15 +427,17 @@ export const RacingArenaScreen = ({
         setGear(currentGear);
 
         // Modulate engine sound pitch with speed
-        racingAudio.updateEnginePitch(currentWpm, isNitroActive);
+        racingAudio.updateEnginePitch(calculatedKmH, isNitroActive);
 
         // Check if finished entire prompt
         if (nextIndex >= raceText.length) {
           handleFinish();
         }
       } else if (key.length === 1) {
-        // Typo
+        // Typo: trigger error penalty so rivals catch up!
         errorsRef.current += 1;
+        lastErrorTimeRef.current = Date.now();
+        recentErrorsRef.current = Math.min(5, (recentErrorsRef.current || 0) + 1);
         setStreak(0);
         racingAudio.playKey(false);
         setAccuracy(Math.max(70, Math.round(100 - (errorsRef.current / (typedIndex + 1)) * 100)));
@@ -397,20 +452,63 @@ export const RacingArenaScreen = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Opponent progress simulation loop
+  // Adaptive Rubberbanding Opponent progress simulation loop
   useEffect(() => {
     if (!raceActive || isFinished) return;
 
+    lastTickRef.current = Date.now();
+
     const interval = setInterval(() => {
       if (!startTimeRef.current) return;
-      const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+      const now = Date.now();
+      const dt = lastTickRef.current
+        ? Math.min(0.25, Math.max(0.02, (now - lastTickRef.current) / 1000))
+        : 0.1;
+      lastTickRef.current = now;
+
+      const elapsedSec = (now - startTimeRef.current) / 1000;
+
+      // 1. Calculate player's live running speed (WPM)
+      // If race just started (< 1.5s), assume friendly benchmark of 48 WPM
+      const playerLiveWpm = (elapsedSec > 1.2 && typedIndex > 2)
+        ? (typedIndex / 5) / (elapsedSec / 60)
+        : 48;
+
+      // Bound baseline so AI is always fair and challenging (22 to 140 WPM)
+      const benchmarkWpm = Math.max(22, Math.min(140, playerLiveWpm));
+
+      // 2. Error penalty: when player makes mistakes, rivals seize the opportunity (+4-12% surge)
+      const isRecentError = (now - lastErrorTimeRef.current) < 2600;
+      const errorSurge = isRecentError ? Math.min(0.12, (recentErrorsRef.current || 1) * 0.04) : 0;
+
+      // 3. Clean typing momentum boost: when player maintains a combo streak (>= 6 chars),
+      // player gets a natural slipstream edge to overtake!
+      const streakRelief = streak >= 6 ? Math.min(0.09, streak * 0.0035) : 0;
+
+      // 4. Nitro Surge: player roars ahead, AI does not cheat through nitro
+      const nitroRelief = isNitroActive ? 0.16 : 0;
+
+      // 5. Climax factor: in the final 20% of the race, pack tightens slightly for an exhilarating finish
+      const playerProg = (typedIndex / raceText.length) * 100;
+      const climaxFactor = playerProg > 80 ? 0.02 : 0;
 
       setOpponents((prev) =>
-        prev.map((opp) => {
-          // Progress as percentage of race length
-          const charsTyped = (opp.targetWpm * 5 * (elapsedSec / 60));
-          const progress = Math.min(100, (charsTyped / raceText.length) * 100);
-          return { ...opp, progress };
+        prev.map((opp, idx) => {
+          let baseRatio = opp.speedRatio || (1.04 - idx * 0.09);
+
+          // Calculate effective dynamic ratio
+          const dynamicRatio = baseRatio + errorSurge + (idx === 0 ? climaxFactor : -climaxFactor) - streakRelief - nitroRelief;
+
+          // Natural human wave variation (+/- 2.2 WPM)
+          const wave = Math.sin(elapsedSec * 1.5 + idx * 2.2) * 2.2;
+          const targetWpm = Math.max(12, benchmarkWpm * dynamicRatio + wave);
+
+          // Incremental distance added this tick
+          const charsPerSec = (targetWpm * 5) / 60;
+          const progressDelta = (charsPerSec * dt / raceText.length) * 100;
+          const newProgress = Math.min(100, (opp.progress || 0) + progressDelta);
+
+          return { ...opp, progress: newProgress, currentWpm: Math.round(targetWpm) };
         })
       );
 
@@ -418,15 +516,75 @@ export const RacingArenaScreen = ({
       const playerProgress = (typedIndex / raceText.length) * 100;
       setOpponents((currentOpponents) => {
         const higherRacers = currentOpponents.filter((o) => o.progress > playerProgress).length;
-        setUserRank(higherRacers + 1);
+        const newRank = higherRacers + 1;
+
+        // If player overtook a rival, play exciting Doppler pass-by swoosh!
+        if (newRank < prevRankRef.current && prevRankRef.current <= 6) {
+          racingAudio.playOvertake();
+        }
+        prevRankRef.current = newRank;
+        setUserRank(newRank);
         return currentOpponents;
       });
-    }, 150);
+    }, 100);
 
     return () => clearInterval(interval);
-  }, [raceActive, isFinished, typedIndex, raceText.length]);
+  }, [raceActive, isFinished, typedIndex, raceText.length, streak, isNitroActive]);
 
   const playerProgress = (typedIndex / raceText.length) * 100;
+
+  // Active word data for the Holographic On-Car Typing Cockpit HUD
+  const activeWordData = useMemo(() => {
+    if (!raceText) return { activeWord: '', activeWordTyped: 0, nextWord: '', isSpaceNeeded: false };
+
+    const tokens = [];
+    const regex = /(\S+)(\s*)/g;
+    let match;
+    while ((match = regex.exec(raceText)) !== null) {
+      tokens.push({
+        word: match[1],
+        space: match[2],
+        wordStart: match.index,
+        wordEnd: match.index + match[1].length,
+        spaceStart: match.index + match[1].length,
+        spaceEnd: match.index + match[1].length + match[2].length,
+      });
+    }
+
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      const nextT = tokens[i + 1];
+      const nextWord = nextT ? nextT.word : '';
+
+      if (typedIndex >= t.wordStart && typedIndex < t.wordEnd) {
+        return {
+          activeWord: t.word,
+          activeWordTyped: typedIndex - t.wordStart,
+          nextWord,
+          isSpaceNeeded: false,
+        };
+      } else if (typedIndex >= t.spaceStart && typedIndex < t.spaceEnd) {
+        return {
+          activeWord: t.word,
+          activeWordTyped: t.word.length,
+          nextWord,
+          isSpaceNeeded: true,
+        };
+      }
+    }
+
+    if (tokens.length > 0) {
+      const last = tokens[tokens.length - 1];
+      return {
+        activeWord: last.word,
+        activeWordTyped: last.word.length,
+        nextWord: '',
+        isSpaceNeeded: false,
+      };
+    }
+
+    return { activeWord: '', activeWordTyped: 0, nextWord: '', isSpaceNeeded: false };
+  }, [raceText, typedIndex]);
 
   // Build sorted roster for HUD left column
   const sortedRacers = [
@@ -443,7 +601,7 @@ export const RacingArenaScreen = ({
   ].sort((a, b) => b.progress - a.progress);
 
   return (
-    <div className="relative w-full h-[calc(100vh-140px)] min-h-[480px] max-h-[720px] rounded-2xl overflow-hidden border border-cyan-500/40 shadow-2xl bg-slate-950">
+    <div className="relative w-full flex-1 min-h-[440px] max-h-[740px] rounded-2xl overflow-hidden border border-cyan-500/40 shadow-2xl bg-slate-950 flex flex-col">
       {/* 2.5D Canvas Highway */}
       <RacingTrackCanvas
         playerProgress={playerProgress}
@@ -454,6 +612,11 @@ export const RacingArenaScreen = ({
         opponents={opponents}
         licensePlate={garage.licensePlate || 'NASIR'}
         trackTheme="neon_coast"
+        activeWord={activeWordData.activeWord}
+        activeWordTyped={activeWordData.activeWordTyped}
+        nextWord={activeWordData.nextWord}
+        isSpaceNeeded={activeWordData.isSpaceNeeded}
+        userRank={userRank}
       />
 
       {/* Futuristic Cockpit HUD matching Reference Image 1 */}
@@ -500,10 +663,22 @@ export const RacingArenaScreen = ({
           <div className="w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-slate-950/95 border-2 border-cyan-500/50 shadow-[0_0_50px_rgba(6,182,212,0.3)] text-center space-y-5">
             <div className="space-y-1">
               <span className="text-4xl sm:text-5xl font-black italic tracking-wider bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]">
-                {finishData.race.position === 1 ? '🏆 1ST PLACE' : `🏁 #${finishData.race.position} PLACE`}
+                {finishData.race.position === 1
+                  ? '🏆 1ST PLACE!'
+                  : finishData.race.position === 2
+                  ? '🥈 2ND PLACE!'
+                  : finishData.race.position === 3
+                  ? '🥉 3RD PLACE!'
+                  : `🏁 #${finishData.race.position} PLACE`}
               </span>
               <p className="text-xs sm:text-sm font-bold text-slate-300">
-                {finishData.race.position === 1 ? 'VICTORY! Dominant Circuit Master!' : 'RACE COMPLETE!'}
+                {finishData.race.position === 1
+                  ? 'VICTORY! Dominant Highway Master!'
+                  : finishData.race.position === 2
+                  ? 'PODIUM FINISH! Incredible typing speed!'
+                  : finishData.race.position === 3
+                  ? 'PODIUM BRONZE! Outstanding performance!'
+                  : 'RACE COMPLETE! Keep typing and pushing for the podium!'}
               </p>
             </div>
 

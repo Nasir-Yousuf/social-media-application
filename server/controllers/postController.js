@@ -20,6 +20,7 @@ const buildVisibilityFilter = async (currentUserId, isAdmin = false) => {
         { visibility: 'public' },
         { visibility: { $exists: false } },
         { visibility: null },
+        { visibility: 'exclude' },
       ],
     };
   }
@@ -30,7 +31,8 @@ const buildVisibilityFilter = async (currentUserId, isAdmin = false) => {
   ]);
 
   const followingIds = followingEdges.map((e) => e.following);
-  const followerIdSet = new Set(followerEdges.map((e) => e.follower.toString()));
+  const followerIds = followerEdges.map((e) => e.follower);
+  const followerIdSet = new Set(followerIds.map((id) => id.toString()));
   const mutualIds = followingIds.filter((id) => followerIdSet.has(id.toString()));
 
   return {
@@ -40,8 +42,10 @@ const buildVisibilityFilter = async (currentUserId, isAdmin = false) => {
       { visibility: { $exists: false } },
       { visibility: null },
       { visibility: 'followers', author: { $in: followingIds } },
+      { visibility: 'following', author: { $in: followerIds } },
       { visibility: 'mutuals', author: { $in: mutualIds } },
       { visibility: 'specific', audience: currentUserId },
+      { visibility: 'exclude', excludedAudience: { $ne: currentUserId } },
     ],
   };
 };
@@ -56,11 +60,29 @@ const canUserViewPost = async (post, currentUserId, isAdmin = false) => {
 
   const vis = post.visibility || 'public';
   if (vis === 'public') return true;
+  if (vis === 'private' || vis === 'only_me') return false;
+
+  // Everyone except specific people (blacklist)
+  if (vis === 'exclude') {
+    if (!currentUserId) return true; // Guest is not in the excluded list
+    const excludedList = post.excludedAudience || [];
+    const currentStr = currentUserId.toString();
+    const isExcluded = excludedList.some(
+      (id) => (id?._id ? id._id.toString() : id.toString()) === currentStr
+    );
+    return !isExcluded;
+  }
+
   if (!currentUserId) return false;
-  if (vis === 'private') return false;
 
   if (vis === 'followers') {
+    // Current user must follow author
     return Boolean(await Follow.exists({ follower: currentUserId, following: authorId }));
+  }
+
+  if (vis === 'following') {
+    // Post author must follow current user
+    return Boolean(await Follow.exists({ follower: authorId, following: currentUserId }));
   }
 
   if (vis === 'mutuals') {
@@ -72,6 +94,7 @@ const canUserViewPost = async (post, currentUserId, isAdmin = false) => {
   }
 
   if (vis === 'specific') {
+    // Current user must be explicitly whitelisted in audience
     const aud = post.audience || [];
     const currentStr = currentUserId.toString();
     return aud.some((id) => (id?._id ? id._id.toString() : id.toString()) === currentStr);
@@ -105,12 +128,18 @@ const canUserReplyToPost = async (post, currentUserId, isAdmin = false) => {
   return true;
 };
 
-// Helper to ensure post IP information is only visible to platform admins
-const sanitizePostForViewer = (postObj, isAdmin = false) => {
+// Helper to ensure post IP and excludedAudience information is protected
+const sanitizePostForViewer = (postObj, currentUserId = null, isAdmin = false) => {
   if (!postObj) return postObj;
   if (!isAdmin) {
     delete postObj.ipAddress;
     delete postObj.userAgent;
+  }
+  const authorId = postObj.author?._id ? postObj.author._id.toString() : postObj.author?.toString();
+  const isAuthor = currentUserId && authorId === currentUserId.toString();
+  if (!isAuthor && !isAdmin) {
+    // Keep excluded list hidden from other viewers to respect privacy
+    delete postObj.excludedAudience;
   }
   return postObj;
 };
@@ -152,7 +181,7 @@ const enrichPost = async (post, currentUserId, isAdmin = false) => {
   const isOwner = currentUserId ? post.author && post.author._id.equals(currentUserId) : false;
 
   const uniqueViews = computeUniqueViews(post, totalUsers);
-  const raw = sanitizePostForViewer(post.toObject(), isAdmin);
+  const raw = sanitizePostForViewer(post.toObject(), currentUserId, isAdmin);
 
   return {
     ...raw,
@@ -209,6 +238,7 @@ exports.createPost = async (req, res) => {
       location,
       visibility = 'public',
       audience = [],
+      excludedAudience = [],
       replyPolicy = 'everyone',
     } = req.body;
 
@@ -246,14 +276,20 @@ exports.createPost = async (req, res) => {
     const clientIp = getClientIp(req);
     const userAgent = req.headers ? req.headers['user-agent'] || '' : '';
 
-    const validVis = ['public', 'followers', 'mutuals', 'specific', 'private'];
-    const sanitizedVisibility = validVis.includes(visibility) ? visibility : 'public';
+    const validVis = ['public', 'followers', 'following', 'mutuals', 'specific', 'exclude', 'private', 'only_me'];
+    const sanitizedVisibility = validVis.includes(visibility)
+      ? (visibility === 'only_me' ? 'private' : visibility)
+      : 'public';
 
     const validPol = ['everyone', 'following', 'mentioned'];
     const sanitizedReplyPolicy = validPol.includes(replyPolicy) ? replyPolicy : 'everyone';
 
     const sanitizedAudience = Array.isArray(audience)
-      ? audience.filter((id) => mongoose.Types.ObjectId.isValid(id))
+      ? audience.map((u) => (u && u._id ? u._id : u)).filter((id) => mongoose.Types.ObjectId.isValid(id))
+      : [];
+
+    const sanitizedExcludedAudience = Array.isArray(excludedAudience)
+      ? excludedAudience.map((u) => (u && u._id ? u._id : u)).filter((id) => mongoose.Types.ObjectId.isValid(id))
       : [];
 
     const post = new Post({
@@ -265,6 +301,7 @@ exports.createPost = async (req, res) => {
       isPinned: isAdmin ? !!isPinned : false,
       visibility: sanitizedVisibility,
       audience: sanitizedAudience,
+      excludedAudience: sanitizedExcludedAudience,
       replyPolicy: sanitizedReplyPolicy,
       location: location ? location.trim().slice(0, 100) : '',
       tags: extractedTags,
@@ -293,6 +330,8 @@ exports.createPost = async (req, res) => {
     }
 
     await post.populate('author', 'name username avatarUrl role status');
+    await post.populate('audience', 'name username avatarUrl role');
+    await post.populate('excludedAudience', 'name username avatarUrl role');
     if (post.forkedFrom) {
       await post.populate({
         path: 'forkedFrom',
@@ -339,6 +378,30 @@ exports.createPost = async (req, res) => {
       } catch (mentionErr) {
         console.warn('createPost mention notify failed:', mentionErr.message);
       }
+
+      // Notify community members about new post (only those allowed to see it)
+      if (post.visibility !== 'private' && post.visibility !== 'only_me') {
+        try {
+          const otherMembers = await User.find({ _id: { $ne: req.user._id } }).select('_id');
+          const eligibleMembers = [];
+          for (const m of otherMembers) {
+            if (await canUserViewPost(post, m._id, false)) {
+              eligibleMembers.push(m);
+            }
+          }
+          if (eligibleMembers.length > 0) {
+            const postNotifs = eligibleMembers.map((m) => ({
+              recipient: m._id,
+              sender: req.user._id,
+              type: 'new_post',
+              post: post._id,
+            }));
+            await Notification.insertMany(postNotifs, { ordered: false });
+          }
+        } catch (postNotifErr) {
+          console.warn('createPost general notify failed:', postNotifErr.message);
+        }
+      }
     }
 
     return res.status(201).json({
@@ -351,6 +414,7 @@ exports.createPost = async (req, res) => {
           canReply: true,
           isOwner: true,
         },
+        req.user._id,
         isAdmin
       ),
     });
@@ -384,6 +448,8 @@ exports.getFeed = async (req, res) => {
 
     const posts = await Post.find(query)
       .populate('author', 'name username avatarUrl role status')
+      .populate('audience', 'name username avatarUrl role')
+      .populate('excludedAudience', 'name username avatarUrl role')
       .populate({
         path: 'forkedFrom',
         select: 'content codeSnippet author createdAt',
@@ -424,6 +490,7 @@ exports.getFeed = async (req, res) => {
             canReply,
             isOwner: post.author && post.author._id.equals(currentUserId),
           },
+          currentUserId,
           isAdmin
         );
       })
@@ -453,6 +520,8 @@ exports.getPostById = async (req, res) => {
 
     const post = await Post.findById(req.params.id)
       .populate('author', 'name username avatarUrl role status')
+      .populate('audience', 'name username avatarUrl role')
+      .populate('excludedAudience', 'name username avatarUrl role')
       .populate({
         path: 'forkedFrom',
         select: 'content codeSnippet author createdAt',
@@ -481,7 +550,7 @@ exports.getPostById = async (req, res) => {
 // Update own post
 exports.updatePost = async (req, res) => {
   try {
-    const { content, codeSnippet, visibility, audience, replyPolicy } = req.body;
+    const { content, codeSnippet, visibility, audience, excludedAudience, replyPolicy } = req.body;
     if (!content || !content.trim()) {
       return res.status(400).json({ message: 'Content cannot be empty.' });
     }
@@ -507,14 +576,18 @@ exports.updatePost = async (req, res) => {
     }
 
     if (visibility !== undefined) {
-      const validVis = ['public', 'followers', 'mutuals', 'specific', 'private'];
+      const validVis = ['public', 'followers', 'following', 'mutuals', 'specific', 'exclude', 'private', 'only_me'];
       if (validVis.includes(visibility)) {
-        post.visibility = visibility;
+        post.visibility = visibility === 'only_me' ? 'private' : visibility;
       }
     }
 
     if (audience !== undefined && Array.isArray(audience)) {
-      post.audience = audience.filter((id) => mongoose.Types.ObjectId.isValid(id));
+      post.audience = audience.map((u) => (u && u._id ? u._id : u)).filter((id) => mongoose.Types.ObjectId.isValid(id));
+    }
+
+    if (excludedAudience !== undefined && Array.isArray(excludedAudience)) {
+      post.excludedAudience = excludedAudience.map((u) => (u && u._id ? u._id : u)).filter((id) => mongoose.Types.ObjectId.isValid(id));
     }
 
     if (replyPolicy !== undefined) {
@@ -545,6 +618,8 @@ exports.updatePost = async (req, res) => {
     }
 
     await post.populate('author', 'name username avatarUrl role status');
+    await post.populate('audience', 'name username avatarUrl role');
+    await post.populate('excludedAudience', 'name username avatarUrl role');
     if (post.forkedFrom) {
       await post.populate({
         path: 'forkedFrom',
@@ -553,7 +628,7 @@ exports.updatePost = async (req, res) => {
       });
     }
 
-    const enriched = await enrichPost(post, req.user._id);
+    const enriched = await enrichPost(post, req.user._id, req.user.role === 'admin');
 
     return res.status(200).json({
       message: 'Post updated successfully.',
@@ -687,6 +762,7 @@ exports.toggleBookmark = async (req, res) => {
 exports.getBookmarks = async (req, res) => {
   try {
     const currentUserId = req.user._id;
+    const isAdmin = req.user.role === 'admin';
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
@@ -699,6 +775,8 @@ exports.getBookmarks = async (req, res) => {
         path: 'post',
         populate: [
           { path: 'author', select: 'name username avatarUrl role status' },
+          { path: 'audience', select: 'name username avatarUrl role' },
+          { path: 'excludedAudience', select: 'name username avatarUrl role' },
           {
             path: 'forkedFrom',
             select: 'content codeSnippet author createdAt',
@@ -707,20 +785,36 @@ exports.getBookmarks = async (req, res) => {
         ],
       });
 
-    const validBookmarks = bookmarks.filter((b) => b.post != null);
-    const postIds = validBookmarks.map((b) => b.post._id);
+    const viewableBookmarks = [];
+    for (const b of bookmarks) {
+      if (b.post && (await canUserViewPost(b.post, currentUserId, isAdmin))) {
+        viewableBookmarks.push(b);
+      }
+    }
+
+    const postIds = viewableBookmarks.map((b) => b.post._id);
 
     const userLikes = await Like.find({ post: { $in: postIds }, user: currentUserId }).select('post');
     const likedSet = new Set(userLikes.map((l) => l.post.toString()));
 
     const totalUsers = await User.countDocuments();
-    const posts = validBookmarks.map((b) => ({
-      ...b.post.toObject(),
-      viewsCount: computeUniqueViews(b.post, totalUsers),
-      isLiked: likedSet.has(b.post._id.toString()),
-      isBookmarked: true,
-      isOwner: b.post.author && b.post.author._id.equals(currentUserId),
-    }));
+    const posts = await Promise.all(
+      viewableBookmarks.map(async (b) => {
+        const canReply = await canUserReplyToPost(b.post, currentUserId, isAdmin);
+        return sanitizePostForViewer(
+          {
+            ...b.post.toObject(),
+            viewsCount: computeUniqueViews(b.post, totalUsers),
+            isLiked: likedSet.has(b.post._id.toString()),
+            isBookmarked: true,
+            canReply,
+            isOwner: b.post.author && b.post.author._id.equals(currentUserId),
+          },
+          currentUserId,
+          isAdmin
+        );
+      })
+    );
 
     const totalPosts = await Bookmark.countDocuments({ user: currentUserId });
 
@@ -757,6 +851,8 @@ exports.getUserPosts = async (req, res) => {
 
     const posts = await Post.find(query)
       .populate('author', 'name username avatarUrl role status')
+      .populate('audience', 'name username avatarUrl role')
+      .populate('excludedAudience', 'name username avatarUrl role')
       .populate({
         path: 'forkedFrom',
         select: 'content codeSnippet author createdAt',
@@ -786,6 +882,7 @@ exports.getUserPosts = async (req, res) => {
             canReply,
             isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
           },
+          currentUserId,
           isAdmin
         );
       })
@@ -807,6 +904,8 @@ exports.getExplorePosts = async (req, res) => {
 
     const posts = await Post.find(visFilter)
       .populate('author', 'name username avatarUrl role status')
+      .populate('audience', 'name username avatarUrl role')
+      .populate('excludedAudience', 'name username avatarUrl role')
       .populate({
         path: 'forkedFrom',
         select: 'content codeSnippet author createdAt',
@@ -837,6 +936,7 @@ exports.getExplorePosts = async (req, res) => {
             canReply,
             isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
           },
+          currentUserId,
           isAdmin
         );
       })
@@ -901,6 +1001,8 @@ exports.getCodeFeed = async (req, res) => {
         .skip(skip)
         .limit(limit)
         .populate('author', 'name username avatarUrl role status')
+        .populate('audience', 'name username avatarUrl role')
+        .populate('excludedAudience', 'name username avatarUrl role')
         .populate({
           path: 'forkedFrom',
           select: 'content codeSnippet author createdAt',
@@ -931,6 +1033,7 @@ exports.getCodeFeed = async (req, res) => {
             canReply,
             isOwner: currentUserId ? post.author._id.equals(currentUserId) : false,
           },
+          currentUserId,
           isAdmin
         );
       })
@@ -1184,4 +1287,5 @@ exports.getTrendingHashtags = async (req, res) => {
 exports.canUserViewPost = canUserViewPost;
 exports.canUserReplyToPost = canUserReplyToPost;
 exports.buildVisibilityFilter = buildVisibilityFilter;
+exports.sanitizePostForViewer = sanitizePostForViewer;
 

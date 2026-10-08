@@ -9,6 +9,7 @@ export const TypingStage = ({
   viewMode = 'caret',
   onInputChange,
   onKeyDown,
+  onJumpToWord,
   isActive = false,
   isFinished = false,
   ghostData = null, // { wpm, username, progress: 0-100 }
@@ -16,6 +17,7 @@ export const TypingStage = ({
   theme = 'classic', // 'classic' | 'game' | 'hacker' | 'zen'
 }) => {
   const inputRef = useRef(null);
+  const boxInputRef = useRef(null);
   const containerRef = useRef(null);
   const wordsWrapperRef = useRef(null);
   const wordRefs = useRef([]);
@@ -29,13 +31,41 @@ export const TypingStage = ({
       ? Math.min(words.length - 1, Math.floor(((ghostData.progress || 0) / 100) * words.length))
       : -1;
 
-  // Always ensure focus on mount, restart, or index change
+  // Always ensure focus and caret positioning at end of word on mount, restart, or index change
   useEffect(() => {
-    if (!isFinished && inputRef.current) {
-      inputRef.current.focus({ preventScroll: true });
-      setIsFocused(true);
+    if (!isFinished) {
+      const len = (currentInput || '').length;
+      if (inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        setIsFocused(true);
+        try {
+          inputRef.current.setSelectionRange(len, len);
+        } catch (err) {}
+      }
+      if (boxInputRef.current) {
+        boxInputRef.current.focus({ preventScroll: true });
+        try {
+          boxInputRef.current.setSelectionRange(len, len);
+        } catch (err) {}
+      }
+
+      const t = setTimeout(() => {
+        if (inputRef.current) {
+          const l = inputRef.current.value.length;
+          try {
+            inputRef.current.setSelectionRange(l, l);
+          } catch (e) {}
+        }
+        if (boxInputRef.current) {
+          const l = boxInputRef.current.value.length;
+          try {
+            boxInputRef.current.setSelectionRange(l, l);
+          } catch (e) {}
+        }
+      }, 0);
+      return () => clearTimeout(t);
     }
-  }, [isFinished, currentWordIndex, words]);
+  }, [isFinished, currentWordIndex, words, viewMode]);
 
   // Global keydown listener: starts typing instantly from anywhere in the arena without clicking
   useEffect(() => {
@@ -217,16 +247,27 @@ export const TypingStage = ({
               const isGhostHere = ghostWordIndex === idx;
 
               if (history) {
-                // Previously typed word
+                // Previously typed word - click or Backspace to fix mistakes
                 const isCorrect = history.status === 'correct';
                 return (
                   <span
                     key={idx}
                     ref={(el) => (wordRefs.current[idx] = el)}
-                    className={`relative whitespace-nowrap inline-flex items-center font-mono ${
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onJumpToWord?.(idx);
+                    }}
+                    title={
                       isCorrect
-                        ? theme === 'hacker' ? 'text-emerald-600' : 'text-neutral-400'
-                        : 'text-rose-500 line-through opacity-75'
+                        ? 'Press Backspace or click to revisit'
+                        : '⚠️ Mistake! Click or press Backspace to fix this word'
+                    }
+                    className={`relative whitespace-nowrap inline-flex items-center font-mono cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95 group ${
+                      isCorrect
+                        ? theme === 'hacker'
+                          ? 'text-emerald-600 hover:text-emerald-300'
+                          : 'text-neutral-400 hover:text-white'
+                        : 'text-rose-500 line-through opacity-80 hover:opacity-100 hover:text-rose-300'
                     }`}
                   >
                     <span>{word}</span>
@@ -353,10 +394,19 @@ export const TypingStage = ({
                     <span
                       key={idx}
                       ref={(el) => (boxWordRefs.current[idx] = el)}
-                      className={`px-2 py-0.5 rounded-lg text-sm whitespace-nowrap font-mono border border-transparent ${
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onJumpToWord?.(idx);
+                      }}
+                      title={
                         history.status === 'correct'
-                          ? 'text-emerald-400 bg-emerald-500/10'
-                          : 'text-rose-400 bg-rose-500/10 line-through'
+                          ? 'Press Backspace or click to edit'
+                          : '⚠️ Mistake! Click or press Backspace to fix this word'
+                      }
+                      className={`px-2 py-0.5 rounded-lg text-sm whitespace-nowrap font-mono cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95 ${
+                        history.status === 'correct'
+                          ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/25 hover:text-emerald-300'
+                          : 'text-rose-400 bg-rose-500/10 line-through hover:bg-rose-500/25 hover:text-rose-300'
                       }`}
                     >
                       {word}
@@ -369,7 +419,7 @@ export const TypingStage = ({
                     <span
                       key={idx}
                       ref={(el) => (boxWordRefs.current[idx] = el)}
-                      className="px-2 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 text-sm whitespace-nowrap font-mono"
+                      className="px-2 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 text-sm whitespace-nowrap font-mono shadow-sm"
                     >
                       {word}
                     </span>
@@ -392,6 +442,7 @@ export const TypingStage = ({
           {/* Classic 10FastFingers Stationary Input Box */}
           <div className="relative">
             <input
+              ref={boxInputRef}
               type="text"
               value={currentInput}
               onChange={onInputChange}
@@ -404,11 +455,18 @@ export const TypingStage = ({
         </div>
       )}
 
-      {/* Click to focus hint if not focused */}
-      {!isActive && !isFinished && (
-        <div className="mt-4 text-center">
-          <span className="text-xs text-neutral-500 font-sans tracking-wide">
-            💡 Click anywhere or start typing to begin
+      {/* Helpful shortcut & mistake correction hint */}
+      {!isFinished && (
+        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-400 font-mono">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-neutral-400">💡 Made a mistake? Press</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 text-[11px] font-semibold">
+              Backspace
+            </kbd>
+            <span className="text-neutral-400">to return to previous words, or click any word to fix it.</span>
+          </div>
+          <span className="text-neutral-500 text-[11px] hidden sm:inline">
+            Tab ⟳ restart
           </span>
         </div>
       )}
