@@ -148,13 +148,19 @@ export const NotificationProvider = ({ children }) => {
 
       // Handle new incoming general notification (likes, comments, follows, mentions, typing challenges, new posts)
       if (latestUnreadNotif && latestUnreadNotif._id) {
-        if (initialLoadRef.current) {
+        const isChallengeAlert =
+          latestUnreadNotif.type === 'typing_challenge' ||
+          latestUnreadNotif.type === 'typing_challenge_result';
+
+        // Never suppress challenge alerts even on initial boot so duels are immediately noticed
+        if (initialLoadRef.current && !isChallengeAlert) {
           notifiedNotificationIdsRef.current.add(latestUnreadNotif._id);
         } else if (!notifiedNotificationIdsRef.current.has(latestUnreadNotif._id)) {
           notifiedNotificationIdsRef.current.add(latestUnreadNotif._id);
 
           const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
           const isViewingNotifications = currentPath.startsWith('/notifications');
+
 
           if (!isViewingNotifications) {
             playTwitterNotificationSound();
@@ -342,12 +348,10 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     fetchUnreadCount();
-    // Poll every 3.5 seconds for snappy real-time race & message alerts
+    // Fast 2.5s polling so duel invitations and notifications arrive immediately
     const interval = setInterval(() => {
-      if (!document.hidden) {
-        fetchUnreadCount();
-      }
-    }, 3500);
+      fetchUnreadCount();
+    }, 2500);
 
     const handleWindowFocus = () => {
       fetchUnreadCount();
@@ -355,12 +359,35 @@ export const NotificationProvider = ({ children }) => {
     window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('visibilitychange', handleWindowFocus);
 
+    // Cross-tab and cross-window real-time challenge synchronization
+    let bc = null;
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('clearfeed_challenges_channel');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'CHALLENGE_CREATED' || event.data?.type === 'CHALLENGE_UPDATED') {
+            fetchUnreadCount();
+          }
+        };
+      }
+    } catch {}
+
+    const handleStorage = (e) => {
+      if (e.key === 'clearfeed_typing_challenges' || e.key === 'clearfeed_notifications') {
+        fetchUnreadCount();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('visibilitychange', handleWindowFocus);
+      window.removeEventListener('storage', handleStorage);
+      if (bc) bc.close();
     };
   }, [fetchUnreadCount]);
+
 
   return (
     <NotificationContext.Provider

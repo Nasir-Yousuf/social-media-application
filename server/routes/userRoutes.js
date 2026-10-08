@@ -3,7 +3,8 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
 
-router.get('/directory', requireAuth, userController.getCourseDirectory);
+router.get('/directory', optionalAuth, userController.getCourseDirectory);
+
 router.get('/suggestions', optionalAuth, userController.getSuggestions);
 router.get('/profile/:username', optionalAuth, userController.getProfileByUsername);
 router.patch('/profile', requireAuth, userController.updateProfile);

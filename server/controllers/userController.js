@@ -303,7 +303,7 @@ exports.getFollowing = async (req, res) => {
 // Get course member directory (~35 students)
 exports.getCourseDirectory = async (req, res) => {
   try {
-    const currentUserId = req.user._id;
+    const currentUserId = req.user ? req.user._id : null;
     const members = await User.find({ isApproved: true })
       .select('name username bio avatarUrl role createdAt')
       .sort({ role: 1, name: 1 });
@@ -313,18 +313,19 @@ exports.getCourseDirectory = async (req, res) => {
     const enriched = await Promise.all(
       members.map(async (m) => {
         const [isFollowing, counts] = await Promise.all([
-          Follow.exists({ follower: currentUserId, following: m._id }),
+          currentUserId ? Follow.exists({ follower: currentUserId, following: m._id }) : false,
           getAuthenticFollowCounts(m._id, validUserIds),
         ]);
         return {
           ...m.toObject(),
           isFollowing: !!isFollowing,
-          isSelf: currentUserId.equals(m._id),
+          isSelf: currentUserId ? currentUserId.equals(m._id) : false,
           followersCount: counts.followersCount,
           followingCount: counts.followingCount,
         };
       })
     );
+
 
     return res.status(200).json({ members: enriched });
   } catch (err) {

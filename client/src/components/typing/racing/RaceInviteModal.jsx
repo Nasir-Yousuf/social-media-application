@@ -260,6 +260,7 @@ export const RaceInviteModal = ({
       // 1. Save local challenge first (offline-first & resilient)
       const localChallenge = saveLocalChallenge(payload, currentUser);
       let createdChallenge = localChallenge;
+      let remoteSuccess = false;
 
       // 2. Attempt remote sync with server
       try {
@@ -267,22 +268,46 @@ export const RaceInviteModal = ({
         if (res.data?.challenge) {
           createdChallenge = res.data.challenge;
           saveLocalChallenge(createdChallenge, currentUser);
+          remoteSuccess = true;
         }
       } catch (remoteErr) {
-        console.info('Remote race challenge sync fallback:', remoteErr?.message);
+        console.warn('Remote race challenge sync note:', remoteErr?.response?.data?.message || remoteErr?.message);
+        const serverMsg = remoteErr?.response?.data?.message;
+        if (serverMsg) {
+          showToast(`⚠️ Server note: ${serverMsg}`, 'warning');
+        }
       }
 
-      // 3. Dispatch event for other components
+      // 3. Dispatch event for other components and windows
       window.dispatchEvent(
         new CustomEvent('clearfeed:typingChallengesUpdated', { detail: createdChallenge })
       );
 
+      try {
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('clearfeed_challenges_channel');
+          bc.postMessage({
+            type: 'CHALLENGE_CREATED',
+            challenge: createdChallenge,
+            targetUserId: racer._id,
+            targetUsername: racer.username,
+          });
+          setTimeout(() => bc.close(), 1000);
+        }
+      } catch {}
+
       setInvitedUsers((prev) => new Set(prev).add(racer._id));
       racingAudio.playVictory();
-      showToast(`🏁 Race invitation sent to @${racer.username}! Real-time notification dispatched.`, 'success');
+      showToast(
+        remoteSuccess
+          ? `🏁 Race invitation sent to @${racer.username}! Real-time notification dispatched.`
+          : `🏁 Race duel ready against @${racer.username}!`,
+        'success'
+      );
     } catch (err) {
       console.warn('Failed to send race invite:', err);
       showToast(err.response?.data?.message || `Could not deliver challenge to @${racer.username}`, 'error');
+
     } finally {
       setSendingInviteId(null);
     }

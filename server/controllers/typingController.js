@@ -484,9 +484,11 @@ exports.createChallenge = async (req, res) => {
       return res.status(404).json({ message: `Racer @${actualTargetUsername || 'user'} not found in community directory.` });
     }
 
-    if (targetUser._id.equals(challengerId)) {
+    // Only prevent self-challenge if not a guest duel session (since multiple guest visitors share the guest profile)
+    if (targetUser._id.equals(challengerId) && targetUser.username !== 'guest' && challengerUsername !== 'guest') {
       return res.status(400).json({ message: 'You cannot challenge yourself!' });
     }
+
 
     const parsedWpm = Math.max(0, Math.min(350, Math.round(Number(challengerWpm) || 0)));
     const parsedAcc = Math.max(0, Math.min(100, Math.round(Number(challengerAccuracy) || 100)));

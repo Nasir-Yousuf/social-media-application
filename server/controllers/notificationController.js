@@ -63,12 +63,24 @@ exports.markAsRead = async (req, res) => {
 // Get unread notifications count and latest unread alert
 exports.getUnreadCount = async (req, res) => {
   try {
-    const [count, latestUnread] = await Promise.all([
-      Notification.countDocuments({
-        recipient: req.user._id,
-        read: false,
-      }),
-      Notification.findOne({
+    const unreadCount = await Notification.countDocuments({
+      recipient: req.user._id,
+      read: false,
+    });
+
+    // 1. Prioritize unread typing challenge alerts first so duel invitations are NEVER missed or hidden
+    let latestUnread = await Notification.findOne({
+      recipient: req.user._id,
+      read: false,
+      type: { $in: ['typing_challenge', 'typing_challenge_result'] },
+    })
+      .populate('sender', 'name username avatarUrl role')
+      .populate('typingChallenge')
+      .sort({ createdAt: -1 });
+
+    // 2. If no unread challenge, fetch the latest general unread notification
+    if (!latestUnread) {
+      latestUnread = await Notification.findOne({
         recipient: req.user._id,
         read: false,
       })
@@ -78,11 +90,11 @@ exports.getUnreadCount = async (req, res) => {
           select: 'content codeSnippet tags isAnnouncement',
         })
         .populate('typingChallenge')
-        .sort({ createdAt: -1 }),
-    ]);
+        .sort({ createdAt: -1 });
+    }
 
     return res.status(200).json({
-      unreadCount: count,
+      unreadCount,
       latestUnread: latestUnread || null,
     });
   } catch (err) {
@@ -90,3 +102,4 @@ exports.getUnreadCount = async (req, res) => {
     return res.status(500).json({ message: 'Failed to get unread count.' });
   }
 };
+

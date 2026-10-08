@@ -131,11 +131,32 @@ export default function TypingChallengeModal({
         const res = await api.post('/typing/challenges', payload);
         if (res.data?.challenge) {
           createdChallenge = res.data.challenge;
+          saveLocalChallenge(createdChallenge, currentUser);
         }
       } catch (remoteErr) {
-        // Silently queue if remote returns 404 or network is down
-        console.info('Remote challenge sync queued (operating in offline-resilient mode):', remoteErr?.message);
+        console.warn('Remote challenge sync note:', remoteErr?.response?.data?.message || remoteErr?.message);
+        const serverMsg = remoteErr?.response?.data?.message;
+        if (serverMsg) {
+          showToast(`⚠️ Server note: ${serverMsg}`, 'warning');
+        }
       }
+
+      // 3. Broadcast across tabs/windows
+      window.dispatchEvent(
+        new CustomEvent('clearfeed:typingChallengesUpdated', { detail: createdChallenge })
+      );
+      try {
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          const bc = new BroadcastChannel('clearfeed_challenges_channel');
+          bc.postMessage({
+            type: 'CHALLENGE_CREATED',
+            challenge: createdChallenge,
+            targetUserId: selectedUser._id,
+            targetUsername: selectedUser.username,
+          });
+          setTimeout(() => bc.close(), 1000);
+        }
+      } catch {}
 
       showToast(`🏎️⚡ Highway Race Challenge sent to @${selectedUser.username}! Duel is live and ready.`, 'success');
       onClose();
@@ -144,6 +165,7 @@ export default function TypingChallengeModal({
       if (challengerOption === 'race_now' || (initialWpm == null && challengerWpm === 0)) {
         navigate(`/typing?theme=race&duelWith=${selectedUser.username}&car=street_phantom&challengeId=${createdChallenge._id}`);
       }
+
     } catch (err) {
       console.error('Challenge error:', err);
       showToast('Failed to issue typing challenge. Please try again.', 'error');
