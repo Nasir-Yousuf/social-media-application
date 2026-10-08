@@ -1,42 +1,63 @@
 import React from 'react';
-import { Gamepad2, LayoutDashboard, Terminal, Sparkles } from 'lucide-react';
+import {
+  Flame,
+  Gauge,
+  Warehouse,
+  Gamepad2,
+  LayoutDashboard,
+  Trophy,
+} from 'lucide-react';
 
 export const THEMES = [
   {
-    id: 'game',
-    label: 'Arcade Mode',
+    id: 'racing_hub',
+    label: 'Arena Hub',
+    icon: Flame,
+    badge: 'NEW',
+    desc: 'Main Racing Arena Dashboard (Image 2)',
+  },
+  {
+    id: 'race',
+    label: '2.5D Highway Race',
+    icon: Gauge,
+    badge: 'LIVE',
+    desc: 'Real-time Supercar Typing Race (Image 1)',
+  },
+  {
+    id: 'garage',
+    label: 'My Garage',
+    icon: Warehouse,
+    badge: null,
+    desc: 'Customize cars, paint, underglow & license plate',
+  },
+  {
+    id: 'arcade',
+    label: 'Arcade / Mood',
     icon: Gamepad2,
-    badge: 'Popular',
-    desc: 'Gamified UI matching esports & screenshot layout',
+    badge: '🏏 Cricket',
+    desc: 'Typing Cricket & Mini-Games',
   },
   {
     id: 'classic',
-    label: 'Platform Classic',
+    label: 'Classic Practice',
     icon: LayoutDashboard,
     badge: null,
-    desc: 'Consistent with site feed and social theme',
+    desc: 'Standard words & paragraphs typing engine',
   },
   {
-    id: 'hacker',
-    label: 'Cyber Hacker',
-    icon: Terminal,
-    badge: 'Matrix',
-    desc: 'Retro green phosphor CRT terminal theme',
-  },
-  {
-    id: 'zen',
-    label: 'Zen Focus',
-    icon: Sparkles,
+    id: 'leaderboard',
+    label: 'Leaderboard',
+    icon: Trophy,
     badge: null,
-    desc: 'Distraction-free pure focus mode',
+    desc: 'Global, Friends & Weekly championships',
   },
 ];
 
 export const ArenaThemeSwitcher = ({ activeTheme, onSelectTheme }) => {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-[#080c14] border border-neutral-800 shadow-xl backdrop-blur-md">
-      <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500 px-2.5 hidden sm:inline-block">
-        Mode Style:
+    <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-xl backdrop-blur-md">
+      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 px-2.5 hidden sm:inline-block">
+        Arena Navigation:
       </span>
       {THEMES.map((t) => {
         const Icon = t.icon;
@@ -48,16 +69,16 @@ export const ArenaThemeSwitcher = ({ activeTheme, onSelectTheme }) => {
             type="button"
             onClick={() => onSelectTheme(t.id)}
             title={t.desc}
-            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
               isActive
-                ? 'bg-sky-500/20 text-sky-300 border border-sky-400/50 shadow-[0_0_12px_rgba(56,189,248,0.3)]'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/40 border border-transparent'
+                ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-400/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent'
             }`}
           >
-            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-sky-400' : 'text-neutral-400'}`} />
+            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-cyan-400' : 'text-slate-400'}`} />
             <span>{t.label}</span>
             {t.badge && (
-              <span className="text-[9px] px-1 py-0.2 rounded bg-sky-400/20 text-sky-300 font-mono font-bold">
+              <span className="text-[9px] px-1 py-0.2 rounded bg-fuchsia-500/20 text-fuchsia-300 font-mono font-black border border-fuchsia-500/30">
                 {t.badge}
               </span>
             )}

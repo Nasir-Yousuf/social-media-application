@@ -22,6 +22,10 @@ import HackerArenaLayout from '../components/typing/HackerArenaLayout';
 import ZenArenaLayout from '../components/typing/ZenArenaLayout';
 import ArenaThemeSwitcher from '../components/typing/ArenaThemeSwitcher';
 import TypingChallengeModal from '../components/typing/TypingChallengeModal';
+import RacingDashboard from '../components/typing/racing/RacingDashboard';
+import RacingArenaScreen from '../components/typing/racing/RacingArenaScreen';
+import GarageView from '../components/typing/racing/GarageView';
+import ArcadeLab from '../components/typing/racing/ArcadeLab';
 import {
   generateWords,
   calculateWpm,
@@ -50,9 +54,11 @@ export const TypingArenaPage = () => {
   const { user } = useAuth();
   const { showToast } = useNotifications();
 
-  // Multi-theme Arena State ('game' | 'classic' | 'hacker' | 'zen')
+  // Multi-theme Arena State ('racing_hub' | 'race' | 'garage' | 'arcade' | 'classic' | 'leaderboard' | 'game' | 'hacker' | 'zen')
   const [arenaTheme, setArenaThemeState] = useState(() => {
-    return localStorage.getItem('typing_arena_theme') || 'game';
+    const saved = localStorage.getItem('typing_arena_theme');
+    if (!saved || saved === 'game') return 'racing_hub';
+    return saved;
   });
 
   const setArenaTheme = (theme) => {
@@ -770,10 +776,34 @@ export const TypingArenaPage = () => {
     }
   };
 
+  const handleShareRacingPost = async (raceData) => {
+    if (!user) {
+      showToast('Please sign in to share to the feed', 'info');
+      return;
+    }
+    try {
+      const shareText =
+        raceData.text ||
+        `🏎️ Just finished a Typing Arena Race!\n\n⚡ ${raceData.wpm} WPM • ${raceData.accuracy || 98}% Accuracy\n🏆 #${raceData.position || 1} in ${raceData.carName || 'Shadow V12'}\n\nBeat my score in the Typing Arena!`;
+      await api.post('/posts', {
+        content: shareText,
+        visibility: 'public',
+        replyPolicy: 'everyone',
+      });
+      showToast('🏎️ Racing achievement shared to Clearfeed feed!', 'success');
+      navigate('/feed');
+    } catch (err) {
+      console.warn('Failed to share race to feed:', err);
+      showToast('Race recorded! Feed share queued.', 'info');
+    }
+  };
+
   return (
     <div
       className={`mx-auto px-4 sm:px-6 py-6 font-sans transition-all duration-300 w-full ${
-        arenaTheme === 'game'
+        arenaTheme === 'race' || arenaTheme === 'racing_hub'
+          ? 'max-w-[1520px]'
+          : arenaTheme === 'game'
           ? 'max-w-[1400px]'
           : arenaTheme === 'hacker'
           ? 'max-w-6xl'
@@ -791,19 +821,67 @@ export const TypingArenaPage = () => {
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
               <span>Typing Arena</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono font-bold uppercase">
-                {arenaTheme.toUpperCase()} MODE
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-mono font-bold uppercase">
+                {arenaTheme === 'racing_hub'
+                  ? 'ARENA HUB'
+                  : arenaTheme === 'race'
+                  ? '2.5D HIGHWAY RACE'
+                  : arenaTheme === 'garage'
+                  ? 'MY GARAGE'
+                  : arenaTheme === 'arcade'
+                  ? 'ARCADE LAB'
+                  : `${arenaTheme.toUpperCase()} MODE`}
               </span>
             </h1>
             <p className="text-xs text-neutral-400">
-              Sharpen your speed, climb tiers, and race ghost typists
+              Type at supersonic speed, race live hypercars, customize garage & dominate
             </p>
           </div>
         </div>
 
-        {/* Mode & Style Switcher (Arcade, Classic, Hacker, Zen) */}
+        {/* Mode & Style Switcher */}
         <ArenaThemeSwitcher activeTheme={arenaTheme} onSelectTheme={setArenaTheme} />
       </div>
+
+      {/* 1. Racing Arena Hub (Image 2) */}
+      {arenaTheme === 'racing_hub' && (
+        <RacingDashboard
+          onStartRace={() => setArenaTheme('race')}
+          onSelectMode={(m) => {
+            if (m === 'racing') setArenaTheme('race');
+            else if (m === 'arcade' || m === 'mood') setArenaTheme('arcade');
+            else if (m === 'classic') setArenaTheme('classic');
+          }}
+          onOpenArcadeGame={() => setArenaTheme('arcade')}
+          onOpenClassic={() => setArenaTheme('classic')}
+          onSharePost={handleShareRacingPost}
+          currentUser={user}
+        />
+      )}
+
+      {/* 2. Live 2.5D Highway Supercar Race (Image 1) */}
+      {arenaTheme === 'race' && (
+        <RacingArenaScreen
+          onExit={() => setArenaTheme('racing_hub')}
+          onFinishRace={(res) => {
+            showToast(
+              `🏁 Race finished in #${res.race?.position || 1}! +${res.xpEarned} XP • +${res.starsEarned} 🪙`,
+              'success'
+            );
+          }}
+          currentUser={user}
+        />
+      )}
+
+      {/* 3. Dedicated Garage View */}
+      {arenaTheme === 'garage' && (
+        <GarageView onBack={() => setArenaTheme('racing_hub')} currentUser={user} />
+      )}
+
+      {/* 4. Arcade Lab / Mood Mini-Games (Typing Cricket & Word Rush) */}
+      {arenaTheme === 'arcade' && (
+        <ArcadeLab onBack={() => setArenaTheme('racing_hub')} />
+      )}
 
       {/* Render Selected Theme View */}
       {arenaTheme === 'game' && (
@@ -978,14 +1056,16 @@ export const TypingArenaPage = () => {
         </>
       )}
 
-      {/* Global Speed Championship Leaderboard Section (Visible across all themes) */}
-      <div className="pt-8">
-        <TypingLeaderboard
-          onChallengeGhost={handleChallengeGhost}
-          currentSessionDuration={duration}
-          currentSessionMode={mode}
-        />
-      </div>
+      {/* Global Speed Championship Leaderboard Section (Visible unless actively racing) */}
+      {arenaTheme !== 'race' && (
+        <div className="pt-8">
+          <TypingLeaderboard
+            onChallengeGhost={handleChallengeGhost}
+            currentSessionDuration={duration}
+            currentSessionMode={mode}
+          />
+        </div>
+      )}
 
       {/* Results Celebration Modal */}
       <TypingResultsModal
