@@ -830,6 +830,12 @@ export const TypingArenaPage = () => {
                   ? 'MY GARAGE'
                   : arenaTheme === 'arcade'
                   ? 'ARCADE LAB'
+                  : arenaTheme === 'game'
+                  ? 'ARCADE MODE'
+                  : arenaTheme === 'hacker'
+                  ? 'CYBER HACKER'
+                  : arenaTheme === 'zen'
+                  ? 'ZEN FOCUS'
                   : `${arenaTheme.toUpperCase()} MODE`}
               </span>
             </h1>

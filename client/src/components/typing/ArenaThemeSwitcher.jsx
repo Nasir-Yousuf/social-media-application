@@ -5,7 +5,8 @@ import {
   Warehouse,
   Gamepad2,
   LayoutDashboard,
-  Trophy,
+  Terminal,
+  Sparkles,
 } from 'lucide-react';
 
 export const THEMES = [
@@ -18,7 +19,7 @@ export const THEMES = [
   },
   {
     id: 'race',
-    label: '2.5D Highway Race',
+    label: '2.5D Race',
     icon: Gauge,
     badge: 'LIVE',
     desc: 'Real-time Supercar Typing Race (Image 1)',
@@ -32,32 +33,46 @@ export const THEMES = [
   },
   {
     id: 'arcade',
-    label: 'Arcade / Mood',
+    label: 'Mood Cricket',
     icon: Gamepad2,
-    badge: '🏏 Cricket',
+    badge: '🏏',
     desc: 'Typing Cricket & Mini-Games',
   },
   {
-    id: 'classic',
-    label: 'Classic Practice',
-    icon: LayoutDashboard,
-    badge: null,
-    desc: 'Standard words & paragraphs typing engine',
+    id: 'game',
+    label: 'Arcade Mode',
+    icon: Gamepad2,
+    badge: 'Esports',
+    desc: 'Gamified UI matching esports layout',
   },
   {
-    id: 'leaderboard',
-    label: 'Leaderboard',
-    icon: Trophy,
+    id: 'classic',
+    label: 'Platform Classic',
+    icon: LayoutDashboard,
     badge: null,
-    desc: 'Global, Friends & Weekly championships',
+    desc: 'Consistent with site feed and social theme',
+  },
+  {
+    id: 'hacker',
+    label: 'Cyber Hacker',
+    icon: Terminal,
+    badge: 'Matrix',
+    desc: 'Retro green phosphor CRT terminal theme',
+  },
+  {
+    id: 'zen',
+    label: 'Zen Focus',
+    icon: Sparkles,
+    badge: null,
+    desc: 'Distraction-free pure focus mode',
   },
 ];
 
 export const ArenaThemeSwitcher = ({ activeTheme, onSelectTheme }) => {
   return (
     <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-xl backdrop-blur-md">
-      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 px-2.5 hidden sm:inline-block">
-        Arena Navigation:
+      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 px-2 hidden sm:inline-block">
+        Mode Style:
       </span>
       {THEMES.map((t) => {
         const Icon = t.icon;
@@ -69,9 +84,9 @@ export const ArenaThemeSwitcher = ({ activeTheme, onSelectTheme }) => {
             type="button"
             onClick={() => onSelectTheme(t.id)}
             title={t.desc}
-            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+            className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
               isActive
-                ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-400/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                ? 'bg-gradient-to-r from-cyan-500/25 to-purple-500/25 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent'
             }`}
           >
