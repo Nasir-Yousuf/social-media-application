@@ -22,6 +22,7 @@ import { getSpeedTier } from '../../utils/typingEngine';
 import {
   getResilientLeaderboard,
   removeLeaderboardEntryLocally,
+  purgeAllDummyData,
 } from '../../utils/typingStorage';
 
 export const TypingLeaderboard = ({
@@ -124,9 +125,9 @@ export const TypingLeaderboard = ({
         } catch (apiErr) {
           console.info('Remote purge notice (local fallback):', apiErr?.message);
         }
-        removeLeaderboardEntryLocally(entryId, targetUserId, selectedDuration, currentSessionMode);
+        removeLeaderboardEntryLocally(entryId, targetUserId, selectedDuration, currentSessionMode, targetUsername);
         showToast(
-          `🛡️ Admin: Disqualified @${targetUsername} and purged all leaderboard scores.`,
+          `🛡️ Admin: Disqualified @${targetUsername} and purged all leaderboard scores permanently.`,
           'info'
         );
       } else {
@@ -135,9 +136,9 @@ export const TypingLeaderboard = ({
         } catch (apiErr) {
           console.info('Remote delete notice (local fallback):', apiErr?.message);
         }
-        removeLeaderboardEntryLocally(entryId, null, selectedDuration, currentSessionMode);
+        removeLeaderboardEntryLocally(entryId, null, selectedDuration, currentSessionMode, targetUsername);
         showToast(
-          `🛡️ Admin: Removed @${targetUsername}'s ${adminTargetEntry.wpm} WPM score from leaderboard.`,
+          `🛡️ Admin: Removed @${targetUsername}'s ${adminTargetEntry.wpm} WPM score permanently.`,
           'info'
         );
       }
@@ -163,20 +164,35 @@ export const TypingLeaderboard = ({
       {/* Header & Tabs */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6 pb-4 border-b border-neutral-800">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-400" />
               <span>Speed Championship Leaderboard</span>
             </h3>
             {isAdmin && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 font-mono text-[10px] font-bold">
-                <ShieldCheck className="w-3 h-3" />
-                ADMIN MODERATION ACTIVE
-              </span>
+              <div className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 font-mono text-[10px] font-bold">
+                  <ShieldCheck className="w-3 h-3" />
+                  ADMIN MODERATION ACTIVE
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    purgeAllDummyData();
+                    fetchLeaderboard();
+                    showToast('🛡️ Admin: Scrubbed all dummy typists. Leaderboard is clean and ready for real racers!', 'success');
+                  }}
+                  title="Wipe any legacy dummy mock records"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 font-mono text-[10px] font-bold transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Purge Dummy Data</span>
+                </button>
+              </div>
             )}
           </div>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Real-time scoreboard of the fastest typists on Clearfeed
+            Real-time scoreboard of the fastest typists on Clearfeed (Genuine Racers Only)
           </p>
         </div>
 

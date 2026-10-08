@@ -6,126 +6,156 @@ const STORAGE_PROFILE_KEY = 'clearfeed_typing_profile';
 const STORAGE_LB_KEY_PREFIX = 'clearfeed_typing_lb_';
 const STORAGE_CHALLENGES_KEY = 'clearfeed_typing_challenges';
 
-// Pre-seeded community duel challenges for offline resilience
-export const DEFAULT_CHALLENGES = [
-  {
-    _id: 'seed_challenge_1',
-    challenger: {
-      _id: 'seed_user_1',
-      name: 'Amina Al-Mansoor',
-      username: 'amina_dev',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    },
-    challenged: null,
-    duration: 60,
-    mode: 'words',
-    challengerWpm: 84,
-    challengerAccuracy: 98,
-    challengerRawWpm: 89,
-    customMessage: 'Can you beat my 84 WPM pace? Step up to the keyboard!',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    isSeed: true,
-  },
-  {
-    _id: 'seed_challenge_2',
-    challenger: {
-      _id: 'seed_user_2',
-      name: 'Tariq Vance',
-      username: 'tariq_codes',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-    },
-    challenged: null,
-    duration: 30,
-    mode: 'words',
-    challengerWpm: 72,
-    challengerAccuracy: 96,
-    challengerRawWpm: 78,
-    customMessage: 'Quick 30s sprint duel! Let’s see who is faster.',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
-    isSeed: true,
-  },
-];
+const STORAGE_DELETED_ENTRIES_KEY = 'clearfeed_typing_deleted_ids';
 
-// Seed community typists for when remote API is unreachable (404/offline)
-export const DEFAULT_CHAMPIONS = [
-  {
-    _id: 'seed_champ_1',
-    user: {
-      _id: 'seed_user_1',
-      name: 'Amina Al-Mansoor',
-      username: 'amina_dev',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    },
-    wpm: 104,
-    rawWpm: 112,
-    accuracy: 99,
-    highestCombo: 84,
-    duration: 60,
-    mode: 'words',
-  },
-  {
-    _id: 'seed_champ_2',
-    user: {
-      _id: 'seed_user_2',
-      name: 'Tariq Vance',
-      username: 'tariq_codes',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-    },
-    wpm: 92,
-    rawWpm: 98,
-    accuracy: 98,
-    highestCombo: 65,
-    duration: 60,
-    mode: 'words',
-  },
-  {
-    _id: 'seed_champ_3',
-    user: {
-      _id: 'seed_user_3',
-      name: 'Elena Rostova',
-      username: 'elena_r',
-      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
-    },
-    wpm: 84,
-    rawWpm: 89,
-    accuracy: 97,
-    highestCombo: 48,
-    duration: 60,
-    mode: 'words',
-  },
-  {
-    _id: 'seed_champ_4',
-    user: {
-      _id: 'seed_user_4',
-      name: 'David Chen',
-      username: 'dchen_fullstack',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
-    },
-    wpm: 72,
-    rawWpm: 78,
-    accuracy: 96,
-    highestCombo: 34,
-    duration: 60,
-    mode: 'words',
-  },
-  {
-    _id: 'seed_champ_5',
-    user: {
-      _id: 'seed_user_5',
-      name: 'Sofia Reyes',
-      username: 'sofia_ux',
-      avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80',
-    },
-    wpm: 65,
-    rawWpm: 70,
-    accuracy: 95,
-    highestCombo: 28,
-    duration: 60,
-    mode: 'words',
-  },
-];
+// Known dummy/seed usernames to permanently purge from leaderboards
+export const DUMMY_USERNAMES = new Set([
+  'amina_dev',
+  'tariq_codes',
+  'elena_r',
+  'dchen_fullstack',
+  'sofia_ux',
+  'seed_user_1',
+  'seed_user_2',
+  'seed_user_3',
+  'seed_user_4',
+  'seed_user_5',
+  'seed_champ_1',
+  'seed_champ_2',
+  'seed_champ_3',
+  'seed_champ_4',
+  'seed_champ_5',
+  'seed_challenge_1',
+  'seed_challenge_2',
+]);
+
+// Empty seed lists - real users only!
+export const DEFAULT_CHALLENGES = [];
+export const DEFAULT_CHAMPIONS = [];
+
+/**
+ * Get permanent tombstone set of deleted entries and users
+ */
+export const getDeletedEntryIds = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_DELETED_ENTRIES_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(arr.map((id) => String(id).toLowerCase()));
+  } catch (_) {
+    return new Set();
+  }
+};
+
+/**
+ * Permanently mark an entry ID, user ID, or username as deleted so it can NEVER return
+ */
+export const markEntryAsDeleted = (entryId, targetUserId, targetUsername) => {
+  try {
+    const set = getDeletedEntryIds();
+    if (entryId) set.add(String(entryId).toLowerCase());
+    if (targetUserId) set.add(String(targetUserId).toLowerCase());
+    if (targetUsername) set.add(String(targetUsername).toLowerCase());
+    localStorage.setItem(STORAGE_DELETED_ENTRIES_KEY, JSON.stringify(Array.from(set)));
+  } catch (_) {}
+};
+
+/**
+ * Verify if an entry is genuine (not a dummy/seed user and not deleted by admin)
+ */
+export const isEntryGenuine = (item, deletedSet = null) => {
+  if (!item) return false;
+  const set = deletedSet || getDeletedEntryIds();
+  const eId = String(item._id || '').toLowerCase();
+  const uId = String(item.user?._id || item.user?.id || '').toLowerCase();
+  const uName = String(item.user?.username || '').toLowerCase();
+
+  // Filter out any mock/seed records
+  if (
+    eId.startsWith('seed_') ||
+    uId.startsWith('seed_') ||
+    DUMMY_USERNAMES.has(uName) ||
+    DUMMY_USERNAMES.has(uId) ||
+    DUMMY_USERNAMES.has(eId)
+  ) {
+    return false;
+  }
+
+  // Filter out admin-deleted entries or disqualified users
+  if (set.has(eId) || set.has(uId) || (uName && set.has(uName))) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Purge all legacy dummy data and seed users from all localStorage caches permanently
+ */
+export const purgeAllDummyData = () => {
+  try {
+    // 1. Permanently register all dummy usernames and IDs in deleted tombstone
+    const deletedSet = getDeletedEntryIds();
+    for (const d of DUMMY_USERNAMES) {
+      deletedSet.add(d.toLowerCase());
+    }
+    localStorage.setItem(STORAGE_DELETED_ENTRIES_KEY, JSON.stringify(Array.from(deletedSet)));
+
+    // 2. Scrub all leaderboard cache keys
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(STORAGE_LB_KEY_PREFIX)) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const cleaned = list.filter((item) => isEntryGenuine(item, deletedSet));
+              localStorage.setItem(key, JSON.stringify(cleaned));
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 3. Scrub challenges
+    try {
+      const rawCh = localStorage.getItem(STORAGE_CHALLENGES_KEY);
+      if (rawCh) {
+        const chList = JSON.parse(rawCh);
+        if (Array.isArray(chList)) {
+          const cleanedCh = chList.filter((ch) => {
+            const chId = String(ch._id || '').toLowerCase();
+            const cUser = String(ch.challenger?.username || ch.challenger?._id || '').toLowerCase();
+            return (
+              !chId.startsWith('seed_') &&
+              !DUMMY_USERNAMES.has(cUser) &&
+              !deletedSet.has(chId) &&
+              !deletedSet.has(cUser)
+            );
+          });
+          localStorage.setItem(STORAGE_CHALLENGES_KEY, JSON.stringify(cleanedCh));
+        }
+      }
+    } catch (_) {}
+
+    // 4. Scrub local results
+    try {
+      const rawRes = localStorage.getItem(STORAGE_RESULTS_KEY);
+      if (rawRes) {
+        const resList = JSON.parse(rawRes);
+        if (Array.isArray(resList)) {
+          const cleanedRes = resList.filter((res) => isEntryGenuine(res, deletedSet));
+          localStorage.setItem(STORAGE_RESULTS_KEY, JSON.stringify(cleanedRes));
+        }
+      }
+    } catch (_) {}
+  } catch (err) {
+    console.warn('Error purging dummy data:', err);
+  }
+};
+
+// Immediately execute purge on bundle execution to scrub any lingering dummy typists
+purgeAllDummyData();
 
 /**
  * Normalize mode string (e.g. 'words_200' -> 'words')
@@ -323,30 +353,24 @@ export const getResilientLeaderboard = (
   const dNum = duration === 'all' ? 'all' : Number(duration) || 60;
   const nMode = normalizeMode(mode);
   const cacheKey = `${STORAGE_LB_KEY_PREFIX}${dNum}_${nMode}`;
+  const deletedSet = getDeletedEntryIds();
 
   let baseList = [];
 
-  // If remote returned entries, use them as truth
+  // If remote returned entries, filter to genuine real participants
   if (Array.isArray(remoteLeaderboard) && remoteLeaderboard.length > 0) {
-    baseList = [...remoteLeaderboard];
+    baseList = remoteLeaderboard.filter((item) => isEntryGenuine(item, deletedSet));
   } else {
     // Check cached leaderboard for this filter
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
-        baseList = JSON.parse(cached);
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          baseList = parsed.filter((item) => isEntryGenuine(item, deletedSet));
+        }
       }
     } catch (_) {}
-
-    // Fall back to pre-seeded champions if cache is empty
-    if (!baseList || baseList.length === 0) {
-      baseList = DEFAULT_CHAMPIONS.map((champ, idx) => ({
-        ...champ,
-        _id: `seed_${dNum}_${champ.user.username}_${idx}`,
-        duration: dNum === 'all' ? 60 : dNum,
-        mode: nMode,
-      }));
-    }
   }
 
   // Find user's best score (from latestResult, local profile, or local results)
@@ -359,28 +383,30 @@ export const getResilientLeaderboard = (
     const currentUserId = String(currentUser._id || currentUser.id || 'me');
     const currentUsername = String(currentUser.username || '').toLowerCase();
 
-    // Check if user has a score in latestResult
-    const candidateWpm = latestResult?.wpm || (personalBest?.wpm || 0);
-    const candidateAcc = latestResult?.accuracy || (personalBest?.accuracy || 100);
-    const candidateCombo = latestResult?.highestCombo || (personalBest?.highestCombo || 0);
+    // Only include user if not deleted by admin
+    if (!deletedSet.has(currentUserId.toLowerCase()) && !deletedSet.has(currentUsername)) {
+      const candidateWpm = latestResult?.wpm || (personalBest?.wpm || 0);
+      const candidateAcc = latestResult?.accuracy || (personalBest?.accuracy || 100);
+      const candidateCombo = latestResult?.highestCombo || (personalBest?.highestCombo || 0);
 
-    if (candidateWpm > 0) {
-      userBestEntry = {
-        _id: latestResult?._id || `user_best_${currentUserId}_${dNum}`,
-        user: {
-          _id: currentUserId,
-          name: currentUser.name || 'You',
-          username: currentUser.username || 'user',
-          avatarUrl: currentUser.avatarUrl || null,
-        },
-        wpm: candidateWpm,
-        rawWpm: latestResult?.rawWpm || candidateWpm,
-        accuracy: candidateAcc,
-        highestCombo: candidateCombo,
-        duration: dNum === 'all' ? 60 : dNum,
-        mode: nMode,
-        isCurrentUser: true,
-      };
+      if (candidateWpm > 0) {
+        userBestEntry = {
+          _id: latestResult?._id || `user_best_${currentUserId}_${dNum}`,
+          user: {
+            _id: currentUserId,
+            name: currentUser.name || 'You',
+            username: currentUser.username || 'user',
+            avatarUrl: currentUser.avatarUrl || null,
+          },
+          wpm: candidateWpm,
+          rawWpm: latestResult?.rawWpm || candidateWpm,
+          accuracy: candidateAcc,
+          highestCombo: candidateCombo,
+          duration: dNum === 'all' ? 60 : dNum,
+          mode: nMode,
+          isCurrentUser: true,
+        };
+      }
     }
   }
 
@@ -388,14 +414,17 @@ export const getResilientLeaderboard = (
   let mergedMap = new Map();
 
   for (const item of baseList) {
-    const uId = String(item.user?._id || item.user?.username || item._id);
-    mergedMap.set(uId, item);
+    if (isEntryGenuine(item, deletedSet)) {
+      const uId = String(item.user?._id || item.user?.username || item._id);
+      mergedMap.set(uId, item);
+    }
   }
 
   if (userBestEntry && currentUser) {
     const currentUserId = String(currentUser._id || currentUser.id || 'me');
+    const currentUsername = String(currentUser.username || '').toLowerCase();
     const existing = mergedMap.get(currentUserId) || [...mergedMap.values()].find(
-      (entry) => String(entry.user?.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase()
+      (entry) => String(entry.user?.username || '').toLowerCase() === currentUsername
     );
 
     if (existing) {
@@ -414,12 +443,14 @@ export const getResilientLeaderboard = (
     }
   }
 
-  // Sort descending by WPM, then accuracy, then combo
-  const sortedLeaderboard = Array.from(mergedMap.values()).sort((a, b) => {
-    if (b.wpm !== a.wpm) return b.wpm - a.wpm;
-    if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-    return (b.highestCombo || 0) - (a.highestCombo || 0);
-  });
+  // Sort descending by WPM, then accuracy, then combo — strictly genuine real typists only
+  const sortedLeaderboard = Array.from(mergedMap.values())
+    .filter((item) => isEntryGenuine(item, deletedSet))
+    .sort((a, b) => {
+      if (b.wpm !== a.wpm) return b.wpm - a.wpm;
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+      return (b.highestCombo || 0) - (a.highestCombo || 0);
+    });
 
   // Calculate 1-indexed rank for current user
   let userRank = null;
@@ -440,7 +471,7 @@ export const getResilientLeaderboard = (
     }
   }
 
-  // Cache merged leaderboard
+  // Cache clean merged leaderboard
   try {
     localStorage.setItem(cacheKey, JSON.stringify(sortedLeaderboard));
   } catch (_) {}
@@ -492,52 +523,80 @@ export const syncPendingScoresWithServer = async (apiClient) => {
 };
 
 /**
- * Admin utility: Remove a score or user from the local leaderboard cache and results.
+ * Admin utility: Permanently remove a score or user from the local leaderboard cache and results.
  */
-export const removeLeaderboardEntryLocally = (entryId, targetUserId, duration, mode) => {
+export const removeLeaderboardEntryLocally = (entryId, targetUserId, duration, mode, targetUsername) => {
   const dNum = duration === 'all' ? 'all' : Number(duration) || 60;
   const nMode = normalizeMode(mode);
 
-  // 1. Clear or purge from specific and all cache keys
-  const keysToPurge = [
-    `${STORAGE_LB_KEY_PREFIX}${dNum}_${nMode}`,
-    `${STORAGE_LB_KEY_PREFIX}15_words`,
-    `${STORAGE_LB_KEY_PREFIX}30_words`,
-    `${STORAGE_LB_KEY_PREFIX}60_words`,
-    `${STORAGE_LB_KEY_PREFIX}120_words`,
-    `${STORAGE_LB_KEY_PREFIX}all_words`,
-  ];
+  // 1. Permanently record deletion in tombstone so it can NEVER return
+  markEntryAsDeleted(entryId, targetUserId, targetUsername);
+  const deletedSet = getDeletedEntryIds();
 
-  for (const cacheKey of keysToPurge) {
-    try {
-      const raw = localStorage.getItem(cacheKey);
-      if (raw) {
-        const list = JSON.parse(raw);
-        const filtered = list.filter((item) => {
-          const matchEntry = item._id === entryId;
-          const matchUser = targetUserId && String(item.user?._id || item.user?.id) === String(targetUserId);
-          return !matchEntry && !matchUser;
-        });
-        localStorage.setItem(cacheKey, JSON.stringify(filtered));
+  // 2. Clear or purge from ALL leaderboard cache keys in localStorage
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(STORAGE_LB_KEY_PREFIX)) {
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const filtered = list.filter((item) => {
+                const matchEntry = item._id === entryId || deletedSet.has(String(item._id).toLowerCase());
+                const matchUser =
+                  (targetUserId && String(item.user?._id || item.user?.id) === String(targetUserId)) ||
+                  (targetUsername && String(item.user?.username || '').toLowerCase() === String(targetUsername).toLowerCase()) ||
+                  deletedSet.has(String(item.user?._id || item.user?.id).toLowerCase()) ||
+                  deletedSet.has(String(item.user?.username || '').toLowerCase());
+                return !matchEntry && !matchUser;
+              });
+              localStorage.setItem(key, JSON.stringify(filtered));
+            }
+          }
+        } catch (_) {}
       }
-    } catch (_) {}
-  }
+    }
+  } catch (_) {}
 
-  // 2. Remove from local stored results list
+  // 3. Remove from local stored results list
   try {
     const rawResults = localStorage.getItem(STORAGE_RESULTS_KEY);
     if (rawResults) {
       const resultsList = JSON.parse(rawResults);
-      const filteredResults = resultsList.filter((item) => {
-        const matchEntry = item._id === entryId;
-        const matchUser = targetUserId && String(item.user?._id || item.user?.id) === String(targetUserId);
-        return !matchEntry && !matchUser;
-      });
-      localStorage.setItem(STORAGE_RESULTS_KEY, JSON.stringify(filteredResults));
+      if (Array.isArray(resultsList)) {
+        const filteredResults = resultsList.filter((item) => {
+          const matchEntry = item._id === entryId || deletedSet.has(String(item._id).toLowerCase());
+          const matchUser =
+            (targetUserId && String(item.user?._id || item.user?.id) === String(targetUserId)) ||
+            (targetUsername && String(item.user?.username || '').toLowerCase() === String(targetUsername).toLowerCase()) ||
+            deletedSet.has(String(item.user?._id || item.user?.id).toLowerCase()) ||
+            deletedSet.has(String(item.user?.username || '').toLowerCase());
+          return !matchEntry && !matchUser;
+        });
+        localStorage.setItem(STORAGE_RESULTS_KEY, JSON.stringify(filteredResults));
+      }
     }
   } catch (_) {}
 
-  // 3. If target user was current user, clear their personal best for that duration
+  // 4. Remove from challenges
+  try {
+    const rawChallenges = localStorage.getItem(STORAGE_CHALLENGES_KEY);
+    if (rawChallenges) {
+      const chList = JSON.parse(rawChallenges);
+      if (Array.isArray(chList)) {
+        const filteredCh = chList.filter((ch) => {
+          const cUser = String(ch.challenger?.username || ch.challenger?._id || '').toLowerCase();
+          const tUser = String(ch.challenged?.username || ch.challenged?._id || '').toLowerCase();
+          return !deletedSet.has(cUser) && !deletedSet.has(tUser) && !deletedSet.has(String(ch._id).toLowerCase());
+        });
+        localStorage.setItem(STORAGE_CHALLENGES_KEY, JSON.stringify(filteredCh));
+      }
+    }
+  } catch (_) {}
+
+  // 5. If target user was current user, clear their personal best for that duration
   try {
     const profile = getLocalTypingProfile();
     const durKey = String(dNum);
@@ -550,11 +609,16 @@ export const removeLeaderboardEntryLocally = (entryId, targetUserId, duration, m
     }
   } catch (_) {}
 
-  // 4. Broadcast event so all components re-render immediately
+  // 6. Broadcast event so all components re-render immediately
   try {
     window.dispatchEvent(
       new CustomEvent('clearfeed:typingScoreSaved', {
-        detail: { removedId: entryId, removedUserId: targetUserId },
+        detail: { removedId: entryId, removedUserId: targetUserId, removedUsername: targetUsername },
+      })
+    );
+    window.dispatchEvent(
+      new CustomEvent('clearfeed:typingChallengesUpdated', {
+        detail: { removedId: entryId },
       })
     );
   } catch (_) {}
@@ -626,7 +690,8 @@ export const saveLocalChallenge = (challengeData, currentUser) => {
  * Retrieve local challenges filtered by user ID (incoming, outgoing, history)
  */
 export const getLocalChallenges = (userId) => {
-  const currentUserId = String(userId || 'me');
+  const currentUserId = String(userId || 'me').toLowerCase();
+  const deletedSet = getDeletedEntryIds();
   let list = [];
   try {
     const raw = localStorage.getItem(STORAGE_CHALLENGES_KEY);
@@ -637,34 +702,38 @@ export const getLocalChallenges = (userId) => {
     console.warn('Error reading local challenges:', err);
   }
 
-  // If no user challenges yet, seed the default challenges so user has rivals to race against
-  if (list.length === 0) {
-    list = DEFAULT_CHALLENGES.map((ch) => ({
-      ...ch,
-      challenged: { _id: currentUserId, username: 'you' },
-    }));
-    try {
-      localStorage.setItem(STORAGE_CHALLENGES_KEY, JSON.stringify(list));
-    } catch (_) {}
-  }
+  // Strictly filter out any dummy or deleted challenges
+  list = list.filter((ch) => {
+    const chId = String(ch._id || '').toLowerCase();
+    const cUser = String(ch.challenger?.username || ch.challenger?._id || '').toLowerCase();
+    const tUser = String(ch.challenged?.username || ch.challenged?._id || '').toLowerCase();
+    return (
+      !chId.startsWith('seed_') &&
+      !DUMMY_USERNAMES.has(cUser) &&
+      !DUMMY_USERNAMES.has(tUser) &&
+      !deletedSet.has(chId) &&
+      !deletedSet.has(cUser)
+    );
+  });
 
   const incoming = list.filter((ch) => {
-    const chTargetId = String(ch.challenged?._id || ch.challenged?.id || '');
+    const chTargetId = String(ch.challenged?._id || ch.challenged?.id || '').toLowerCase();
+    const chTargetName = String(ch.challenged?.username || '').toLowerCase();
     return (
-      (chTargetId === currentUserId || !ch.challenged?._id) &&
-      String(ch.challenger?._id || '') !== currentUserId &&
+      (chTargetId === currentUserId || chTargetName === currentUserId || !ch.challenged?._id) &&
+      String(ch.challenger?._id || '').toLowerCase() !== currentUserId &&
       ch.status === 'pending'
     );
   });
 
   const outgoing = list.filter((ch) => {
-    const chSourceId = String(ch.challenger?._id || ch.challenger?.id || '');
+    const chSourceId = String(ch.challenger?._id || ch.challenger?.id || '').toLowerCase();
     return chSourceId === currentUserId && ch.status === 'pending';
   });
 
   const history = list.filter((ch) => {
-    const chSourceId = String(ch.challenger?._id || ch.challenger?.id || '');
-    const chTargetId = String(ch.challenged?._id || ch.challenged?.id || '');
+    const chSourceId = String(ch.challenger?._id || ch.challenger?.id || '').toLowerCase();
+    const chTargetId = String(ch.challenged?._id || ch.challenged?.id || '').toLowerCase();
     return (
       (chSourceId === currentUserId || chTargetId === currentUserId) &&
       (ch.status === 'completed' || ch.status === 'declined')
@@ -675,22 +744,24 @@ export const getLocalChallenges = (userId) => {
 };
 
 /**
- * Get a specific challenge by ID from local cache or seed challenges
+ * Get a specific challenge by ID from local cache
  */
 export const getLocalChallengeById = (challengeId) => {
   if (!challengeId) return null;
+  const deletedSet = getDeletedEntryIds();
   try {
     const raw = localStorage.getItem(STORAGE_CHALLENGES_KEY);
     if (raw) {
       const list = JSON.parse(raw);
-      const found = list.find((ch) => ch._id === challengeId);
+      const found = list.find((ch) => {
+        const chId = String(ch._id || '').toLowerCase();
+        return chId === String(challengeId).toLowerCase() && !deletedSet.has(chId);
+      });
       if (found) return found;
     }
   } catch (_) {}
 
-  // Check seed challenges as fallback
-  const seedFound = DEFAULT_CHALLENGES.find((ch) => ch._id === challengeId);
-  return seedFound || null;
+  return null;
 };
 
 /**

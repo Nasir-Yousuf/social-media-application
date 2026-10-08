@@ -223,6 +223,13 @@ exports.getLeaderboard = async (req, res) => {
       },
       { $unwind: '$user' },
       {
+        $match: {
+          'user.username': {
+            $nin: ['amina_dev', 'tariq_codes', 'elena_r', 'dchen_fullstack', 'sofia_ux', 'dr_vance'],
+          },
+        },
+      },
+      {
         $project: {
           _id: '$resultId',
           wpm: '$bestWpm',

@@ -127,6 +127,24 @@ const startServer = async () => {
       console.warn('Startup user role sync note:', cleanErr.message);
     }
 
+    // Automatically purge any dummy typing results or seed records
+    try {
+      const TypingResult = require('./models/TypingResult');
+      const User = require('./models/User');
+      const dummyUsers = await User.find({
+        username: { $in: ['amina_dev', 'tariq_codes', 'elena_r', 'dchen_fullstack', 'sofia_ux', 'dr_vance'] },
+      }).select('_id');
+      const dummyUserIds = dummyUsers.map((u) => u._id);
+      if (dummyUserIds.length > 0) {
+        await TypingResult.deleteMany({ user: { $in: dummyUserIds } });
+      }
+      await TypingResult.deleteMany({
+        _id: { $regex: '^seed_' },
+      });
+    } catch (dummyErr) {
+      console.warn('Startup dummy typing purge note:', dummyErr.message);
+    }
+
     // Automatically purge orphaned follow edges and ensure follow graph integrity
     try {
       const { purgeOrphanedFollows } = require('./utils/followUtils');

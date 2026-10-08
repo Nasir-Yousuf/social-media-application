@@ -38,6 +38,7 @@ import {
   getLocalChallengeById,
   completeLocalChallenge,
   declineLocalChallenge,
+  purgeAllDummyData,
 } from '../utils/typingStorage';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -575,9 +576,15 @@ export const TypingArenaPage = () => {
       try {
         await api.delete(`/typing/leaderboard/${entry._id}`);
       } catch (_) {}
-      removeLeaderboardEntryLocally(entry._id, entry.user?._id || entry.user?.id, duration, mode);
+      removeLeaderboardEntryLocally(
+        entry._id,
+        entry.user?._id || entry.user?.id,
+        duration,
+        mode,
+        entry.user?.username
+      );
       showToast(
-        `🛡️ Admin: Removed @${entry.user?.username || 'user'} from leaderboard.`,
+        `🛡️ Admin: Permanently removed @${entry.user?.username || 'user'} from leaderboard.`,
         'info'
       );
       fetchLeaderboard();
