@@ -257,12 +257,20 @@ export const RaceInviteModal = ({
         carName: selectedCar?.name || 'Shadow V12',
       };
 
-      // 1. Send remote server challenge and notification
-      const res = await api.post('/typing/challenges', payload);
-      const createdChallenge = res.data?.challenge || payload;
+      // 1. Save local challenge first (offline-first & resilient)
+      const localChallenge = saveLocalChallenge(payload, currentUser);
+      let createdChallenge = localChallenge;
 
-      // 2. Save local challenge for offline resiliency
-      saveLocalChallenge(createdChallenge, currentUser);
+      // 2. Attempt remote sync with server
+      try {
+        const res = await api.post('/typing/challenges', payload);
+        if (res.data?.challenge) {
+          createdChallenge = res.data.challenge;
+          saveLocalChallenge(createdChallenge, currentUser);
+        }
+      } catch (remoteErr) {
+        console.info('Remote race challenge sync fallback:', remoteErr?.message);
+      }
 
       // 3. Dispatch event for other components
       window.dispatchEvent(

@@ -15,6 +15,9 @@ const Notification = require('../models/Notification');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Bookmark = require('../models/Bookmark');
+const TypingChallenge = require('../models/TypingChallenge');
+const TypingResult = require('../models/TypingResult');
+const TypingProfile = require('../models/TypingProfile');
 
 async function cleanAllData({ exitOnComplete = true } = {}) {
   const isConnected = mongoose.connection.readyState === 1;
@@ -42,6 +45,9 @@ async function cleanAllData({ exitOnComplete = true } = {}) {
       convsRes,
       messagesRes,
       bookmarksRes,
+      challengesRes,
+      resultsRes,
+      profilesRes,
     ] = await Promise.all([
       User.deleteMany({}),
       Post.deleteMany({}),
@@ -52,6 +58,9 @@ async function cleanAllData({ exitOnComplete = true } = {}) {
       Conversation.deleteMany({}),
       Message.deleteMany({}),
       Bookmark.deleteMany({}),
+      TypingChallenge.deleteMany({}),
+      TypingResult.deleteMany({}),
+      TypingProfile.deleteMany({}),
     ]);
 
     const summary = {
@@ -64,7 +73,11 @@ async function cleanAllData({ exitOnComplete = true } = {}) {
       Conversations: convsRes.deletedCount,
       Messages: messagesRes.deletedCount,
       Bookmarks: bookmarksRes.deletedCount,
+      TypingChallenges: challengesRes.deletedCount,
+      TypingResults: resultsRes.deletedCount,
+      TypingProfiles: profilesRes.deletedCount,
     };
+
 
     console.log('✅ All data purged successfully:');
     console.table(summary);

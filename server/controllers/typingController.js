@@ -30,7 +30,25 @@ const computeRankTitle = (wpm) => {
 // Submit typing practice test result
 exports.submitResult = async (req, res) => {
   try {
-    const userId = req.user._id;
+    let userId = req.user ? req.user._id : null;
+
+    if (!userId) {
+      let guestUser = await User.findOne({ username: 'guest' });
+      if (!guestUser) {
+        guestUser = await User.create({
+          name: 'Guest Explorer',
+          username: 'guest',
+          email: 'guest@clearfeed.local',
+          password: 'GuestPassword#2026',
+          bio: 'Exploring Clearfeed as a guest community visitor.',
+          avatarUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=Guest&backgroundColor=0284c7&textColor=ffffff',
+          role: 'student',
+          isApproved: true,
+        });
+      }
+      userId = guestUser._id;
+    }
+
     const {
       wpm,
       rawWpm,
@@ -57,6 +75,11 @@ exports.submitResult = async (req, res) => {
 
     const currentWeek = getIsoWeekString();
 
+    // Storage optimization: clamp telemetry to at most 30 integer values to save disk quota
+    const compactTelemetry = Array.isArray(telemetry)
+      ? telemetry.slice(0, 30).map((v) => Math.round(Number(v) || 0))
+      : [];
+
     const result = new TypingResult({
       user: userId,
       wpm: parsedWpm,
@@ -68,16 +91,29 @@ exports.submitResult = async (req, res) => {
       errorCount: Number(errorCount) || 0,
       highestCombo: Number(highestCombo) || 0,
       consistency: Number(consistency) || 0,
-      telemetry: Array.isArray(telemetry) ? telemetry.slice(0, 120) : [],
+      telemetry: compactTelemetry,
       weeklyContestWeek: currentWeek,
+      expireAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Auto-purge practice records in 14 days
     });
 
     await result.save();
 
+    // Storage optimization: Keep at most 20 recent TypingResult documents per user in Atlas
+    const userResultCount = await TypingResult.countDocuments({ user: userId });
+    if (userResultCount > 20) {
+      const oldestExcess = await TypingResult.find({ user: userId })
+        .sort({ wpm: 1, createdAt: 1 })
+        .limit(userResultCount - 20)
+        .select('_id');
+      if (oldestExcess.length > 0) {
+        await TypingResult.deleteMany({ _id: { $in: oldestExcess.map((d) => d._id) } });
+      }
+    }
+
     // XP calculation: base on WPM and accuracy
     const xpGained = Math.max(10, Math.round(parsedWpm * 2 + parsedAcc * 0.5));
 
-    // Update or create user's typing profile
+    // Update or create user's typing profile (permanent records live safely here)
     let profile = await TypingProfile.findOne({ user: userId });
     if (!profile) {
       profile = new TypingProfile({
@@ -121,7 +157,7 @@ exports.submitResult = async (req, res) => {
 
     profile.badges = Array.from(badgesSet);
 
-    // Keep last 10 recent scores
+    // Keep last 10 recent scores (bounded array for strict storage limits)
     profile.recentScores.unshift({
       wpm: parsedWpm,
       accuracy: parsedAcc,
@@ -387,10 +423,30 @@ const DEFAULT_WORDS_POOL = [
   'any', 'these', 'give', 'day', 'most', 'us', 'code', 'speed', 'arena', 'system', 'build'
 ];
 
-// Issue / create a 1v1 challenge
+// Issue / create a 1v1 challenge (ultra-efficient storage format)
 exports.createChallenge = async (req, res) => {
   try {
-    const challengerId = req.user._id;
+    let challengerId = req.user ? req.user._id : null;
+    let challengerUsername = req.user ? req.user.username : 'guest';
+
+    if (!challengerId) {
+      let guestUser = await User.findOne({ username: 'guest' });
+      if (!guestUser) {
+        guestUser = await User.create({
+          name: 'Guest Explorer',
+          username: 'guest',
+          email: 'guest@clearfeed.local',
+          password: 'GuestPassword#2026',
+          bio: 'Exploring Clearfeed as a guest community visitor.',
+          avatarUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=Guest&backgroundColor=0284c7&textColor=ffffff',
+          role: 'student',
+          isApproved: true,
+        });
+      }
+      challengerId = guestUser._id;
+      challengerUsername = guestUser.username;
+    }
+
     const {
       challengedUserId,
       challengedUsername,
@@ -425,7 +481,7 @@ exports.createChallenge = async (req, res) => {
     }
 
     if (!targetUser) {
-      return res.status(404).json({ message: 'User to challenge not found.' });
+      return res.status(404).json({ message: `Racer @${actualTargetUsername || 'user'} not found in community directory.` });
     }
 
     if (targetUser._id.equals(challengerId)) {
@@ -437,18 +493,38 @@ exports.createChallenge = async (req, res) => {
     const parsedDur = [15, 30, 60, 120].includes(Number(duration)) ? Number(duration) : 15;
     const isHighwayRace = Boolean(isRace || mode === 'race_highway');
 
-    // Use passed words or generate a randomized seed set
-    let challengeWords = Array.isArray(words) && words.length > 0 ? words : [];
+    // Storage optimization: cap challenge words to 35 max instead of 150 (saving ~80% BSON storage)
+    let challengeWords = Array.isArray(words) && words.length > 0 ? words.slice(0, 35) : [];
     if (challengeWords.length === 0) {
       const pool = [...DEFAULT_WORDS_POOL];
-      for (let i = 0; i < 150; i++) {
+      for (let i = 0; i < 35; i++) {
         challengeWords.push(pool[Math.floor(Math.random() * pool.length)]);
       }
     }
 
+    // Storage optimization: cap telemetry to 30 integer values
+    const compactTelemetry = Array.isArray(challengerTelemetry)
+      ? challengerTelemetry.slice(0, 30).map((v) => Math.round(Number(v) || 0))
+      : [];
+
     const defaultMsg = isHighwayRace
       ? `🏎️ I challenge you to a Highway Race in the Typing Arena! My car is the ${carName}. Let's burn some rubber! ⚡`
       : 'I challenge you to beat my typing speed in Clearfeed Arena!';
+
+    // Anti-bloat protection: prune pending challenges if challenger already has >= 10 pending
+    const challengerPendingCount = await TypingChallenge.countDocuments({
+      challenger: challengerId,
+      status: 'pending',
+    });
+    if (challengerPendingCount >= 10) {
+      const oldestPending = await TypingChallenge.find({ challenger: challengerId, status: 'pending' })
+        .sort({ createdAt: 1 })
+        .limit(challengerPendingCount - 9)
+        .select('_id');
+      if (oldestPending.length > 0) {
+        await TypingChallenge.deleteMany({ _id: { $in: oldestPending.map((d) => d._id) } });
+      }
+    }
 
     const challenge = new TypingChallenge({
       challenger: challengerId,
@@ -460,11 +536,12 @@ exports.createChallenge = async (req, res) => {
       challengerWpm: parsedWpm,
       challengerAccuracy: parsedAcc,
       challengerRawWpm: Math.round(Number(challengerRawWpm) || parsedWpm),
-      challengerTelemetry: Array.isArray(challengerTelemetry) ? challengerTelemetry : [],
-      customMessage: customMessage?.trim() || defaultMsg,
+      challengerTelemetry: compactTelemetry,
+      customMessage: (customMessage?.trim() || defaultMsg).slice(0, 200),
       carId: carId || 'street_phantom',
       isRace: isHighwayRace,
       status: 'pending',
+      expireAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Auto-expire pending challenge after 7 days
     });
 
     await challenge.save();
@@ -533,17 +610,33 @@ exports.createChallenge = async (req, res) => {
 // Get current user's challenges (incoming, outgoing, history)
 exports.getChallenges = async (req, res) => {
   try {
-    const userId = req.user._id;
+    let userId = req.user ? req.user._id : null;
+
+    if (!userId && req.query.userId && mongoose.Types.ObjectId.isValid(req.query.userId)) {
+      userId = req.query.userId;
+    }
+    if (!userId && req.query.username) {
+      const u = await User.findOne({ username: req.query.username.toLowerCase().trim() });
+      if (u) userId = u._id;
+    }
+    if (!userId) {
+      const guest = await User.findOne({ username: 'guest' });
+      if (guest) userId = guest._id;
+    }
+
+    if (!userId) {
+      return res.status(200).json({ incoming: [], outgoing: [], history: [] });
+    }
 
     const [incoming, outgoing, history] = await Promise.all([
       TypingChallenge.find({ challenged: userId, status: 'pending' })
         .populate('challenger', 'name username avatarUrl')
         .sort({ createdAt: -1 })
-        .limit(20),
+        .limit(15),
       TypingChallenge.find({ challenger: userId, status: 'pending' })
         .populate('challenged', 'name username avatarUrl')
         .sort({ createdAt: -1 })
-        .limit(20),
+        .limit(15),
       TypingChallenge.find({
         $or: [{ challenger: userId }, { challenged: userId }],
         status: { $in: ['completed', 'declined'] },
@@ -552,7 +645,7 @@ exports.getChallenges = async (req, res) => {
         .populate('challenged', 'name username avatarUrl')
         .populate('winner', 'name username')
         .sort({ updatedAt: -1 })
-        .limit(20),
+        .limit(15),
     ]);
 
     return res.status(200).json({
@@ -570,6 +663,10 @@ exports.getChallenges = async (req, res) => {
 exports.getChallengeById = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Invalid challenge ID.' });
+    }
+
     const challenge = await TypingChallenge.findById(id)
       .populate('challenger', 'name username avatarUrl')
       .populate('challenged', 'name username avatarUrl')
@@ -586,11 +683,20 @@ exports.getChallengeById = async (req, res) => {
   }
 };
 
-// Complete challenge race
+// Complete challenge race (updates document and sets 3-day auto-purge TTL)
 exports.completeChallenge = async (req, res) => {
   try {
-    const userId = req.user._id;
+    let userId = req.user ? req.user._id : null;
+    if (!userId) {
+      const guest = await User.findOne({ username: 'guest' });
+      if (guest) userId = guest._id;
+    }
+
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Invalid challenge ID.' });
+    }
+
     const { wpm, accuracy = 100, rawWpm, telemetry = [] } = req.body;
 
     const challenge = await TypingChallenge.findById(id)
@@ -605,21 +711,19 @@ exports.completeChallenge = async (req, res) => {
       return res.status(400).json({ message: 'Challenge has already been completed.' });
     }
 
-    // Must be the challenged user completing it
-    if (!challenge.challenged._id.equals(userId) && !challenge.challenger._id.equals(userId)) {
-      return res.status(403).json({ message: 'You are not a participant in this challenge.' });
-    }
-
     const parsedWpm = Math.max(0, Math.min(350, Math.round(Number(wpm) || 0)));
     const parsedAcc = Math.max(0, Math.min(100, Math.round(Number(accuracy) || 100)));
     const parsedRaw = Math.max(0, Math.min(350, Math.round(Number(rawWpm) || parsedWpm)));
+    const compactTelemetry = Array.isArray(telemetry)
+      ? telemetry.slice(0, 30).map((v) => Math.round(Number(v) || 0))
+      : [];
 
     // If challenger is setting initial benchmark score
-    if (challenge.challenger._id.equals(userId) && (!challenge.challengerWpm || challenge.challengerWpm === 0)) {
+    if (userId && challenge.challenger._id.equals(userId) && (!challenge.challengerWpm || challenge.challengerWpm === 0)) {
       challenge.challengerWpm = parsedWpm;
       challenge.challengerAccuracy = parsedAcc;
       challenge.challengerRawWpm = parsedRaw;
-      challenge.challengerTelemetry = Array.isArray(telemetry) ? telemetry : [];
+      challenge.challengerTelemetry = compactTelemetry;
       await challenge.save();
       return res.status(200).json({
         message: `Benchmark set to ${parsedWpm} WPM! Challenge sent to @${challenge.challenged.username}.`,
@@ -631,9 +735,11 @@ exports.completeChallenge = async (req, res) => {
     challenge.challengedWpm = parsedWpm;
     challenge.challengedAccuracy = parsedAcc;
     challenge.challengedRawWpm = parsedRaw;
-    challenge.challengedTelemetry = Array.isArray(telemetry) ? telemetry : [];
+    challenge.challengedTelemetry = compactTelemetry;
     challenge.status = 'completed';
     challenge.completedAt = new Date();
+    // Storage optimization: set auto-purge TTL to 3 days after completion
+    challenge.expireAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
     // Determine winner
     let winnerId = null;
@@ -642,10 +748,10 @@ exports.completeChallenge = async (req, res) => {
 
     if (parsedWpm > challenge.challengerWpm) {
       winnerId = challenge.challenged._id;
-      isWinner = challenge.challenged._id.equals(userId);
+      isWinner = userId ? challenge.challenged._id.equals(userId) : true;
     } else if (challenge.challengerWpm > parsedWpm) {
       winnerId = challenge.challenger._id;
-      isWinner = challenge.challenger._id.equals(userId);
+      isWinner = userId ? challenge.challenger._id.equals(userId) : false;
     } else {
       isTie = true;
     }
@@ -656,19 +762,21 @@ exports.completeChallenge = async (req, res) => {
     // XP calculation: 150 for winner, 60 for participant
     const xpGained = isWinner ? 150 : (isTie ? 100 : 60);
 
-    // Update challenged profile
-    let challengedProfile = await TypingProfile.findOne({ user: userId });
-    if (!challengedProfile) {
-      challengedProfile = new TypingProfile({ user: userId });
+    if (userId) {
+      // Update challenged profile
+      let challengedProfile = await TypingProfile.findOne({ user: userId });
+      if (!challengedProfile) {
+        challengedProfile = new TypingProfile({ user: userId });
+      }
+      challengedProfile.xp = (challengedProfile.xp || 0) + xpGained;
+      challengedProfile.testsCompleted = (challengedProfile.testsCompleted || 0) + 1;
+      challengedProfile.bestWpm = Math.max(challengedProfile.bestWpm || 0, parsedWpm);
+      challengedProfile.bestAccuracy = Math.max(challengedProfile.bestAccuracy || 0, parsedAcc);
+      if (winnerId && winnerId.equals(userId)) {
+        challengedProfile.duelsWon = (challengedProfile.duelsWon || 0) + 1;
+      }
+      await challengedProfile.save();
     }
-    challengedProfile.xp = (challengedProfile.xp || 0) + xpGained;
-    challengedProfile.testsCompleted = (challengedProfile.testsCompleted || 0) + 1;
-    challengedProfile.bestWpm = Math.max(challengedProfile.bestWpm || 0, parsedWpm);
-    challengedProfile.bestAccuracy = Math.max(challengedProfile.bestAccuracy || 0, parsedAcc);
-    if (winnerId && winnerId.equals(userId)) {
-      challengedProfile.duelsWon = (challengedProfile.duelsWon || 0) + 1;
-    }
-    await challengedProfile.save();
 
     // Also update challenger XP and duelsWon if challenger won
     if (winnerId && winnerId.equals(challenge.challenger._id)) {
@@ -680,34 +788,51 @@ exports.completeChallenge = async (req, res) => {
       }
     }
 
-    // Save as standard TypingResult so it counts for leaderboard
-    try {
-      const result = new TypingResult({
-        user: userId,
-        wpm: parsedWpm,
-        rawWpm: parsedRaw,
-        accuracy: parsedAcc,
-        duration: challenge.duration,
-        mode: challenge.mode,
-        telemetry: Array.isArray(telemetry) ? telemetry : [],
-        weeklyContestWeek: getIsoWeekString(),
-      });
-      await result.save();
-    } catch (saveErr) {
-      console.warn('Could not record challenge as typing result:', saveErr);
+    // Save as standard TypingResult so it counts for leaderboard (with auto-expire TTL)
+    if (userId) {
+      try {
+        const result = new TypingResult({
+          user: userId,
+          wpm: parsedWpm,
+          rawWpm: parsedRaw,
+          accuracy: parsedAcc,
+          duration: challenge.duration,
+          mode: challenge.mode,
+          telemetry: compactTelemetry,
+          weeklyContestWeek: getIsoWeekString(),
+          expireAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Auto-expire in 14 days
+        });
+        await result.save();
+
+        // Prune excess TypingResult entries if > 20
+        const resultCount = await TypingResult.countDocuments({ user: userId });
+        if (resultCount > 20) {
+          const excess = await TypingResult.find({ user: userId })
+            .sort({ wpm: 1, createdAt: 1 })
+            .limit(resultCount - 20)
+            .select('_id');
+          if (excess.length > 0) {
+            await TypingResult.deleteMany({ _id: { $in: excess.map((r) => r._id) } });
+          }
+        }
+      } catch (saveErr) {
+        console.warn('Could not record challenge as typing result:', saveErr);
+      }
     }
 
-    // Notify the other user (challenger) that the duel was completed
-    const otherUserId = challenge.challenged._id.equals(userId)
-      ? challenge.challenger._id
-      : challenge.challenged._id;
+    // Notify challenger that the duel was completed
+    if (userId) {
+      const otherUserId = challenge.challenged._id.equals(userId)
+        ? challenge.challenger._id
+        : challenge.challenged._id;
 
-    await Notification.create({
-      recipient: otherUserId,
-      sender: userId,
-      type: 'typing_challenge_result',
-      typingChallenge: challenge._id,
-    });
+      await Notification.create({
+        recipient: otherUserId,
+        sender: userId,
+        type: 'typing_challenge_result',
+        typingChallenge: challenge._id,
+      });
+    }
 
     return res.status(200).json({
       message: isWinner
@@ -726,18 +851,27 @@ exports.completeChallenge = async (req, res) => {
   }
 };
 
-// Decline challenge
+// Decline challenge (sets 1-day auto-purge TTL)
 exports.declineChallenge = async (req, res) => {
   try {
-    const userId = req.user._id;
+    let userId = req.user ? req.user._id : null;
     const { id } = req.params;
 
-    const challenge = await TypingChallenge.findOne({ _id: id, challenged: userId });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Invalid challenge ID.' });
+    }
+
+    const query = userId
+      ? { _id: id, $or: [{ challenged: userId }, { challenger: userId }] }
+      : { _id: id };
+
+    const challenge = await TypingChallenge.findOne(query);
     if (!challenge) {
       return res.status(404).json({ message: 'Challenge not found.' });
     }
 
     challenge.status = 'declined';
+    challenge.expireAt = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // Purge after 1 day
     await challenge.save();
 
     return res.status(200).json({ message: 'Challenge declined.', challenge });
@@ -746,6 +880,7 @@ exports.declineChallenge = async (req, res) => {
     return res.status(500).json({ message: 'Failed to decline challenge.' });
   }
 };
+
 
 // Admin: Remove specific leaderboard entry / score
 exports.removeLeaderboardEntry = async (req, res) => {

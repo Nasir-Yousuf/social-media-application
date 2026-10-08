@@ -103,11 +103,20 @@ const typingChallengeSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Auto-expiry TTL field to prevent MongoDB Atlas cluster storage bloat
+    expireAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Pending duels auto-expire in 7 days
+    },
   },
   { timestamps: true }
 );
 
+// High performance compound indexes for fast lookups with minimal overhead
 typingChallengeSchema.index({ challenged: 1, status: 1 });
 typingChallengeSchema.index({ challenger: 1, status: 1 });
+typingChallengeSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('TypingChallenge', typingChallengeSchema);
+
+
