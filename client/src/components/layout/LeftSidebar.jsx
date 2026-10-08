@@ -24,6 +24,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { ClearfeedLogo } from '../common/ClearfeedIcons';
 import Avatar from '../common/Avatar';
 import Modal from '../common/Modal';
@@ -34,6 +35,7 @@ export const LeftSidebar = () => {
   const { user, logout, isAdmin } = useAuth();
   const { theme, currentTheme, isDark, toggleTheme, openThemeModal } = useTheme();
   const { unreadCount, unreadMessagesCount } = useNotifications();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,7 +52,16 @@ export const LeftSidebar = () => {
   const moreMenuRef = useRef(null);
   const sidebarRef = useRef(null);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setIsUserMenuOpen(false);
+    const ok = await confirm({
+      title: 'Log out of Clearfeed?',
+      description: 'You can always log back in at any time. Are you sure you want to sign out?',
+      confirmText: 'Log out',
+      cancelText: 'Cancel',
+      variant: 'warning',
+    });
+    if (!ok) return;
     logout();
     navigate('/login');
   };

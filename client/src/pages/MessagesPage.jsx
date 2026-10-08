@@ -22,6 +22,7 @@ import {
 import { format, isToday, isYesterday } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useConfirm } from '../context/ConfirmContext';
 import Avatar from '../components/common/Avatar';
 import Modal from '../components/common/Modal';
 import TwitterSpinner from '../components/common/TwitterSpinner';
@@ -54,6 +55,7 @@ const CODE_LANGUAGES = [
 export const MessagesPage = () => {
   const { user: currentUser } = useAuth();
   const { showToast } = useNotifications();
+  const { confirm } = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const userParam = searchParams.get('user');
 
@@ -612,7 +614,14 @@ export const MessagesPage = () => {
 
   // Delete individual message
   const handleDeleteMessage = async (msgId) => {
-    if (!window.confirm('Delete this message? This cannot be undone.')) return;
+    const ok = await confirm({
+      title: 'Delete this message?',
+      description: 'This message will be permanently removed for everyone in this conversation. This action cannot be undone.',
+      confirmText: 'Delete message',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     setDeletingMsgId(msgId);
     try {
       await api.delete(`/messages/${msgId}`);
@@ -629,7 +638,14 @@ export const MessagesPage = () => {
   // Delete entire conversation and its messages
   const handleDeleteConversation = async (convId, e) => {
     if (e) e.stopPropagation();
-    if (!window.confirm('Delete this entire conversation? All messages will be permanently removed from MongoDB storage.')) return;
+    const ok = await confirm({
+      title: 'Delete conversation?',
+      description: 'All message records, code snippets, and chat history in this conversation will be permanently deleted. This action is irreversible.',
+      confirmText: 'Delete conversation',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     setDeletingConvId(convId);
     try {
       await api.delete(`/messages/conversations/${convId}`);
@@ -649,7 +665,14 @@ export const MessagesPage = () => {
   // Clear all messages in current conversation without deleting conversation
   const handleClearConversation = async (convId) => {
     if (!convId) return;
-    if (!window.confirm('Clear all messages in this conversation? All message records will be permanently removed from MongoDB storage.')) return;
+    const ok = await confirm({
+      title: 'Clear all messages?',
+      description: 'All chat history in this conversation will be erased permanently, but the contact will stay in your inbox.',
+      confirmText: 'Clear messages',
+      variant: 'warning',
+    });
+    if (!ok) return;
+
     try {
       await api.delete(`/messages/conversations/${convId}/messages`);
       setMessages([]);

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { ClearfeedLogo } from '../common/ClearfeedIcons';
 import ThemeToggle from '../common/ThemeToggle';
 import Avatar from '../common/Avatar';
@@ -27,11 +28,21 @@ import PostComposer from '../posts/PostComposer';
 export const TopNav = () => {
   const { user, logout, isAdmin } = useAuth();
   const { unreadCount } = useNotifications();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setIsMobileMenuOpen(false);
+    const ok = await confirm({
+      title: 'Log out of Clearfeed?',
+      description: 'You can always log back in at any time. Are you sure you want to sign out?',
+      confirmText: 'Log out',
+      cancelText: 'Cancel',
+      variant: 'warning',
+    });
+    if (!ok) return;
     logout();
     navigate('/login');
   };

@@ -16,6 +16,7 @@ import CodePreview from './CodePreview';
 import ExerciseChallenge from './ExerciseChallenge';
 import LessonQuizModal from './LessonQuizModal';
 import { useNotifications } from '../../../context/NotificationContext';
+import { useConfirm } from '../../../context/ConfirmContext';
 
 export const LessonView = ({
   lessonId,
@@ -28,6 +29,7 @@ export const LessonView = ({
 }) => {
   const navigate = useNavigate();
   const { showToast } = useNotifications();
+  const { confirm } = useConfirm();
 
   const lesson = LESSONS.find((l) => l.id === lessonId) || LESSONS[0];
   const track = TRACKS.find((t) => t.id === lesson.track) || TRACKS[0];
@@ -75,15 +77,24 @@ export const LessonView = ({
     showToast('Code executed in preview sandbox', 'info');
   };
 
-  const handleResetCode = () => {
-    if (window.confirm('Reset code to original starter code?')) {
-      setUserCode({
-        html: lesson.starterCode?.html || '',
-        css: lesson.starterCode?.css || '',
-        javascript: lesson.starterCode?.javascript || '',
-      });
-      setRunTrigger((prev) => prev + 1);
-    }
+  const handleResetCode = async () => {
+    const ok = await confirm({
+      title: 'Reset code to starter code?',
+      description: 'Your current editor changes will be reverted back to the starter code template for this lesson.',
+      confirmText: 'Reset Code',
+      cancelText: 'Keep Editing',
+      variant: 'reset',
+      icon: 'refresh',
+    });
+    if (!ok) return;
+
+    setUserCode({
+      html: lesson.starterCode?.html || '',
+      css: lesson.starterCode?.css || '',
+      javascript: lesson.starterCode?.javascript || '',
+    });
+    setRunTrigger((prev) => prev + 1);
+    showToast('Code reset to starter template', 'info');
   };
 
   const handleApplySolution = (solutionObj) => {

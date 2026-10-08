@@ -22,11 +22,13 @@ import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { FacultyBadge } from '../components/common/ClearfeedIcons';
 
 export const AdminPage = () => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
+  const { confirm } = useConfirm();
 
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'users', 'posts', 'logs'
   const [stats, setStats] = useState(null);
@@ -131,7 +133,14 @@ export const AdminPage = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Delete this member and all their posts? This action is irreversible.')) return;
+    const ok = await confirm({
+      title: 'Delete this member?',
+      description: 'This member account and all their published posts, comments, and learning activity will be permanently erased. This action is irreversible.',
+      confirmText: 'Delete member',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     setDeletingUserId(userId);
     try {
       await api.delete(`/admin/users/${userId}`);
@@ -145,7 +154,14 @@ export const AdminPage = () => {
   };
 
   const handleForceDeletePost = async (postId) => {
-    if (!window.confirm('Remove this post as administrator?')) return;
+    const ok = await confirm({
+      title: 'Remove post as administrator?',
+      description: 'This will permanently delete this post from the global feed, search index, and member profile.',
+      confirmText: 'Remove post',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     setDeletingPostId(postId);
     try {
       await api.delete(`/posts/${postId}`);

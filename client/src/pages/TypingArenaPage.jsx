@@ -48,12 +48,14 @@ import { CAR_CATALOG } from '../utils/racingStorage';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 export const TypingArenaPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useNotifications();
+  const { confirm } = useConfirm();
 
   // Multi-theme Arena State ('racing_hub' | 'race' | 'garage' | 'arcade' | 'classic' | 'leaderboard' | 'game' | 'hacker' | 'zen')
   const [arenaTheme, setArenaThemeState] = useState(() => {
@@ -674,10 +676,14 @@ export const TypingArenaPage = () => {
   // Admin leaderboard score removal
   const handleAdminRemoveEntry = async (entry) => {
     if (!user || user.role !== 'admin') return;
-    const confirm = window.confirm(
-      `Admin Action: Remove @${entry.user?.username || 'user'}'s score (${entry.wpm} WPM) from the leaderboard?`
-    );
-    if (!confirm) return;
+    const ok = await confirm({
+      title: 'Remove leaderboard score?',
+      description: `Remove @${entry.user?.username || 'user'}'s score of ${entry.wpm} WPM from the global leaderboard? This action cannot be undone.`,
+      confirmText: 'Remove Score',
+      cancelText: 'Cancel',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     try {
       try {

@@ -18,6 +18,7 @@ import Modal from '../common/Modal';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { getSpeedTier } from '../../utils/typingEngine';
 import {
   getResilientLeaderboard,
@@ -32,6 +33,7 @@ export const TypingLeaderboard = ({
 }) => {
   const { user } = useAuth();
   const { showToast } = useNotifications();
+  const { confirm } = useConfirm();
 
   const [period, setPeriod] = useState('all'); // 'all' | 'weekly' | 'daily'
   const [selectedDuration, setSelectedDuration] = useState(currentSessionDuration || 'all');
@@ -192,7 +194,15 @@ export const TypingLeaderboard = ({
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Purge dummy records?',
+                      description: 'This will wipe all placeholder and mock benchmark records from the local leaderboard.',
+                      confirmText: 'Purge Records',
+                      cancelText: 'Cancel',
+                      variant: 'warning',
+                    });
+                    if (!ok) return;
                     purgeAllDummyData();
                     fetchLeaderboard();
                     showToast('🛡️ Admin: Scrubbed all dummy typists. Leaderboard is clean and ready for real racers!', 'success');

@@ -32,10 +32,10 @@ import BookmarkButton from './BookmarkButton';
 import TypingSharePostCard from '../typing/TypingSharePostCard';
 import { FacultyBadge, BoostIcon, ForkIcon } from '../common/ClearfeedIcons';
 import TwitterSpinner from '../common/TwitterSpinner';
-import DeleteConfirmModal from '../common/DeleteConfirmModal';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 
 export const PostCard = ({
   post,
@@ -46,6 +46,7 @@ export const PostCard = ({
 }) => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
+  const { confirm } = useConfirm();
 
   const [currentPost, setCurrentPost] = useState(post);
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
@@ -66,7 +67,6 @@ export const PostCard = ({
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [animatingHeart, setAnimatingHeart] = useState(false);
@@ -117,7 +117,15 @@ export const PostCard = ({
 
   const handleFlagPost = async () => {
     setIsMenuOpen(false);
-    if (!window.confirm('Report this post to course moderators?')) return;
+    const ok = await confirm({
+      title: 'Report this post?',
+      description: 'This will notify course instructors and moderators to inspect this post for policy or code guideline violations.',
+      confirmText: 'Report post',
+      variant: 'report',
+      icon: 'shield',
+    });
+    if (!ok) return;
+
     try {
       await api.post(`/posts/${currentPost._id}/flag`, { reason: 'Community report' });
       setIsFlagged(true);
@@ -191,11 +199,20 @@ export const PostCard = ({
     showToast(`Forking @${author.username}'s snippet into composer...`, 'info');
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeletePost = async () => {
+    setIsMenuOpen(false);
+    const ok = await confirm({
+      title: 'Delete post?',
+      description: 'This can’t be undone and it will be permanently removed from your profile, the timeline of any accounts that follow you, and search results.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     setIsDeleting(true);
     try {
       await api.delete(`/posts/${currentPost._id}`);
-      setIsConfirmDeleteOpen(false);
       setIsFadingOut(true);
       setTimeout(() => {
         if (onPostDeleted) {
@@ -465,10 +482,7 @@ export const PostCard = ({
 
               {canDelete && (
                 <button
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    setIsConfirmDeleteOpen(true);
-                  }}
+                  onClick={handleDeletePost}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/15 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -691,16 +705,6 @@ export const PostCard = ({
           onPostUpdated={handlePostUpdated}
         />
       )}
-
-      {/* Twitter-style Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        isOpen={isConfirmDeleteOpen}
-        onClose={() => !isDeleting && setIsConfirmDeleteOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        isDeleting={isDeleting}
-        title="Delete post?"
-        description="This can’t be undone and it will be removed from your profile, the timeline of any accounts that follow you, and from search results."
-      />
     </article>
   );
 };

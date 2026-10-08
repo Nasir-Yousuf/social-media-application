@@ -9,12 +9,14 @@ import MarkdownRenderer from './MarkdownRenderer';
 import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutocomplete';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { FacultyBadge } from '../common/ClearfeedIcons';
 import TwitterSpinner from '../common/TwitterSpinner';
 
 export const CommentsSection = ({ postId, onCommentCountChange, canReply = true }) => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
+  const { confirm } = useConfirm();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
@@ -80,6 +82,15 @@ export const CommentsSection = ({ postId, onCommentCountChange, canReply = true 
   };
 
   const handleDeleteComment = async (commentId) => {
+    const ok = await confirm({
+      title: 'Delete this response?',
+      description: 'This reply will be permanently removed from this conversation. This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Keep',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     setDeletingCommentId(commentId);
     try {
       const res = await api.delete(`/comments/${commentId}`);
