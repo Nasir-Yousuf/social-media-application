@@ -78,7 +78,10 @@ export const HackerArenaLayout = ({
                 <button
                   key={dur}
                   type="button"
-                  onClick={() => setDuration(dur)}
+                  onClick={(e) => {
+                    setDuration(dur);
+                    e.currentTarget.blur();
+                  }}
                   className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
                     duration === dur
                       ? 'bg-emerald-500/25 text-emerald-200 font-bold border border-emerald-400'

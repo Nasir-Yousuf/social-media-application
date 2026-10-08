@@ -8,19 +8,29 @@ import { getSpeedTier } from '../../utils/typingEngine';
 
 export const TypingLeaderboard = ({ onChallengeGhost, currentSessionDuration, currentSessionMode }) => {
   const { user } = useAuth();
-  const [period, setPeriod] = useState('weekly'); // 'weekly' | 'daily' | 'all'
+  const [period, setPeriod] = useState('all'); // 'all' | 'weekly' | 'daily'
+  const [selectedDuration, setSelectedDuration] = useState(currentSessionDuration || 15);
   const [leaderboard, setLeaderboard] = useState([]);
   const [userRank, setUserRank] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    if (currentSessionDuration) {
+      setSelectedDuration(currentSessionDuration);
+    }
+  }, [currentSessionDuration]);
+
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
+      const queryMode = (currentSessionMode && currentSessionMode.startsWith('words'))
+        ? 'words'
+        : (currentSessionMode || 'words');
       const res = await api.get('/typing/leaderboard', {
         params: {
           period,
-          duration: currentSessionDuration || 60,
-          mode: currentSessionMode || 'words_200',
+          duration: selectedDuration,
+          mode: queryMode,
         },
       });
       setLeaderboard(res.data.leaderboard || []);
@@ -34,7 +44,7 @@ export const TypingLeaderboard = ({ onChallengeGhost, currentSessionDuration, cu
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [period, currentSessionDuration, currentSessionMode]);
+  }, [period, selectedDuration, currentSessionMode]);
 
   const top3 = leaderboard.slice(0, 3);
   const remaining = leaderboard.slice(3);
@@ -42,7 +52,7 @@ export const TypingLeaderboard = ({ onChallengeGhost, currentSessionDuration, cu
   return (
     <div className="rounded-3xl bg-[#0e1116] border border-neutral-800 p-5 sm:p-6 font-sans">
       {/* Header & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-neutral-800">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6 pb-4 border-b border-neutral-800">
         <div>
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-400" />
@@ -53,26 +63,47 @@ export const TypingLeaderboard = ({ onChallengeGhost, currentSessionDuration, cu
           </p>
         </div>
 
-        {/* Period Selector Tabs */}
-        <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-neutral-800 text-xs">
-          {[
-            { id: 'weekly', label: '🏆 Weekly Contest' },
-            { id: 'daily', label: '⚡ Daily Sprint' },
-            { id: 'all', label: '👑 All-Time' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setPeriod(tab.id)}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                period === tab.id
-                  ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
-                  : 'text-neutral-400 hover:text-neutral-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Filter Controls: Durations & Period Tabs */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Duration Pills */}
+          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-neutral-800 text-xs font-mono">
+            {[15, 30, 60, 120, 'all'].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setSelectedDuration(d)}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
+                  selectedDuration === d
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                {d === 'all' ? 'All Times' : `${d}s`}
+              </button>
+            ))}
+          </div>
+
+          {/* Period Selector Tabs */}
+          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-neutral-800 text-xs">
+            {[
+              { id: 'all', label: '👑 All-Time' },
+              { id: 'weekly', label: '🏆 Weekly' },
+              { id: 'daily', label: '⚡ Daily' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setPeriod(tab.id)}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                  period === tab.id
+                    ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

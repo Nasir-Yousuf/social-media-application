@@ -32,8 +32,8 @@ const typingResultSchema = new mongoose.Schema(
     },
     mode: {
       type: String,
-      enum: ['words_200', 'words_1000', 'code', 'quote'],
       default: 'words_200',
+      trim: true,
       index: true,
     },
     charCount: {

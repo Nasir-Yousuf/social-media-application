@@ -10,6 +10,7 @@ import {
   Zap,
   Sparkles,
   ChevronRight,
+  Swords,
 } from 'lucide-react';
 import { getSpeedTier } from '../../utils/typingEngine';
 import Modal from '../common/Modal';
@@ -20,6 +21,7 @@ export const TypingResultsModal = ({
   results, // { wpm, rawWpm, accuracy, duration, mode, highestCombo, xpGained, telemetry }
   onPlayAgain,
   onShareToFeed,
+  onChallengeFriend,
 }) => {
   const [copied, setCopied] = useState(false);
   if (!results) return null;
@@ -33,6 +35,9 @@ export const TypingResultsModal = ({
     highestCombo = 0,
     xpGained = 0,
     telemetry = [],
+    savedToLeaderboard = false,
+    userRank = null,
+    isGuest = false,
   } = results;
 
   const tier = getSpeedTier(wpm);
@@ -99,6 +104,52 @@ export const TypingResultsModal = ({
           )}
         </div>
 
+        {/* Leaderboard Status Banner */}
+        {savedToLeaderboard ? (
+          <div className="p-4 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-sky-500/20 text-sky-400">
+                <Trophy className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-white flex items-center gap-2">
+                  <span>Saved to Global Leaderboard</span>
+                  {userRank && (
+                    <span className="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-mono font-extrabold text-[10px]">
+                      RANK #{userRank}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-neutral-400 mt-0.5">
+                  Your {duration}s sprint score is active and ranked on the scoreboard!
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : isGuest ? (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0">
+                <Trophy className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-amber-200">
+                  Guest Mode · Score Not Saved to Leaderboard
+                </div>
+                <div className="text-[11px] text-neutral-400 mt-0.5">
+                  You scored {wpm} WPM! Sign in or register to record your scores and claim your leaderboard rank.
+                </div>
+              </div>
+            </div>
+            <a
+              href="/login"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shrink-0 text-center transition-colors shadow-sm"
+            >
+              Sign In to Save
+            </a>
+          </div>
+        ) : null}
+
         {/* Secondary Metrics Grid */}
         <div className="grid grid-cols-3 gap-3 font-mono">
           <div className="p-3.5 rounded-2xl bg-neutral-900/60 border border-neutral-800 text-center">
@@ -154,13 +205,24 @@ export const TypingResultsModal = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+          {onChallengeFriend && (
+            <button
+              type="button"
+              onClick={onChallengeFriend}
+              className="w-full sm:flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-black font-extrabold text-sm transition-all duration-150 cursor-pointer shadow-md shadow-amber-500/20"
+            >
+              <Swords className="w-4 h-4" />
+              <span>Challenge a Friend</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onShareToFeed}
-            className="w-full sm:flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold text-sm transition-all duration-150 cursor-pointer shadow-md shadow-sky-500/20"
+            className={`w-full ${onChallengeFriend ? 'sm:w-auto' : 'sm:flex-1'} flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-bold text-sm transition-all duration-150 cursor-pointer shadow-md shadow-sky-500/20`}
           >
             <Share2 className="w-4 h-4" />
-            <span>Share on Feed (Challenge)</span>
+            <span>Share to Feed</span>
           </button>
 
           <button

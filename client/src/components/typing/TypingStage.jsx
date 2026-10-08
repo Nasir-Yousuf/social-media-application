@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Ghost, Trophy } from 'lucide-react';
+import { Ghost, Trophy, MousePointerClick } from 'lucide-react';
 
 export const TypingStage = ({
   words = [],
@@ -21,6 +21,7 @@ export const TypingStage = ({
   const wordRefs = useRef([]);
   const boxWordRefs = useRef([]);
   const [scrollOffset, setScrollOffset] = useState(0);
+  const [isFocused, setIsFocused] = useState(true);
 
   // In-text Ghost position
   const ghostWordIndex =
@@ -28,12 +29,70 @@ export const TypingStage = ({
       ? Math.min(words.length - 1, Math.floor(((ghostData.progress || 0) / 100) * words.length))
       : -1;
 
-  // Focus input automatically
+  // Always ensure focus on mount, restart, or index change
   useEffect(() => {
     if (!isFinished && inputRef.current) {
-      inputRef.current.focus();
+      inputRef.current.focus({ preventScroll: true });
+      setIsFocused(true);
     }
-  }, [isFinished, currentWordIndex]);
+  }, [isFinished, currentWordIndex, words]);
+
+  // Global keydown listener: starts typing instantly from anywhere in the arena without clicking
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (isFinished) return;
+
+      // Ignore if user is currently typing inside another real form control
+      const targetTag = e.target?.tagName?.toLowerCase();
+      const isOtherInput =
+        (targetTag === 'input' && e.target !== inputRef.current) ||
+        targetTag === 'textarea' ||
+        targetTag === 'select' ||
+        e.target?.isContentEditable;
+      if (isOtherInput) return;
+
+      // Ignore browser shortcuts
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      // If hidden input is not focused, focus immediately and capture first character
+      if (inputRef.current && document.activeElement !== inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        setIsFocused(true);
+
+        if (e.key === ' ' || e.key === 'Backspace' || e.key.length === 1) {
+          onKeyDown?.(e);
+          if (e.key.length === 1 && e.key !== ' ') {
+            onInputChange?.({ target: { value: (currentInput || '') + e.key } });
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [isFinished, currentInput, onKeyDown, onInputChange]);
+
+  // Global click listener: clicking anywhere on the page focuses the typing input unless clicking a button
+  useEffect(() => {
+    const handleGlobalClick = (e) => {
+      if (isFinished) return;
+      const target = e.target;
+      const isInteractive = target?.closest(
+        'button, a, input, select, textarea, [role="button"], [role="dialog"], [role="menu"]'
+      );
+      if (!isInteractive && inputRef.current) {
+        inputRef.current.focus({ preventScroll: true });
+        setIsFocused(true);
+      }
+    };
+
+    window.addEventListener('click', handleGlobalClick);
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+    };
+  }, [isFinished]);
 
   // Handle smooth line-by-line scrolling so words NEVER shift horizontally
   useEffect(() => {
@@ -62,7 +121,8 @@ export const TypingStage = ({
 
   const handleContainerClick = () => {
     if (!isFinished && inputRef.current) {
-      inputRef.current.focus();
+      inputRef.current.focus({ preventScroll: true });
+      setIsFocused(true);
     }
   };
 
@@ -117,6 +177,8 @@ export const TypingStage = ({
         value={currentInput}
         onChange={onInputChange}
         onKeyDown={onKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         disabled={isFinished}
         autoFocus
         autoComplete="off"
@@ -125,6 +187,19 @@ export const TypingStage = ({
         spellCheck="false"
         className="absolute opacity-0 pointer-events-none w-0 h-0"
       />
+
+      {/* Subtle Focus Hint (Monkeytype-style: disappears instantly upon typing or clicking) */}
+      {!isFocused && !isActive && !isFinished && (
+        <div
+          onClick={handleContainerClick}
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-[2px] rounded-2xl cursor-pointer transition-all duration-200"
+        >
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-neutral-900/95 border border-sky-500/50 text-sky-300 text-xs font-mono font-bold shadow-2xl animate-pulse">
+            <MousePointerClick className="w-4 h-4 text-sky-400" />
+            <span>Click or start typing anywhere to begin test</span>
+          </div>
+        </div>
+      )}
 
       {/* View Mode 1: Monkeytype Flowing Caret (Fixed 3-Line Window with Line Scroll) */}
       {viewMode === 'caret' ? (

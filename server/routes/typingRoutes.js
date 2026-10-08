@@ -8,4 +8,11 @@ router.get('/leaderboard', optionalAuth, typingController.getLeaderboard);
 router.get('/contest', optionalAuth, typingController.getWeeklyContest);
 router.get('/profile/:username', optionalAuth, typingController.getProfile);
 
+// Typing Challenges / 1v1 Duels
+router.post('/challenges', requireAuth, typingController.createChallenge);
+router.get('/challenges', requireAuth, typingController.getChallenges);
+router.get('/challenges/:id', optionalAuth, typingController.getChallengeById);
+router.post('/challenges/:id/complete', requireAuth, typingController.completeChallenge);
+router.post('/challenges/:id/decline', requireAuth, typingController.declineChallenge);
+
 module.exports = router;

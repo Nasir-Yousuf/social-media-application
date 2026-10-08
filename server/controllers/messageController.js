@@ -103,8 +103,9 @@ exports.getMessages = async (req, res) => {
     const messages = await Message.find({ conversation: conversationId })
       .sort({ createdAt: 1 })
       .limit(limit)
-      .select('sender recipient text codeSnippet isRead reactions createdAt')
-      .populate('reactions.user', 'name username avatarUrl');
+      .select('sender recipient text codeSnippet typingChallenge isRead reactions createdAt')
+      .populate('reactions.user', 'name username avatarUrl')
+      .populate('typingChallenge');
 
     const otherUser = conversation.participants.find(
       (p) => !p._id.equals(currentUserId)

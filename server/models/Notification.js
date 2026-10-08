@@ -26,6 +26,8 @@ const notificationSchema = new mongoose.Schema(
         'question_accepted',
         'question_mention',
         'everyone_mention',
+        'typing_challenge',
+        'typing_challenge_result',
       ],
       required: true,
     },
@@ -44,6 +46,10 @@ const notificationSchema = new mongoose.Schema(
     conversation: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Conversation',
+    },
+    typingChallenge: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TypingChallenge',
     },
     read: {
       type: Boolean,

@@ -78,7 +78,10 @@ export const TypingControlsBar = ({
                 key={dur}
                 type="button"
                 disabled={disabled}
-                onClick={() => setDuration(dur)}
+                onClick={(e) => {
+                  setDuration(dur);
+                  e.currentTarget.blur();
+                }}
                 className={`px-2.5 py-1 rounded-lg font-mono font-bold transition-all duration-150 cursor-pointer ${
                   isActive
                     ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-xs'

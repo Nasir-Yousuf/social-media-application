@@ -34,7 +34,10 @@ export const ZenArenaLayout = ({
             <button
               key={dur}
               type="button"
-              onClick={() => setDuration(dur)}
+              onClick={(e) => {
+                setDuration(dur);
+                e.currentTarget.blur();
+              }}
               className={`transition-colors cursor-pointer ${
                 duration === dur ? 'text-amber-400 font-bold' : 'hover:text-neutral-400'
               }`}

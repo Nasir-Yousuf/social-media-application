@@ -21,6 +21,7 @@ import GameArenaLayout from '../components/typing/GameArenaLayout';
 import HackerArenaLayout from '../components/typing/HackerArenaLayout';
 import ZenArenaLayout from '../components/typing/ZenArenaLayout';
 import ArenaThemeSwitcher from '../components/typing/ArenaThemeSwitcher';
+import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 import {
   generateWords,
   calculateWpm,
@@ -58,7 +59,8 @@ export const TypingArenaPage = () => {
   const [punctuation, setPunctuation] = useState(false);
   const [numbers, setNumbers] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState([]);
-  const [userRank, setUserRank] = useState(12);
+  const [userRank, setUserRank] = useState(null);
+  const [userBestScore, setUserBestScore] = useState(null);
 
   // Word Stream & Input State
   const [words, setWords] = useState([]);
@@ -82,6 +84,27 @@ export const TypingArenaPage = () => {
   // Ghost Racer Setup (if challenging)
   const [ghostData, setGhostData] = useState(null);
 
+  // 1v1 Challenge State
+  const [activeChallenge, setActiveChallenge] = useState(null);
+  const activeChallengeRef = useRef(null);
+  const [challenges, setChallenges] = useState({ incoming: [], outgoing: [], history: [] });
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
+
+  // Fetch current user's challenges
+  const fetchChallenges = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await api.get('/typing/challenges');
+      setChallenges(res.data);
+    } catch (err) {
+      console.warn('Failed to fetch challenges:', err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchChallenges();
+  }, [fetchChallenges]);
+
   // Results Modal State
   const [results, setResults] = useState(null);
   const [isResultsOpen, setIsResultsOpen] = useState(false);
@@ -91,8 +114,38 @@ export const TypingArenaPage = () => {
     typingSounds.setTheme(soundTheme);
   }, [soundTheme]);
 
-  // Check query params for ghost challenge
+  // Check query params for challengeId or ghost challenge
   useEffect(() => {
+    const challengeId = searchParams.get('challengeId');
+    if (challengeId) {
+      api.get(`/typing/challenges/${challengeId}`)
+        .then((res) => {
+          const ch = res.data.challenge;
+          if (!ch) return;
+          activeChallengeRef.current = ch;
+          setActiveChallenge(ch);
+          setDuration(ch.duration);
+          setTimeLeft(ch.duration);
+          setMode(ch.mode || 'words_200');
+          if (Array.isArray(ch.words) && ch.words.length > 0) {
+            setWords(ch.words);
+          }
+          setGhostData({
+            username: ch.challenger?.username || 'rival',
+            name: ch.challenger?.name,
+            avatarUrl: ch.challenger?.avatarUrl,
+            wpm: ch.challengerWpm || 0,
+            progress: 0,
+            isDuel: true,
+          });
+          showToast(`⚔️ 1v1 Typing Duel loaded! Race against @${ch.challenger?.username} (${ch.challengerWpm} WPM)`, 'info');
+        })
+        .catch((err) => {
+          console.warn('Could not load challenge from URL:', err);
+        });
+      return;
+    }
+
     const rival = searchParams.get('rival');
     const rivalWpm = Number(searchParams.get('wpm'));
     if (rival && rivalWpm) {
@@ -103,7 +156,7 @@ export const TypingArenaPage = () => {
       });
       showToast(`Ghost challenge active: beat @${rival}'s ${rivalWpm} WPM!`, 'info');
     }
-  }, [searchParams]);
+  }, [searchParams, showToast]);
 
   // Compute live correct characters for current incomplete word
   const currentWordTarget = words[currentWordIndex] || '';
@@ -145,11 +198,12 @@ export const TypingArenaPage = () => {
   // Fetch real-time leaderboard data for sidebar
   const fetchLeaderboard = useCallback(async () => {
     try {
+      const queryMode = mode.startsWith('words') ? 'words' : mode;
       const res = await api.get('/typing/leaderboard', {
         params: {
           period: 'all',
           duration,
-          mode: mode.startsWith('words') ? 'words_200' : mode,
+          mode: queryMode,
         },
       });
       if (res.data?.leaderboard) {
@@ -159,6 +213,9 @@ export const TypingArenaPage = () => {
         setUserRank(res.data.userRank);
       } else {
         setUserRank(null);
+      }
+      if (res.data?.userBestScore) {
+        setUserBestScore(res.data.userBestScore);
       }
     } catch (err) {
       console.warn('Leaderboard fetch in page:', err);
@@ -171,14 +228,19 @@ export const TypingArenaPage = () => {
 
   // Initialize or restart test
   const initTest = useCallback(() => {
-    const generated = generateWords({
-      mode,
-      punctuation,
-      numbers,
-      count: mode === 'quote' ? 1 : 250,
-    });
-    setWords(generated.words);
-    setQuoteAuthor(generated.quoteAuthor);
+    if (activeChallengeRef.current && Array.isArray(activeChallengeRef.current.words) && activeChallengeRef.current.words.length > 0) {
+      setWords(activeChallengeRef.current.words);
+      setQuoteAuthor(null);
+    } else {
+      const generated = generateWords({
+        mode,
+        punctuation,
+        numbers,
+        count: mode === 'quote' ? 1 : 250,
+      });
+      setWords(generated.words);
+      setQuoteAuthor(generated.quoteAuthor);
+    }
     setCurrentWordIndex(0);
     setCurrentInput('');
     setWordHistory({});
@@ -195,7 +257,7 @@ export const TypingArenaPage = () => {
     if (ghostData) {
       setGhostData((prev) => (prev ? { ...prev, progress: 0 } : null));
     }
-  }, [mode, duration, punctuation, numbers]);
+  }, [mode, duration, punctuation, numbers, ghostData]);
 
   useEffect(() => {
     initTest();
@@ -251,6 +313,9 @@ export const TypingArenaPage = () => {
       highestCombo: hStreak,
       telemetry: tData,
       xpGained: 0,
+      savedToLeaderboard: false,
+      userRank: null,
+      isGuest: !currentUser,
     };
 
     // Save to backend if user is authenticated
@@ -267,16 +332,122 @@ export const TypingArenaPage = () => {
           telemetry: tData,
         });
         testResult.xpGained = res.data.xpGained || 0;
+        testResult.savedToLeaderboard = true;
+        const newRank = res.data.userRank || userRank;
+        testResult.userRank = newRank;
+        if (newRank) {
+          setUserRank(newRank);
+        }
+        showToast(
+          `🎉 ${dSec}s Test: ${finalWpm} WPM recorded! You are ranked #${newRank || '1'}!`,
+          'success'
+        );
         // Dynamically refresh live leaderboard immediately after submission!
         fetchLeaderboard();
+
+        // If this test was racing a 1v1 challenge, complete the challenge
+        if (activeChallengeRef.current) {
+          try {
+            const chId = activeChallengeRef.current._id;
+            const duelRes = await api.post(`/typing/challenges/${chId}/complete`, {
+              wpm: finalWpm,
+              rawWpm: finalRawWpm,
+              accuracy: finalAccuracy,
+              telemetry: tData,
+            });
+
+            if (duelRes.data.isBenchmarkSet) {
+              showToast(
+                `🏁 Initial benchmark set: ${finalWpm} WPM! Challenge sent to rival.`,
+                'success'
+              );
+            } else {
+              const winner = duelRes.data.winner;
+              const isWinner = winner && (String(winner._id || winner) === String(currentUser._id));
+              testResult.isDuel = true;
+              testResult.duelWinner = winner;
+              testResult.isWinner = isWinner;
+              const bonusXp = duelRes.data.xpGained || (isWinner ? 150 : 60);
+              testResult.xpGained = (testResult.xpGained || 0) + bonusXp;
+
+              if (isWinner) {
+                showToast(
+                  `🏆 DUEL VICTORY! You won against @${activeChallengeRef.current.challenger?.username || 'rival'} with ${finalWpm} WPM! (+${bonusXp} XP)`,
+                  'success'
+                );
+              } else {
+                showToast(
+                  `⚔️ Duel complete: Rival had ${activeChallengeRef.current.challengerWpm} WPM vs your ${finalWpm} WPM. Good race! (+${bonusXp} XP)`,
+                  'info'
+                );
+              }
+            }
+            fetchChallenges();
+          } catch (duelErr) {
+            console.warn('Failed to complete typing challenge:', duelErr);
+          }
+        }
       } catch (err) {
         console.warn('Failed to submit score:', err);
+        testResult.savedToLeaderboard = false;
+        testResult.saveError = err.response?.data?.message || err.message;
+        showToast(
+          'Score could not be recorded to leaderboard: ' +
+            (err.response?.data?.message || err.message),
+          'error'
+        );
       }
+    } else {
+      testResult.isGuest = true;
+      testResult.savedToLeaderboard = false;
+      showToast(
+        `⚡ ${dSec}s Test: ${finalWpm} WPM! Note: Sign in to save your score to the global leaderboard.`,
+        'info'
+      );
     }
 
     setResults(testResult);
     setIsResultsOpen(true);
-  }, [fetchLeaderboard, timeLeft]);
+  }, [fetchLeaderboard, fetchChallenges, timeLeft, userRank, showToast]);
+
+  // Challenge duel handlers
+  const handleAcceptChallenge = (ch) => {
+    activeChallengeRef.current = ch;
+    setActiveChallenge(ch);
+    setDuration(ch.duration);
+    setTimeLeft(ch.duration);
+    setMode(ch.mode || 'words_200');
+    if (Array.isArray(ch.words) && ch.words.length > 0) {
+      setWords(ch.words);
+    }
+    setGhostData({
+      username: ch.challenger?.username || 'rival',
+      name: ch.challenger?.name,
+      avatarUrl: ch.challenger?.avatarUrl,
+      wpm: ch.challengerWpm || 0,
+      progress: 0,
+      isDuel: true,
+    });
+    showToast(`⚔️ Accepted duel against @${ch.challenger?.username}! Ready to race.`, 'info');
+  };
+
+  const handleDeclineChallenge = async (id) => {
+    try {
+      await api.post(`/typing/challenges/${id}/decline`);
+      showToast('Duel declined.', 'info');
+      fetchChallenges();
+    } catch (err) {
+      showToast('Failed to decline duel.', 'error');
+    }
+  };
+
+  const handleExitDuel = () => {
+    activeChallengeRef.current = null;
+    setActiveChallenge(null);
+    setGhostData(null);
+    initTest();
+    showToast('Exited 1v1 duel.', 'info');
+  };
 
   // Rock-solid wall-clock countdown timer loop
   useEffect(() => {
@@ -520,9 +691,16 @@ export const TypingArenaPage = () => {
           leaderboard={leaderboardData}
           userRank={userRank}
           currentUser={user}
+          userBestScore={userBestScore}
           onChallengeGhost={handleChallengeGhost}
           ghostData={ghostData}
           isActive={isActive}
+          challenges={challenges}
+          activeChallenge={activeChallenge}
+          onAcceptChallenge={handleAcceptChallenge}
+          onDeclineChallenge={handleDeclineChallenge}
+          onExitDuel={handleExitDuel}
+          onOpenChallengeModal={() => setIsChallengeModalOpen(true)}
         />
       )}
 
@@ -662,6 +840,20 @@ export const TypingArenaPage = () => {
         results={results}
         onPlayAgain={initTest}
         onShareToFeed={handleShareToFeed}
+        onChallengeFriend={() => setIsChallengeModalOpen(true)}
+      />
+
+      {/* Typing Challenge 1v1 Modal */}
+      <TypingChallengeModal
+        isOpen={isChallengeModalOpen}
+        onClose={() => setIsChallengeModalOpen(false)}
+        initialWpm={results?.wpm}
+        initialAccuracy={results?.accuracy}
+        initialRawWpm={results?.rawWpm}
+        initialTelemetry={results?.telemetry}
+        initialWords={words}
+        initialDuration={duration}
+        initialMode={mode}
       />
     </div>
   );

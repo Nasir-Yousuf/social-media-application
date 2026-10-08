@@ -41,6 +41,10 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    typingChallenge: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TypingChallenge',
+    },
     reactions: [
       {
         user: {

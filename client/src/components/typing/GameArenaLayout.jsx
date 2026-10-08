@@ -41,12 +41,21 @@ export const GameArenaLayout = ({
   typingStageSlot,
   // Contest & Leaderboard data
   leaderboard = [],
-  userRank = 12,
+  userRank = null,
+  userBestScore = null,
   currentUser,
   onChallengeGhost,
   ghostData,
   isActive,
+  // 1v1 Challenges / Duels
+  challenges = { incoming: [], outgoing: [], history: [] },
+  activeChallenge = null,
+  onAcceptChallenge,
+  onDeclineChallenge,
+  onExitDuel,
+  onOpenChallengeModal,
 }) => {
+  const [sidebarTab, setSidebarTab] = React.useState('leaderboard'); // 'leaderboard' | 'duels'
   // Speed tier calculation for Tier Card
   const currentTier = getSpeedTier(wpm || 0);
   const wpmToNext = Math.max(0, (currentTier.nextMin || 40) - Math.round(wpm || 0));
@@ -153,7 +162,10 @@ export const GameArenaLayout = ({
                 <button
                   key={dur}
                   type="button"
-                  onClick={() => setDuration(dur)}
+                  onClick={(e) => {
+                    setDuration(dur);
+                    e.currentTarget.blur();
+                  }}
                   className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                     duration === dur
                       ? 'bg-sky-500/20 text-sky-400 font-bold border border-sky-500/30'
@@ -218,6 +230,40 @@ export const GameArenaLayout = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* LEFT COLUMN: Main Gaming Card (approx 72%) */}
         <div className="lg:col-span-8 space-y-4">
+          {/* Active 1v1 Duel Header Alert */}
+          {activeChallenge && (
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-black border border-amber-500/50 flex items-center justify-between gap-3 text-xs shadow-lg">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2.5 rounded-xl bg-amber-500 text-black font-black shadow-md">
+                  <Swords className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-amber-400 tracking-wider uppercase text-xs">
+                      1v1 Typing Duel In Progress
+                    </span>
+                    <span className="text-neutral-500">·</span>
+                    <span className="text-white font-bold font-mono">
+                      Target to beat: {activeChallenge.challengerWpm} WPM
+                    </span>
+                  </div>
+                  <p className="text-neutral-300 text-xs truncate mt-0.5">
+                    Opponent: @{activeChallenge.challenger?.username || 'Rival'} {activeChallenge.customMessage ? `· "${activeChallenge.customMessage}"` : ''}
+                  </p>
+                </div>
+              </div>
+              {onExitDuel && (
+                <button
+                  type="button"
+                  onClick={onExitDuel}
+                  className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-bold cursor-pointer shrink-0 transition-colors"
+                >
+                  Exit Duel
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Main Glowing Cyber Card */}
           <div className="relative rounded-3xl bg-[#090e18] border-2 border-sky-500/40 p-6 sm:p-8 shadow-[0_0_35px_rgba(2,132,199,0.18)] overflow-hidden transition-all duration-300">
             {/* Top Internal Stats: Big Timer, Center Combo, Circular Gauge */}
@@ -296,26 +342,34 @@ export const GameArenaLayout = ({
             <div className="relative">{typingStageSlot}</div>
           </div>
 
-          {/* Bottom Card: Weekly Sprint Status Bar */}
+          {/* Bottom Card: Leaderboard Status Bar */}
           <div className="p-4 rounded-2xl bg-[#090d16] border border-neutral-800/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
             <div className="flex flex-wrap items-center gap-2 text-neutral-400">
               <span className="font-bold text-white flex items-center gap-1.5">
                 <Trophy className="w-4 h-4 text-amber-400" />
-                <span>Weekly Sprint</span>
+                <span>Leaderboard Standing</span>
               </span>
               <span>·</span>
-              <span className="text-neutral-500">ends in 2d 04h 13m</span>
+              <span className="text-neutral-300">
+                {duration}s {mode.replace('_', ' ')}
+              </span>
               <span>·</span>
-              <span className="text-sky-400 font-bold">You are #{userRank}</span>
-              <span>·</span>
-              <span className="text-neutral-300">3 WPM behind #11</span>
+              <span className="text-sky-400 font-bold">
+                {userRank ? `You are Ranked #${userRank}` : 'Complete test to claim rank'}
+              </span>
+              {userBestScore?.wpm && (
+                <>
+                  <span>·</span>
+                  <span className="text-emerald-400 font-bold">Personal Best: {userBestScore.wpm} WPM</span>
+                </>
+              )}
             </div>
 
             {/* Sprint Progress Bar */}
             <div className="w-32 h-2 rounded-full bg-neutral-800 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 shadow-[0_0_8px_rgba(56,189,248,0.6)]"
-                style={{ width: '68%' }}
+                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 shadow-[0_0_8px_rgba(56,189,248,0.6)] transition-all duration-300"
+                style={{ width: `${userRank ? Math.max(15, 100 - userRank * 5) : 35}%` }}
               />
             </div>
           </div>
@@ -323,15 +377,51 @@ export const GameArenaLayout = ({
 
         {/* RIGHT COLUMN: Sidebar (Live Leaderboard + Tier Card) */}
         <div className="lg:col-span-4 space-y-4">
-          {/* Card 1: Live Leaderboard */}
+          {/* Card 1: Live Leaderboard & 1v1 Duels */}
           <div className="rounded-3xl bg-[#090d16] border border-neutral-800/90 p-5 shadow-xl space-y-4 font-sans">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <span>Live Leaderboard</span>
-              </h3>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            {/* Sidebar Tab Switcher */}
+            <div className="flex items-center p-1 rounded-2xl bg-black/50 border border-neutral-800/80">
+              <button
+                type="button"
+                onClick={() => setSidebarTab('leaderboard')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  sidebarTab === 'leaderboard'
+                    ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-xs'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                <span>Leaderboard</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarTab('duels')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 relative ${
+                  sidebarTab === 'duels'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Swords className="w-3.5 h-3.5" />
+                <span>1v1 Duels</span>
+                {challenges?.incoming?.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute top-2 right-2" />
+                )}
+              </button>
             </div>
+
+            {sidebarTab === 'leaderboard' ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-sm font-bold text-white">Global Leaderboard</h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-mono font-bold">
+                      {duration}s Sprint
+                    </span>
+                  </div>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                </div>
 
             {/* Leaderboard entries */}
             <div className="space-y-1.5">
@@ -340,7 +430,7 @@ export const GameArenaLayout = ({
                   <Trophy className="w-7 h-7 text-neutral-600 mx-auto opacity-40 mb-1" />
                   <p className="text-xs font-bold text-neutral-300">No typists ranked yet</p>
                   <p className="text-[11px] text-neutral-500 leading-tight">
-                    Type a test above to record your score and claim #1 on the leaderboard!
+                    Type a {duration}s test above to record your score and claim #1 on the leaderboard!
                   </p>
                 </div>
               ) : (
@@ -386,7 +476,7 @@ export const GameArenaLayout = ({
               )}
 
               {/* Pinned User Row */}
-              {currentUser && (
+              {currentUser ? (
                 <div className="pt-2 border-t border-neutral-800/80">
                   <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-sky-500/15 border border-sky-400/40 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -409,14 +499,143 @@ export const GameArenaLayout = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 font-mono text-xs font-black text-sky-300">
-                      <span>{wpm || 0}</span>
+                      <span>{isActive ? (wpm || 0) : (userBestScore?.wpm || (displayLeaderboard.find(l => l.user?._id === currentUser?._id)?.wpm) || (wpm || 0))}</span>
                       <span className="text-[10px] text-sky-400/80">WPM</span>
                     </div>
                   </div>
                 </div>
+              ) : (
+                <div className="pt-2 border-t border-neutral-800/80">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-2">
+                    <span className="text-[11px] leading-tight font-medium">Guest mode · Sign in to appear on leaderboard</span>
+                    <a
+                      href="/login"
+                      className="px-2 py-1 rounded-lg bg-amber-500 text-black font-bold text-[10px] shrink-0 hover:bg-amber-400 transition-colors"
+                    >
+                      Login
+                    </a>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
+          </>
+          ) : (
+            /* Duels Sidebar Content */
+            <div className="space-y-3 font-sans">
+              <div className="flex items-center justify-between pb-1 border-b border-neutral-800/60">
+                <span className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
+                  <Swords className="w-3.5 h-3.5 text-amber-400" />
+                  Pending Duels ({challenges?.incoming?.length || 0})
+                </span>
+                {onOpenChallengeModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenChallengeModal}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-[11px] font-black cursor-pointer transition-colors shadow-xs"
+                  >
+                    + Challenge
+                  </button>
+                )}
+              </div>
+
+              {challenges?.incoming?.length === 0 ? (
+                <div className="py-6 px-3 text-center rounded-2xl bg-black/30 border border-neutral-800/60 space-y-1.5">
+                  <Swords className="w-6 h-6 text-neutral-600 mx-auto opacity-50 mb-1" />
+                  <p className="text-xs font-bold text-neutral-300">No incoming duels</p>
+                  <p className="text-[11px] text-neutral-500 leading-tight">
+                    Challenge someone from their profile or click "+ Challenge" to test their speed!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {challenges.incoming.map((ch) => (
+                    <div
+                      key={ch._id}
+                      className="p-3 rounded-2xl bg-black/40 border border-amber-500/30 hover:border-amber-500/50 transition-all space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar
+                            src={ch.challenger?.avatarUrl}
+                            name={ch.challenger?.name}
+                            size="xs"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-white truncate">
+                              {ch.challenger?.name}
+                            </p>
+                            <p className="text-[10px] text-neutral-400">
+                              @{ch.challenger?.username}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono text-[10px] font-bold">
+                          {ch.challengerWpm} WPM ({ch.duration}s)
+                        </span>
+                      </div>
+
+                      {ch.customMessage && (
+                        <p className="text-[11px] text-neutral-300 italic line-clamp-1 bg-neutral-900/60 px-2 py-1 rounded-md">
+                          "{ch.customMessage}"
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => onAcceptChallenge && onAcceptChallenge(ch)}
+                          className="flex-1 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-xs"
+                        >
+                          <Swords className="w-3.5 h-3.5" />
+                          <span>Race Rival</span>
+                        </button>
+                        {onDeclineChallenge && (
+                          <button
+                            type="button"
+                            onClick={() => onDeclineChallenge(ch._id)}
+                            className="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-xs font-semibold cursor-pointer transition-colors"
+                          >
+                            Decline
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Recent Completed Duels */}
+              {challenges?.history?.length > 0 && (
+                <div className="pt-2 border-t border-neutral-800/60 space-y-1.5">
+                  <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block">
+                    Recent Duels
+                  </span>
+                  <div className="space-y-1 max-h-36 overflow-y-auto">
+                    {challenges.history.slice(0, 5).map((h) => {
+                      const isWinner = h.winner && currentUser && h.winner._id === currentUser._id;
+                      return (
+                        <div
+                          key={h._id}
+                          className="p-2 rounded-xl bg-neutral-900/50 border border-neutral-800 flex items-center justify-between text-xs"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>{isWinner ? '🏆' : '⚔️'}</span>
+                            <span className="text-neutral-300 text-[11px]">
+                              vs @{h.challenger?._id === currentUser?._id ? h.challenged?.username : h.challenger?.username}
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-bold font-mono ${isWinner ? 'text-amber-400' : 'text-neutral-400'}`}>
+                            {isWinner ? 'VICTORY' : 'COMPLETED'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
           {/* Card 2: Tier Card */}
           <div className="rounded-3xl bg-[#090d16] border border-neutral-800/90 p-5 shadow-xl text-center space-y-3 font-sans">

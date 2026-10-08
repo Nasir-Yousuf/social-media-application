@@ -17,6 +17,7 @@ exports.getNotifications = async (req, res) => {
         path: 'question',
         select: 'title track',
       })
+      .populate('typingChallenge')
       .sort({ createdAt: -1 })
       .limit(50);
 

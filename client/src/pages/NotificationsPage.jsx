@@ -12,6 +12,8 @@ import {
   Volume2,
   BookOpen,
   Radio,
+  Swords,
+  Trophy,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -123,6 +125,18 @@ export const NotificationsPage = () => {
         return (
           <div className="p-2 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 ring-1 ring-emerald-200 dark:ring-emerald-900/50">
             <CheckCheck className="w-4 h-4" />
+          </div>
+        );
+      case 'typing_challenge':
+        return (
+          <div className="p-2 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-500 ring-1 ring-amber-200 dark:ring-amber-900/50 animate-pulse">
+            <Swords className="w-4 h-4" />
+          </div>
+        );
+      case 'typing_challenge_result':
+        return (
+          <div className="p-2 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-500 ring-1 ring-sky-200 dark:ring-sky-900/50">
+            <Trophy className="w-4 h-4" />
           </div>
         );
       default:
@@ -291,6 +305,8 @@ export const NotificationsPage = () => {
                   {n.type === 'announcement' && 'published an announcement.'}
                   {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}
                   {n.type === 'question_accepted' && 'marked your answer as the accepted solution! 🎉'}
+                  {n.type === 'typing_challenge' && 'challenged you to a 1v1 Typing Duel in Clearfeed Arena! ⚡'}
+                  {n.type === 'typing_challenge_result' && 'completed your 1v1 Typing Duel!'}
                 </p>
 
                 {n.type === 'message' && (
@@ -301,6 +317,30 @@ export const NotificationsPage = () => {
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Reply to message</span>
+                    </NavLink>
+                  </div>
+                )}
+
+                {n.type === 'typing_challenge' && (
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <NavLink
+                      to={`/typing?challengeId=${n.typingChallenge?._id || n.typingChallenge}`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-xs transition-transform active:scale-95"
+                    >
+                      <Swords className="w-3.5 h-3.5" />
+                      <span>Accept & Race Rival &rarr;</span>
+                    </NavLink>
+                  </div>
+                )}
+
+                {n.type === 'typing_challenge_result' && (
+                  <div className="mt-2">
+                    <NavLink
+                      to="/typing"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
+                    >
+                      <Trophy className="w-3.5 h-3.5" />
+                      <span>View Duel Results</span>
                     </NavLink>
                   </div>
                 )}

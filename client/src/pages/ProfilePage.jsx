@@ -8,6 +8,8 @@ import {
   ArrowLeft,
   Camera,
   KeyRound,
+  Swords,
+  Zap,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -17,6 +19,7 @@ import Modal from '../components/common/Modal';
 import PostList from '../components/posts/PostList';
 import EditProfileModal from '../components/users/EditProfileModal';
 import ChangePasswordModal from '../components/users/ChangePasswordModal';
+import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { FacultyBadge } from '../components/common/ClearfeedIcons';
@@ -34,6 +37,7 @@ export const ProfilePage = () => {
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
 
   // Followers / Following Modal
   const [connectionsModal, setConnectionsModal] = useState({ isOpen: false, title: '', users: [] });
@@ -447,6 +451,16 @@ export const ProfilePage = () => {
                   <MessageSquare className="w-4 h-4" />
                 </NavLink>
 
+                <button
+                  type="button"
+                  onClick={() => setIsChallengeModalOpen(true)}
+                  className="px-3 py-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+                  title={`Challenge @${profile.username} to a Typing Duel`}
+                >
+                  <Swords className="w-3.5 h-3.5" />
+                  <span>Duel</span>
+                </button>
+
                 <Button
                   variant={profile.isFollowing ? 'outline' : 'secondary'}
                   size="sm"
@@ -514,6 +528,86 @@ export const ProfilePage = () => {
               <span className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">Followers</span>
             </button>
           </div>
+
+          {/* Typing Arena Mastery Showcase */}
+          {profile.typingStats && (profile.typingStats.bestWpm > 0 || profile.typingStats.testsCompleted > 0) ? (
+            <div className="mt-4 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-500">
+                    <Zap className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-black tracking-wider uppercase text-amber-500">
+                      Typing Arena Mastery
+                    </h3>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {profile.typingStats.currentRank || 'Arena Typist'} • {profile.typingStats.xp || 0} XP
+                    </p>
+                  </div>
+                </div>
+                {!isSelf ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsChallengeModalOpen(true)}
+                    className="px-3 py-1 rounded-full bg-amber-500 hover:bg-amber-600 text-black text-xs font-black flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                  >
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>Challenge</span>
+                  </button>
+                ) : (
+                  <NavLink
+                    to="/typing"
+                    className="text-xs font-bold text-amber-500 hover:underline flex items-center gap-1"
+                  >
+                    Arena &rarr;
+                  </NavLink>
+                )}
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-amber-500">
+                    {profile.typingStats.bestWpm || 0}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Best WPM
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-neutral-800 dark:text-neutral-100">
+                    {profile.typingStats.bestAccuracy || 100}%
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Accuracy
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-amber-500">
+                    {profile.typingStats.duelsWon || 0}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    ⚔️ Duels Won
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-neutral-800 dark:text-neutral-100">
+                    {profile.typingStats.testsCompleted || 0}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Races
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : isSelf ? (
+            <div className="mt-4 p-3 rounded-xl bg-neutral-100/70 dark:bg-neutral-900/50 border border-neutral-200/60 dark:border-neutral-800/60 flex items-center justify-between text-xs">
+              <span className="text-neutral-500">No Typing Arena record yet. Test your speed!</span>
+              <NavLink to="/typing" className="font-bold text-amber-500 hover:underline">
+                Start Typing &rarr;
+              </NavLink>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -602,6 +696,13 @@ export const ProfilePage = () => {
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
+      />
+
+      {/* Typing Challenge Duel Modal */}
+      <TypingChallengeModal
+        isOpen={isChallengeModalOpen}
+        onClose={() => setIsChallengeModalOpen(false)}
+        targetUser={profile}
       />
 
       {/* Connections Modal */}

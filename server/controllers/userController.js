@@ -2,6 +2,8 @@ const User = require('../models/User');
 const Post = require('../models/Post');
 const Follow = require('../models/Follow');
 const Notification = require('../models/Notification');
+const TypingProfile = require('../models/TypingProfile');
+const TypingChallenge = require('../models/TypingChallenge');
 const { getAuthenticFollowCounts, purgeOrphanedFollows } = require('../utils/followUtils');
 
 // Get user profile by username
@@ -16,12 +18,14 @@ exports.getProfileByUsername = async (req, res) => {
 
     const currentUserId = req.user ? req.user._id : null;
 
-    const [counts, postsCount, isFollowing] = await Promise.all([
+    const [counts, postsCount, isFollowing, typingProfile, duelsWonCount] = await Promise.all([
       getAuthenticFollowCounts(targetUser._id),
       Post.countDocuments({ author: targetUser._id }),
       currentUserId && !currentUserId.equals(targetUser._id)
         ? Follow.exists({ follower: currentUserId, following: targetUser._id })
         : false,
+      TypingProfile.findOne({ user: targetUser._id }),
+      TypingChallenge.countDocuments({ winner: targetUser._id, status: 'completed' }),
     ]);
 
     return res.status(200).json({
@@ -32,6 +36,29 @@ exports.getProfileByUsername = async (req, res) => {
         postsCount,
         isFollowing: !!isFollowing,
         isSelf: currentUserId ? currentUserId.equals(targetUser._id) : false,
+        typingStats: typingProfile
+          ? {
+              bestWpm: typingProfile.bestWpm || 0,
+              avgWpm: typingProfile.avgWpm || 0,
+              bestAccuracy: typingProfile.bestAccuracy || 0,
+              testsCompleted: typingProfile.testsCompleted || 0,
+              highestCombo: typingProfile.highestCombo || 0,
+              currentRank: typingProfile.currentRank || 'Novice',
+              xp: typingProfile.xp || 0,
+              badges: typingProfile.badges || ['⌨️ Keyboard Initiate'],
+              duelsWon: duelsWonCount || 0,
+            }
+          : {
+              bestWpm: 0,
+              avgWpm: 0,
+              bestAccuracy: 0,
+              testsCompleted: 0,
+              highestCombo: 0,
+              currentRank: 'Novice',
+              xp: 0,
+              badges: ['⌨️ Keyboard Initiate'],
+              duelsWon: duelsWonCount || 0,
+            },
       },
     });
   } catch (err) {

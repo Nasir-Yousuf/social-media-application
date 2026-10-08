@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 const TypingResult = require('../models/TypingResult');
 const TypingProfile = require('../models/TypingProfile');
+const TypingChallenge = require('../models/TypingChallenge');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
+const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
 
 // Helper to get ISO week string (e.g., '2026-W41')
 const getIsoWeekString = (date = new Date()) => {
@@ -44,6 +48,7 @@ exports.submitResult = async (req, res) => {
     const parsedRawWpm = Math.max(0, Math.min(350, Math.round(Number(rawWpm) || parsedWpm)));
     const parsedAcc = Math.max(0, Math.min(100, Math.round(Number(accuracy) || 0)));
     const parsedDur = [15, 30, 60, 120].includes(Number(duration)) ? Number(duration) : 60;
+    const sanitizedMode = typeof mode === 'string' && mode.trim() ? mode.trim() : 'words_200';
 
     // Basic anti-cheat: reject impossible speeds
     if (parsedWpm > 300) {
@@ -58,7 +63,7 @@ exports.submitResult = async (req, res) => {
       rawWpm: parsedRawWpm,
       accuracy: parsedAcc,
       duration: parsedDur,
-      mode,
+      mode: sanitizedMode,
       charCount: Number(charCount) || 0,
       errorCount: Number(errorCount) || 0,
       highestCombo: Number(highestCombo) || 0,
@@ -120,7 +125,7 @@ exports.submitResult = async (req, res) => {
     profile.recentScores.unshift({
       wpm: parsedWpm,
       accuracy: parsedAcc,
-      mode,
+      mode: sanitizedMode,
       duration: parsedDur,
       date: new Date(),
     });
@@ -130,10 +135,22 @@ exports.submitResult = async (req, res) => {
 
     await profile.save();
 
+    // Calculate user's immediate rank for this specific duration & mode in all-time
+    const higherCount = await TypingResult.distinct('user', {
+      duration: parsedDur,
+      mode: sanitizedMode,
+      $or: [
+        { wpm: { $gt: parsedWpm } },
+        { wpm: parsedWpm, accuracy: { $gt: parsedAcc } },
+      ],
+    });
+    const immediateRank = higherCount.length + 1;
+
     return res.status(201).json({
       message: 'Result recorded.',
       result,
       xpGained,
+      userRank: immediateRank,
       profile: {
         bestWpm: profile.bestWpm,
         avgWpm: profile.avgWpm,
@@ -152,7 +169,7 @@ exports.submitResult = async (req, res) => {
 // Get Leaderboards (Weekly Contest, Daily Sprint, All-Time Legends)
 exports.getLeaderboard = async (req, res) => {
   try {
-    const { period = 'weekly', duration, mode } = req.query;
+    const { period = 'all', duration, mode } = req.query;
     const currentUserId = req.user ? req.user._id : null;
 
     const filter = {};
@@ -162,7 +179,11 @@ exports.getLeaderboard = async (req, res) => {
     }
 
     if (mode && mode !== 'all') {
-      filter.mode = mode;
+      if (mode === 'words') {
+        filter.mode = { $in: ['words_200', 'words_1000', 'words_5000', 'words'] };
+      } else {
+        filter.mode = mode;
+      }
     }
 
     if (period === 'weekly') {
@@ -225,12 +246,41 @@ exports.getLeaderboard = async (req, res) => {
 
     const leaderboard = await TypingResult.aggregate(pipeline);
 
-    // Compute user's rank
+    // Compute user's rank safely
     let userRank = null;
+    let userBestScore = null;
     if (currentUserId) {
-      const userIndex = leaderboard.findIndex((item) => item.user._id.equals(currentUserId));
+      const currentUserIdStr = currentUserId.toString();
+      const userIndex = leaderboard.findIndex(
+        (item) => item.user && item.user._id && item.user._id.toString() === currentUserIdStr
+      );
+
       if (userIndex !== -1) {
         userRank = userIndex + 1;
+        userBestScore = leaderboard[userIndex];
+      } else {
+        // If outside top 50, compute accurate placement
+        const userBest = await TypingResult.findOne({
+          user: currentUserId,
+          ...filter,
+        }).sort({ wpm: -1, accuracy: -1 });
+
+        if (userBest) {
+          userBestScore = {
+            wpm: userBest.wpm,
+            accuracy: userBest.accuracy,
+            duration: userBest.duration,
+            mode: userBest.mode,
+          };
+          const higherScoresCount = await TypingResult.distinct('user', {
+            ...filter,
+            $or: [
+              { wpm: { $gt: userBest.wpm } },
+              { wpm: userBest.wpm, accuracy: { $gt: userBest.accuracy } },
+            ],
+          });
+          userRank = higherScoresCount.length + 1;
+        }
       }
     }
 
@@ -239,6 +289,7 @@ exports.getLeaderboard = async (req, res) => {
       contestWeek: getIsoWeekString(),
       leaderboard,
       userRank,
+      userBestScore,
     });
   } catch (err) {
     console.error('getLeaderboard error:', err);
@@ -313,5 +364,355 @@ exports.getWeeklyContest = async (req, res) => {
   } catch (err) {
     console.error('getWeeklyContest error:', err);
     return res.status(500).json({ message: 'Failed to load contest info.' });
+  }
+};
+
+// Default words pool if not passed from client
+const DEFAULT_WORDS_POOL = [
+  'the', 'be', 'of', 'and', 'a', 'to', 'in', 'he', 'have', 'it', 'that', 'for', 'they',
+  'with', 'as', 'not', 'on', 'she', 'at', 'by', 'this', 'we', 'you', 'do', 'but', 'his',
+  'from', 'they', 'say', 'her', 'she', 'or', 'an', 'will', 'my', 'one', 'all', 'would',
+  'there', 'their', 'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go',
+  'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take', 'people',
+  'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then',
+  'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also', 'back', 'after', 'use',
+  'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because',
+  'any', 'these', 'give', 'day', 'most', 'us', 'code', 'speed', 'arena', 'system', 'build'
+];
+
+// Issue / create a 1v1 challenge
+exports.createChallenge = async (req, res) => {
+  try {
+    const challengerId = req.user._id;
+    const {
+      challengedUserId,
+      challengedUsername,
+      duration = 15,
+      mode = 'words_200',
+      words = [],
+      quoteAuthor = null,
+      challengerWpm,
+      challengerAccuracy = 100,
+      challengerRawWpm,
+      challengerTelemetry = [],
+      customMessage = 'I challenge you to beat my typing speed in Clearfeed Arena!',
+    } = req.body;
+
+    let targetUser = null;
+    if (challengedUserId) {
+      targetUser = await User.findById(challengedUserId);
+    } else if (challengedUsername) {
+      targetUser = await User.findOne({ username: challengedUsername.toLowerCase().trim() });
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User to challenge not found.' });
+    }
+
+    if (targetUser._id.equals(challengerId)) {
+      return res.status(400).json({ message: 'You cannot challenge yourself!' });
+    }
+
+    const parsedWpm = Math.max(0, Math.min(350, Math.round(Number(challengerWpm) || 0)));
+    const parsedAcc = Math.max(0, Math.min(100, Math.round(Number(challengerAccuracy) || 100)));
+    const parsedDur = [15, 30, 60, 120].includes(Number(duration)) ? Number(duration) : 15;
+
+    // Use passed words or generate a randomized seed set
+    let challengeWords = Array.isArray(words) && words.length > 0 ? words : [];
+    if (challengeWords.length === 0) {
+      const pool = [...DEFAULT_WORDS_POOL];
+      for (let i = 0; i < 150; i++) {
+        challengeWords.push(pool[Math.floor(Math.random() * pool.length)]);
+      }
+    }
+
+    const challenge = new TypingChallenge({
+      challenger: challengerId,
+      challenged: targetUser._id,
+      duration: parsedDur,
+      mode: (mode || 'words_200').trim(),
+      words: challengeWords,
+      quoteAuthor,
+      challengerWpm: parsedWpm,
+      challengerAccuracy: parsedAcc,
+      challengerRawWpm: Math.round(Number(challengerRawWpm) || parsedWpm),
+      challengerTelemetry: Array.isArray(challengerTelemetry) ? challengerTelemetry : [],
+      customMessage: customMessage?.trim() || 'I challenge you to beat my typing speed in Clearfeed Arena!',
+      status: 'pending',
+    });
+
+    await challenge.save();
+
+    // 1. Create notification for challenged user
+    await Notification.create({
+      recipient: targetUser._id,
+      sender: challengerId,
+      type: 'typing_challenge',
+      typingChallenge: challenge._id,
+    });
+
+    // 2. Drop duel invitation message into their direct conversation
+    try {
+      let conversation = await Conversation.findOne({
+        participants: { $all: [challengerId, targetUser._id] },
+      });
+
+      if (!conversation) {
+        conversation = await Conversation.create({
+          participants: [challengerId, targetUser._id],
+          unreadCounts: new Map([[targetUser._id.toString(), 1]]),
+          lastMessage: {
+            text: `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?`,
+            sender: challengerId,
+            createdAt: new Date(),
+          },
+        });
+      } else {
+        const currentUnread = conversation.unreadCounts?.get(targetUser._id.toString()) || 0;
+        if (!conversation.unreadCounts) conversation.unreadCounts = new Map();
+        conversation.unreadCounts.set(targetUser._id.toString(), currentUnread + 1);
+        conversation.lastMessage = {
+          text: `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?`,
+          sender: challengerId,
+          createdAt: new Date(),
+        };
+        await conversation.save();
+      }
+
+      await Message.create({
+        conversation: conversation._id,
+        sender: challengerId,
+        recipient: targetUser._id,
+        text: `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?\n"${challenge.customMessage}"`,
+        typingChallenge: challenge._id,
+      });
+    } catch (msgErr) {
+      console.warn('Could not post duel message to conversation:', msgErr);
+    }
+
+    return res.status(201).json({
+      message: `Challenge sent to @${targetUser.username}!`,
+      challenge,
+    });
+  } catch (err) {
+    console.error('createChallenge error:', err);
+    return res.status(500).json({ message: 'Failed to issue typing challenge.' });
+  }
+};
+
+// Get current user's challenges (incoming, outgoing, history)
+exports.getChallenges = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const [incoming, outgoing, history] = await Promise.all([
+      TypingChallenge.find({ challenged: userId, status: 'pending' })
+        .populate('challenger', 'name username avatarUrl')
+        .sort({ createdAt: -1 })
+        .limit(20),
+      TypingChallenge.find({ challenger: userId, status: 'pending' })
+        .populate('challenged', 'name username avatarUrl')
+        .sort({ createdAt: -1 })
+        .limit(20),
+      TypingChallenge.find({
+        $or: [{ challenger: userId }, { challenged: userId }],
+        status: { $in: ['completed', 'declined'] },
+      })
+        .populate('challenger', 'name username avatarUrl')
+        .populate('challenged', 'name username avatarUrl')
+        .populate('winner', 'name username')
+        .sort({ updatedAt: -1 })
+        .limit(20),
+    ]);
+
+    return res.status(200).json({
+      incoming,
+      outgoing,
+      history,
+    });
+  } catch (err) {
+    console.error('getChallenges error:', err);
+    return res.status(500).json({ message: 'Failed to retrieve challenges.' });
+  }
+};
+
+// Get single challenge by ID
+exports.getChallengeById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const challenge = await TypingChallenge.findById(id)
+      .populate('challenger', 'name username avatarUrl')
+      .populate('challenged', 'name username avatarUrl')
+      .populate('winner', 'name username avatarUrl');
+
+    if (!challenge) {
+      return res.status(404).json({ message: 'Typing challenge not found.' });
+    }
+
+    return res.status(200).json({ challenge });
+  } catch (err) {
+    console.error('getChallengeById error:', err);
+    return res.status(500).json({ message: 'Failed to load challenge details.' });
+  }
+};
+
+// Complete challenge race
+exports.completeChallenge = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const { wpm, accuracy = 100, rawWpm, telemetry = [] } = req.body;
+
+    const challenge = await TypingChallenge.findById(id)
+      .populate('challenger', 'name username avatarUrl')
+      .populate('challenged', 'name username avatarUrl');
+
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found.' });
+    }
+
+    if (challenge.status === 'completed') {
+      return res.status(400).json({ message: 'Challenge has already been completed.' });
+    }
+
+    // Must be the challenged user completing it
+    if (!challenge.challenged._id.equals(userId) && !challenge.challenger._id.equals(userId)) {
+      return res.status(403).json({ message: 'You are not a participant in this challenge.' });
+    }
+
+    const parsedWpm = Math.max(0, Math.min(350, Math.round(Number(wpm) || 0)));
+    const parsedAcc = Math.max(0, Math.min(100, Math.round(Number(accuracy) || 100)));
+    const parsedRaw = Math.max(0, Math.min(350, Math.round(Number(rawWpm) || parsedWpm)));
+
+    // If challenger is setting initial benchmark score
+    if (challenge.challenger._id.equals(userId) && (!challenge.challengerWpm || challenge.challengerWpm === 0)) {
+      challenge.challengerWpm = parsedWpm;
+      challenge.challengerAccuracy = parsedAcc;
+      challenge.challengerRawWpm = parsedRaw;
+      challenge.challengerTelemetry = Array.isArray(telemetry) ? telemetry : [];
+      await challenge.save();
+      return res.status(200).json({
+        message: `Benchmark set to ${parsedWpm} WPM! Challenge sent to @${challenge.challenged.username}.`,
+        challenge,
+        isBenchmarkSet: true,
+      });
+    }
+
+    challenge.challengedWpm = parsedWpm;
+    challenge.challengedAccuracy = parsedAcc;
+    challenge.challengedRawWpm = parsedRaw;
+    challenge.challengedTelemetry = Array.isArray(telemetry) ? telemetry : [];
+    challenge.status = 'completed';
+    challenge.completedAt = new Date();
+
+    // Determine winner
+    let winnerId = null;
+    let isWinner = false;
+    let isTie = false;
+
+    if (parsedWpm > challenge.challengerWpm) {
+      winnerId = challenge.challenged._id;
+      isWinner = challenge.challenged._id.equals(userId);
+    } else if (challenge.challengerWpm > parsedWpm) {
+      winnerId = challenge.challenger._id;
+      isWinner = challenge.challenger._id.equals(userId);
+    } else {
+      isTie = true;
+    }
+
+    challenge.winner = winnerId;
+    await challenge.save();
+
+    // XP calculation: 150 for winner, 60 for participant
+    const xpGained = isWinner ? 150 : (isTie ? 100 : 60);
+
+    // Update challenged profile
+    let challengedProfile = await TypingProfile.findOne({ user: userId });
+    if (!challengedProfile) {
+      challengedProfile = new TypingProfile({ user: userId });
+    }
+    challengedProfile.xp = (challengedProfile.xp || 0) + xpGained;
+    challengedProfile.testsCompleted = (challengedProfile.testsCompleted || 0) + 1;
+    challengedProfile.bestWpm = Math.max(challengedProfile.bestWpm || 0, parsedWpm);
+    challengedProfile.bestAccuracy = Math.max(challengedProfile.bestAccuracy || 0, parsedAcc);
+    if (winnerId && winnerId.equals(userId)) {
+      challengedProfile.duelsWon = (challengedProfile.duelsWon || 0) + 1;
+    }
+    await challengedProfile.save();
+
+    // Also update challenger XP and duelsWon if challenger won
+    if (winnerId && winnerId.equals(challenge.challenger._id)) {
+      let challengerProfile = await TypingProfile.findOne({ user: challenge.challenger._id });
+      if (challengerProfile) {
+        challengerProfile.xp = (challengerProfile.xp || 0) + 150;
+        challengerProfile.duelsWon = (challengerProfile.duelsWon || 0) + 1;
+        await challengerProfile.save();
+      }
+    }
+
+    // Save as standard TypingResult so it counts for leaderboard
+    try {
+      const result = new TypingResult({
+        user: userId,
+        wpm: parsedWpm,
+        rawWpm: parsedRaw,
+        accuracy: parsedAcc,
+        duration: challenge.duration,
+        mode: challenge.mode,
+        telemetry: Array.isArray(telemetry) ? telemetry : [],
+        weeklyContestWeek: getIsoWeekString(),
+      });
+      await result.save();
+    } catch (saveErr) {
+      console.warn('Could not record challenge as typing result:', saveErr);
+    }
+
+    // Notify the other user (challenger) that the duel was completed
+    const otherUserId = challenge.challenged._id.equals(userId)
+      ? challenge.challenger._id
+      : challenge.challenged._id;
+
+    await Notification.create({
+      recipient: otherUserId,
+      sender: userId,
+      type: 'typing_challenge_result',
+      typingChallenge: challenge._id,
+    });
+
+    return res.status(200).json({
+      message: isWinner
+        ? '🏆 VICTORY! You won the typing duel!'
+        : isTie
+        ? '🤝 DRAW! An exact match!'
+        : '⚔️ Duel completed! Good battle!',
+      challenge,
+      isWinner,
+      isTie,
+      xpGained,
+    });
+  } catch (err) {
+    console.error('completeChallenge error:', err);
+    return res.status(500).json({ message: 'Failed to complete challenge.' });
+  }
+};
+
+// Decline challenge
+exports.declineChallenge = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const challenge = await TypingChallenge.findOne({ _id: id, challenged: userId });
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found.' });
+    }
+
+    challenge.status = 'declined';
+    await challenge.save();
+
+    return res.status(200).json({ message: 'Challenge declined.', challenge });
+  } catch (err) {
+    console.error('declineChallenge error:', err);
+    return res.status(500).json({ message: 'Failed to decline challenge.' });
   }
 };
