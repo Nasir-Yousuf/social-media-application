@@ -13,6 +13,7 @@ import {
   Swords,
   ChevronRight,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import Avatar from '../common/Avatar';
 import { getSpeedTier } from '../../utils/typingEngine';
@@ -54,6 +55,7 @@ export const GameArenaLayout = ({
   onDeclineChallenge,
   onExitDuel,
   onOpenChallengeModal,
+  onAdminRemoveEntry,
 }) => {
   const [sidebarTab, setSidebarTab] = React.useState('leaderboard'); // 'leaderboard' | 'duels'
   // Speed tier calculation for Tier Card
@@ -469,6 +471,19 @@ export const GameArenaLayout = ({
                       <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-neutral-300">
                         <span>{item.wpm}</span>
                         <span className="text-[10px] text-neutral-500">WPM</span>
+                        {currentUser?.role === 'admin' && onAdminRemoveEntry && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAdminRemoveEntry(item);
+                            }}
+                            title="Admin: Remove from leaderboard"
+                            className="ml-1 p-1 rounded hover:bg-rose-500/20 text-neutral-500 hover:text-rose-400 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

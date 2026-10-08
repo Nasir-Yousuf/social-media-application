@@ -716,3 +716,114 @@ exports.declineChallenge = async (req, res) => {
     return res.status(500).json({ message: 'Failed to decline challenge.' });
   }
 };
+
+// Admin: Remove specific leaderboard entry / score
+exports.removeLeaderboardEntry = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if valid ObjectId
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    let result = null;
+
+    if (isObjectId) {
+      result = await TypingResult.findById(id);
+    }
+
+    if (!result) {
+      // If not found by direct _id, it could be a query by user ID
+      if (isObjectId) {
+        const deletedMany = await TypingResult.deleteMany({ user: id });
+        if (deletedMany.deletedCount > 0) {
+          return res.status(200).json({
+            success: true,
+            message: `Admin removed ${deletedMany.deletedCount} scores for user.`,
+          });
+        }
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'Leaderboard score removed successfully.',
+      });
+    }
+
+    const userId = result.user;
+    const { duration } = result;
+
+    // Delete the specific typing result
+    await TypingResult.findByIdAndDelete(id);
+
+    // Recalculate user's bests for that duration & overall profile
+    const remainingForDur = await TypingResult.find({ user: userId, duration })
+      .sort({ wpm: -1, accuracy: -1 })
+      .limit(1);
+
+    const userProfile = await TypingProfile.findOne({ user: userId });
+    if (userProfile) {
+      const bests = userProfile.personalBests || new Map();
+      const durKey = String(duration);
+
+      if (remainingForDur.length > 0) {
+        bests.set(durKey, {
+          wpm: remainingForDur[0].wpm,
+          rawWpm: remainingForDur[0].rawWpm,
+          accuracy: remainingForDur[0].accuracy,
+          highestCombo: remainingForDur[0].highestCombo,
+          date: remainingForDur[0].createdAt,
+        });
+      } else {
+        bests.delete(durKey);
+      }
+
+      // Re-evaluate overall best WPM
+      const allRemaining = await TypingResult.find({ user: userId })
+        .sort({ wpm: -1 })
+        .limit(1);
+
+      userProfile.bestWpm = allRemaining.length > 0 ? allRemaining[0].wpm : 0;
+      userProfile.testsCompleted = Math.max(0, (userProfile.testsCompleted || 1) - 1);
+      userProfile.personalBests = bests;
+      await userProfile.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Typing leaderboard score removed by admin.',
+      deletedId: id,
+    });
+  } catch (err) {
+    console.error('removeLeaderboardEntry error:', err);
+    return res.status(500).json({ message: 'Failed to remove score from leaderboard: ' + err.message });
+  }
+};
+
+// Admin: Disqualify / purge a user completely from the typing leaderboard
+exports.removeUserFromLeaderboard = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user ID format.' });
+    }
+
+    const deleted = await TypingResult.deleteMany({ user: userId });
+
+    const profile = await TypingProfile.findOne({ user: userId });
+    if (profile) {
+      profile.bestWpm = 0;
+      profile.personalBests = new Map();
+      profile.testsCompleted = 0;
+      profile.xp = 0;
+      await profile.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `User disqualified. Purged ${deleted.deletedCount} scores from leaderboard.`,
+      purgedCount: deleted.deletedCount,
+    });
+  } catch (err) {
+    console.error('removeUserFromLeaderboard error:', err);
+    return res.status(500).json({ message: 'Failed to purge user from leaderboard: ' + err.message });
+  }
+};

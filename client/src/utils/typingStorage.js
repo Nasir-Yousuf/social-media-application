@@ -447,3 +447,72 @@ export const syncPendingScoresWithServer = async (apiClient) => {
     localStorage.setItem(STORAGE_RESULTS_KEY, JSON.stringify(results));
   } catch (_) {}
 };
+
+/**
+ * Admin utility: Remove a score or user from the local leaderboard cache and results.
+ */
+export const removeLeaderboardEntryLocally = (entryId, targetUserId, duration, mode) => {
+  const dNum = duration === 'all' ? 'all' : Number(duration) || 60;
+  const nMode = normalizeMode(mode);
+
+  // 1. Clear or purge from specific and all cache keys
+  const keysToPurge = [
+    `${STORAGE_LB_KEY_PREFIX}${dNum}_${nMode}`,
+    `${STORAGE_LB_KEY_PREFIX}15_words`,
+    `${STORAGE_LB_KEY_PREFIX}30_words`,
+    `${STORAGE_LB_KEY_PREFIX}60_words`,
+    `${STORAGE_LB_KEY_PREFIX}120_words`,
+    `${STORAGE_LB_KEY_PREFIX}all_words`,
+  ];
+
+  for (const cacheKey of keysToPurge) {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const list = JSON.parse(raw);
+        const filtered = list.filter((item) => {
+          const matchEntry = item._id === entryId;
+          const matchUser = targetUserId && String(item.user?._id || item.user?.id) === String(targetUserId);
+          return !matchEntry && !matchUser;
+        });
+        localStorage.setItem(cacheKey, JSON.stringify(filtered));
+      }
+    } catch (_) {}
+  }
+
+  // 2. Remove from local stored results list
+  try {
+    const rawResults = localStorage.getItem(STORAGE_RESULTS_KEY);
+    if (rawResults) {
+      const resultsList = JSON.parse(rawResults);
+      const filteredResults = resultsList.filter((item) => {
+        const matchEntry = item._id === entryId;
+        const matchUser = targetUserId && String(item.user?._id || item.user?.id) === String(targetUserId);
+        return !matchEntry && !matchUser;
+      });
+      localStorage.setItem(STORAGE_RESULTS_KEY, JSON.stringify(filteredResults));
+    }
+  } catch (_) {}
+
+  // 3. If target user was current user, clear their personal best for that duration
+  try {
+    const profile = getLocalTypingProfile();
+    const durKey = String(dNum);
+    if (targetUserId && profile.personalBests?.[durKey]) {
+      const updatedBests = { ...profile.personalBests };
+      delete updatedBests[durKey];
+      profile.personalBests = updatedBests;
+      profile.bestWpm = Math.max(0, ...Object.values(updatedBests).map((b) => b.wpm || 0));
+      localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(profile));
+    }
+  } catch (_) {}
+
+  // 4. Broadcast event so all components re-render immediately
+  try {
+    window.dispatchEvent(
+      new CustomEvent('clearfeed:typingScoreSaved', {
+        detail: { removedId: entryId, removedUserId: targetUserId },
+      })
+    );
+  } catch (_) {}
+};

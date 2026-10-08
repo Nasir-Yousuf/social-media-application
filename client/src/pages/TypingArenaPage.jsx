@@ -33,6 +33,7 @@ import {
   saveTypingResultLocally,
   getResilientLeaderboard,
   syncPendingScoresWithServer,
+  removeLeaderboardEntryLocally,
 } from '../utils/typingStorage';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -499,6 +500,32 @@ export const TypingArenaPage = () => {
     showToast('Exited 1v1 duel.', 'info');
   };
 
+  // Admin leaderboard score removal
+  const handleAdminRemoveEntry = async (entry) => {
+    if (!user || user.role !== 'admin') return;
+    const confirm = window.confirm(
+      `Admin Action: Remove @${entry.user?.username || 'user'}'s score (${entry.wpm} WPM) from the leaderboard?`
+    );
+    if (!confirm) return;
+
+    try {
+      try {
+        await api.delete(`/typing/leaderboard/${entry._id}`);
+      } catch (_) {}
+      removeLeaderboardEntryLocally(entry._id, entry.user?._id || entry.user?.id, duration, mode);
+      showToast(
+        `🛡️ Admin: Removed @${entry.user?.username || 'user'} from leaderboard.`,
+        'info'
+      );
+      fetchLeaderboard();
+    } catch (err) {
+      showToast(
+        'Failed to remove score: ' + (err.response?.data?.message || err.message),
+        'error'
+      );
+    }
+  };
+
   // Rock-solid wall-clock countdown timer loop
   useEffect(() => {
     if (!isActive || isFinished) return;
@@ -755,6 +782,7 @@ export const TypingArenaPage = () => {
           onDeclineChallenge={handleDeclineChallenge}
           onExitDuel={handleExitDuel}
           onOpenChallengeModal={() => setIsChallengeModalOpen(true)}
+          onAdminRemoveEntry={handleAdminRemoveEntry}
         />
       )}
 
@@ -876,16 +904,18 @@ export const TypingArenaPage = () => {
               </div>
             )}
 
-            <div className="pt-6">
-              <TypingLeaderboard
-                onChallengeGhost={handleChallengeGhost}
-                currentSessionDuration={duration}
-                currentSessionMode={mode}
-              />
-            </div>
           </div>
         </>
       )}
+
+      {/* Global Speed Championship Leaderboard Section (Visible across all themes) */}
+      <div className="pt-8">
+        <TypingLeaderboard
+          onChallengeGhost={handleChallengeGhost}
+          currentSessionDuration={duration}
+          currentSessionMode={mode}
+        />
+      </div>
 
       {/* Results Celebration Modal */}
       <TypingResultsModal
