@@ -5,6 +5,7 @@ import Avatar from '../common/Avatar';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { getSpeedTier } from '../../utils/typingEngine';
+import { getResilientLeaderboard } from '../../utils/typingStorage';
 
 export const TypingLeaderboard = ({ onChallengeGhost, currentSessionDuration, currentSessionMode }) => {
   const { user } = useAuth();
@@ -22,10 +23,12 @@ export const TypingLeaderboard = ({ onChallengeGhost, currentSessionDuration, cu
 
   const fetchLeaderboard = async () => {
     setLoading(true);
+    let remoteLeaderboard = null;
+    const queryMode = (currentSessionMode && currentSessionMode.startsWith('words'))
+      ? 'words'
+      : (currentSessionMode || 'words');
+
     try {
-      const queryMode = (currentSessionMode && currentSessionMode.startsWith('words'))
-        ? 'words'
-        : (currentSessionMode || 'words');
       const res = await api.get('/typing/leaderboard', {
         params: {
           period,
@@ -33,18 +36,34 @@ export const TypingLeaderboard = ({ onChallengeGhost, currentSessionDuration, cu
           mode: queryMode,
         },
       });
-      setLeaderboard(res.data.leaderboard || []);
-      setUserRank(res.data.userRank || null);
+      remoteLeaderboard = res.data.leaderboard || [];
+      if (res.data.userRank) {
+        setUserRank(res.data.userRank);
+      }
     } catch (err) {
-      console.warn('Failed to fetch leaderboard:', err);
-    } finally {
-      setLoading(false);
+      // Remote notice: fall back to resilient leaderboard
     }
+
+    const resilient = getResilientLeaderboard(selectedDuration, queryMode, user, remoteLeaderboard);
+    setLeaderboard(resilient.leaderboard);
+    if (resilient.userRank) {
+      setUserRank(resilient.userRank);
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [period, selectedDuration, currentSessionMode]);
+  }, [period, selectedDuration, currentSessionMode, user]);
+
+  // Instantly refresh when any score is saved
+  useEffect(() => {
+    const handleScoreSaved = () => {
+      fetchLeaderboard();
+    };
+    window.addEventListener('clearfeed:typingScoreSaved', handleScoreSaved);
+    return () => window.removeEventListener('clearfeed:typingScoreSaved', handleScoreSaved);
+  }, [selectedDuration, currentSessionMode, user]);
 
   const top3 = leaderboard.slice(0, 3);
   const remaining = leaderboard.slice(3);

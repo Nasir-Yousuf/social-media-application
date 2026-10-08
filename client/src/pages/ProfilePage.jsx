@@ -23,6 +23,7 @@ import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { FacultyBadge } from '../components/common/ClearfeedIcons';
+import { getLocalTypingProfile } from '../utils/typingStorage';
 
 export const ProfilePage = () => {
   const { username } = useParams();
@@ -50,18 +51,47 @@ export const ProfilePage = () => {
         api.get(`/users/profile/${username}`),
         api.get(`/posts/user/${username}`),
       ]);
-      setProfile(profileRes.data.user);
+      const userData = profileRes.data.user;
+      if (
+        userData &&
+        (!userData.typingStats || userData.typingStats.bestWpm === 0) &&
+        currentUser &&
+        String(userData.username).toLowerCase() === String(currentUser.username).toLowerCase()
+      ) {
+        const localStats = getLocalTypingProfile();
+        if (localStats.bestWpm > 0 || localStats.testsCompleted > 0) {
+          userData.typingStats = localStats;
+        }
+      }
+      setProfile(userData);
       setPosts(postsRes.data.posts || []);
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to load profile', 'error');
     } finally {
       setLoading(false);
     }
-  }, [username, showToast]);
+  }, [username, currentUser, showToast]);
 
   useEffect(() => {
     fetchProfileAndPosts();
   }, [fetchProfileAndPosts]);
+
+  // Listen for real-time typing stats updates
+  useEffect(() => {
+    const handleTypingStatsUpdated = (e) => {
+      const stats = e.detail?.typingStats;
+      if (
+        stats &&
+        profile &&
+        currentUser &&
+        String(profile.username).toLowerCase() === String(currentUser.username).toLowerCase()
+      ) {
+        setProfile((prev) => (prev ? { ...prev, typingStats: stats } : prev));
+      }
+    };
+    window.addEventListener('clearfeed:typingStatsUpdated', handleTypingStatsUpdated);
+    return () => window.removeEventListener('clearfeed:typingStatsUpdated', handleTypingStatsUpdated);
+  }, [profile, currentUser]);
 
   // Listen for real-time user profile/avatar updates
   useEffect(() => {

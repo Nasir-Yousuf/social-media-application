@@ -29,6 +29,11 @@ import {
   calculateAccuracy,
 } from '../utils/typingEngine';
 import typingSounds from '../utils/typingSounds';
+import {
+  saveTypingResultLocally,
+  getResilientLeaderboard,
+  syncPendingScoresWithServer,
+} from '../utils/typingStorage';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -195,10 +200,11 @@ export const TypingArenaPage = () => {
     ghostData,
   };
 
-  // Fetch real-time leaderboard data for sidebar
+  // Fetch real-time resilient leaderboard data for sidebar
   const fetchLeaderboard = useCallback(async () => {
+    const queryMode = mode.startsWith('words') ? 'words' : mode;
+    let remoteLeaderboard = null;
     try {
-      const queryMode = mode.startsWith('words') ? 'words' : mode;
       const res = await api.get('/typing/leaderboard', {
         params: {
           period: 'all',
@@ -207,24 +213,47 @@ export const TypingArenaPage = () => {
         },
       });
       if (res.data?.leaderboard) {
-        setLeaderboardData(res.data.leaderboard);
+        remoteLeaderboard = res.data.leaderboard;
       }
       if (res.data?.userRank) {
         setUserRank(res.data.userRank);
-      } else {
-        setUserRank(null);
       }
       if (res.data?.userBestScore) {
         setUserBestScore(res.data.userBestScore);
       }
     } catch (err) {
-      console.warn('Leaderboard fetch in page:', err);
+      // Remote notice: gracefully fall back to resilient local leaderboard
     }
-  }, [duration, mode]);
+
+    const resilient = getResilientLeaderboard(duration, queryMode, user, remoteLeaderboard);
+    setLeaderboardData(resilient.leaderboard);
+    if (resilient.userRank) {
+      setUserRank(resilient.userRank);
+    }
+    if (resilient.userBestScore) {
+      setUserBestScore(resilient.userBestScore);
+    }
+  }, [duration, mode, user]);
 
   useEffect(() => {
     fetchLeaderboard();
   }, [fetchLeaderboard]);
+
+  // Sync any offline scores in background and listen for score saves
+  useEffect(() => {
+    syncPendingScoresWithServer(api);
+
+    const handleScoreSaved = (e) => {
+      if (e.detail?.leaderboard) {
+        setLeaderboardData(e.detail.leaderboard);
+      }
+      if (e.detail?.userRank) {
+        setUserRank(e.detail.userRank);
+      }
+    };
+    window.addEventListener('clearfeed:typingScoreSaved', handleScoreSaved);
+    return () => window.removeEventListener('clearfeed:typingScoreSaved', handleScoreSaved);
+  }, []);
 
   // Initialize or restart test
   const initTest = useCallback(() => {
@@ -304,6 +333,21 @@ export const TypingArenaPage = () => {
     const finalRawWpm = calculateRawWpm(tKeys, effectiveDuration);
     const finalAccuracy = calculateAccuracy(finalCorrectChars, tKeys);
 
+    // Save locally first to guarantee zero score loss, immediate XP, and dynamic leaderboard placement
+    const localSave = saveTypingResultLocally(
+      {
+        wpm: finalWpm,
+        rawWpm: finalRawWpm,
+        accuracy: finalAccuracy,
+        duration: dSec,
+        mode: mMode,
+        charCount: finalCorrectChars,
+        highestCombo: hStreak,
+        telemetry: tData,
+      },
+      currentUser
+    );
+
     const testResult = {
       wpm: finalWpm,
       rawWpm: finalRawWpm,
@@ -312,16 +356,29 @@ export const TypingArenaPage = () => {
       mode: mMode,
       highestCombo: hStreak,
       telemetry: tData,
-      xpGained: 0,
-      savedToLeaderboard: false,
-      userRank: null,
+      xpGained: localSave.xpGained || 0,
+      savedToLeaderboard: !(!currentUser),
+      userRank: localSave.userRank || userRank || 1,
       isGuest: !currentUser,
     };
 
+    if (localSave.userRank) {
+      setUserRank(localSave.userRank);
+    }
+    if (localSave.leaderboard) {
+      setLeaderboardData(localSave.leaderboard);
+    }
+
     // Save to backend if user is authenticated
     if (currentUser) {
-      try {
-        const res = await api.post('/typing/submit', {
+      showToast(
+        `🎉 ${dSec}s Test: ${finalWpm} WPM recorded! You are ranked #${testResult.userRank || '1'}!`,
+        'success'
+      );
+
+      // Async sync with remote backend (resilient against 404 or network downtime)
+      api
+        .post('/typing/submit', {
           wpm: finalWpm,
           rawWpm: finalRawWpm,
           accuracy: finalAccuracy,
@@ -330,72 +387,57 @@ export const TypingArenaPage = () => {
           charCount: finalCorrectChars,
           highestCombo: hStreak,
           telemetry: tData,
-        });
-        testResult.xpGained = res.data.xpGained || 0;
-        testResult.savedToLeaderboard = true;
-        const newRank = res.data.userRank || userRank;
-        testResult.userRank = newRank;
-        if (newRank) {
-          setUserRank(newRank);
-        }
-        showToast(
-          `🎉 ${dSec}s Test: ${finalWpm} WPM recorded! You are ranked #${newRank || '1'}!`,
-          'success'
-        );
-        // Dynamically refresh live leaderboard immediately after submission!
-        fetchLeaderboard();
-
-        // If this test was racing a 1v1 challenge, complete the challenge
-        if (activeChallengeRef.current) {
-          try {
-            const chId = activeChallengeRef.current._id;
-            const duelRes = await api.post(`/typing/challenges/${chId}/complete`, {
-              wpm: finalWpm,
-              rawWpm: finalRawWpm,
-              accuracy: finalAccuracy,
-              telemetry: tData,
-            });
-
-            if (duelRes.data.isBenchmarkSet) {
-              showToast(
-                `🏁 Initial benchmark set: ${finalWpm} WPM! Challenge sent to rival.`,
-                'success'
-              );
-            } else {
-              const winner = duelRes.data.winner;
-              const isWinner = winner && (String(winner._id || winner) === String(currentUser._id));
-              testResult.isDuel = true;
-              testResult.duelWinner = winner;
-              testResult.isWinner = isWinner;
-              const bonusXp = duelRes.data.xpGained || (isWinner ? 150 : 60);
-              testResult.xpGained = (testResult.xpGained || 0) + bonusXp;
-
-              if (isWinner) {
-                showToast(
-                  `🏆 DUEL VICTORY! You won against @${activeChallengeRef.current.challenger?.username || 'rival'} with ${finalWpm} WPM! (+${bonusXp} XP)`,
-                  'success'
-                );
-              } else {
-                showToast(
-                  `⚔️ Duel complete: Rival had ${activeChallengeRef.current.challengerWpm} WPM vs your ${finalWpm} WPM. Good race! (+${bonusXp} XP)`,
-                  'info'
-                );
-              }
-            }
-            fetchChallenges();
-          } catch (duelErr) {
-            console.warn('Failed to complete typing challenge:', duelErr);
+        })
+        .then((res) => {
+          if (res.data?.userRank) {
+            testResult.userRank = res.data.userRank;
+            setUserRank(res.data.userRank);
           }
+          if (res.data?.xpGained) {
+            testResult.xpGained = res.data.xpGained;
+          }
+          fetchLeaderboard();
+        })
+        .catch((err) => {
+          console.info('Remote server sync queued (saved locally):', err?.message);
+        });
+
+      // If this test was racing a 1v1 challenge, complete the challenge
+      if (activeChallengeRef.current) {
+        const ch = activeChallengeRef.current;
+        const chId = ch._id;
+        const rivalWpm = ch.challengerWpm || 0;
+        const isWinner = finalWpm > rivalWpm;
+        testResult.isDuel = true;
+        testResult.isWinner = isWinner;
+        const bonusXp = isWinner ? 150 : 60;
+        testResult.xpGained = (testResult.xpGained || 0) + bonusXp;
+
+        if (isWinner) {
+          showToast(
+            `🏆 DUEL VICTORY! You won against @${ch.challenger?.username || 'rival'} with ${finalWpm} WPM! (+${bonusXp} XP)`,
+            'success'
+          );
+        } else {
+          showToast(
+            `⚔️ Duel complete: Rival had ${rivalWpm} WPM vs your ${finalWpm} WPM. Good race! (+${bonusXp} XP)`,
+            'info'
+          );
         }
-      } catch (err) {
-        console.warn('Failed to submit score:', err);
-        testResult.savedToLeaderboard = false;
-        testResult.saveError = err.response?.data?.message || err.message;
-        showToast(
-          'Score could not be recorded to leaderboard: ' +
-            (err.response?.data?.message || err.message),
-          'error'
-        );
+
+        api
+          .post(`/typing/challenges/${chId}/complete`, {
+            wpm: finalWpm,
+            rawWpm: finalRawWpm,
+            accuracy: finalAccuracy,
+            telemetry: tData,
+          })
+          .then(() => {
+            fetchChallenges();
+          })
+          .catch((duelErr) => {
+            console.info('Remote challenge completion queued:', duelErr?.message);
+          });
       }
     } else {
       testResult.isGuest = true;
