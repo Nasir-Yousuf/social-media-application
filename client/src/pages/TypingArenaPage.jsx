@@ -85,6 +85,7 @@ export const TypingArenaPage = () => {
   const [telemetry, setTelemetry] = useState([]);
   const startTimeRef = useRef(null);
   const stateRef = useRef({});
+  const lastTelemetrySecRef = useRef(0);
 
   // Ghost Racer Setup (if challenging)
   const [ghostData, setGhostData] = useState(null);
@@ -283,6 +284,7 @@ export const TypingArenaPage = () => {
     setTelemetry([]);
     setIsResultsOpen(false);
     startTimeRef.current = null;
+    lastTelemetrySecRef.current = 0;
     if (ghostData) {
       setGhostData((prev) => (prev ? { ...prev, progress: 0 } : null));
     }
@@ -333,6 +335,12 @@ export const TypingArenaPage = () => {
     const finalRawWpm = calculateRawWpm(tKeys, effectiveDuration);
     const finalAccuracy = calculateAccuracy(finalCorrectChars, tKeys);
 
+    // Ensure final speed point is captured in telemetry
+    const finalTelemetry = Array.isArray(tData) ? [...tData] : [];
+    if (finalTelemetry.length === 0 || finalTelemetry[finalTelemetry.length - 1] !== finalWpm) {
+      finalTelemetry.push(finalWpm);
+    }
+
     // Save locally first to guarantee zero score loss, immediate XP, and dynamic leaderboard placement
     const localSave = saveTypingResultLocally(
       {
@@ -343,7 +351,7 @@ export const TypingArenaPage = () => {
         mode: mMode,
         charCount: finalCorrectChars,
         highestCombo: hStreak,
-        telemetry: tData,
+        telemetry: finalTelemetry,
       },
       currentUser
     );
@@ -355,7 +363,7 @@ export const TypingArenaPage = () => {
       duration: dSec,
       mode: mMode,
       highestCombo: hStreak,
-      telemetry: tData,
+      telemetry: finalTelemetry,
       xpGained: localSave.xpGained || 0,
       savedToLeaderboard: !(!currentUser),
       userRank: localSave.userRank || userRank || 1,
@@ -507,10 +515,14 @@ export const TypingArenaPage = () => {
 
       setTimeLeft(remainingSec);
 
-      // Sample telemetry using latest correct chars from ref
-      const currentCorrect = stateRef.current.liveTotalCorrectChars || 0;
-      const sampleWpm = calculateWpm(currentCorrect, Math.max(1, elapsedSec));
-      setTelemetry((t) => [...t, sampleWpm]);
+      // Sample telemetry once per whole elapsed second
+      const secFloor = Math.floor(elapsedSec);
+      if (secFloor > 0 && secFloor > lastTelemetrySecRef.current) {
+        lastTelemetrySecRef.current = secFloor;
+        const currentCorrect = stateRef.current.liveTotalCorrectChars || 0;
+        const sampleWpm = calculateWpm(currentCorrect, secFloor);
+        setTelemetry((t) => [...t, sampleWpm]);
+      }
 
       // Update ghost progress if ghost exists
       const ghost = stateRef.current.ghostData;
