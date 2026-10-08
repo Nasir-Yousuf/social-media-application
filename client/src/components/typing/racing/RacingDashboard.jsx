@@ -238,8 +238,12 @@ export const RacingDashboard = ({
                   Online
                 </span>
               </div>
-              <div className="my-5 flex justify-center">
-                <div className="w-16 h-8 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 shadow-md group-hover:shadow-[0_0_15px_#ec4899] transition" />
+              <div className="my-4 flex justify-center">
+                <img
+                  src="/racing/shadow_v12.jpg"
+                  alt="Racing"
+                  className="w-20 h-11 object-cover rounded-lg shadow-md group-hover:scale-105 transition border border-purple-500/30"
+                />
               </div>
               <div>
                 <h3 className="text-sm font-extrabold text-white">RACING</h3>
@@ -358,26 +362,35 @@ export const RacingDashboard = ({
           </div>
 
           {/* Mini Highway Simulation Screen */}
-          <div className="relative h-44 rounded-2xl bg-gradient-to-b from-slate-950 via-indigo-950/60 to-slate-900 border border-slate-800 overflow-hidden flex flex-col justify-end p-3">
+          <div className="relative h-44 rounded-2xl border border-slate-800 overflow-hidden flex flex-col justify-end p-3">
+            <img
+              src="/racing/track_neon_coast.jpg"
+              alt="Track"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-slate-950/40" />
+
             {/* Distant cars in perspective */}
-            <div className="absolute top-10 left-1/4 flex items-center gap-1">
-              <div className="w-5 h-2.5 rounded bg-red-500 shadow-[0_0_8px_#ef4444]" />
-              <span className="text-[9px] text-amber-300 font-bold">Alex</span>
+            <div className="absolute top-8 left-1/4 flex items-center gap-1 z-10">
+              <img src="/racing/street_phantom.jpg" alt="Alex" className="w-9 h-5 object-cover rounded shadow" />
+              <span className="text-[9px] text-amber-300 font-bold drop-shadow">Alex</span>
             </div>
-            <div className="absolute top-14 right-1/3 flex items-center gap-1">
-              <div className="w-5 h-2.5 rounded bg-emerald-500 shadow-[0_0_8px_#22c55e]" />
-              <span className="text-[9px] text-emerald-300 font-bold">Sophia</span>
+            <div className="absolute top-12 right-1/3 flex items-center gap-1 z-10">
+              <img src="/racing/neon_gt.jpg" alt="Sophia" className="w-9 h-5 object-cover rounded shadow" />
+              <span className="text-[9px] text-emerald-300 font-bold drop-shadow">Sophia</span>
             </div>
 
             {/* Foreground Player Car with NASIR plate */}
-            <div className="relative mx-auto flex flex-col items-center">
-              <div className="w-24 h-12 rounded-t-xl bg-gradient-to-t from-purple-800 to-purple-600 border border-purple-400 shadow-[0_0_15px_#a855f7] flex items-center justify-center">
-                <span className="text-[9px] font-black text-white tracking-widest">NASIR</span>
-              </div>
+            <div className="relative mx-auto flex flex-col items-center z-10">
+              <img
+                src={selectedCar.image || '/racing/shadow_v12.jpg'}
+                alt="NASIR"
+                className="w-28 h-16 object-cover rounded-lg border border-purple-400/60 shadow-[0_0_20px_#a855f7]"
+              />
             </div>
 
             {/* Mini HUD Speedometer Overlay */}
-            <div className="absolute bottom-2 right-2 flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-950/90 border border-cyan-500/40">
+            <div className="absolute bottom-2 right-2 flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-950/90 border border-cyan-500/40 z-20">
               <span className="text-sm font-black text-white font-mono">178</span>
               <span className="text-[9px] text-cyan-400 font-bold">KM/H</span>
               <span className="text-[9px] text-purple-300 font-black">G5</span>
@@ -427,23 +440,18 @@ export const RacingDashboard = ({
             </div>
 
             {/* Glowing Car Preview Platform */}
-            <div className="relative h-40 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/60 flex items-center justify-center overflow-hidden my-3">
+            <div className="relative h-44 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/60 flex items-center justify-center overflow-hidden my-3">
               <div
-                className="absolute w-44 h-44 rounded-full blur-2xl opacity-40"
+                className="absolute w-48 h-48 rounded-full blur-2xl opacity-40"
                 style={{ backgroundColor: selectedCar.color }}
               />
-              {/* Turntable car silhouette */}
               <div className="relative flex flex-col items-center">
-                <div
-                  className="w-32 h-16 rounded-xl border border-white/20 shadow-2xl flex items-center justify-center"
-                  style={{ backgroundColor: selectedCar.color }}
-                >
-                  <span className="text-xs font-black text-white tracking-widest drop-shadow">
-                    {selectedCar.name}
-                  </span>
-                </div>
-                {/* Turntable platform ring */}
-                <div className="w-40 h-4 rounded-full bg-slate-800 border border-cyan-500/30 -mt-2 -z-10" />
+                <img
+                  src={selectedCar.image || '/racing/shadow_v12.jpg'}
+                  alt={selectedCar.name}
+                  className="w-48 h-28 object-cover rounded-xl border border-white/20 shadow-2xl"
+                />
+                <div className="w-52 h-3 rounded-full bg-slate-800 border border-cyan-500/30 -mt-1.5 -z-10 shadow-lg" />
               </div>
             </div>
 
@@ -488,13 +496,17 @@ export const RacingDashboard = ({
                   <button
                     key={car.id}
                     onClick={() => handleSelectCarInGarage(car, idx)}
-                    className={`flex-shrink-0 w-12 h-10 rounded-xl border flex items-center justify-center transition-all ${
+                    className={`flex-shrink-0 p-1 rounded-xl border flex items-center justify-center transition-all ${
                       isCurrent
                         ? 'border-cyan-400 bg-slate-800 scale-105 shadow-[0_0_10px_#06b6d4]'
                         : 'border-slate-800 bg-slate-900 hover:border-slate-700'
                     }`}
                   >
-                    <div className="w-6 h-3 rounded" style={{ backgroundColor: car.color }} />
+                    <img
+                      src={car.image || '/racing/shadow_v12.jpg'}
+                      alt={car.name}
+                      className="w-12 h-7 object-cover rounded-md"
+                    />
                   </button>
                 );
               })}
@@ -674,8 +686,12 @@ export const RacingDashboard = ({
                 New personal best! 🏎️ <strong className="text-cyan-400">{profile.bestWpm} WPM</strong> in Racing Mode ⚡
               </p>
               <div className="h-16 rounded-xl bg-gradient-to-r from-purple-950 to-slate-900 border border-purple-500/30 flex items-center justify-between px-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-4 rounded" style={{ backgroundColor: selectedCar.color }} />
+                <div className="flex items-center gap-2.5">
+                  <img
+                    src={selectedCar.image || '/racing/shadow_v12.jpg'}
+                    alt={selectedCar.name}
+                    className="w-12 h-7 object-cover rounded-md border border-white/20 shadow-md"
+                  />
                   <span className="font-bold text-white text-xs">{selectedCar.name}</span>
                 </div>
                 <span className="text-xs font-black text-amber-400 font-mono">1st Place 🏆</span>

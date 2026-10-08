@@ -23,6 +23,7 @@ const DEFAULT_RACE_TEXT =
 export const RacingArenaScreen = ({
   onExit = () => {},
   onFinishRace = () => {},
+  onShareRace = () => {},
   currentUser = null,
 }) => {
   const [garage, setGarage] = useState(() => getPlayerGarage(currentUser));
@@ -34,6 +35,7 @@ export const RacingArenaScreen = ({
   const [countdown, setCountdown] = useState(3); // 3, 2, 1, 0 (Started)
   const [raceActive, setRaceActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [finishData, setFinishData] = useState(null);
 
   // Telemetry
   const [wpm, setWpm] = useState(0);
@@ -51,11 +53,57 @@ export const RacingArenaScreen = ({
 
   // Opponent Racers (Alex, Sophia, Rohan, Emma, Liam matching Reference Image 1)
   const [opponents, setOpponents] = useState([
-    { id: 'alex', name: 'Alex', rank: 1, color: '#ef4444', progress: 0, targetWpm: 125, isLeader: true },
-    { id: 'sophia', name: 'Sophia', rank: 2, color: '#22c55e', progress: 0, targetWpm: 118 },
-    { id: 'rohan', name: 'Rohan', rank: 3, color: '#3b82f6', progress: 0, targetWpm: 110 },
-    { id: 'emma', name: 'Emma', rank: 5, color: '#eab308', progress: 0, targetWpm: 96 },
-    { id: 'liam', name: 'Liam', rank: 6, color: '#94a3b8', progress: 0, targetWpm: 88 },
+    {
+      id: 'alex',
+      name: 'Alex',
+      rank: 1,
+      color: '#ef4444',
+      carName: 'Street Phantom',
+      image: '/racing/street_phantom.jpg',
+      progress: 0,
+      targetWpm: 125,
+      isLeader: true,
+    },
+    {
+      id: 'sophia',
+      name: 'Sophia',
+      rank: 2,
+      color: '#22c55e',
+      carName: 'Neon GT',
+      image: '/racing/neon_gt.jpg',
+      progress: 0,
+      targetWpm: 118,
+    },
+    {
+      id: 'rohan',
+      name: 'Rohan',
+      rank: 3,
+      color: '#3b82f6',
+      carName: 'Cyber Cruiser',
+      image: '/racing/cyber_cruiser.jpg',
+      progress: 0,
+      targetWpm: 110,
+    },
+    {
+      id: 'emma',
+      name: 'Emma',
+      rank: 5,
+      color: '#eab308',
+      carName: 'Thunder RS',
+      image: '/racing/thunder_rs.jpg',
+      progress: 0,
+      targetWpm: 96,
+    },
+    {
+      id: 'liam',
+      name: 'Liam',
+      rank: 6,
+      color: '#e2e8f0',
+      carName: 'Apex X',
+      image: '/racing/apex_x.jpg',
+      progress: 0,
+      targetWpm: 88,
+    },
   ]);
 
   // Start countdown sequence
@@ -124,8 +172,42 @@ export const RacingArenaScreen = ({
       currentUser,
     });
 
+    setFinishData(finalResult);
     onFinishRace(finalResult);
   }, [isFinished, raceText.length, userRank, selectedCar.id, isNitroActive, currentUser, onFinishRace]);
+
+  // Restart / Rematch race
+  const handleRestartRace = useCallback(() => {
+    setFinishData(null);
+    setIsFinished(false);
+    setTypedIndex(0);
+    errorsRef.current = 0;
+    setWpm(0);
+    setSpeedKmH(0);
+    setGear(1);
+    setNitroPercent(40);
+    setIsNitroActive(false);
+    setStreak(0);
+    setOpponents((prev) => prev.map((o) => ({ ...o, progress: 0 })));
+    setCountdown(3);
+    racingAudio.startEngine(40);
+
+    let count = 3;
+    racingAudio.playCountdown(count);
+
+    const timer = setInterval(() => {
+      count -= 1;
+      setCountdown(count);
+      racingAudio.playCountdown(count);
+
+      if (count <= 0) {
+        clearInterval(timer);
+        setRaceActive(true);
+        startTimeRef.current = Date.now();
+        if (hiddenInputRef.current) hiddenInputRef.current.focus();
+      }
+    }, 1000);
+  }, []);
 
   // Keystroke handler for typing challenge
   const handleKeyDown = useCallback(
@@ -224,7 +306,15 @@ export const RacingArenaScreen = ({
 
   // Build sorted roster for HUD left column
   const sortedRacers = [
-    { username: 'You', name: 'You', color: selectedCar.color, progress: playerProgress, isUser: true, carName: selectedCar.name },
+    {
+      username: 'You',
+      name: 'You',
+      color: selectedCar.color,
+      progress: playerProgress,
+      isUser: true,
+      carName: selectedCar.name,
+      image: selectedCar.image || '/racing/shadow_v12.jpg',
+    },
     ...opponents,
   ].sort((a, b) => b.progress - a.progress);
 
@@ -276,6 +366,86 @@ export const RacingArenaScreen = ({
           <span className="text-xl font-bold uppercase tracking-widest text-slate-200 mt-4">
             GET READY TO TYPE
           </span>
+        </div>
+      )}
+
+      {/* 🏁 Cinematic Finish Result Screen (Requirement 26 & 27) */}
+      {finishData && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl animate-fade-in">
+          <div className="w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-slate-950/95 border-2 border-cyan-500/50 shadow-[0_0_50px_rgba(6,182,212,0.3)] text-center space-y-5">
+            <div className="space-y-1">
+              <span className="text-4xl sm:text-5xl font-black italic tracking-wider bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(250,204,21,0.6)]">
+                {finishData.race.position === 1 ? '🏆 1ST PLACE' : `🏁 #${finishData.race.position} PLACE`}
+              </span>
+              <p className="text-xs sm:text-sm font-bold text-slate-300">
+                {finishData.race.position === 1 ? 'VICTORY! Dominant Circuit Master!' : 'RACE COMPLETE!'}
+              </p>
+            </div>
+
+            {/* Showcase Car */}
+            <div className="relative mx-auto w-64 h-36 rounded-2xl overflow-hidden border border-white/20 shadow-2xl">
+              <img
+                src={selectedCar.image || '/racing/shadow_v12.jpg'}
+                alt={selectedCar.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-2 left-2 px-2.5 py-0.5 rounded bg-slate-950/90 text-white font-mono text-[10px] font-bold">
+                {selectedCar.name}
+              </div>
+            </div>
+
+            {/* Performance Analysis Grid */}
+            <div className="grid grid-cols-3 gap-3 p-3 rounded-2xl bg-slate-900/80 border border-slate-800 text-center font-mono">
+              <div className="p-2 rounded-xl bg-slate-950/60">
+                <span className="text-[10px] text-slate-400 block font-sans">Speed</span>
+                <span className="text-xl font-black text-cyan-400">{finishData.race.wpm} WPM</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-950/60">
+                <span className="text-[10px] text-slate-400 block font-sans">Accuracy</span>
+                <span className="text-xl font-black text-emerald-400">{finishData.race.accuracy}%</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-950/60">
+                <span className="text-[10px] text-slate-400 block font-sans">Time</span>
+                <span className="text-xl font-black text-white">{finishData.race.durationSec}s</span>
+              </div>
+            </div>
+
+            {/* Rewards */}
+            <div className="flex items-center justify-center gap-6 text-sm font-bold">
+              <span className="text-cyan-300">+{finishData.xpEarned} XP ⚡</span>
+              <span className="text-amber-300">+{finishData.starsEarned} Stars ⭐</span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                onClick={handleRestartRace}
+                className="w-full sm:flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white font-black text-xs uppercase tracking-wider shadow-lg active:scale-95 transition"
+              >
+                REMATCH / RACE AGAIN
+              </button>
+              <button
+                onClick={() => {
+                  onShareRace({
+                    text: `🏁 Just finished a Typing Arena Race!\n\n⚡ ${finishData.race.wpm} WPM • ${finishData.race.accuracy}% Accuracy\n🏆 #${finishData.race.position} in ${selectedCar.name}\n\nBeat my score in the Typing Arena!`,
+                    wpm: finishData.race.wpm,
+                    accuracy: finishData.race.accuracy,
+                    position: finishData.race.position,
+                    carName: selectedCar.name,
+                  });
+                }}
+                className="w-full sm:flex-1 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg active:scale-95 transition"
+              >
+                SHARE TO FEED 🚀
+              </button>
+              <button
+                onClick={onExit}
+                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs transition"
+              >
+                EXIT
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

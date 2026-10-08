@@ -289,12 +289,21 @@ export const RacingHUD = ({
                     </span>
                   </div>
 
-                  {/* Car Mini Color Badge */}
-                  <div
-                    className="w-5 h-2.5 rounded-sm border border-black/40 shadow-sm"
-                    style={{ backgroundColor: racer.color || '#3b82f6' }}
-                    title={racer.carName || 'Supercar'}
-                  />
+                  {/* Real Car Miniature Artwork */}
+                  {racer.image ? (
+                    <img
+                      src={racer.image}
+                      alt="Car"
+                      className="w-7 h-4 object-cover rounded border border-white/20 shadow-sm"
+                      title={racer.carName || 'Supercar'}
+                    />
+                  ) : (
+                    <div
+                      className="w-6 h-3 rounded-sm border border-black/40 shadow-sm"
+                      style={{ backgroundColor: racer.color || '#3b82f6' }}
+                      title={racer.carName || 'Supercar'}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -352,13 +361,21 @@ export const RacingHUD = ({
                         : 'border-slate-800 bg-slate-900/80 hover:border-slate-700'
                     }`}
                   >
-                    {/* Car Silhouette Icon */}
-                    <div
-                      className="w-8 h-4 rounded-md border border-white/20 shadow-sm"
-                      style={{ backgroundColor: car.color }}
-                    />
+                    {/* Real Car Miniature Artwork */}
+                    {car.image ? (
+                      <img
+                        src={car.image}
+                        alt={car.name}
+                        className="w-12 h-7 object-cover rounded-md shadow-sm"
+                      />
+                    ) : (
+                      <div
+                        className="w-8 h-4 rounded-md border border-white/20 shadow-sm"
+                        style={{ backgroundColor: car.color }}
+                      />
+                    )}
                     {isSelected && (
-                      <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-cyan-500 flex items-center justify-center text-slate-950">
+                      <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-cyan-500 flex items-center justify-center text-slate-950 shadow-md">
                         <Check size={10} strokeWidth={3} />
                       </div>
                     )}

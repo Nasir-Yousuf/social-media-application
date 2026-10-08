@@ -869,6 +869,7 @@ export const TypingArenaPage = () => {
       {arenaTheme === 'race' && (
         <RacingArenaScreen
           onExit={() => setArenaTheme('racing_hub')}
+          onShareRace={handleShareRacingPost}
           onFinishRace={(res) => {
             showToast(
               `🏁 Race finished in #${res.race?.position || 1}! +${res.xpEarned} XP • +${res.starsEarned} 🪙`,

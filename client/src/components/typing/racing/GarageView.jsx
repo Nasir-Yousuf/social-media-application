@@ -125,31 +125,32 @@ export const GarageView = ({ onBack = () => {}, currentUser = null }) => {
           </div>
 
           {/* Turntable Center Presentation */}
-          <div className="relative my-8 flex flex-col items-center justify-center z-10">
-            {/* Turntable platform ring */}
+          <div className="relative my-6 flex flex-col items-center justify-center z-10">
             <div className="relative flex flex-col items-center">
-              {/* Car Body Presentation */}
+              {/* High-Resolution Supercar Presentation */}
               <div
-                className="w-56 sm:w-72 h-28 sm:h-36 rounded-2xl border-2 border-white/20 shadow-2xl flex flex-col items-center justify-between p-3 relative transition-all duration-300"
+                className="relative rounded-2xl overflow-hidden shadow-2xl transition-all duration-300"
                 style={{
-                  backgroundColor: garage.paintColor || currentCar.color,
-                  boxShadow: `0 0 35px ${garage.neonUnderglow || '#c084fc'}88`,
+                  boxShadow: `0 0 45px ${garage.neonUnderglow || '#c084fc'}88`,
                 }}
               >
-                {/* Windshield */}
-                <div className="w-32 h-10 rounded-lg bg-slate-950/80 border border-white/10" />
+                <img
+                  src={currentCar.image || '/racing/shadow_v12.jpg'}
+                  alt={currentCar.name}
+                  className="w-full max-w-lg h-56 sm:h-64 object-cover rounded-2xl border-2 border-white/20"
+                />
 
-                {/* Custom License Plate Display */}
-                <div className="px-3 py-1 rounded bg-slate-950 border border-white/30 text-white font-mono text-xs font-black tracking-widest shadow-inner">
+                {/* Custom License Plate Display Overlay */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-md bg-slate-950/90 border border-white/40 text-white font-mono text-xs font-black tracking-widest shadow-xl">
                   {garage.licensePlate || 'NASIR'}
                 </div>
               </div>
 
               {/* Glowing Turntable Base */}
               <div
-                className="w-72 sm:w-96 h-8 rounded-full bg-slate-900 border-2 border-cyan-500/40 -mt-4 -z-10 shadow-lg"
+                className="w-80 sm:w-[480px] h-10 rounded-full bg-slate-900 border-2 border-cyan-500/40 -mt-5 -z-10 shadow-lg"
                 style={{
-                  boxShadow: `0 0 20px ${garage.neonUnderglow || '#c084fc'}44`,
+                  boxShadow: `0 0 25px ${garage.neonUnderglow || '#c084fc'}55`,
                 }}
               />
             </div>
@@ -193,14 +194,18 @@ export const GarageView = ({ onBack = () => {}, currentUser = null }) => {
                 <button
                   key={car.id}
                   onClick={() => handleSelectCar(idx)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-xl border flex items-center gap-2 transition ${
+                  className={`flex-shrink-0 p-1.5 rounded-xl border flex items-center gap-2.5 transition ${
                     activeCarIndex === idx
-                      ? 'border-cyan-400 bg-slate-800 text-white'
+                      ? 'border-cyan-400 bg-slate-800 text-white shadow-[0_0_12px_#06b6d4]'
                       : 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <div className="w-5 h-3 rounded" style={{ backgroundColor: car.color }} />
-                  <span className="text-xs font-bold">{car.name}</span>
+                  <img
+                    src={car.image || '/racing/shadow_v12.jpg'}
+                    alt={car.name}
+                    className="w-12 h-7 object-cover rounded-md"
+                  />
+                  <span className="text-xs font-bold pr-1">{car.name}</span>
                 </button>
               ))}
             </div>
