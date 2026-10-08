@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import RacingTrackCanvas from './RacingTrackCanvas';
 import RacingHUD from './RacingHUD';
 import RaceInviteModal from './RaceInviteModal';
