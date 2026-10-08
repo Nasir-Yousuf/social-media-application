@@ -7,7 +7,7 @@ export const CAR_CATALOG = [
     color: '#a855f7', // Cyber Purple
     accentColor: '#c084fc',
     tailFlame: '#e879f9',
-    image: '/racing/shadow_v12.jpg',
+    image: '/racing/shadow_v12.png',
     stats: { speed: 95, acceleration: 92, handling: 88, nitro: 94 },
     description: 'Hyper-tuned twin-turbo powerhouse forged for night circuit dominance.',
     unlockedByDefault: true,
@@ -19,7 +19,7 @@ export const CAR_CATALOG = [
     color: '#22c55e', // Cyber Green
     accentColor: '#4ade80',
     tailFlame: '#10b981',
-    image: '/racing/neon_gt.jpg',
+    image: '/racing/neon_gt.png',
     stats: { speed: 91, acceleration: 93, handling: 94, nitro: 89 },
     description: 'Lightweight electric track weapon with razor-sharp cornering agility.',
     unlockedByDefault: true,
@@ -31,7 +31,7 @@ export const CAR_CATALOG = [
     color: '#ef4444', // Crimson Red
     accentColor: '#f87171',
     tailFlame: '#f97316',
-    image: '/racing/street_phantom.jpg',
+    image: '/racing/street_phantom.png',
     stats: { speed: 88, acceleration: 94, handling: 90, nitro: 86 },
     description: 'Raw muscle supercar that explodes off the starting line.',
     unlockedByDefault: true,
@@ -43,7 +43,7 @@ export const CAR_CATALOG = [
     color: '#e2e8f0', // Hyper Titanium Silver
     accentColor: '#38bdf8',
     tailFlame: '#06b6d4',
-    image: '/racing/apex_x.jpg',
+    image: '/racing/apex_x.png',
     stats: { speed: 96, acceleration: 90, handling: 95, nitro: 92 },
     description: 'Aerodynamic concept hypercar sculpted in virtual supersonic wind tunnels.',
     unlockedByDefault: true,
@@ -55,7 +55,7 @@ export const CAR_CATALOG = [
     color: '#eab308', // Solar Amber Gold
     accentColor: '#fde047',
     tailFlame: '#f59e0b',
-    image: '/racing/thunder_rs.jpg',
+    image: '/racing/thunder_rs.png',
     stats: { speed: 93, acceleration: 95, handling: 87, nitro: 91 },
     description: 'Pure adrenaline with instant torque and high-revving nitro injectors.',
     unlockedByDefault: true,
@@ -67,7 +67,7 @@ export const CAR_CATALOG = [
     color: '#3b82f6', // Cobalt Electric Blue
     accentColor: '#60a5fa',
     tailFlame: '#38bdf8',
-    image: '/racing/cyber_cruiser.jpg',
+    image: '/racing/cyber_cruiser.png',
     stats: { speed: 86, acceleration: 89, handling: 92, nitro: 88 },
     description: 'Balanced street machine with responsive traction control and sleek lines.',
     unlockedByDefault: true,

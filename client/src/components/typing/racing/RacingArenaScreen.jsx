@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import RacingTrackCanvas from './RacingTrackCanvas';
 import RacingHUD from './RacingHUD';
+import RaceInviteModal from './RaceInviteModal';
 import {
   CAR_CATALOG,
   TRACK_CIRCUITS,
@@ -25,8 +26,11 @@ export const RacingArenaScreen = ({
   onFinishRace = () => {},
   onShareRace = () => {},
   currentUser = null,
+  initialRival = null,
 }) => {
   const [garage, setGarage] = useState(() => getPlayerGarage(currentUser));
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [activeRival, setActiveRival] = useState(initialRival);
   const selectedCar =
     CAR_CATALOG.find((c) => c.id === garage.selectedCarId) || CAR_CATALOG[0];
 
@@ -52,17 +56,18 @@ export const RacingArenaScreen = ({
   const hiddenInputRef = useRef(null);
 
   // Opponent Racers (Alex, Sophia, Rohan, Emma, Liam matching Reference Image 1)
-  const [opponents, setOpponents] = useState([
+  const [opponents, setOpponents] = useState(() => [
     {
-      id: 'alex',
-      name: 'Alex',
+      id: initialRival ? (initialRival.username || initialRival._id) : 'alex',
+      name: initialRival ? (initialRival.name || initialRival.username) : 'Alex',
       rank: 1,
-      color: '#ef4444',
-      carName: 'Street Phantom',
-      image: '/racing/street_phantom.jpg',
+      color: initialRival ? (initialRival.carColor || '#ef4444') : '#ef4444',
+      carName: initialRival ? (initialRival.carName || 'Street Phantom') : 'Street Phantom',
+      image: initialRival ? (initialRival.carImage || '/racing/street_phantom.png') : '/racing/street_phantom.png',
       progress: 0,
-      targetWpm: 125,
+      targetWpm: initialRival ? (initialRival.bestWpm || 115) : 125,
       isLeader: true,
+      isRival: !!initialRival,
     },
     {
       id: 'sophia',
@@ -70,7 +75,7 @@ export const RacingArenaScreen = ({
       rank: 2,
       color: '#22c55e',
       carName: 'Neon GT',
-      image: '/racing/neon_gt.jpg',
+      image: '/racing/neon_gt.png',
       progress: 0,
       targetWpm: 118,
     },
@@ -80,7 +85,7 @@ export const RacingArenaScreen = ({
       rank: 3,
       color: '#3b82f6',
       carName: 'Cyber Cruiser',
-      image: '/racing/cyber_cruiser.jpg',
+      image: '/racing/cyber_cruiser.png',
       progress: 0,
       targetWpm: 110,
     },
@@ -90,7 +95,7 @@ export const RacingArenaScreen = ({
       rank: 5,
       color: '#eab308',
       carName: 'Thunder RS',
-      image: '/racing/thunder_rs.jpg',
+      image: '/racing/thunder_rs.png',
       progress: 0,
       targetWpm: 96,
     },
@@ -100,7 +105,7 @@ export const RacingArenaScreen = ({
       rank: 6,
       color: '#e2e8f0',
       carName: 'Apex X',
-      image: '/racing/apex_x.jpg',
+      image: '/racing/apex_x.png',
       progress: 0,
       targetWpm: 88,
     },
@@ -209,6 +214,66 @@ export const RacingArenaScreen = ({
     }, 1000);
   }, []);
 
+  // Launch live 1v1 duel with an invited rival racer
+  const handleStartDuelWithRacer = useCallback((racer) => {
+    setActiveRival(racer);
+    setOpponents([
+      {
+        id: racer.username || racer._id,
+        name: racer.name || racer.username,
+        rank: 1,
+        color: racer.carColor || '#ef4444',
+        carName: racer.carName || 'Street Phantom',
+        image: racer.carImage || '/racing/street_phantom.png',
+        progress: 0,
+        targetWpm: racer.bestWpm || 115,
+        isLeader: true,
+        isRival: true,
+      },
+      {
+        id: 'sophia',
+        name: 'Sophia',
+        rank: 2,
+        color: '#22c55e',
+        carName: 'Neon GT',
+        image: '/racing/neon_gt.png',
+        progress: 0,
+        targetWpm: 110,
+      },
+      {
+        id: 'rohan',
+        name: 'Rohan',
+        rank: 3,
+        color: '#3b82f6',
+        carName: 'Cyber Cruiser',
+        image: '/racing/cyber_cruiser.png',
+        progress: 0,
+        targetWpm: 105,
+      },
+      {
+        id: 'emma',
+        name: 'Emma',
+        rank: 5,
+        color: '#eab308',
+        carName: 'Thunder RS',
+        image: '/racing/thunder_rs.png',
+        progress: 0,
+        targetWpm: 96,
+      },
+      {
+        id: 'liam',
+        name: 'Liam',
+        rank: 6,
+        color: '#e2e8f0',
+        carName: 'Apex X',
+        image: '/racing/apex_x.png',
+        progress: 0,
+        targetWpm: 88,
+      },
+    ]);
+    handleRestartRace();
+  }, [handleRestartRace]);
+
   // Keystroke handler for typing challenge
   const handleKeyDown = useCallback(
     (e) => {
@@ -313,13 +378,13 @@ export const RacingArenaScreen = ({
       progress: playerProgress,
       isUser: true,
       carName: selectedCar.name,
-      image: selectedCar.image || '/racing/shadow_v12.jpg',
+      image: selectedCar.image || '/racing/shadow_v12.png',
     },
     ...opponents,
   ].sort((a, b) => b.progress - a.progress);
 
   return (
-    <div className="relative w-full h-[88vh] min-h-[640px] rounded-3xl overflow-hidden border border-cyan-500/40 shadow-2xl bg-slate-950">
+    <div className="relative w-full h-[calc(100vh-140px)] min-h-[480px] max-h-[720px] rounded-2xl overflow-hidden border border-cyan-500/40 shadow-2xl bg-slate-950">
       {/* 2.5D Canvas Highway */}
       <RacingTrackCanvas
         playerProgress={playerProgress}
@@ -355,6 +420,7 @@ export const RacingArenaScreen = ({
         trackName="Neon Coast"
         round="1/3"
         onBack={onExit}
+        onOpenInvite={() => setIsInviteModalOpen(true)}
       />
 
       {/* Countdown overlay (3, 2, 1, GO!) */}
@@ -455,6 +521,14 @@ export const RacingArenaScreen = ({
         type="text"
         className="opacity-0 absolute -top-96 left-0 pointer-events-none"
         aria-hidden="true"
+      />
+
+      {/* Race Invite & 1v1 Challenger Modal */}
+      <RaceInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onStartDuelWithRacer={handleStartDuelWithRacer}
+        selectedCar={selectedCar}
       />
     </div>
   );

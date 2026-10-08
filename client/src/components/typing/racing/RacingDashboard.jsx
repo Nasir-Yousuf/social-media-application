@@ -30,6 +30,7 @@ import {
   claimMissionReward,
 } from '../../../utils/racingStorage';
 import racingAudio from '../../../utils/racingAudio';
+import RaceInviteModal from './RaceInviteModal';
 
 /**
  * Racing Dashboard Hub matching Reference Image 2:
@@ -60,6 +61,7 @@ export const RacingDashboard = ({
   const [garageSubTab, setGarageSubTab] = useState('cars');
   const [selectedCarIndex, setSelectedCarIndex] = useState(0);
   const [hasShared, setHasShared] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   // Sync profile when storage updates
   useEffect(() => {
@@ -146,23 +148,31 @@ export const RacingDashboard = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 pt-2">
               <button
                 onClick={() => {
                   racingAudio.playNitro();
                   onStartRace();
                 }}
-                className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-black text-sm tracking-widest uppercase shadow-[0_0_25px_rgba(236,72,153,0.5)] active:scale-95 transition-all flex items-center gap-2.5"
+                className="px-7 sm:px-8 py-3.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-pink-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-black text-sm tracking-widest uppercase shadow-[0_0_25px_rgba(236,72,153,0.5)] active:scale-95 transition-all flex items-center gap-2.5"
               >
                 <Play size={18} className="fill-white" />
                 <span>PLAY NOW</span>
               </button>
 
               <button
-                onClick={onStartRace}
-                className="px-6 py-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/70 text-slate-200 font-bold text-sm tracking-wide transition flex items-center gap-2"
+                onClick={() => setIsInviteModalOpen(true)}
+                className="px-6 py-3.5 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 border border-cyan-400/40 text-cyan-300 font-bold text-sm tracking-wide transition flex items-center gap-2 shadow-lg active:scale-95"
               >
-                <span>▶ WATCH PREVIEW</span>
+                <Users size={18} />
+                <span>INVITE RACERS</span>
+              </button>
+
+              <button
+                onClick={onStartRace}
+                className="px-5 py-3.5 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/70 text-slate-300 font-bold text-sm tracking-wide transition flex items-center gap-2"
+              >
+                <span>▶ PREVIEW</span>
               </button>
             </div>
           </div>
@@ -240,7 +250,7 @@ export const RacingDashboard = ({
               </div>
               <div className="my-4 flex justify-center">
                 <img
-                  src="/racing/shadow_v12.jpg"
+                  src="/racing/shadow_v12.png"
                   alt="Racing"
                   className="w-20 h-11 object-cover rounded-lg shadow-md group-hover:scale-105 transition border border-purple-500/30"
                 />
@@ -248,9 +258,28 @@ export const RacingDashboard = ({
               <div>
                 <h3 className="text-sm font-extrabold text-white">RACING</h3>
                 <p className="text-[11px] text-slate-400">Real-time multiplayer</p>
-                <button className="mt-2 w-full py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 text-cyan-300 font-bold text-xs transition">
-                  PLAY
-                </button>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      racingAudio.playNitro();
+                      onStartRace();
+                    }}
+                    className="flex-1 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 text-cyan-300 font-bold text-xs transition"
+                  >
+                    PLAY
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsInviteModalOpen(true);
+                    }}
+                    className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition border border-slate-700"
+                    title="Invite to Race"
+                  >
+                    <Users size={12} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -865,6 +894,17 @@ export const RacingDashboard = ({
           </button>
         </div>
       </div>
+
+      {/* Race Invite Modal */}
+      <RaceInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        onStartDuelWithRacer={(racer) => {
+          setIsInviteModalOpen(false);
+          onStartRace(racer);
+        }}
+        selectedCar={selectedCar}
+      />
     </div>
   );
 };

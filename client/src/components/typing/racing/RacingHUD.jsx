@@ -12,6 +12,7 @@ import {
   Crown,
   MapPin,
   Check,
+  Users,
 } from 'lucide-react';
 import { CAR_CATALOG } from '../../../utils/racingStorage';
 import racingAudio from '../../../utils/racingAudio';
@@ -47,6 +48,7 @@ export const RacingHUD = ({
   trackName = 'Neon Coast',
   round = '1/3',
   onBack = () => {},
+  onOpenInvite = () => {},
 }) => {
   const [isMuted, setIsMuted] = useState(() => racingAudio.getMuted());
   const [carCarouselIndex, setCarCarouselIndex] = useState(0);
@@ -75,7 +77,7 @@ export const RacingHUD = ({
   const remainingText = textPrompt.slice(typedLength + 1);
 
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 sm:p-5 select-none font-sans overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2 sm:p-3.5 select-none font-sans overflow-hidden">
       {/* ========================================================
           1. TOP NAVIGATION / STATUS BAR (Image 1)
       ======================================================== */}
@@ -102,8 +104,18 @@ export const RacingHUD = ({
           </div>
         </div>
 
-        {/* Right Badges: Stars, Trophy Rank, Sound & Settings */}
+        {/* Right Badges: Invite, Stars, Trophy Rank, Sound & Settings */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Invite Racers Button */}
+          <button
+            onClick={onOpenInvite}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600/30 to-blue-600/30 hover:from-cyan-600/50 hover:to-blue-600/50 border border-cyan-400/40 backdrop-blur-md text-cyan-300 hover:text-white text-xs sm:text-sm font-bold shadow-md shadow-cyan-950/20 active:scale-95 transition"
+            title="Invite Racers to Live Highway Duel"
+          >
+            <Users size={14} className="text-cyan-400" />
+            <span className="hidden sm:inline">Invite Racers</span>
+          </button>
+
           {/* Star Currency */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-amber-500/30 backdrop-blur-md text-amber-300 text-xs sm:text-sm font-bold shadow-md shadow-amber-950/20">
             <Star size={14} className="fill-amber-400 text-amber-400" />
@@ -152,32 +164,47 @@ export const RacingHUD = ({
           </div>
 
           {/* Glassmorphic Cockpit Bracket */}
-          <div className="relative w-full px-5 py-3.5 rounded-2xl bg-slate-950/80 border border-cyan-500/40 backdrop-blur-xl shadow-[0_0_25px_rgba(6,182,212,0.18)]">
+          <div className="relative w-full px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-slate-950/85 border border-cyan-500/40 backdrop-blur-xl shadow-[0_0_25px_rgba(6,182,212,0.18)]">
             {/* Cyber Corner Accents */}
             <div className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-cyan-400" />
             <div className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-cyan-400" />
             <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-cyan-400" />
             <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-cyan-400" />
 
-            {/* Live Typing Text Stream with high-visibility letter styling */}
-            <div className="font-mono text-sm sm:text-base md:text-lg tracking-wider leading-relaxed break-all select-none">
-              {/* Correctly typed portion */}
-              <span className="text-emerald-400 font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]">
-                {typedText}
-              </span>
+            {/* Stationary Full Challenge Paragraph: Words NEVER shift or jump */}
+            <div className="font-mono text-xs sm:text-sm md:text-base tracking-normal leading-relaxed select-none whitespace-pre-wrap break-words min-h-[48px] max-h-[72px] overflow-hidden text-left w-full">
+              {textPrompt.split('').map((char, idx) => {
+                const isTyped = idx < typedLength;
+                const isCurrent = idx === typedLength;
 
-              {/* Current Active Character Cursor */}
-              {currentTargetChar && (
-                <span className="relative inline-block text-white font-extrabold bg-cyan-500/30 px-0.5 rounded border-b-2 border-cyan-400 animate-pulse drop-shadow-[0_0_10px_rgba(56,189,248,0.9)]">
-                  {currentTargetChar === ' ' ? '␣' : currentTargetChar}
-                </span>
-              )}
+                if (isTyped) {
+                  return (
+                    <span
+                      key={idx}
+                      className="text-emerald-400 font-bold drop-shadow-[0_0_6px_rgba(52,211,153,0.5)]"
+                    >
+                      {char}
+                    </span>
+                  );
+                }
 
-              {/* Remaining prompt text */}
-              <span className="text-slate-400/80 font-normal">
-                {remainingText.slice(0, 75)}
-                {remainingText.length > 75 ? '...' : ''}
-              </span>
+                if (isCurrent) {
+                  return (
+                    <span
+                      key={idx}
+                      className="relative inline-block text-white font-black bg-cyan-500/40 rounded px-[1px] border-b-2 border-cyan-400 shadow-[0_0_8px_#38bdf8] animate-pulse"
+                    >
+                      {char === ' ' ? '\u00A0' : char}
+                    </span>
+                  );
+                }
+
+                return (
+                  <span key={idx} className="text-slate-400/70 font-medium">
+                    {char}
+                  </span>
+                );
+              })}
             </div>
 
             {/* Glowing Dual Progress Bar + Counter */}
@@ -419,7 +446,7 @@ export const RacingHUD = ({
         </div>
 
         {/* Bottom-Right: Neon Circular Speedometer Dial (Image 1: 143 KM/H, Gear 4) */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Nitro Activation Button */}
           <button
             onClick={() => {
@@ -429,7 +456,7 @@ export const RacingHUD = ({
               }
             }}
             disabled={nitroPercent < 50 || isNitroActive}
-            className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl border transition-all ${
+            className={`flex flex-col items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border transition-all ${
               isNitroActive
                 ? 'bg-cyan-500 text-white border-cyan-300 shadow-[0_0_20px_#06b6d4] animate-pulse'
                 : nitroPercent >= 50
@@ -438,14 +465,14 @@ export const RacingHUD = ({
             }`}
             title="Press SPACE or Click for Nitro!"
           >
-            <Zap size={20} className={nitroPercent >= 50 ? 'fill-cyan-400' : ''} />
-            <span className="text-[10px] font-black tracking-wider uppercase mt-0.5">
+            <Zap size={18} className={nitroPercent >= 50 ? 'fill-cyan-400' : ''} />
+            <span className="text-[9px] font-black tracking-wider uppercase mt-0.5">
               {isNitroActive ? 'BOOST' : 'NITRO'}
             </span>
           </button>
 
           {/* Speedometer Gauge */}
-          <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full bg-slate-950/90 border-2 border-cyan-500/40 backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.3)] flex flex-col items-center justify-center p-2">
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-slate-950/90 border-2 border-cyan-500/40 backdrop-blur-xl shadow-[0_0_24px_rgba(6,182,212,0.3)] flex flex-col items-center justify-center p-1.5">
             {/* Outer Circular Speed Arc SVG */}
             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full -rotate-90">
               {/* Background track */}
@@ -481,7 +508,7 @@ export const RacingHUD = ({
 
             {/* Needle line */}
             <div
-              className="absolute w-0.5 h-14 bg-gradient-to-t from-transparent to-cyan-300 origin-bottom transition-transform duration-100 shadow-[0_0_8px_#38bdf8]"
+              className="absolute w-0.5 h-11 bg-gradient-to-t from-transparent to-cyan-300 origin-bottom transition-transform duration-100 shadow-[0_0_8px_#38bdf8]"
               style={{
                 bottom: '50%',
                 transform: `rotate(${needleAngle}deg)`,
@@ -490,15 +517,15 @@ export const RacingHUD = ({
 
             {/* Digital Speed Value */}
             <div className="flex flex-col items-center z-10">
-              <span className="text-3xl sm:text-4xl font-black italic tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.7)] font-mono">
+              <span className="text-2xl sm:text-3xl font-black italic tracking-tighter text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.7)] font-mono">
                 {Math.round(clampedSpeed)}
               </span>
-              <span className="text-[10px] font-black tracking-widest text-cyan-400 uppercase -mt-1">
+              <span className="text-[9px] font-black tracking-widest text-cyan-400 uppercase -mt-0.5">
                 KM/H
               </span>
 
               {/* Digital Gear Box (Image 1: '4') */}
-              <div className="mt-1 w-6 h-6 rounded-full bg-slate-900 border border-slate-700/80 flex items-center justify-center text-xs font-black text-purple-300 shadow-inner">
+              <div className="mt-0.5 w-5 h-5 rounded-full bg-slate-900 border border-slate-700/80 flex items-center justify-center text-[10px] font-black text-purple-300 shadow-inner">
                 {gear}
               </div>
             </div>

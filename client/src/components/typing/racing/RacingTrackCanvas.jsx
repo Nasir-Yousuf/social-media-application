@@ -64,12 +64,12 @@ export const RacingTrackCanvas = ({
 
     // Preload car sprites
     const carsToLoad = [
-      { id: 'shadow_v12', src: '/racing/shadow_v12.jpg' },
-      { id: 'street_phantom', src: '/racing/street_phantom.jpg' },
-      { id: 'neon_gt', src: '/racing/neon_gt.jpg' },
-      { id: 'cyber_cruiser', src: '/racing/cyber_cruiser.jpg' },
-      { id: 'thunder_rs', src: '/racing/thunder_rs.jpg' },
-      { id: 'apex_x', src: '/racing/apex_x.jpg' },
+      { id: 'shadow_v12', src: '/racing/shadow_v12.png' },
+      { id: 'street_phantom', src: '/racing/street_phantom.png' },
+      { id: 'neon_gt', src: '/racing/neon_gt.png' },
+      { id: 'cyber_cruiser', src: '/racing/cyber_cruiser.png' },
+      { id: 'thunder_rs', src: '/racing/thunder_rs.png' },
+      { id: 'apex_x', src: '/racing/apex_x.png' },
     ];
 
     carsToLoad.forEach((c) => {
@@ -248,14 +248,16 @@ export const RacingTrackCanvas = ({
         }
       });
 
-      // Wet road neon reflection bloom from city & car taillights
+      // Wet asphalt soft ambient light reflection
       const playerColor = props.playerCar?.color || '#a855f7';
-      const wetBloom = ctx.createRadialGradient(vanishX, H * 0.9, 30, vanishX, H * 0.9, W * 0.45);
-      wetBloom.addColorStop(0, `${playerColor}55`);
-      wetBloom.addColorStop(0.4, `${playerColor}22`);
+      const wetBloom = ctx.createRadialGradient(vanishX, H * 0.92, 10, vanishX, H * 0.92, W * 0.35);
+      wetBloom.addColorStop(0, `${playerColor}25`);
+      wetBloom.addColorStop(0.5, `${playerColor}0a`);
       wetBloom.addColorStop(1, 'transparent');
       ctx.fillStyle = wetBloom;
-      ctx.fillRect(vanishX - W * 0.45, H * 0.6, W * 0.9, H * 0.4);
+      ctx.beginPath();
+      ctx.ellipse(vanishX, H * 0.92, W * 0.35, H * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill();
 
       // ========================================================
       // 4. OPPONENT RACERS (REAL AUTOMOTIVE ARTWORK)
@@ -352,21 +354,21 @@ export const RacingTrackCanvas = ({
       ctx.save();
       ctx.translate(playerX, playerY);
 
-      // Realistic Tire Road Contact Shadow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+      // Realistic Soft Tire Contact Shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
       ctx.beginPath();
-      ctx.ellipse(0, 8, pCarW * 0.54, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 4, pCarW * 0.46, 10, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Neon Underglow Aura
-      const underglowRadius = pCarW * 0.65;
-      const underglow = ctx.createRadialGradient(0, 8, pCarW * 0.1, 0, 8, underglowRadius);
-      underglow.addColorStop(0, `${playerColor}ee`);
-      underglow.addColorStop(0.5, `${playerColor}55`);
+      // Subtle, realistic ground neon underglow (soft aura blending smoothly onto wet road)
+      const underglowRadius = pCarW * 0.50;
+      const underglow = ctx.createRadialGradient(0, 4, 8, 0, 4, underglowRadius);
+      underglow.addColorStop(0, `${playerColor}35`);
+      underglow.addColorStop(0.4, `${playerColor}12`);
       underglow.addColorStop(1, 'transparent');
       ctx.fillStyle = underglow;
       ctx.beginPath();
-      ctx.ellipse(0, 8, pCarW * 0.62, 28, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 4, pCarW * 0.50, 14, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Animated Exhaust Flames & Turbo Burners

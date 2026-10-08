@@ -24,6 +24,13 @@ export const loadCarSprite = (carId, imageSrc) => {
     img.crossOrigin = 'anonymous';
 
     img.onload = () => {
+      // If image is already a transparent PNG, cache and return immediately
+      if (imageSrc.endsWith('.png')) {
+        spriteCache.set(carId, img);
+        resolve(img);
+        return;
+      }
+
       try {
         const offscreen = document.createElement('canvas');
         // Scale to 640x360 for high-DPI crispness and blazing speed

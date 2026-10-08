@@ -107,6 +107,29 @@ export const TypingArenaPage = () => {
   const activeChallengeRef = useRef(null);
   const [challenges, setChallenges] = useState({ incoming: [], outgoing: [], history: [] });
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
+  const [raceRival, setRaceRival] = useState(null);
+
+  // Handle direct race duel query params or mode links
+  useEffect(() => {
+    const duelWith = searchParams.get('duelWith') || searchParams.get('raceInvite');
+    const themeParam = searchParams.get('theme');
+    if (duelWith) {
+      const carParam = searchParams.get('car') || 'street_phantom';
+      setRaceRival({
+        username: duelWith,
+        name: duelWith,
+        carName: carParam === 'street_phantom' ? 'Street Phantom' : 'Supercar',
+        carColor: '#ef4444',
+        carImage: `/racing/${carParam}.png`,
+        bestWpm: 120,
+      });
+      setArenaThemeState('race');
+      localStorage.setItem('typing_arena_theme', 'race');
+    } else if (themeParam && ['racing_hub', 'race', 'garage', 'arcade', 'classic', 'game', 'hacker', 'zen'].includes(themeParam)) {
+      setArenaThemeState(themeParam);
+      localStorage.setItem('typing_arena_theme', themeParam);
+    }
+  }, [searchParams]);
 
   // Fetch current user's challenges (merging resilient local storage + remote API)
   const fetchChallenges = useCallback(async () => {
@@ -800,59 +823,78 @@ export const TypingArenaPage = () => {
 
   return (
     <div
-      className={`mx-auto px-4 sm:px-6 py-6 font-sans transition-all duration-300 w-full ${
-        arenaTheme === 'race' || arenaTheme === 'racing_hub'
-          ? 'max-w-[1520px]'
+      className={`mx-auto font-sans transition-all duration-300 w-full ${
+        arenaTheme === 'race'
+          ? 'max-w-[1520px] px-2 sm:px-4 py-1.5 h-[calc(100vh-80px)] flex flex-col justify-start overflow-hidden'
+          : arenaTheme === 'racing_hub'
+          ? 'max-w-[1520px] px-4 sm:px-6 py-6'
           : arenaTheme === 'game'
-          ? 'max-w-[1400px]'
+          ? 'max-w-[1400px] px-4 sm:px-6 py-6'
           : arenaTheme === 'hacker'
-          ? 'max-w-6xl'
+          ? 'max-w-6xl px-4 sm:px-6 py-6'
           : arenaTheme === 'zen'
-          ? 'max-w-4xl'
-          : 'max-w-6xl'
+          ? 'max-w-4xl px-4 sm:px-6 py-6'
+          : 'max-w-6xl px-4 sm:px-6 py-6'
       }`}
     >
       {/* Top Header with Multi-mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-2 border-b border-neutral-800/60">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400">
-            <Keyboard className="w-5 h-5 sm:w-6 sm:h-6" />
+      {arenaTheme !== 'race' ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-2 border-b border-neutral-800/60">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-400">
+              <Keyboard className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                <span>Typing Arena</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-mono font-bold uppercase">
+                  {arenaTheme === 'racing_hub'
+                    ? 'ARENA HUB'
+                    : arenaTheme === 'garage'
+                    ? 'MY GARAGE'
+                    : arenaTheme === 'arcade'
+                    ? 'ARCADE LAB'
+                    : arenaTheme === 'game'
+                    ? 'ARCADE MODE'
+                    : arenaTheme === 'hacker'
+                    ? 'CYBER HACKER'
+                    : arenaTheme === 'zen'
+                    ? 'ZEN FOCUS'
+                    : `${arenaTheme.toUpperCase()} MODE`}
+                </span>
+              </h1>
+              <p className="text-xs text-neutral-400">
+                Type at supersonic speed, race live hypercars, customize garage & dominate
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
-              <span>Typing Arena</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-mono font-bold uppercase">
-                {arenaTheme === 'racing_hub'
-                  ? 'ARENA HUB'
-                  : arenaTheme === 'race'
-                  ? '2.5D HIGHWAY RACE'
-                  : arenaTheme === 'garage'
-                  ? 'MY GARAGE'
-                  : arenaTheme === 'arcade'
-                  ? 'ARCADE LAB'
-                  : arenaTheme === 'game'
-                  ? 'ARCADE MODE'
-                  : arenaTheme === 'hacker'
-                  ? 'CYBER HACKER'
-                  : arenaTheme === 'zen'
-                  ? 'ZEN FOCUS'
-                  : `${arenaTheme.toUpperCase()} MODE`}
-              </span>
-            </h1>
-            <p className="text-xs text-neutral-400">
-              Type at supersonic speed, race live hypercars, customize garage & dominate
-            </p>
-          </div>
-        </div>
 
-        {/* Mode & Style Switcher */}
-        <ArenaThemeSwitcher activeTheme={arenaTheme} onSelectTheme={setArenaTheme} />
-      </div>
+          {/* Mode & Style Switcher */}
+          <ArenaThemeSwitcher activeTheme={arenaTheme} onSelectTheme={setArenaTheme} />
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-2 mb-2 pb-1 border-b border-neutral-800/60 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-black text-white italic tracking-wider">
+              🏎️ TYPING ARENA <span className="text-cyan-400">RACE</span>
+            </span>
+            {raceRival && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                1v1 DUEL VS @{raceRival.username}
+              </span>
+            )}
+          </div>
+          <ArenaThemeSwitcher activeTheme={arenaTheme} onSelectTheme={setArenaTheme} compact />
+        </div>
+      )}
 
       {/* 1. Racing Arena Hub (Image 2) */}
       {arenaTheme === 'racing_hub' && (
         <RacingDashboard
-          onStartRace={() => setArenaTheme('race')}
+          onStartRace={(racer) => {
+            if (racer) setRaceRival(racer);
+            setArenaTheme('race');
+          }}
           onSelectMode={(m) => {
             if (m === 'racing') setArenaTheme('race');
             else if (m === 'arcade' || m === 'mood') setArenaTheme('arcade');
@@ -868,7 +910,10 @@ export const TypingArenaPage = () => {
       {/* 2. Live 2.5D Highway Supercar Race (Image 1) */}
       {arenaTheme === 'race' && (
         <RacingArenaScreen
-          onExit={() => setArenaTheme('racing_hub')}
+          onExit={() => {
+            setRaceRival(null);
+            setArenaTheme('racing_hub');
+          }}
           onShareRace={handleShareRacingPost}
           onFinishRace={(res) => {
             showToast(
@@ -877,6 +922,7 @@ export const TypingArenaPage = () => {
             );
           }}
           currentUser={user}
+          initialRival={raceRival}
         />
       )}
 

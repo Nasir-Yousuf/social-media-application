@@ -68,12 +68,14 @@ export const THEMES = [
   },
 ];
 
-export const ArenaThemeSwitcher = ({ activeTheme, onSelectTheme }) => {
+export const ArenaThemeSwitcher = ({ activeTheme, onSelectTheme, compact = false }) => {
   return (
-    <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-xl backdrop-blur-md">
-      <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 px-2 hidden sm:inline-block">
-        Mode Style:
-      </span>
+    <div className={`flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-xl backdrop-blur-md ${compact ? 'py-0.5 px-1' : ''}`}>
+      {!compact && (
+        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 px-2 hidden sm:inline-block">
+          Mode Style:
+        </span>
+      )}
       {THEMES.map((t) => {
         const Icon = t.icon;
         const isActive = activeTheme === t.id;
@@ -84,15 +86,17 @@ export const ArenaThemeSwitcher = ({ activeTheme, onSelectTheme }) => {
             type="button"
             onClick={() => onSelectTheme(t.id)}
             title={t.desc}
-            className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+            className={`relative flex items-center gap-1.5 rounded-xl font-bold transition-all duration-200 cursor-pointer ${
+              compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1.5 text-xs'
+            } ${
               isActive
                 ? 'bg-gradient-to-r from-cyan-500/25 to-purple-500/25 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
                 : 'text-slate-400 hover:text-white hover:bg-slate-900 border border-transparent'
             }`}
           >
-            <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-cyan-400' : 'text-slate-400'}`} />
+            <Icon className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} ${isActive ? 'text-cyan-400' : 'text-slate-400'}`} />
             <span>{t.label}</span>
-            {t.badge && (
+            {t.badge && !compact && (
               <span className="text-[9px] px-1 py-0.2 rounded bg-fuchsia-500/20 text-fuchsia-300 font-mono font-black border border-fuchsia-500/30">
                 {t.badge}
               </span>
