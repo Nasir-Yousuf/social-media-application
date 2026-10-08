@@ -70,7 +70,7 @@ export const NotificationsPage = () => {
     }
   };
 
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = (type, notif) => {
     switch (type) {
       case 'like':
         return (
@@ -128,6 +128,13 @@ export const NotificationsPage = () => {
           </div>
         );
       case 'typing_challenge':
+        if (notif?.typingChallenge?.isRace || notif?.typingChallenge?.mode === 'race_highway') {
+          return (
+            <div className="p-2 rounded-full bg-gradient-to-br from-red-500/20 via-slate-900 to-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.4)] animate-pulse">
+              <Flame className="w-4 h-4 text-cyan-400 fill-cyan-400" />
+            </div>
+          );
+        }
         return (
           <div className="p-2 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-500 ring-1 ring-amber-200 dark:ring-amber-900/50 animate-pulse">
             <Swords className="w-4 h-4" />
@@ -266,7 +273,7 @@ export const NotificationsPage = () => {
                   : 'bg-white dark:bg-[#121519] border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
               }`}
             >
-              <div className="shrink-0 pt-0.5">{getNotificationIcon(n.type)}</div>
+              <div className="shrink-0 pt-0.5">{getNotificationIcon(n.type, n)}</div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -305,7 +312,11 @@ export const NotificationsPage = () => {
                   {n.type === 'announcement' && 'published an announcement.'}
                   {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}
                   {n.type === 'question_accepted' && 'marked your answer as the accepted solution! 🎉'}
-                  {n.type === 'typing_challenge' && 'challenged you to a 1v1 Typing Duel in Clearfeed Arena! ⚡'}
+                  {n.type === 'typing_challenge' && (
+                    n.typingChallenge?.isRace || n.typingChallenge?.mode === 'race_highway'
+                      ? 'challenged you to a Highway Supercar Race in Typing Arena! 🏎️⚡'
+                      : 'challenged you to a 1v1 Typing Duel in Clearfeed Arena! ⚡'
+                  )}
                   {n.type === 'typing_challenge_result' && 'completed your 1v1 Typing Duel!'}
                 </p>
 
@@ -323,13 +334,23 @@ export const NotificationsPage = () => {
 
                 {n.type === 'typing_challenge' && (
                   <div className="mt-2.5 flex items-center gap-2">
-                    <NavLink
-                      to={`/typing?challengeId=${n.typingChallenge?._id || n.typingChallenge}`}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-xs transition-transform active:scale-95"
-                    >
-                      <Swords className="w-3.5 h-3.5" />
-                      <span>Accept & Race Rival &rarr;</span>
-                    </NavLink>
+                    {n.typingChallenge?.isRace || n.typingChallenge?.mode === 'race_highway' ? (
+                      <NavLink
+                        to={`/typing?theme=race&duelWith=${n.sender?.username}&car=${n.typingChallenge?.carId || 'street_phantom'}&challengeId=${n.typingChallenge?._id || n.typingChallenge}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 via-amber-500 to-cyan-400 hover:from-red-400 hover:to-cyan-300 text-slate-950 font-black text-xs shadow-md shadow-cyan-500/20 transition-all hover:scale-105 active:scale-95"
+                      >
+                        <Flame className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
+                        <span>🏎️ Start Race Against @{n.sender?.username} &rarr;</span>
+                      </NavLink>
+                    ) : (
+                      <NavLink
+                        to={`/typing?challengeId=${n.typingChallenge?._id || n.typingChallenge}`}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-xs transition-transform active:scale-95"
+                      >
+                        <Swords className="w-3.5 h-3.5" />
+                        <span>Accept & Race Rival &rarr;</span>
+                      </NavLink>
+                    )}
                   </div>
                 )}
 

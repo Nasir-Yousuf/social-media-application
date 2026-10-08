@@ -113,6 +113,28 @@ export const RacingArenaScreen = ({
     },
   ]);
 
+  // Synchronize dynamic rival when passed or updated from challenge URL
+  useEffect(() => {
+    if (initialRival) {
+      setOpponents((prev) => {
+        const rivalOpponent = {
+          id: initialRival.username || initialRival._id || 'rival',
+          name: initialRival.name || initialRival.username || 'Rival Driver',
+          rank: 1,
+          color: initialRival.carColor || '#ef4444',
+          carName: initialRival.carName || 'Street Phantom',
+          image: initialRival.carImage || '/racing/street_phantom.png',
+          progress: 0,
+          targetWpm: initialRival.bestWpm || 115,
+          isLeader: true,
+          isRival: true,
+        };
+        const rest = prev.filter((o) => !o.isRival && o.id !== 'alex');
+        return [rivalOpponent, ...rest];
+      });
+    }
+  }, [initialRival]);
+
   // Start countdown sequence
   useEffect(() => {
     racingAudio.startEngine(40);

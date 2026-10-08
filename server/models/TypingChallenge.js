@@ -95,6 +95,14 @@ const typingChallengeSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    carId: {
+      type: String,
+      default: 'shadow_v12',
+    },
+    isRace: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

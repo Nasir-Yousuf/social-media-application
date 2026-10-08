@@ -394,6 +394,8 @@ exports.createChallenge = async (req, res) => {
     const {
       challengedUserId,
       challengedUsername,
+      targetUserId,
+      targetUsername,
       duration = 15,
       mode = 'words_200',
       words = [],
@@ -402,14 +404,20 @@ exports.createChallenge = async (req, res) => {
       challengerAccuracy = 100,
       challengerRawWpm,
       challengerTelemetry = [],
-      customMessage = 'I challenge you to beat my typing speed in Clearfeed Arena!',
+      customMessage,
+      carId = 'street_phantom',
+      carName = 'Supercar',
+      isRace = false,
     } = req.body;
 
+    const actualTargetId = challengedUserId || targetUserId;
+    const actualTargetUsername = challengedUsername || targetUsername;
+
     let targetUser = null;
-    if (challengedUserId) {
-      targetUser = await User.findById(challengedUserId);
-    } else if (challengedUsername) {
-      targetUser = await User.findOne({ username: challengedUsername.toLowerCase().trim() });
+    if (actualTargetId) {
+      targetUser = await User.findById(actualTargetId);
+    } else if (actualTargetUsername) {
+      targetUser = await User.findOne({ username: String(actualTargetUsername).toLowerCase().trim() });
     }
 
     if (!targetUser) {
@@ -423,6 +431,7 @@ exports.createChallenge = async (req, res) => {
     const parsedWpm = Math.max(0, Math.min(350, Math.round(Number(challengerWpm) || 0)));
     const parsedAcc = Math.max(0, Math.min(100, Math.round(Number(challengerAccuracy) || 100)));
     const parsedDur = [15, 30, 60, 120].includes(Number(duration)) ? Number(duration) : 15;
+    const isHighwayRace = Boolean(isRace || mode === 'race_highway');
 
     // Use passed words or generate a randomized seed set
     let challengeWords = Array.isArray(words) && words.length > 0 ? words : [];
@@ -433,18 +442,24 @@ exports.createChallenge = async (req, res) => {
       }
     }
 
+    const defaultMsg = isHighwayRace
+      ? `🏎️ I challenge you to a Highway Race in the Typing Arena! My car is the ${carName}. Let's burn some rubber! ⚡`
+      : 'I challenge you to beat my typing speed in Clearfeed Arena!';
+
     const challenge = new TypingChallenge({
       challenger: challengerId,
       challenged: targetUser._id,
       duration: parsedDur,
-      mode: (mode || 'words_200').trim(),
+      mode: isHighwayRace ? 'race_highway' : (mode || 'words_200').trim(),
       words: challengeWords,
       quoteAuthor,
       challengerWpm: parsedWpm,
       challengerAccuracy: parsedAcc,
       challengerRawWpm: Math.round(Number(challengerRawWpm) || parsedWpm),
       challengerTelemetry: Array.isArray(challengerTelemetry) ? challengerTelemetry : [],
-      customMessage: customMessage?.trim() || 'I challenge you to beat my typing speed in Clearfeed Arena!',
+      customMessage: customMessage?.trim() || defaultMsg,
+      carId: carId || 'street_phantom',
+      isRace: isHighwayRace,
       status: 'pending',
     });
 
@@ -464,12 +479,16 @@ exports.createChallenge = async (req, res) => {
         participants: { $all: [challengerId, targetUser._id] },
       });
 
+      const duelTitle = isHighwayRace
+        ? `🏎️ Highway Supercar Race Challenge: Can you beat my ${parsedWpm} WPM on the track in my ${carName}?`
+        : `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?`;
+
       if (!conversation) {
         conversation = await Conversation.create({
           participants: [challengerId, targetUser._id],
           unreadCounts: new Map([[targetUser._id.toString(), 1]]),
           lastMessage: {
-            text: `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?`,
+            text: duelTitle,
             sender: challengerId,
             createdAt: new Date(),
           },
@@ -479,7 +498,7 @@ exports.createChallenge = async (req, res) => {
         if (!conversation.unreadCounts) conversation.unreadCounts = new Map();
         conversation.unreadCounts.set(targetUser._id.toString(), currentUnread + 1);
         conversation.lastMessage = {
-          text: `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?`,
+          text: duelTitle,
           sender: challengerId,
           createdAt: new Date(),
         };
@@ -490,7 +509,7 @@ exports.createChallenge = async (req, res) => {
         conversation: conversation._id,
         sender: challengerId,
         recipient: targetUser._id,
-        text: `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?\n"${challenge.customMessage}"`,
+        text: `${duelTitle}\n"${challenge.customMessage}"`,
         typingChallenge: challenge._id,
       });
     } catch (msgErr) {

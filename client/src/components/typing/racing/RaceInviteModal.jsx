@@ -172,16 +172,20 @@ export const RaceInviteModal = ({
   const handleInviteRacer = async (racer) => {
     try {
       const payload = {
+        challengedUserId: racer._id,
+        challengedUsername: racer.username,
         targetUserId: racer._id,
         targetUsername: racer.username,
         targetName: racer.name,
         targetAvatarUrl: racer.avatarUrl,
         mode: 'race_highway',
+        isRace: true,
         duration: 30,
         customMessage: `🏎️ I challenge you to a Highway Race in the Typing Arena! My car is the ${selectedCar?.name || 'Shadow V12'}. Let's burn some rubber! ⚡`,
         challengerWpm: 100,
         challengerAccuracy: 98,
         carId: selectedCar?.id || 'shadow_v12',
+        carName: selectedCar?.name || 'Shadow V12',
       };
 
       // 1. Save local challenge

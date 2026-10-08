@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -53,6 +53,52 @@ export const RacingHUD = ({
   const [isMuted, setIsMuted] = useState(() => racingAudio.getMuted());
   const [carCarouselIndex, setCarCarouselIndex] = useState(0);
 
+  const cockpitRef = useRef(null);
+  const activeCharRef = useRef(null);
+
+  // Split text for high-precision typing rendering
+  const typedLength = typedText.length;
+
+  // Auto-scroll cockpit console to keep the active typing line comfortably centered
+  useEffect(() => {
+    if (activeCharRef.current && cockpitRef.current) {
+      const container = cockpitRef.current;
+      const charEl = activeCharRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const charRect = charEl.getBoundingClientRect();
+
+      if (charRect.bottom > containerRect.bottom - 12 || charRect.top < containerRect.top + 8) {
+        charEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [typedLength]);
+
+  // Parse words and spaces into intact word tokens so words NEVER break across lines
+  const wordsTokens = useMemo(() => {
+    const tokens = [];
+    const regex = /(\S+)(\s*)/g;
+    let match;
+
+    while ((match = regex.exec(textPrompt)) !== null) {
+      const wordText = match[1];
+      const spaceText = match[2];
+      const wordStart = match.index;
+      const wordEnd = wordStart + wordText.length;
+      const spaceStart = wordEnd;
+      const spaceEnd = spaceStart + spaceText.length;
+
+      tokens.push({
+        wordText,
+        spaceText,
+        wordStart,
+        wordEnd,
+        spaceStart,
+        spaceEnd,
+      });
+    }
+    return tokens;
+  }, [textPrompt]);
+
   const toggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
@@ -72,7 +118,6 @@ export const RacingHUD = ({
   const needleAngle = -120 + (clampedSpeed / 220) * 240;
 
   // Split text for high-precision typing rendering
-  const typedLength = typedText.length;
   const currentTargetChar = textPrompt[typedLength] || '';
   const remainingText = textPrompt.slice(typedLength + 1);
 
@@ -171,38 +216,85 @@ export const RacingHUD = ({
             <div className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-cyan-400" />
             <div className="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-cyan-400" />
 
-            {/* Stationary Full Challenge Paragraph: Words NEVER shift or jump */}
-            <div className="font-mono text-xs sm:text-sm md:text-base tracking-normal leading-relaxed select-none whitespace-pre-wrap break-words min-h-[48px] max-h-[72px] overflow-hidden text-left w-full">
-              {textPrompt.split('').map((char, idx) => {
-                const isTyped = idx < typedLength;
-                const isCurrent = idx === typedLength;
-
-                if (isTyped) {
-                  return (
-                    <span
-                      key={idx}
-                      className="text-emerald-400 font-bold drop-shadow-[0_0_6px_rgba(52,211,153,0.5)]"
-                    >
-                      {char}
-                    </span>
-                  );
-                }
-
-                if (isCurrent) {
-                  return (
-                    <span
-                      key={idx}
-                      className="relative inline-block text-white font-black bg-cyan-500/40 rounded px-[1px] border-b-2 border-cyan-400 shadow-[0_0_8px_#38bdf8] animate-pulse"
-                    >
-                      {char === ' ' ? '\u00A0' : char}
-                    </span>
-                  );
-                }
-
+            {/* Stationary Cockpit Typing Display: Words NEVER break across lines and glyph width is 100% stable */}
+            <div
+              ref={cockpitRef}
+              className="font-mono text-xs sm:text-sm md:text-base tracking-normal leading-relaxed select-none min-h-[52px] max-h-[82px] overflow-y-auto no-scrollbar text-left w-full"
+            >
+              {wordsTokens.map((token, tIdx) => {
                 return (
-                  <span key={idx} className="text-slate-400/70 font-medium">
-                    {char}
-                  </span>
+                  <React.Fragment key={tIdx}>
+                    {/* Whole Word Token: inline-block + whitespace-nowrap guarantees the word is never split across lines */}
+                    <span className="inline-block whitespace-nowrap">
+                      {token.wordText.split('').map((char, cIdx) => {
+                        const globalIdx = token.wordStart + cIdx;
+                        const isTyped = globalIdx < typedLength;
+                        const isCurrent = globalIdx === typedLength;
+
+                        if (isTyped) {
+                          return (
+                            <span
+                              key={globalIdx}
+                              className="inline-block w-[1ch] text-center font-semibold text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.6)]"
+                            >
+                              {char}
+                            </span>
+                          );
+                        }
+
+                        if (isCurrent) {
+                          return (
+                            <span
+                              key={globalIdx}
+                              ref={activeCharRef}
+                              className="relative inline-block w-[1ch] text-center font-semibold text-white bg-cyan-500/40 rounded-xs ring-1 ring-cyan-400 shadow-[0_0_10px_#38bdf8] animate-pulse"
+                            >
+                              {char}
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <span
+                            key={globalIdx}
+                            className="inline-block w-[1ch] text-center font-semibold text-slate-400/80"
+                          >
+                            {char}
+                          </span>
+                        );
+                      })}
+                    </span>
+
+                    {/* Trailing Space Token: Serves as the natural line-break boundary with identical 1ch width */}
+                    {token.spaceText.split('').map((_, sIdx) => {
+                      const globalIdx = token.spaceStart + sIdx;
+                      const isTyped = globalIdx < typedLength;
+                      const isCurrent = globalIdx === typedLength;
+
+                      if (isCurrent) {
+                        return (
+                          <span
+                            key={globalIdx}
+                            ref={activeCharRef}
+                            className="relative inline-block w-[1ch] text-center font-semibold text-cyan-300 bg-cyan-500/30 rounded-xs ring-1 ring-cyan-400 shadow-[0_0_8px_#38bdf8] animate-pulse"
+                          >
+                            &nbsp;
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <span
+                          key={globalIdx}
+                          className={`inline-block w-[1ch] text-center font-semibold ${
+                            isTyped ? 'text-emerald-400' : 'text-slate-600'
+                          }`}
+                        >
+                          &nbsp;
+                        </span>
+                      );
+                    })}
+                  </React.Fragment>
                 );
               })}
             </div>

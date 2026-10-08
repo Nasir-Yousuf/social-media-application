@@ -77,6 +77,7 @@ exports.getUnreadCount = async (req, res) => {
           path: 'post',
           select: 'content',
         })
+        .populate('typingChallenge')
         .sort({ createdAt: -1 }),
     ]);
 

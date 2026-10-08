@@ -134,7 +134,10 @@ export const NotificationProvider = ({ children }) => {
             playTwitterNotificationSound();
 
             let notifText = 'You have a new notification';
+            let targetUrl = '/notifications';
             const senderName = latestUnreadNotif.sender?.name || 'Someone';
+            const senderUsername = latestUnreadNotif.sender?.username || 'player';
+
             if (latestUnreadNotif.type === 'like') {
               notifText = `❤️ ${senderName} appreciated your post`;
             } else if (latestUnreadNotif.type === 'comment') {
@@ -147,14 +150,30 @@ export const NotificationProvider = ({ children }) => {
               notifText = `📢 ${senderName} mentioned @everyone`;
             } else if (latestUnreadNotif.type === 'announcement') {
               notifText = `📌 Announcement from ${senderName}`;
+            } else if (latestUnreadNotif.type === 'typing_challenge') {
+              const tc = latestUnreadNotif.typingChallenge;
+              const isRace = tc?.isRace || tc?.mode === 'race_highway';
+              const carId = tc?.carId || 'street_phantom';
+              const chId = tc?._id || tc;
+
+              if (isRace) {
+                notifText = `🏎️⚡ ${senderName} challenged you to a Supercar Race! Click to race!`;
+                targetUrl = `/typing?theme=race&duelWith=${senderUsername}&car=${carId}&challengeId=${chId}`;
+              } else {
+                notifText = `⚔️ ${senderName} challenged you to a Typing Duel!`;
+                targetUrl = `/typing?challengeId=${chId}`;
+              }
+            } else if (latestUnreadNotif.type === 'typing_challenge_result') {
+              notifText = `🏆 ${senderName} finished your 1v1 Typing Duel!`;
+              targetUrl = '/typing';
             }
 
             showToast(notifText, 'info', {
               avatarUrl: latestUnreadNotif.sender?.avatarUrl,
               onClick: () => {
-                window.location.assign('/notifications');
+                window.location.assign(targetUrl);
               },
-              duration: 5000,
+              duration: 7000,
             });
 
             // Native Browser Notification
@@ -164,10 +183,14 @@ export const NotificationProvider = ({ children }) => {
               Notification.permission === 'granted'
             ) {
               try {
-                new Notification(`Clearfeed: ${senderName}`, {
+                const nativeNotif = new Notification(`Clearfeed: ${senderName}`, {
                   body: notifText,
                   icon: latestUnreadNotif.sender?.avatarUrl || undefined,
                 });
+                nativeNotif.onclick = () => {
+                  window.focus();
+                  window.location.assign(targetUrl);
+                };
               } catch {}
             }
           }

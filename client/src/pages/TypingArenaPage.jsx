@@ -44,6 +44,7 @@ import {
   declineLocalChallenge,
   purgeAllDummyData,
 } from '../utils/typingStorage';
+import { CAR_CATALOG } from '../utils/racingStorage';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -124,13 +125,16 @@ export const TypingArenaPage = () => {
     const themeParam = searchParams.get('theme');
     if (duelWith) {
       const carParam = searchParams.get('car') || 'street_phantom';
+      const catalogCar = CAR_CATALOG.find((c) => c.id === carParam) || CAR_CATALOG[2];
       setRaceRival({
         username: duelWith,
         name: duelWith,
-        carName: carParam === 'street_phantom' ? 'Street Phantom' : 'Supercar',
-        carColor: '#ef4444',
-        carImage: `/racing/${carParam}.png`,
+        carName: catalogCar.name,
+        carColor: catalogCar.color,
+        carImage: catalogCar.image,
         bestWpm: 120,
+        isLeader: true,
+        isRival: true,
       });
       setArenaThemeState('race');
       localStorage.setItem('typing_arena_theme', 'race');
@@ -204,18 +208,52 @@ export const TypingArenaPage = () => {
         if (Array.isArray(ch.words) && ch.words.length > 0) {
           setWords(ch.words);
         }
-        setGhostData({
-          username: ch.challenger?.username || 'rival',
-          name: ch.challenger?.name,
-          avatarUrl: ch.challenger?.avatarUrl,
-          wpm: ch.challengerWpm || 0,
-          progress: 0,
-          isDuel: true,
-        });
-        showToast(
-          `⚔️ 1v1 Typing Duel loaded! Race against @${ch.challenger?.username || 'rival'} (${ch.challengerWpm || 0} WPM)`,
-          'info'
+
+        const isHighwayRace = Boolean(
+          ch.isRace ||
+          ch.mode === 'race_highway' ||
+          searchParams.get('theme') === 'race' ||
+          searchParams.get('duelWith')
         );
+
+        if (isHighwayRace) {
+          const carId = ch.carId || searchParams.get('car') || 'street_phantom';
+          const catalogCar = CAR_CATALOG.find((c) => c.id === carId) || CAR_CATALOG[2];
+          const rivalUsername = ch.challenger?.username || searchParams.get('duelWith') || 'rival';
+          const rivalName = ch.challenger?.name || rivalUsername;
+
+          setRaceRival({
+            _id: ch.challenger?._id,
+            username: rivalUsername,
+            name: rivalName,
+            avatarUrl: ch.challenger?.avatarUrl,
+            carName: ch.carName || catalogCar.name,
+            carColor: catalogCar.color,
+            carImage: catalogCar.image,
+            bestWpm: ch.challengerWpm || 115,
+            isLeader: true,
+            isRival: true,
+          });
+          setArenaThemeState('race');
+          localStorage.setItem('typing_arena_theme', 'race');
+          showToast(
+            `🏎️⚡ Highway Supercar Race Challenge loaded! Racing against @${rivalUsername} in their ${ch.carName || catalogCar.name}!`,
+            'success'
+          );
+        } else {
+          setGhostData({
+            username: ch.challenger?.username || 'rival',
+            name: ch.challenger?.name,
+            avatarUrl: ch.challenger?.avatarUrl,
+            wpm: ch.challengerWpm || 0,
+            progress: 0,
+            isDuel: true,
+          });
+          showToast(
+            `⚔️ 1v1 Typing Duel loaded! Race against @${ch.challenger?.username || 'rival'} (${ch.challengerWpm || 0} WPM)`,
+            'info'
+          );
+        }
       };
 
       api

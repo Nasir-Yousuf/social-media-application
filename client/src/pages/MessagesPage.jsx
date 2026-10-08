@@ -1035,6 +1035,22 @@ export const MessagesPage = () => {
                               <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                             )}
 
+                            {/* Direct Race Challenge Action in Chat */}
+                            {msg.text && (msg.text.includes('Highway Supercar Race Challenge') || msg.text.includes('Typing Duel Challenge')) && (
+                              <div className="mt-2 pt-2 border-t border-current/10 flex items-center gap-2">
+                                <a
+                                  href={
+                                    msg.text.includes('Highway Supercar Race Challenge')
+                                      ? `/typing?theme=race&duelWith=${activeConversation?.otherUser?.username || 'rival'}${msg.typingChallenge ? `&challengeId=${msg.typingChallenge}` : ''}`
+                                      : `/typing?${msg.typingChallenge ? `challengeId=${msg.typingChallenge}` : `rival=${activeConversation?.otherUser?.username || 'rival'}`}`
+                                  }
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-500 via-amber-500 to-cyan-400 hover:from-red-400 hover:to-cyan-300 text-slate-950 font-black text-xs shadow-md transition-all active:scale-95 cursor-pointer no-underline"
+                                >
+                                  <span>🏎️ Enter Race Now &rarr;</span>
+                                </a>
+                              </div>
+                            )}
+
                             {/* Code Snippet Box */}
                             {hasSnippet && (
                               <div
