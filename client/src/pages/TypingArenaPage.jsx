@@ -75,9 +75,18 @@ export const TypingArenaPage = () => {
   const [viewMode, setViewMode] = useState('caret');
   const [punctuation, setPunctuation] = useState(false);
   const [numbers, setNumbers] = useState(false);
-  const [leaderboardData, setLeaderboardData] = useState([]);
-  const [userRank, setUserRank] = useState(null);
-  const [userBestScore, setUserBestScore] = useState(null);
+  const [leaderboardData, setLeaderboardData] = useState(() => {
+    const init = getResilientLeaderboard(Number(searchParams.get('duration')) || 60, searchParams.get('mode') || 'words', user);
+    return init.leaderboard || [];
+  });
+  const [userRank, setUserRank] = useState(() => {
+    const init = getResilientLeaderboard(Number(searchParams.get('duration')) || 60, searchParams.get('mode') || 'words', user);
+    return init.userRank || null;
+  });
+  const [userBestScore, setUserBestScore] = useState(() => {
+    const init = getResilientLeaderboard(Number(searchParams.get('duration')) || 60, searchParams.get('mode') || 'words', user);
+    return init.userBestScore || null;
+  });
 
   // Word Stream & Input State
   const [words, setWords] = useState([]);
@@ -284,6 +293,13 @@ export const TypingArenaPage = () => {
   // Fetch real-time resilient leaderboard data for sidebar
   const fetchLeaderboard = useCallback(async () => {
     const queryMode = mode.startsWith('words') ? 'words' : mode;
+
+    // Immediate synchronous local hydration
+    const localResilient = getResilientLeaderboard(duration, queryMode, user);
+    setLeaderboardData(localResilient.leaderboard);
+    if (localResilient.userRank) setUserRank(localResilient.userRank);
+    if (localResilient.userBestScore) setUserBestScore(localResilient.userBestScore);
+
     let remoteLeaderboard = null;
     try {
       const res = await api.get('/typing/leaderboard', {
@@ -913,9 +929,11 @@ export const TypingArenaPage = () => {
           onExit={() => {
             setRaceRival(null);
             setArenaTheme('racing_hub');
+            fetchLeaderboard();
           }}
           onShareRace={handleShareRacingPost}
           onFinishRace={(res) => {
+            fetchLeaderboard();
             showToast(
               `🏁 Race finished in #${res.race?.position || 1}! +${res.xpEarned} XP • +${res.starsEarned} 🪙`,
               'success'

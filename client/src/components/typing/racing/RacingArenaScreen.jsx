@@ -8,6 +8,8 @@ import {
   getPlayerGarage,
   recordRaceCompletion,
 } from '../../../utils/racingStorage';
+import { saveTypingResultLocally } from '../../../utils/typingStorage';
+import api from '../../../api/client';
 import racingAudio from '../../../utils/racingAudio';
 
 const DEFAULT_RACE_TEXT =
@@ -163,12 +165,13 @@ export const RacingArenaScreen = ({
 
     const finalWpm = Math.round((raceText.length / 5) / (elapsedSec / 60));
     const finalAccuracy = Math.max(80, Math.round(100 - (errorsRef.current / raceText.length) * 100));
+    const effectiveSec = Math.max(15, Math.round(elapsedSec));
 
     const finalResult = recordRaceCompletion({
       wpm: finalWpm,
       accuracy: finalAccuracy,
       characters: raceText.length,
-      durationSec: Math.round(elapsedSec),
+      durationSec: effectiveSec,
       position: userRank,
       totalRacers: 6,
       carId: selectedCar.id,
@@ -177,9 +180,43 @@ export const RacingArenaScreen = ({
       currentUser,
     });
 
+    // Save race score to typing leaderboard and local persistent stats
+    saveTypingResultLocally(
+      {
+        wpm: finalWpm,
+        rawWpm: finalWpm,
+        accuracy: finalAccuracy,
+        duration: effectiveSec,
+        mode: 'words',
+        charCount: raceText.length,
+        highestCombo: streak || 0,
+        telemetry: [finalWpm],
+        isRace: true,
+      },
+      currentUser
+    );
+
+    // Also attempt remote background sync if authenticated
+    if (currentUser) {
+      api
+        .post('/typing/submit', {
+          wpm: finalWpm,
+          rawWpm: finalWpm,
+          accuracy: finalAccuracy,
+          duration: [15, 30, 60, 120].includes(effectiveSec) ? effectiveSec : 60,
+          mode: 'words_200',
+          charCount: raceText.length,
+          highestCombo: streak || 0,
+          telemetry: [finalWpm],
+        })
+        .catch((e) => {
+          console.info('Racing remote score save notice (saved locally):', e?.message);
+        });
+    }
+
     setFinishData(finalResult);
     onFinishRace(finalResult);
-  }, [isFinished, raceText.length, userRank, selectedCar.id, isNitroActive, currentUser, onFinishRace]);
+  }, [isFinished, raceText.length, userRank, selectedCar.id, isNitroActive, currentUser, onFinishRace, streak]);
 
   // Restart / Rematch race
   const handleRestartRace = useCallback(() => {

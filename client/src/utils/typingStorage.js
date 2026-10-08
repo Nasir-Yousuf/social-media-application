@@ -1,5 +1,5 @@
 // Robust Offline-First Client Storage & Resilience for Typing Arena Scores, Profiles, and Leaderboards
-import { getSpeedTier } from './typingEngine';
+import { getSpeedTier } from './typingEngine.js';
 
 const STORAGE_RESULTS_KEY = 'clearfeed_typing_results';
 const STORAGE_PROFILE_KEY = 'clearfeed_typing_profile';
@@ -215,6 +215,7 @@ export const saveTypingResultLocally = (scoreData, currentUser) => {
     charCount = 0,
     highestCombo = 0,
     telemetry = [],
+    isRace = false,
   } = scoreData;
 
   const nMode = normalizeMode(mode);
@@ -225,6 +226,21 @@ export const saveTypingResultLocally = (scoreData, currentUser) => {
   const baseXp = Math.max(10, Math.round(wpm * (effectiveDuration / 60) * (accuracy / 100)));
   const comboBonus = Math.floor(highestCombo / 10) * 5;
   const xpGained = Math.max(15, baseXp + comboBonus);
+
+  // Fallback to resilient user object so guest / unauth users are never excluded from ranking
+  const effectiveUser = currentUser
+    ? {
+        _id: String(currentUser._id || currentUser.id || 'me'),
+        name: currentUser.name || 'Anonymous Typist',
+        username: currentUser.username || 'user',
+        avatarUrl: currentUser.avatarUrl || null,
+      }
+    : {
+        _id: 'me',
+        name: 'You',
+        username: 'you',
+        avatarUrl: null,
+      };
 
   // 1. Construct immutable local result object
   const localId = `local_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -239,16 +255,10 @@ export const saveTypingResultLocally = (scoreData, currentUser) => {
     highestCombo,
     telemetry,
     xpGained,
+    isRace,
     createdAt: new Date().toISOString(),
     synced: false,
-    user: currentUser
-      ? {
-          _id: currentUser._id || currentUser.id || 'me',
-          name: currentUser.name || 'Anonymous Typist',
-          username: currentUser.username || 'user',
-          avatarUrl: currentUser.avatarUrl || null,
-        }
-      : null,
+    user: effectiveUser,
   };
 
   // 2. Persist in results history
@@ -266,20 +276,26 @@ export const saveTypingResultLocally = (scoreData, currentUser) => {
   const currentBestForDur = profile.personalBests?.[durKey]?.wpm || 0;
   const isNewBestForDur = wpm > currentBestForDur;
 
+  // Standard duration bucket for cross-filter visibility
+  let standardBucket = '60';
+  if (effectiveDuration <= 20) standardBucket = '15';
+  else if (effectiveDuration <= 45) standardBucket = '30';
+  else if (effectiveDuration <= 90) standardBucket = '60';
+  else standardBucket = '120';
+
+  const entryPayload = {
+    wpm,
+    rawWpm,
+    accuracy,
+    highestCombo,
+    mode: nMode,
+    date: new Date().toISOString(),
+  };
+
   const updatedBests = {
     ...(profile.personalBests || {}),
-    ...(isNewBestForDur
-      ? {
-          [durKey]: {
-            wpm,
-            rawWpm,
-            accuracy,
-            highestCombo,
-            mode: nMode,
-            date: new Date().toISOString(),
-          },
-        }
-      : {}),
+    ...(isNewBestForDur ? { [durKey]: entryPayload } : {}),
+    ...((wpm > (profile.personalBests?.[standardBucket]?.wpm || 0)) ? { [standardBucket]: entryPayload } : {}),
   };
 
   profile = {
@@ -299,14 +315,18 @@ export const saveTypingResultLocally = (scoreData, currentUser) => {
     console.warn('Error updating local typing profile:', err);
   }
 
-  // 4. Update and persist leaderboard for (duration, mode)
+  // 4. Update and persist leaderboards across all relevant duration keys
   const { leaderboard, userRank, userBestScore } = getResilientLeaderboard(
     effectiveDuration,
     nMode,
-    currentUser,
+    effectiveUser,
     null,
     resultEntry
   );
+  getResilientLeaderboard('all', nMode, effectiveUser, null, resultEntry);
+  if (standardBucket !== durKey) {
+    getResilientLeaderboard(standardBucket, nMode, effectiveUser, null, resultEntry);
+  }
 
   // 5. Broadcast real-time events for other components and tabs
   try {
@@ -341,10 +361,10 @@ export const saveTypingResultLocally = (scoreData, currentUser) => {
 
 /**
  * Build a merged, resilient leaderboard combining remote scores, local personal bests,
- * and seed champions so the user is ALWAYS visibly ranked.
+ * race history, and all client results so the user is ALWAYS visibly ranked.
  */
 export const getResilientLeaderboard = (
-  duration = 60,
+  duration = 'all',
   mode = 'words',
   currentUser = null,
   remoteLeaderboard = null,
@@ -355,95 +375,184 @@ export const getResilientLeaderboard = (
   const cacheKey = `${STORAGE_LB_KEY_PREFIX}${dNum}_${nMode}`;
   const deletedSet = getDeletedEntryIds();
 
-  let baseList = [];
+  const effectiveUser = currentUser
+    ? {
+        _id: String(currentUser._id || currentUser.id || 'me'),
+        name: currentUser.name || 'Anonymous Typist',
+        username: currentUser.username || 'user',
+        avatarUrl: currentUser.avatarUrl || null,
+      }
+    : {
+        _id: 'me',
+        name: 'You',
+        username: 'you',
+        avatarUrl: null,
+      };
 
-  // If remote returned entries, filter to genuine real participants
+  const currentUserId = String(effectiveUser._id || 'me').toLowerCase();
+  const currentUsername = String(effectiveUser.username || 'you').toLowerCase();
+
+  const mergedMap = new Map();
+
+  // Helper to add or keep highest entry for a participant
+  const addParticipantScore = (entry, isUser = false) => {
+    if (!entry || !entry.wpm || Number(entry.wpm) <= 0) return;
+    if (!isEntryGenuine(entry, deletedSet)) return;
+
+    const uId = String(entry.user?._id || entry.user?.id || (isUser ? currentUserId : entry._id)).toLowerCase();
+    const uName = String(entry.user?.username || (isUser ? currentUsername : '')).toLowerCase();
+
+    // Reject admin-deleted or disqualified users
+    if (deletedSet.has(uId) || (uName && deletedSet.has(uName))) return;
+
+    // Filter by duration if specific (not 'all')
+    if (dNum !== 'all') {
+      const entryDur = Number(entry.duration) || 60;
+      const matchesDuration =
+        entryDur === Number(dNum) ||
+        (Number(dNum) === 15 && entryDur <= 20) ||
+        (Number(dNum) === 30 && entryDur > 20 && entryDur <= 45) ||
+        (Number(dNum) === 60 && entryDur > 45 && entryDur <= 90) ||
+        (Number(dNum) === 120 && entryDur > 90);
+
+      // If duration doesn't match and not user, skip
+      if (!matchesDuration && !isUser) return;
+    }
+
+    const key = uId || uName;
+    const existing = mergedMap.get(key);
+
+    const isThisMe =
+      isUser ||
+      uId === currentUserId ||
+      (currentUsername && uName === currentUsername) ||
+      Boolean(entry.isCurrentUser);
+
+    if (!existing || Number(entry.wpm) > (Number(existing.wpm) || 0)) {
+      mergedMap.set(key, {
+        ...entry,
+        user: entry.user || effectiveUser,
+        wpm: Number(entry.wpm),
+        accuracy: Number(entry.accuracy) || 100,
+        isCurrentUser: isThisMe,
+      });
+    }
+  };
+
+  // 1. Ingest remote scores if available
   if (Array.isArray(remoteLeaderboard) && remoteLeaderboard.length > 0) {
-    baseList = remoteLeaderboard.filter((item) => isEntryGenuine(item, deletedSet));
-  } else {
-    // Check cached leaderboard for this filter
+    for (const item of remoteLeaderboard) {
+      addParticipantScore(item);
+    }
+  }
+
+  // 2. Ingest cached leaderboard entries for this filter
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          addParticipantScore(item);
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 3. Ingest local results history (all completed tests & races on this browser)
+  try {
+    const localResults = getLocalResults();
+    if (Array.isArray(localResults)) {
+      for (const res of localResults) {
+        addParticipantScore(res);
+      }
+    }
+  } catch (_) {}
+
+  // 4. Ingest race history from Multiplayer Racing Arena
+  try {
+    const rawRaces = localStorage.getItem('clearfeed_racing_history');
+    if (rawRaces) {
+      const races = JSON.parse(rawRaces);
+      if (Array.isArray(races)) {
+        for (const race of races) {
+          if (race.wpm > 0) {
+            addParticipantScore(
+              {
+                _id: race.id || `race_${Date.now()}`,
+                wpm: Number(race.wpm),
+                rawWpm: Number(race.wpm),
+                accuracy: Number(race.accuracy) || 100,
+                duration: Number(race.durationSec) || 30,
+                mode: 'words',
+                highestCombo: 0,
+                user: effectiveUser,
+                isRace: true,
+              },
+              true
+            );
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 5. Ingest user's personal bests and racing profile
+  const profile = getLocalTypingProfile();
+  let candidateBestWpm = Number(latestResult?.wpm) || 0;
+  let candidateAccuracy = Number(latestResult?.accuracy) || 100;
+  let candidateCombo = Number(latestResult?.highestCombo) || 0;
+
+  // Check personal best for this specific duration
+  const durKey = String(dNum);
+  if (profile.personalBests?.[durKey]?.wpm) {
+    const pbWpm = Number(profile.personalBests[durKey].wpm);
+    if (pbWpm > candidateBestWpm) {
+      candidateBestWpm = pbWpm;
+      candidateAccuracy = Number(profile.personalBests[durKey].accuracy) || candidateAccuracy;
+      candidateCombo = Number(profile.personalBests[durKey].highestCombo) || candidateCombo;
+    }
+  }
+
+  // Check overall best WPM if dNum === 'all' or if candidate is still 0
+  if (dNum === 'all' || candidateBestWpm === 0) {
+    const ovBest = Number(profile.bestWpm) || 0;
+    if (ovBest > candidateBestWpm) {
+      candidateBestWpm = ovBest;
+      candidateAccuracy = Number(profile.bestAccuracy) || candidateAccuracy;
+    }
+
     try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          baseList = parsed.filter((item) => isEntryGenuine(item, deletedSet));
+      const rawRacing = localStorage.getItem('clearfeed_racing_profile');
+      if (rawRacing) {
+        const rp = JSON.parse(rawRacing);
+        const rBest = Number(rp.bestWpm) || 0;
+        if (rBest > candidateBestWpm) {
+          candidateBestWpm = rBest;
         }
       }
     } catch (_) {}
   }
 
-  // Find user's best score (from latestResult, local profile, or local results)
-  let userBestEntry = null;
-  const profile = getLocalTypingProfile();
-  const durKey = String(dNum);
-  const personalBest = profile.personalBests?.[durKey] || (dNum === 'all' ? { wpm: profile.bestWpm, accuracy: profile.bestAccuracy } : null);
-
-  if (currentUser) {
-    const currentUserId = String(currentUser._id || currentUser.id || 'me');
-    const currentUsername = String(currentUser.username || '').toLowerCase();
-
-    // Only include user if not deleted by admin
-    if (!deletedSet.has(currentUserId.toLowerCase()) && !deletedSet.has(currentUsername)) {
-      const candidateWpm = latestResult?.wpm || (personalBest?.wpm || 0);
-      const candidateAcc = latestResult?.accuracy || (personalBest?.accuracy || 100);
-      const candidateCombo = latestResult?.highestCombo || (personalBest?.highestCombo || 0);
-
-      if (candidateWpm > 0) {
-        userBestEntry = {
-          _id: latestResult?._id || `user_best_${currentUserId}_${dNum}`,
-          user: {
-            _id: currentUserId,
-            name: currentUser.name || 'You',
-            username: currentUser.username || 'user',
-            avatarUrl: currentUser.avatarUrl || null,
-          },
-          wpm: candidateWpm,
-          rawWpm: latestResult?.rawWpm || candidateWpm,
-          accuracy: candidateAcc,
-          highestCombo: candidateCombo,
-          duration: dNum === 'all' ? 60 : dNum,
-          mode: nMode,
-          isCurrentUser: true,
-        };
-      }
-    }
-  }
-
-  // Merge or update current user in list
-  let mergedMap = new Map();
-
-  for (const item of baseList) {
-    if (isEntryGenuine(item, deletedSet)) {
-      const uId = String(item.user?._id || item.user?.username || item._id);
-      mergedMap.set(uId, item);
-    }
-  }
-
-  if (userBestEntry && currentUser) {
-    const currentUserId = String(currentUser._id || currentUser.id || 'me');
-    const currentUsername = String(currentUser.username || '').toLowerCase();
-    const existing = mergedMap.get(currentUserId) || [...mergedMap.values()].find(
-      (entry) => String(entry.user?.username || '').toLowerCase() === currentUsername
+  // If user has recorded any score, guarantee they are in mergedMap
+  if (candidateBestWpm > 0 && !deletedSet.has(currentUserId) && !deletedSet.has(currentUsername)) {
+    addParticipantScore(
+      {
+        _id: latestResult?._id || `user_best_${currentUserId}_${dNum}`,
+        user: effectiveUser,
+        wpm: candidateBestWpm,
+        rawWpm: Number(latestResult?.rawWpm) || candidateBestWpm,
+        accuracy: candidateAccuracy,
+        highestCombo: candidateCombo,
+        duration: dNum === 'all' ? 60 : dNum,
+        mode: nMode,
+        isCurrentUser: true,
+      },
+      true
     );
-
-    if (existing) {
-      // Keep whichever score is higher
-      if (userBestEntry.wpm > (existing.wpm || 0)) {
-        mergedMap.set(currentUserId, {
-          ...existing,
-          ...userBestEntry,
-          wpm: Math.max(existing.wpm || 0, userBestEntry.wpm),
-          accuracy: Math.max(existing.accuracy || 0, userBestEntry.accuracy),
-          highestCombo: Math.max(existing.highestCombo || 0, userBestEntry.highestCombo),
-        });
-      }
-    } else {
-      mergedMap.set(currentUserId, userBestEntry);
-    }
   }
 
-  // Sort descending by WPM, then accuracy, then combo — strictly genuine real typists only
+  // 6. Sort descending by WPM, then accuracy, then combo
   const sortedLeaderboard = Array.from(mergedMap.values())
     .filter((item) => isEntryGenuine(item, deletedSet))
     .sort((a, b) => {
@@ -452,23 +561,20 @@ export const getResilientLeaderboard = (
       return (b.highestCombo || 0) - (a.highestCombo || 0);
     });
 
-  // Calculate 1-indexed rank for current user
+  // 7. Calculate 1-indexed rank for current user
   let userRank = null;
   let userBestScore = null;
 
-  if (currentUser) {
-    const currentUserId = String(currentUser._id || currentUser.id || 'me');
-    const currentUsername = String(currentUser.username || '').toLowerCase();
-    const rankIdx = sortedLeaderboard.findIndex((entry) => {
-      const eId = String(entry.user?._id || entry.user?.id || '');
-      const eUser = String(entry.user?.username || '').toLowerCase();
-      return eId === currentUserId || (currentUsername && eUser === currentUsername);
-    });
+  const rankIdx = sortedLeaderboard.findIndex((entry) => {
+    const eId = String(entry.user?._id || entry.user?.id || '').toLowerCase();
+    const eUser = String(entry.user?.username || '').toLowerCase();
+    return eId === currentUserId || (currentUsername && eUser === currentUsername) || entry.isCurrentUser;
+  });
 
-    if (rankIdx !== -1) {
-      userRank = rankIdx + 1;
-      userBestScore = sortedLeaderboard[rankIdx].wpm;
-    }
+  if (rankIdx !== -1) {
+    userRank = rankIdx + 1;
+    userBestScore = sortedLeaderboard[rankIdx].wpm;
+    sortedLeaderboard[rankIdx].isCurrentUser = true;
   }
 
   // Cache clean merged leaderboard

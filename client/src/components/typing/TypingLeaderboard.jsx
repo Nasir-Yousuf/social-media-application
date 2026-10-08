@@ -34,10 +34,16 @@ export const TypingLeaderboard = ({
   const { showToast } = useNotifications();
 
   const [period, setPeriod] = useState('all'); // 'all' | 'weekly' | 'daily'
-  const [selectedDuration, setSelectedDuration] = useState(currentSessionDuration || 15);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [userRank, setUserRank] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedDuration, setSelectedDuration] = useState(currentSessionDuration || 'all');
+  const [leaderboard, setLeaderboard] = useState(() => {
+    const init = getResilientLeaderboard(currentSessionDuration || 'all', currentSessionMode || 'words', user);
+    return init.leaderboard || [];
+  });
+  const [userRank, setUserRank] = useState(() => {
+    const init = getResilientLeaderboard(currentSessionDuration || 'all', currentSessionMode || 'words', user);
+    return init.userRank || null;
+  });
+  const [loading, setLoading] = useState(false);
 
   // Admin Moderation Modal State
   const [adminTargetEntry, setAdminTargetEntry] = useState(null);
@@ -53,13 +59,23 @@ export const TypingLeaderboard = ({
   }, [currentSessionDuration]);
 
   const fetchLeaderboard = async () => {
-    setLoading(true);
-    let remoteLeaderboard = null;
     const queryMode =
       currentSessionMode && currentSessionMode.startsWith('words')
         ? 'words'
         : currentSessionMode || 'words';
 
+    // Instantly hydrate from local resilient storage first
+    const localResilient = getResilientLeaderboard(
+      selectedDuration,
+      queryMode,
+      user
+    );
+    setLeaderboard(localResilient.leaderboard);
+    if (localResilient.userRank) {
+      setUserRank(localResilient.userRank);
+    }
+
+    let remoteLeaderboard = null;
     try {
       const res = await api.get('/typing/leaderboard', {
         params: {
@@ -86,7 +102,6 @@ export const TypingLeaderboard = ({
     if (resilient.userRank) {
       setUserRank(resilient.userRank);
     }
-    setLoading(false);
   };
 
   useEffect(() => {

@@ -29,6 +29,7 @@ import {
   getRacingMissions,
   claimMissionReward,
 } from '../../../utils/racingStorage';
+import { getResilientLeaderboard } from '../../../utils/typingStorage';
 import racingAudio from '../../../utils/racingAudio';
 import RaceInviteModal from './RaceInviteModal';
 
@@ -63,7 +64,17 @@ export const RacingDashboard = ({
   const [hasShared, setHasShared] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
-  // Sync profile when storage updates
+  // Live dynamic leaderboard state
+  const [racingLeaderboard, setRacingLeaderboard] = useState(() => {
+    const res = getResilientLeaderboard('all', 'words', currentUser);
+    return res.leaderboard || [];
+  });
+  const [racingUserRank, setRacingUserRank] = useState(() => {
+    const res = getResilientLeaderboard('all', 'words', currentUser);
+    return res.userRank || 1;
+  });
+
+  // Sync profile & leaderboard when storage updates
   useEffect(() => {
     const handleStatsUpdated = (e) => {
       if (e.detail) setProfile(e.detail);
@@ -71,13 +82,24 @@ export const RacingDashboard = ({
     const handleGarageUpdated = (e) => {
       if (e.detail) setGarage(e.detail);
     };
+    const syncLb = () => {
+      const res = getResilientLeaderboard('all', 'words', currentUser);
+      setRacingLeaderboard(res.leaderboard || []);
+      setRacingUserRank(res.userRank || 1);
+    };
+
+    syncLb();
     window.addEventListener('clearfeed:racingStatsUpdated', handleStatsUpdated);
     window.addEventListener('clearfeed:racingGarageUpdated', handleGarageUpdated);
+    window.addEventListener('clearfeed:typingScoreSaved', syncLb);
+    window.addEventListener('clearfeed:racingHistoryUpdated', syncLb);
     return () => {
       window.removeEventListener('clearfeed:racingStatsUpdated', handleStatsUpdated);
       window.removeEventListener('clearfeed:racingGarageUpdated', handleGarageUpdated);
+      window.removeEventListener('clearfeed:typingScoreSaved', syncLb);
+      window.removeEventListener('clearfeed:racingHistoryUpdated', syncLb);
     };
-  }, []);
+  }, [currentUser]);
 
   const selectedCar = CAR_CATALOG[selectedCarIndex] || CAR_CATALOG[0];
 
@@ -567,52 +589,68 @@ export const RacingDashboard = ({
 
             {/* Leaderboard Table List */}
             <div className="space-y-2 mt-4">
-              {[
-                { rank: 1, name: 'Alex', wpm: 142, races: 320, winRate: 78, isChamp: true },
-                { rank: 2, name: 'Sophia', wpm: 138, races: 287, winRate: 71 },
-                { rank: 3, name: 'Rohan', wpm: 131, races: 254, winRate: 68 },
-                { rank: 4, name: 'Emma', wpm: 126, races: 231, winRate: 62 },
-                { rank: 5, name: 'Liam', wpm: 121, races: 198, winRate: 59 },
-              ].map((entry) => (
-                <div
-                  key={entry.rank}
-                  className="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800/60 transition"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={`text-xs font-black w-4 text-center ${
-                        entry.rank === 1
-                          ? 'text-amber-400'
-                          : entry.rank === 2
-                          ? 'text-purple-300'
-                          : entry.rank === 3
-                          ? 'text-emerald-400'
-                          : 'text-slate-500'
+              {racingLeaderboard.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-500 space-y-1">
+                  <Trophy className="w-6 h-6 mx-auto text-slate-600 mb-1 opacity-50" />
+                  <p className="font-bold text-slate-400">No Racers Ranked Yet</p>
+                  <p className="text-[11px] text-slate-500">Hit &quot;Start Highway Race&quot; above to set the record!</p>
+                </div>
+              ) : (
+                racingLeaderboard.slice(0, 5).map((entry, idx) => {
+                  const rank = idx + 1;
+                  const isUser = entry.isCurrentUser;
+                  return (
+                    <div
+                      key={entry._id || entry.id || rank}
+                      className={`flex items-center justify-between p-2 rounded-xl border transition ${
+                        isUser
+                          ? 'bg-purple-950/60 border-purple-500/50 shadow-md'
+                          : 'bg-slate-900/60 hover:bg-slate-900 border-slate-800/60'
                       }`}
                     >
-                      {entry.rank}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`text-xs font-black w-4 text-center ${
+                            rank === 1
+                              ? 'text-amber-400'
+                              : rank === 2
+                              ? 'text-purple-300'
+                              : rank === 3
+                              ? 'text-emerald-400'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {rank}
+                        </span>
+                        <span className="text-xs font-bold text-white truncate">
+                          {entry.user?.name || entry.name || (isUser ? 'You' : 'Racer')}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs font-mono shrink-0">
+                        <span className="text-cyan-400 font-black">{entry.wpm} WPM</span>
+                        <span className="text-slate-400">{entry.accuracy || 100}%</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+
+              {/* Current User Row (if outside top 5 and has played) */}
+              {racingUserRank > 5 && (profile.bestWpm > 0 || profile.totalRaces > 0) && (
+                <div className="flex items-center justify-between p-2.5 rounded-xl bg-purple-950/60 border border-purple-500/50 shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-black text-purple-300 w-4 text-center">
+                      {racingUserRank}
                     </span>
-                    <span className="text-xs font-bold text-white">{entry.name}</span>
+                    <span className="text-xs font-extrabold text-white">You</span>
                   </div>
-
                   <div className="flex items-center gap-4 text-xs font-mono">
-                    <span className="text-cyan-400 font-black">{entry.wpm} WPM</span>
-                    <span className="text-slate-400">{entry.winRate}%</span>
+                    <span className="text-cyan-300 font-black">{profile.bestWpm || 100} WPM</span>
+                    <span className="text-purple-300">{profile.winRate || 50}%</span>
                   </div>
                 </div>
-              ))}
-
-              {/* Current User Row */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-purple-950/60 border border-purple-500/50 shadow-md">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xs font-black text-purple-300 w-4 text-center">12</span>
-                  <span className="text-xs font-extrabold text-white">You</span>
-                </div>
-                <div className="flex items-center gap-4 text-xs font-mono">
-                  <span className="text-cyan-300 font-black">{profile.bestWpm || 98} WPM</span>
-                  <span className="text-purple-300">{profile.winRate || 41}%</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
