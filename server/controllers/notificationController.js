@@ -7,7 +7,7 @@ exports.getNotifications = async (req, res) => {
       .populate('sender', 'name username avatarUrl role')
       .populate({
         path: 'post',
-        select: 'content',
+        select: 'content codeSnippet tags isAnnouncement visibility createdAt',
       })
       .populate({
         path: 'conversation',
@@ -75,7 +75,7 @@ exports.getUnreadCount = async (req, res) => {
         .populate('sender', 'name username avatarUrl role')
         .populate({
           path: 'post',
-          select: 'content',
+          select: 'content codeSnippet tags isAnnouncement',
         })
         .populate('typingChallenge')
         .sort({ createdAt: -1 }),

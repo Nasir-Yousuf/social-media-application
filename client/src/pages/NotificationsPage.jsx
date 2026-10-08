@@ -15,6 +15,7 @@ import {
   Swords,
   Trophy,
   PenSquare,
+  Code2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/client';
@@ -44,7 +45,7 @@ export const NotificationsPage = () => {
     if (n.type === 'message') {
       return `/messages?user=${n.sender?.username}`;
     }
-    if (n.type === 'new_post' || n.type === 'like' || n.type === 'comment') {
+    if (n.type === 'new_post' || n.type === 'announcement' || n.type === 'like' || n.type === 'comment') {
       if (n.post?._id || n.post) return `/posts/${n.post?._id || n.post}`;
     }
     if (n.type === 'question_answer' || n.type === 'question_accepted' || n.type === 'question_mention') {
@@ -200,6 +201,7 @@ export const NotificationsPage = () => {
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeFilter === 'all') return true;
+    if (activeFilter === 'posts') return n.type === 'new_post' || n.type === 'announcement';
     if (activeFilter === 'messages') return n.type === 'message';
     if (activeFilter === 'mentions')
       return n.type === 'mention' || n.type === 'question_mention' || n.type === 'everyone_mention';
@@ -221,7 +223,7 @@ export const NotificationsPage = () => {
             <h1 className="text-xl font-black tracking-tight text-neutral-900 dark:text-white">Notifications</h1>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-sans">
-            Direct interactions: messages, mentions, replies, appreciations, and new connections.
+            Direct interactions: new posts, messages, mentions, replies, appreciations, and new connections.
           </p>
         </div>
 
@@ -257,6 +259,7 @@ export const NotificationsPage = () => {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
         {[
           { id: 'all', label: 'All' },
+          { id: 'posts', label: 'Posts' },
           { id: 'messages', label: 'Messages' },
           { id: 'mentions', label: 'Mentions' },
           { id: 'likes', label: 'Likes' },
@@ -354,7 +357,7 @@ export const NotificationsPage = () => {
                     {n.type === 'question_mention' && 'mentioned you in a learning question or answer.'}
                     {n.type === 'everyone_mention' && (n.question ? 'broadcasted an @everyone mention in a question/answer.' : 'broadcasted an @everyone mention to the community.')}
                     {n.type === 'follow' && 'began following your updates.'}
-                    {n.type === 'announcement' && 'published an announcement.'}
+                    {n.type === 'announcement' && 'published an official announcement.'}
                     {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}
                     {n.type === 'question_accepted' && 'marked your answer as the accepted solution! 🎉'}
                     {n.type === 'typing_challenge' && 'challenged you to a Highway Supercar Race in Typing Arena! 🏎️⚡'}
@@ -362,15 +365,31 @@ export const NotificationsPage = () => {
                     {n.type === 'new_post' && 'published a new post.'}
                   </p>
 
-                  {n.type === 'new_post' && n.post && (
-                    <div className="mt-2">
-                      <NavLink
-                        to={`/posts/${n.post._id || n.post}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors"
-                      >
-                        <PenSquare className="w-3.5 h-3.5" />
-                        <span>View post</span>
-                      </NavLink>
+                  {(n.type === 'new_post' || n.type === 'announcement') && n.post && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60 text-xs text-neutral-700 dark:text-neutral-300">
+                      {n.post.content && (
+                        <p className="line-clamp-2 italic text-neutral-800 dark:text-neutral-200 font-medium leading-relaxed">
+                          "{n.post.content}"
+                        </p>
+                      )}
+                      {n.post.codeSnippet && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono text-cyan-600 dark:text-cyan-400">
+                          <Code2 className="w-3.5 h-3.5" />
+                          <span>
+                            {n.post.codeSnippet.title ||
+                              `Code snippet (${Array.isArray(n.post.codeSnippet.files) ? n.post.codeSnippet.files.length : 1} file)`}
+                          </span>
+                        </div>
+                      )}
+                      <div className="mt-2.5">
+                        <NavLink
+                          to={`/posts/${n.post._id || n.post}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors cursor-pointer"
+                        >
+                          <PenSquare className="w-3.5 h-3.5" />
+                          <span>View post →</span>
+                        </NavLink>
+                      </div>
                     </div>
                   )}
 

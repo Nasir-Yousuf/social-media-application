@@ -120,6 +120,7 @@ const notifyMentions = async ({
   result.direct = finalDirect.length;
   result.broadcast = finalBroadcast.length;
   result.notified = docs.length;
+  result.recipientIds = [...finalDirect, ...finalBroadcast];
   return result;
 };
 

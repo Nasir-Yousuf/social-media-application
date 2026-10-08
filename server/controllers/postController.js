@@ -340,25 +340,31 @@ exports.createPost = async (req, res) => {
       });
     }
 
-    // If it's an official announcement, notify all members
+    // 1. If it's an official announcement, notify all approved members
     if (post.isAnnouncement) {
-      const allMembers = await User.find({ _id: { $ne: req.user._id }, isApproved: true }).select('_id');
-      const notifications = allMembers.map((s) => ({
-        recipient: s._id,
-        sender: req.user._id,
-        type: 'announcement',
-        post: post._id,
-      }));
-      if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
+      try {
+        const allMembers = await User.find({ _id: { $ne: req.user._id }, isApproved: true }).select('_id');
+        const notifications = allMembers.map((s) => ({
+          recipient: s._id,
+          sender: req.user._id,
+          type: 'announcement',
+          post: post._id,
+        }));
+        if (notifications.length > 0) {
+          await Notification.insertMany(notifications, { ordered: false });
+        }
+      } catch (annErr) {
+        console.warn('createPost announcement notify failed:', annErr.message);
       }
     }
 
-    // Extract @mentions (incl. @everyone / @followers) and notify - one notification per person.
-    // Announcements already notified every member above, so skip to avoid duplicate alerts.
+    // 2. For regular posts: notify mentioned users, then notify community members
     if (!post.isAnnouncement) {
+      const alreadyNotifiedUserIds = new Set();
+
+      // (a) Extract & notify @mentions (including @everyone / @followers)
       try {
-        await notifyMentions({
+        const mentionRes = await notifyMentions({
           texts: [trimmedContent],
           senderId: req.user._id,
           refs: { post: post._id },
@@ -375,23 +381,64 @@ exports.createPost = async (req, res) => {
             return allowed;
           },
         });
+        if (mentionRes?.recipientIds && Array.isArray(mentionRes.recipientIds)) {
+          mentionRes.recipientIds.forEach((id) => {
+            if (id) alreadyNotifiedUserIds.add(id.toString());
+          });
+        }
       } catch (mentionErr) {
         console.warn('createPost mention notify failed:', mentionErr.message);
       }
 
-      // Notify community members about new post (only those allowed to see it)
+      // (b) Notify all eligible community members who haven't already received a mention notification
       if (post.visibility !== 'private' && post.visibility !== 'only_me') {
         try {
-          const otherMembers = await User.find({ _id: { $ne: req.user._id } }).select('_id');
-          const eligibleMembers = [];
-          for (const m of otherMembers) {
-            if (await canUserViewPost(post, m._id, false)) {
-              eligibleMembers.push(m);
-            }
+          let candidateRecipientIds = [];
+
+          if (post.visibility === 'public') {
+            const members = await User.find({ _id: { $ne: req.user._id }, isApproved: true }).select('_id');
+            candidateRecipientIds = members.map((u) => u._id);
+          } else if (post.visibility === 'followers') {
+            const edges = await Follow.find({ following: req.user._id }).select('follower');
+            candidateRecipientIds = edges.map((e) => e.follower);
+          } else if (post.visibility === 'following') {
+            const edges = await Follow.find({ follower: req.user._id }).select('following');
+            candidateRecipientIds = edges.map((e) => e.following);
+          } else if (post.visibility === 'mutuals') {
+            const [followingEdges, followerEdges] = await Promise.all([
+              Follow.find({ follower: req.user._id }).select('following'),
+              Follow.find({ following: req.user._id }).select('follower'),
+            ]);
+            const followerSet = new Set(followerEdges.map((e) => e.follower.toString()));
+            candidateRecipientIds = followingEdges
+              .map((e) => e.following)
+              .filter((id) => followerSet.has(id.toString()));
+          } else if (post.visibility === 'specific') {
+            candidateRecipientIds = (post.audience || []).map((u) => (u._id ? u._id : u));
+          } else if (post.visibility === 'exclude') {
+            const excludedSet = new Set((post.excludedAudience || []).map((u) => (u._id ? u._id : u).toString()));
+            excludedSet.add(req.user._id.toString());
+            const members = await User.find({
+              _id: { $nin: Array.from(excludedSet) },
+              isApproved: true,
+            }).select('_id');
+            candidateRecipientIds = members.map((u) => u._id);
           }
-          if (eligibleMembers.length > 0) {
-            const postNotifs = eligibleMembers.map((m) => ({
-              recipient: m._id,
+
+          // Filter out sender and users already notified via @mention
+          const senderIdStr = req.user._id.toString();
+          const uniqueEligibleIds = Array.from(
+            new Set(
+              candidateRecipientIds
+                .filter(Boolean)
+                .map((id) => id.toString())
+                .filter((idStr) => idStr !== senderIdStr && !alreadyNotifiedUserIds.has(idStr))
+            )
+          );
+
+          if (uniqueEligibleIds.length > 0) {
+            const postNotifs = uniqueEligibleIds.map((recipientId) => ({
+              recipient: recipientId,
               sender: req.user._id,
               type: 'new_post',
               post: post._id,

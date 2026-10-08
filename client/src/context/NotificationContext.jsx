@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from './AuthContext';
 
@@ -95,6 +96,7 @@ export const playTwitterNotificationSound = () => {
 
 export const NotificationProvider = ({ children }) => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [toast, setToast] = useState(null);
@@ -173,10 +175,17 @@ export const NotificationProvider = ({ children }) => {
             } else if (latestUnreadNotif.type === 'everyone_mention') {
               notifText = `📢 ${senderName} mentioned @everyone`;
             } else if (latestUnreadNotif.type === 'announcement') {
-              notifText = `📌 Announcement from ${senderName}`;
+              const postContent = latestUnreadNotif.post?.content || 'Check out the new official announcement!';
+              const postId = latestUnreadNotif.post?._id || latestUnreadNotif.post;
+              notifText = `📌 Announcement from ${senderName}: "${postContent.slice(0, 48)}${postContent.length > 48 ? '...' : ''}"`;
+              targetUrl = postId ? `/posts/${postId}` : '/notifications';
+              window.dispatchEvent(new CustomEvent('clearfeed:newPost'));
             } else if (latestUnreadNotif.type === 'new_post') {
-              notifText = `📝 ${senderName} shared a new post: "${(latestUnreadNotif.post?.content || 'Check it out!').slice(0, 45)}"`;
-              targetUrl = `/posts/${latestUnreadNotif.post?._id || latestUnreadNotif.post}`;
+              const postContent = latestUnreadNotif.post?.content || 'Check out their new update!';
+              const postId = latestUnreadNotif.post?._id || latestUnreadNotif.post;
+              notifText = `📝 ${senderName} shared a new post: "${postContent.slice(0, 48)}${postContent.length > 48 ? '...' : ''}"`;
+              targetUrl = postId ? `/posts/${postId}` : '/notifications';
+              window.dispatchEvent(new CustomEvent('clearfeed:newPost'));
             } else if (latestUnreadNotif.type === 'typing_challenge') {
               const tc = latestUnreadNotif.typingChallenge;
               const carId = tc?.carId || 'street_phantom';
@@ -190,14 +199,17 @@ export const NotificationProvider = ({ children }) => {
             }
 
             const isRaceChallenge = latestUnreadNotif.type === 'typing_challenge';
+            const isPostAlert = latestUnreadNotif.type === 'new_post' || latestUnreadNotif.type === 'announcement';
+            const hasPostLink = Boolean(latestUnreadNotif.post?._id || latestUnreadNotif.post);
+
             showToast(notifText, 'info', {
               avatarUrl: latestUnreadNotif.sender?.avatarUrl,
-              actionLabel: isRaceChallenge ? 'RACE NOW 🏎️' : (latestUnreadNotif.type === 'new_post' ? 'VIEW POST' : undefined),
+              actionLabel: isRaceChallenge ? 'RACE NOW 🏎️' : (isPostAlert && hasPostLink ? 'VIEW POST' : undefined),
               actionOnClick: () => {
-                window.location.assign(targetUrl);
+                navigate(targetUrl);
               },
               onClick: () => {
-                window.location.assign(targetUrl);
+                navigate(targetUrl);
               },
               duration: isRaceChallenge ? 10000 : 7000,
             });
@@ -215,7 +227,7 @@ export const NotificationProvider = ({ children }) => {
                 });
                 nativeNotif.onclick = () => {
                   window.focus();
-                  window.location.assign(targetUrl);
+                  navigate(targetUrl);
                 };
               } catch {}
             }
@@ -238,13 +250,14 @@ export const NotificationProvider = ({ children }) => {
 
           if (!isViewingThisChat) {
             playTwitterNotificationSound();
+            const msgTargetUrl = `/messages?user=${latestUnreadMsg.sender?.username}`;
             showToast(
               `💬 ${latestUnreadMsg.sender?.name || 'Someone'}: "${(latestUnreadMsg.text || 'Sent a message').slice(0, 45)}"`,
               'info',
               {
                 avatarUrl: latestUnreadMsg.sender?.avatarUrl,
                 onClick: () => {
-                  window.location.assign(`/messages?user=${latestUnreadMsg.sender?.username}`);
+                  navigate(msgTargetUrl);
                 },
                 duration: 5000,
               }
