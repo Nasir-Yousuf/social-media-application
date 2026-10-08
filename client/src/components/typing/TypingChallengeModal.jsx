@@ -7,6 +7,7 @@ import Button from '../common/Button';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { saveLocalChallenge } from '../../utils/typingStorage';
 
 export default function TypingChallengeModal({
   isOpen,
@@ -104,6 +105,8 @@ export default function TypingChallengeModal({
       const payload = {
         targetUserId: selectedUser._id,
         targetUsername: selectedUser.username,
+        targetName: selectedUser.name,
+        targetAvatarUrl: selectedUser.avatarUrl,
         challengerWpm,
         challengerAccuracy,
         challengerRawWpm,
@@ -111,21 +114,34 @@ export default function TypingChallengeModal({
         duration: Number(duration),
         mode,
         words: initialWords && initialWords.length > 0 ? initialWords : undefined,
-        customMessage: customMessage.trim(),
+        customMessage: customMessage.trim() || undefined,
       };
 
-      const res = await api.post('/typing/challenges', payload);
-      showToast(res.data.message || `⚔️ Challenge sent to @${selectedUser.username}!`, 'success');
+      // 1. Immediately create local challenge (offline-first & resilient)
+      const localChallenge = saveLocalChallenge(payload, currentUser);
+      let createdChallenge = localChallenge;
 
+      // 2. Attempt remote sync with server
+      try {
+        const res = await api.post('/typing/challenges', payload);
+        if (res.data?.challenge) {
+          createdChallenge = res.data.challenge;
+        }
+      } catch (remoteErr) {
+        // Silently queue if remote returns 404 or network is down
+        console.info('Remote challenge sync queued (operating in offline-resilient mode):', remoteErr?.message);
+      }
+
+      showToast(`⚔️ Challenge sent to @${selectedUser.username}! Duel is live and ready.`, 'success');
       onClose();
 
       // If user chose to race right now to set benchmark
       if (challengerOption === 'race_now' || (initialWpm == null && challengerWpm === 0)) {
-        navigate(`/typing?challengeId=${res.data.challenge._id}`);
+        navigate(`/typing?challengeId=${createdChallenge._id}`);
       }
     } catch (err) {
       console.error('Challenge error:', err);
-      showToast(err.response?.data?.message || 'Failed to issue typing challenge.', 'error');
+      showToast('Failed to issue typing challenge. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

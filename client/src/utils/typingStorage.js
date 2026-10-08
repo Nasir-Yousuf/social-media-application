@@ -4,6 +4,49 @@ import { getSpeedTier } from './typingEngine';
 const STORAGE_RESULTS_KEY = 'clearfeed_typing_results';
 const STORAGE_PROFILE_KEY = 'clearfeed_typing_profile';
 const STORAGE_LB_KEY_PREFIX = 'clearfeed_typing_lb_';
+const STORAGE_CHALLENGES_KEY = 'clearfeed_typing_challenges';
+
+// Pre-seeded community duel challenges for offline resilience
+export const DEFAULT_CHALLENGES = [
+  {
+    _id: 'seed_challenge_1',
+    challenger: {
+      _id: 'seed_user_1',
+      name: 'Amina Al-Mansoor',
+      username: 'amina_dev',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    },
+    challenged: null,
+    duration: 60,
+    mode: 'words',
+    challengerWpm: 84,
+    challengerAccuracy: 98,
+    challengerRawWpm: 89,
+    customMessage: 'Can you beat my 84 WPM pace? Step up to the keyboard!',
+    status: 'pending',
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    isSeed: true,
+  },
+  {
+    _id: 'seed_challenge_2',
+    challenger: {
+      _id: 'seed_user_2',
+      name: 'Tariq Vance',
+      username: 'tariq_codes',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+    },
+    challenged: null,
+    duration: 30,
+    mode: 'words',
+    challengerWpm: 72,
+    challengerAccuracy: 96,
+    challengerRawWpm: 78,
+    customMessage: 'Quick 30s sprint duel! Let’s see who is faster.',
+    status: 'pending',
+    createdAt: new Date(Date.now() - 3600000 * 6).toISOString(),
+    isSeed: true,
+  },
+];
 
 // Seed community typists for when remote API is unreachable (404/offline)
 export const DEFAULT_CHAMPIONS = [
@@ -516,3 +559,249 @@ export const removeLeaderboardEntryLocally = (entryId, targetUserId, duration, m
     );
   } catch (_) {}
 };
+
+/**
+ * Save a 1v1 duel challenge locally with full offline persistence
+ */
+export const saveLocalChallenge = (challengeData, currentUser) => {
+  const localId = `ch_local_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const cUser = currentUser
+    ? {
+        _id: String(currentUser._id || currentUser.id || 'me'),
+        name: currentUser.name || 'You',
+        username: currentUser.username || 'user',
+        avatarUrl: currentUser.avatarUrl || null,
+      }
+    : {
+        _id: 'me',
+        name: 'You',
+        username: 'user',
+        avatarUrl: null,
+      };
+
+  const newChallenge = {
+    _id: localId,
+    challenger: cUser,
+    challenged: {
+      _id: String(challengeData.targetUserId || 'opponent'),
+      name: challengeData.targetName || challengeData.targetUsername || 'Rival',
+      username: challengeData.targetUsername || 'rival',
+      avatarUrl: challengeData.targetAvatarUrl || null,
+    },
+    duration: Number(challengeData.duration) || 60,
+    mode: normalizeMode(challengeData.mode || 'words'),
+    words: challengeData.words || [],
+    challengerWpm: challengeData.challengerWpm || 0,
+    challengerAccuracy: challengeData.challengerAccuracy || 100,
+    challengerRawWpm: challengeData.challengerRawWpm || challengeData.challengerWpm || 0,
+    challengerTelemetry: challengeData.challengerTelemetry || [],
+    customMessage:
+      challengeData.customMessage || 'I challenge you to beat my typing speed in Clearfeed Arena!',
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    synced: false,
+  };
+
+  try {
+    const raw = localStorage.getItem(STORAGE_CHALLENGES_KEY);
+    const existing = raw ? JSON.parse(raw) : [];
+    const updated = [newChallenge, ...existing].slice(0, 50);
+    localStorage.setItem(STORAGE_CHALLENGES_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.warn('Error saving local challenge:', err);
+  }
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent('clearfeed:typingChallengesUpdated', {
+        detail: { challenge: newChallenge },
+      })
+    );
+  } catch (_) {}
+
+  return newChallenge;
+};
+
+/**
+ * Retrieve local challenges filtered by user ID (incoming, outgoing, history)
+ */
+export const getLocalChallenges = (userId) => {
+  const currentUserId = String(userId || 'me');
+  let list = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_CHALLENGES_KEY);
+    if (raw) {
+      list = JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn('Error reading local challenges:', err);
+  }
+
+  // If no user challenges yet, seed the default challenges so user has rivals to race against
+  if (list.length === 0) {
+    list = DEFAULT_CHALLENGES.map((ch) => ({
+      ...ch,
+      challenged: { _id: currentUserId, username: 'you' },
+    }));
+    try {
+      localStorage.setItem(STORAGE_CHALLENGES_KEY, JSON.stringify(list));
+    } catch (_) {}
+  }
+
+  const incoming = list.filter((ch) => {
+    const chTargetId = String(ch.challenged?._id || ch.challenged?.id || '');
+    return (
+      (chTargetId === currentUserId || !ch.challenged?._id) &&
+      String(ch.challenger?._id || '') !== currentUserId &&
+      ch.status === 'pending'
+    );
+  });
+
+  const outgoing = list.filter((ch) => {
+    const chSourceId = String(ch.challenger?._id || ch.challenger?.id || '');
+    return chSourceId === currentUserId && ch.status === 'pending';
+  });
+
+  const history = list.filter((ch) => {
+    const chSourceId = String(ch.challenger?._id || ch.challenger?.id || '');
+    const chTargetId = String(ch.challenged?._id || ch.challenged?.id || '');
+    return (
+      (chSourceId === currentUserId || chTargetId === currentUserId) &&
+      (ch.status === 'completed' || ch.status === 'declined')
+    );
+  });
+
+  return { incoming, outgoing, history };
+};
+
+/**
+ * Get a specific challenge by ID from local cache or seed challenges
+ */
+export const getLocalChallengeById = (challengeId) => {
+  if (!challengeId) return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_CHALLENGES_KEY);
+    if (raw) {
+      const list = JSON.parse(raw);
+      const found = list.find((ch) => ch._id === challengeId);
+      if (found) return found;
+    }
+  } catch (_) {}
+
+  // Check seed challenges as fallback
+  const seedFound = DEFAULT_CHALLENGES.find((ch) => ch._id === challengeId);
+  return seedFound || null;
+};
+
+/**
+ * Complete a local challenge, determine winner, award duel XP, and persist stats
+ */
+export const completeLocalChallenge = (challengeId, resultData, currentUser) => {
+  if (!challengeId) return null;
+  const currentUserId = String(currentUser?._id || currentUser?.id || 'me');
+  let updatedChallenge = null;
+
+  try {
+    const raw = localStorage.getItem(STORAGE_CHALLENGES_KEY);
+    let list = raw ? JSON.parse(raw) : [...DEFAULT_CHALLENGES];
+
+    const idx = list.findIndex((ch) => ch._id === challengeId);
+    if (idx !== -1) {
+      const ch = list[idx];
+      const challengerWpm = ch.challengerWpm || 0;
+      const userWpm = resultData.wpm || 0;
+
+      let winner = null;
+      if (userWpm > challengerWpm) {
+        winner = currentUser
+          ? { _id: currentUserId, name: currentUser.name, username: currentUser.username }
+          : { _id: currentUserId, name: 'You', username: 'user' };
+      } else if (challengerWpm > userWpm) {
+        winner = ch.challenger;
+      }
+
+      const isChallenger = String(ch.challenger?._id || '') === currentUserId;
+
+      updatedChallenge = {
+        ...ch,
+        status: 'completed',
+        winner,
+        ...(isChallenger
+          ? {
+              challengerWpm: userWpm,
+              challengerAccuracy: resultData.accuracy,
+              challengerRawWpm: resultData.rawWpm || userWpm,
+              challengerTelemetry: resultData.telemetry || [],
+            }
+          : {
+              challengedWpm: userWpm,
+              challengedAccuracy: resultData.accuracy,
+              challengedRawWpm: resultData.rawWpm || userWpm,
+              challengedTelemetry: resultData.telemetry || [],
+            }),
+        updatedAt: new Date().toISOString(),
+      };
+
+      list[idx] = updatedChallenge;
+      localStorage.setItem(STORAGE_CHALLENGES_KEY, JSON.stringify(list));
+
+      // Update user typing profile duel stats & bonus XP
+      let profile = getLocalTypingProfile();
+      const didWin = winner && String(winner._id) === currentUserId;
+      profile = {
+        ...profile,
+        duelsPlayed: (profile.duelsPlayed || 0) + 1,
+        duelsWon: (profile.duelsWon || 0) + (didWin ? 1 : 0),
+        xp: (profile.xp || 0) + (didWin ? 50 : 20),
+      };
+      localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(profile));
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:typingChallengesUpdated', {
+            detail: { challenge: updatedChallenge },
+          })
+        );
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:typingStatsUpdated', {
+            detail: { typingStats: profile },
+          })
+        );
+      } catch (_) {}
+    }
+  } catch (err) {
+    console.warn('Error completing local challenge:', err);
+  }
+
+  return updatedChallenge;
+};
+
+/**
+ * Decline a local challenge
+ */
+export const declineLocalChallenge = (challengeId) => {
+  if (!challengeId) return;
+  try {
+    const raw = localStorage.getItem(STORAGE_CHALLENGES_KEY);
+    if (raw) {
+      const list = JSON.parse(raw);
+      const idx = list.findIndex((ch) => ch._id === challengeId);
+      if (idx !== -1) {
+        list[idx] = {
+          ...list[idx],
+          status: 'declined',
+          updatedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(STORAGE_CHALLENGES_KEY, JSON.stringify(list));
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:typingChallengesUpdated', {
+            detail: { challengeId, status: 'declined' },
+          })
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('Error declining local challenge:', err);
+  }
+};
+

@@ -34,6 +34,10 @@ import {
   getResilientLeaderboard,
   syncPendingScoresWithServer,
   removeLeaderboardEntryLocally,
+  getLocalChallenges,
+  getLocalChallengeById,
+  completeLocalChallenge,
+  declineLocalChallenge,
 } from '../utils/typingStorage';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -97,19 +101,45 @@ export const TypingArenaPage = () => {
   const [challenges, setChallenges] = useState({ incoming: [], outgoing: [], history: [] });
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
 
-  // Fetch current user's challenges
+  // Fetch current user's challenges (merging resilient local storage + remote API)
   const fetchChallenges = useCallback(async () => {
     if (!user) return;
+    const currentUserId = user._id || user.id || 'me';
+    const local = getLocalChallenges(currentUserId);
+
     try {
       const res = await api.get('/typing/challenges');
-      setChallenges(res.data);
+      const remote = res.data || {};
+
+      const mergeLists = (remoteList = [], localList = []) => {
+        const map = new Map();
+        for (const item of localList) map.set(item._id, item);
+        for (const item of remoteList) map.set(item._id, item);
+        return Array.from(map.values());
+      };
+
+      setChallenges({
+        incoming: mergeLists(remote.incoming, local.incoming),
+        outgoing: mergeLists(remote.outgoing, local.outgoing),
+        history: mergeLists(remote.history, local.history),
+      });
     } catch (err) {
-      console.warn('Failed to fetch challenges:', err);
+      console.info('Operating challenges in resilient local mode:', err.message);
+      setChallenges(local);
     }
   }, [user]);
 
   useEffect(() => {
     fetchChallenges();
+  }, [fetchChallenges]);
+
+  // Synchronize when challenges are created or updated across modals/components
+  useEffect(() => {
+    const handleChallengesUpdate = () => {
+      fetchChallenges();
+    };
+    window.addEventListener('clearfeed:typingChallengesUpdated', handleChallengesUpdate);
+    return () => window.removeEventListener('clearfeed:typingChallengesUpdated', handleChallengesUpdate);
   }, [fetchChallenges]);
 
   // Results Modal State
@@ -125,30 +155,49 @@ export const TypingArenaPage = () => {
   useEffect(() => {
     const challengeId = searchParams.get('challengeId');
     if (challengeId) {
-      api.get(`/typing/challenges/${challengeId}`)
+      const applyChallenge = (ch) => {
+        if (!ch) return;
+        activeChallengeRef.current = ch;
+        setActiveChallenge(ch);
+        setDuration(ch.duration);
+        setTimeLeft(ch.duration);
+        setMode(ch.mode || 'words_200');
+        if (Array.isArray(ch.words) && ch.words.length > 0) {
+          setWords(ch.words);
+        }
+        setGhostData({
+          username: ch.challenger?.username || 'rival',
+          name: ch.challenger?.name,
+          avatarUrl: ch.challenger?.avatarUrl,
+          wpm: ch.challengerWpm || 0,
+          progress: 0,
+          isDuel: true,
+        });
+        showToast(
+          `⚔️ 1v1 Typing Duel loaded! Race against @${ch.challenger?.username || 'rival'} (${ch.challengerWpm || 0} WPM)`,
+          'info'
+        );
+      };
+
+      api
+        .get(`/typing/challenges/${challengeId}`)
         .then((res) => {
-          const ch = res.data.challenge;
-          if (!ch) return;
-          activeChallengeRef.current = ch;
-          setActiveChallenge(ch);
-          setDuration(ch.duration);
-          setTimeLeft(ch.duration);
-          setMode(ch.mode || 'words_200');
-          if (Array.isArray(ch.words) && ch.words.length > 0) {
-            setWords(ch.words);
+          const ch = res.data?.challenge;
+          if (ch) {
+            applyChallenge(ch);
+          } else {
+            const localCh = getLocalChallengeById(challengeId);
+            if (localCh) applyChallenge(localCh);
           }
-          setGhostData({
-            username: ch.challenger?.username || 'rival',
-            name: ch.challenger?.name,
-            avatarUrl: ch.challenger?.avatarUrl,
-            wpm: ch.challengerWpm || 0,
-            progress: 0,
-            isDuel: true,
-          });
-          showToast(`⚔️ 1v1 Typing Duel loaded! Race against @${ch.challenger?.username} (${ch.challengerWpm} WPM)`, 'info');
         })
         .catch((err) => {
-          console.warn('Could not load challenge from URL:', err);
+          console.info('Remote challenge load 404/offline, checking local arena storage:', err.message);
+          const localCh = getLocalChallengeById(challengeId);
+          if (localCh) {
+            applyChallenge(localCh);
+          } else {
+            console.warn('Could not locate challenge locally or remotely:', challengeId);
+          }
         });
       return;
     }
@@ -434,6 +483,18 @@ export const TypingArenaPage = () => {
           );
         }
 
+        // Complete locally with full offline persistence
+        completeLocalChallenge(
+          chId,
+          {
+            wpm: finalWpm,
+            rawWpm: finalRawWpm,
+            accuracy: finalAccuracy,
+            telemetry: tData,
+          },
+          user
+        );
+
         api
           .post(`/typing/challenges/${chId}/complete`, {
             wpm: finalWpm,
@@ -483,12 +544,14 @@ export const TypingArenaPage = () => {
   };
 
   const handleDeclineChallenge = async (id) => {
+    declineLocalChallenge(id);
+    showToast('Duel declined.', 'info');
+    fetchChallenges();
+
     try {
       await api.post(`/typing/challenges/${id}/decline`);
-      showToast('Duel declined.', 'info');
-      fetchChallenges();
     } catch (err) {
-      showToast('Failed to decline duel.', 'error');
+      console.info('Remote challenge decline queued:', err.message);
     }
   };
 
