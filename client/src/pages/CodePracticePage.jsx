@@ -48,6 +48,9 @@ import { useNotifications } from '../context/NotificationContext';
 export const CodePracticePage = () => {
   const { showToast } = useNotifications();
 
+  // Code Practice Progress state loaded from storage
+  const [progress, setProgress] = useState(() => loadProgressFromStorage());
+
   // Active Practice Tab: 'lesson' | 'carrace' | 'free' | 'weak' | 'daily' | 'progress'
   const [activeTab, setActiveTab] = useState('lesson');
 
@@ -109,7 +112,7 @@ export const CodePracticePage = () => {
     const completed = progress.completedLessons?.[selectedLanguage] || [];
     const firstIncomplete = lessons.find((l) => !completed.includes(l.id)) || lessons[0];
     setCurrentLesson(firstIncomplete);
-  }, [selectedLanguage]);
+  }, [selectedLanguage, progress]);
 
   // Handle language switch
   const handleSelectLanguage = (langId) => {
