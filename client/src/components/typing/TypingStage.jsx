@@ -25,106 +25,27 @@ export const TypingStage = ({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [isFocused, setIsFocused] = useState(true);
 
-  // In-text Ghost position
-  const ghostWordIndex =
-    ghostData && ghostData.progress > 0
-      ? Math.min(words.length - 1, Math.floor(((ghostData.progress || 0) / 100) * words.length))
-      : -1;
-
-  // Always ensure focus and caret positioning at end of word on mount, restart, or index change
+  // Always ensure input focus on mount or index reset
   useEffect(() => {
     if (!isFinished) {
       const len = (currentInput || '').length;
       if (inputRef.current) {
-        inputRef.current.focus({ preventScroll: true });
-        setIsFocused(true);
         try {
+          inputRef.current.focus({ preventScroll: true });
+          setIsFocused(true);
           inputRef.current.setSelectionRange(len, len);
         } catch (err) {}
       }
       if (boxInputRef.current) {
-        boxInputRef.current.focus({ preventScroll: true });
         try {
+          boxInputRef.current.focus({ preventScroll: true });
           boxInputRef.current.setSelectionRange(len, len);
         } catch (err) {}
       }
-
-      const t = setTimeout(() => {
-        if (inputRef.current) {
-          const l = inputRef.current.value.length;
-          try {
-            inputRef.current.setSelectionRange(l, l);
-          } catch (e) {}
-        }
-        if (boxInputRef.current) {
-          const l = boxInputRef.current.value.length;
-          try {
-            boxInputRef.current.setSelectionRange(l, l);
-          } catch (e) {}
-        }
-      }, 0);
-      return () => clearTimeout(t);
     }
   }, [isFinished, currentWordIndex, words, viewMode]);
 
-  // Global keydown listener: starts typing instantly from anywhere in the arena without clicking
-  useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      if (isFinished) return;
-
-      // Ignore if user is currently typing inside another real form control
-      const targetTag = e.target?.tagName?.toLowerCase();
-      const isOtherInput =
-        (targetTag === 'input' && e.target !== inputRef.current) ||
-        targetTag === 'textarea' ||
-        targetTag === 'select' ||
-        e.target?.isContentEditable;
-      if (isOtherInput) return;
-
-      // Ignore browser shortcuts
-      if (e.ctrlKey || e.altKey || e.metaKey) return;
-
-      // If hidden input is not focused, focus immediately and capture first character
-      if (inputRef.current && document.activeElement !== inputRef.current) {
-        inputRef.current.focus({ preventScroll: true });
-        setIsFocused(true);
-
-        if (e.key === ' ' || e.key === 'Backspace' || e.key.length === 1) {
-          onKeyDown?.(e);
-          if (e.key.length === 1 && e.key !== ' ') {
-            onInputChange?.({ target: { value: (currentInput || '') + e.key } });
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleGlobalKeyDown);
-    };
-  }, [isFinished, currentInput, onKeyDown, onInputChange]);
-
-  // Global click listener: clicking anywhere on the page focuses the typing input unless clicking a button
-  useEffect(() => {
-    const handleGlobalClick = (e) => {
-      if (isFinished) return;
-      const target = e.target;
-      const isInteractive = target?.closest(
-        'button, a, input, select, textarea, [role="button"], [role="dialog"], [role="menu"]'
-      );
-      if (!isInteractive && inputRef.current) {
-        inputRef.current.focus({ preventScroll: true });
-        setIsFocused(true);
-      }
-    };
-
-    window.addEventListener('click', handleGlobalClick);
-    return () => {
-      window.removeEventListener('click', handleGlobalClick);
-    };
-  }, [isFinished]);
-
-  // Handle smooth line-by-line scrolling so words NEVER shift horizontally
+  // Handle smooth line-by-line scrolling when active word moves to a new line
   useEffect(() => {
     const targetRefs = viewMode === 'caret' ? wordRefs.current : boxWordRefs.current;
     const activeEl = targetRefs[currentWordIndex];
@@ -135,7 +56,6 @@ export const TypingStage = ({
       const initialTop = firstEl.offsetTop;
       const lineDiff = activeTop - initialTop;
 
-      // Only scroll when reaching a new line
       if (lineDiff >= 0 && lineDiff !== scrollOffset) {
         setScrollOffset(lineDiff);
       }
@@ -168,7 +88,7 @@ export const TypingStage = ({
           : 'p-6 sm:p-8 rounded-3xl bg-[#0e1116] border border-neutral-800 shadow-2xl'
       }`}
     >
-      {/* Ghost Racing Track Bar (only for classic standalone mode when ghost is active) */}
+      {/* Ghost Racing Track Bar (renders at top cleanly without DOM shifts) */}
       {ghostData && !isEmbeddedTheme && (
         <div className="mb-6 p-3 rounded-2xl bg-black/50 border border-neutral-800/80 font-mono text-xs">
           <div className="flex items-center justify-between text-neutral-400 mb-2">
@@ -218,7 +138,7 @@ export const TypingStage = ({
         className="absolute opacity-0 pointer-events-none w-0 h-0"
       />
 
-      {/* Subtle Focus Hint (Monkeytype-style: disappears instantly upon typing or clicking) */}
+      {/* Focus Hint */}
       {!isFocused && !isActive && !isFinished && (
         <div
           onClick={handleContainerClick}
@@ -226,12 +146,12 @@ export const TypingStage = ({
         >
           <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-neutral-900/95 border border-sky-500/50 text-sky-300 text-xs font-mono font-bold shadow-2xl animate-pulse">
             <MousePointerClick className="w-4 h-4 text-sky-400" />
-            <span>Click or start typing anywhere to begin test</span>
+            <span>Click or start typing to focus</span>
           </div>
         </div>
       )}
 
-      {/* View Mode 1: Monkeytype Flowing Caret (Fixed 3-Line Window with Line Scroll) */}
+      {/* View Mode 1: Monkeytype Flowing Caret (Fixed Window with Line Scroll) */}
       {viewMode === 'caret' ? (
         <div className="relative h-[130px] sm:h-[150px] overflow-hidden">
           <div
@@ -244,10 +164,9 @@ export const TypingStage = ({
             {words.map((word, idx) => {
               const isCurrent = idx === currentWordIndex;
               const history = wordHistory[idx];
-              const isGhostHere = ghostWordIndex === idx;
 
               if (history) {
-                // Previously typed word - click or Backspace to fix mistakes
+                // Previously typed word
                 const isCorrect = history.status === 'correct';
                 return (
                   <span
@@ -271,15 +190,6 @@ export const TypingStage = ({
                     }`}
                   >
                     <span>{word}</span>
-                    {/* Render Ghost Caret as absolute badge (0 flow width to prevent word movement) */}
-                    {isGhostHere && (
-                      <span className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 flex flex-col items-center">
-                        <span className="text-[8px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-sm whitespace-nowrap">
-                          @{ghostData?.username || 'ghost'}
-                        </span>
-                        <span className="w-1 h-1 rotate-45 bg-purple-500 -mt-0.5" />
-                      </span>
-                    )}
                   </span>
                 );
               }
@@ -328,7 +238,7 @@ export const TypingStage = ({
                       </span>
                     )}
 
-                    {/* Caret at end of word (Absolute position with 0 flow width so words NEVER move) */}
+                    {/* Caret at end of word */}
                     {currentInput.length >= word.length && (
                       <span
                         className={`absolute -right-[2px] top-[10%] bottom-[10%] w-[2.5px] rounded-full animate-pulse shadow-sm pointer-events-none ${
@@ -338,136 +248,52 @@ export const TypingStage = ({
                         }`}
                       />
                     )}
-
-                    {/* Render Ghost Caret as absolute badge */}
-                    {isGhostHere && (
-                      <span className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 flex flex-col items-center">
-                        <span className="text-[8px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-sm whitespace-nowrap">
-                          @{ghostData?.username || 'ghost'}
-                        </span>
-                        <span className="w-1 h-1 rotate-45 bg-purple-500 -mt-0.5" />
-                      </span>
-                    )}
                   </span>
                 );
               }
 
-              // Upcoming words: fixed and completely static in place
+              // Upcoming words
               return (
                 <span
                   key={idx}
                   ref={(el) => (wordRefs.current[idx] = el)}
                   className={`relative whitespace-nowrap inline-flex items-center font-mono ${
-                    theme === 'hacker' ? 'text-emerald-800' : 'text-neutral-500'
+                    theme === 'hacker' ? 'text-emerald-900' : 'text-neutral-500'
                   }`}
                 >
                   <span>{word}</span>
-                  {/* Render Ghost Caret as absolute badge */}
-                  {isGhostHere && (
-                    <span className="absolute -top-5 left-1/2 -translate-x-1/2 pointer-events-none select-none z-10 flex flex-col items-center">
-                      <span className="text-[8px] font-mono font-bold text-purple-200 bg-purple-950/90 px-1 py-0.2 rounded border border-purple-500/50 shadow-sm whitespace-nowrap">
-                        @{ghostData?.username || 'ghost'}
-                      </span>
-                      <span className="w-1 h-1 rotate-45 bg-purple-500 -mt-0.5" />
-                    </span>
-                  )}
                 </span>
               );
             })}
           </div>
         </div>
       ) : (
-        /* View Mode 2: 10FastFingers Classic Input Box (Fixed Line Scroll) */
-        <div className="space-y-5">
-          {/* Word Cloud Box with 2 Fixed Stationary Lines */}
-          <div className="relative h-[95px] sm:h-[110px] overflow-hidden p-4 rounded-2xl bg-black/40 border border-neutral-800/80">
-            <div
-              style={{ transform: `translateY(-${scrollOffset}px)` }}
-              className="transition-transform duration-200 ease-out flex flex-wrap gap-2.5 font-mono text-lg sm:text-xl leading-normal"
-            >
-              {words.map((word, idx) => {
-                const isCurrent = idx === currentWordIndex;
-                const history = wordHistory[idx];
+        /* View Mode 2: Box Grid View */
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          {words.map((word, idx) => {
+            const isCurrent = idx === currentWordIndex;
+            const history = wordHistory[idx];
 
-                if (history) {
-                  return (
-                    <span
-                      key={idx}
-                      ref={(el) => (boxWordRefs.current[idx] = el)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onJumpToWord?.(idx);
-                      }}
-                      title={
-                        history.status === 'correct'
-                          ? 'Press Backspace or click to edit'
-                          : '⚠️ Mistake! Click or press Backspace to fix this word'
-                      }
-                      className={`px-2 py-0.5 rounded-lg text-sm whitespace-nowrap font-mono cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95 ${
-                        history.status === 'correct'
-                          ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/25 hover:text-emerald-300'
-                          : 'text-rose-400 bg-rose-500/10 line-through hover:bg-rose-500/25 hover:text-rose-300'
-                      }`}
-                    >
-                      {word}
-                    </span>
-                  );
-                }
+            let boxStyle = 'bg-neutral-900/60 border-neutral-800 text-neutral-500';
+            if (history) {
+              boxStyle =
+                history.status === 'correct'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 font-bold'
+                  : 'bg-rose-500/10 border-rose-500/30 text-rose-400 line-through';
+            } else if (isCurrent) {
+              boxStyle = 'bg-sky-500/20 border-sky-500 text-white font-bold ring-2 ring-sky-500/30 animate-pulse';
+            }
 
-                if (isCurrent) {
-                  return (
-                    <span
-                      key={idx}
-                      ref={(el) => (boxWordRefs.current[idx] = el)}
-                      className="px-2 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-sky-300 text-sm whitespace-nowrap font-mono shadow-sm"
-                    >
-                      {word}
-                    </span>
-                  );
-                }
-
-                return (
-                  <span
-                    key={idx}
-                    ref={(el) => (boxWordRefs.current[idx] = el)}
-                    className="px-2 py-0.5 rounded-lg text-neutral-500 text-sm whitespace-nowrap font-mono border border-transparent"
-                  >
-                    {word}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Classic 10FastFingers Stationary Input Box */}
-          <div className="relative">
-            <input
-              ref={boxInputRef}
-              type="text"
-              value={currentInput}
-              onChange={onInputChange}
-              onKeyDown={onKeyDown}
-              disabled={isFinished}
-              placeholder={isActive ? '' : 'Type the word here and press Space...'}
-              className="w-full bg-neutral-900 text-xl font-mono text-white px-5 py-3.5 rounded-2xl border-2 border-neutral-700 focus:border-sky-500 focus:outline-none transition-colors shadow-inner"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Helpful shortcut & mistake correction hint */}
-      {!isFinished && (
-        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-400 font-mono">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-neutral-400">💡 Made a mistake? Press</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-200 text-[11px] font-semibold">
-              Backspace
-            </kbd>
-            <span className="text-neutral-400">to return to previous words, or click any word to fix it.</span>
-          </div>
-          <span className="text-neutral-500 text-[11px] hidden sm:inline">
-            Tab ⟳ restart
-          </span>
+            return (
+              <div
+                key={idx}
+                ref={(el) => (boxWordRefs.current[idx] = el)}
+                className={`p-3 rounded-2xl border font-mono text-base text-center truncate transition-all ${boxStyle}`}
+              >
+                {word}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
