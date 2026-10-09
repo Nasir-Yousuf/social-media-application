@@ -1,6 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Keyboard, Zap, Flame, Trophy, Sparkles, BookOpen, Target, Play, RotateCcw, Share2, Layers } from 'lucide-react';
+import {
+  Keyboard,
+  Zap,
+  Flame,
+  Trophy,
+  Sparkles,
+  BookOpen,
+  Target,
+  Play,
+  RotateCcw,
+  Share2,
+  Layers,
+  Swords,
+  Car,
+  Terminal,
+  Eye,
+} from 'lucide-react';
 import LanguageSelector from '../components/code-practice/LanguageSelector';
 import CodeStatsHeader from '../components/code-practice/CodeStatsHeader';
 import CodeTypingArena from '../components/code-practice/CodeTypingArena';
@@ -11,6 +27,8 @@ import WeakKeysPanel from '../components/code-practice/WeakKeysPanel';
 import DailyCodeChallenge from '../components/code-practice/DailyCodeChallenge';
 import CodeProgressDashboard from '../components/code-practice/CodeProgressDashboard';
 import ShareAchievementModal from '../components/code-practice/ShareAchievementModal';
+import ChallengeFriendModal from '../components/code-practice/ChallengeFriendModal';
+import CarRaceArena from '../components/code-practice/CarRaceArena';
 
 import {
   getLessonsByLanguage,
@@ -30,8 +48,11 @@ import { useNotifications } from '../context/NotificationContext';
 export const CodePracticePage = () => {
   const { showToast } = useNotifications();
 
-  // Active Practice Mode: 'lesson' | 'free' | 'weak' | 'speed' | 'daily' | 'progress'
+  // Active Practice Tab: 'lesson' | 'carrace' | 'free' | 'weak' | 'daily' | 'progress'
   const [activeTab, setActiveTab] = useState('lesson');
+
+  // Active Typing Sub-Mode: 'classic' | 'arcade' | 'cyber' | 'focus'
+  const [typingMode, setTypingMode] = useState('classic');
 
   // Selected Language: 'html' | 'css' | 'javascript'
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
@@ -52,6 +73,7 @@ export const CodePracticePage = () => {
   const [isCurriculumModalOpen, setIsCurriculumModalOpen] = useState(false);
   const [isResultsModalOpen, setIsResultsModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [lastResults, setLastResults] = useState(null);
   const [shareText, setShareText] = useState('');
 
@@ -63,7 +85,6 @@ export const CodePracticePage = () => {
     const lessons = getLessonsByLanguage(selectedLanguage);
     setCurrentLessons(lessons);
 
-    // Pick first incomplete lesson or default first lesson
     const completed = progress.completedLessons?.[selectedLanguage] || [];
     const firstIncomplete = lessons.find((l) => !completed.includes(l.id)) || lessons[0];
     setCurrentLesson(firstIncomplete);
@@ -90,22 +111,33 @@ export const CodePracticePage = () => {
     setLiveAccuracy(Math.min(100, Math.max(0, acc)));
   }, []);
 
-  // Handle lesson completion
+  // Handle lesson / race completion
   const handleCompleteSnippet = useCallback(
     (data) => {
-      const { wpm, accuracy, errors, timeSeconds, typedLength, mistakesMap } = data;
+      const {
+        wpm,
+        accuracy,
+        errors,
+        timeSeconds,
+        typedLength,
+        mistakesMap,
+        wpmHistory = [],
+        modeName = null,
+        raceRank = null,
+      } = data;
 
       // Analyze errors & record progress
       const analysis = analyzeSessionPerformance(mistakesMap, currentLesson?.snippet || '');
       
-      // Build session weak map for tracking symbol errors
       const sessionWeakMap = {};
-      Object.keys(mistakesMap).forEach((idx) => {
-        const char = currentLesson?.snippet[idx];
-        if (char) {
-          sessionWeakMap[char] = { errors: 1, total: 1 };
-        }
-      });
+      if (mistakesMap) {
+        Object.keys(mistakesMap).forEach((idx) => {
+          const char = currentLesson?.snippet?.[idx];
+          if (char) {
+            sessionWeakMap[char] = { errors: 1, total: 1 };
+          }
+        });
+      }
 
       const sessionResult = recordSessionProgress({
         language: selectedLanguage,
@@ -118,8 +150,17 @@ export const CodePracticePage = () => {
         sessionWeakMap,
       });
 
-      // Update state
       setProgress(sessionResult.updatedProgress);
+
+      const labelMode =
+        modeName ||
+        (typingMode === 'arcade'
+          ? 'Arcade Combo ⚡'
+          : typingMode === 'cyber'
+          ? 'Cyber Hacker 💻'
+          : typingMode === 'focus'
+          ? 'Focus Zen 🧘'
+          : 'Classic Curriculum');
 
       const resultsPayload = {
         wpm,
@@ -132,7 +173,10 @@ export const CodePracticePage = () => {
         goodCategories: analysis.goodCategories,
         needsPracticeChars: analysis.needsPracticeChars,
         xpGained: sessionResult.xpGained,
-        lessonTitle: currentLesson?.title || 'Snippet',
+        lessonTitle: currentLesson?.title || 'Code Snippet',
+        wpmHistory,
+        modeName: labelMode,
+        raceRank,
       };
 
       setLastResults(resultsPayload);
@@ -142,7 +186,7 @@ export const CodePracticePage = () => {
         showToast(`🎉 New Personal Best: ${wpm} WPM in ${selectedLanguage.toUpperCase()}!`, 'success');
       }
     },
-    [currentLesson, selectedLanguage, showToast]
+    [currentLesson, selectedLanguage, showToast, typingMode]
   );
 
   // Navigate to Next / Prev Lesson
@@ -172,11 +216,9 @@ export const CodePracticePage = () => {
     setLiveErrors(0);
     setLiveTypedLength(0);
     setNextCharToType('');
-    // Trigger reset by re-setting currentLesson
     setCurrentLesson((prev) => ({ ...prev }));
   };
 
-  // Launch Weak Keys Custom Drill
   const handleStartWeakKeysDrill = () => {
     const weakList = getWeakestKeysList(progress.weakKeysMap).map((w) => w.char);
     const weakSnippetObj = generateWeakKeysSnippet(selectedLanguage, weakList);
@@ -185,7 +227,6 @@ export const CodePracticePage = () => {
     showToast('Targeted Weak Keys drill loaded!', 'info');
   };
 
-  // Launch Daily Challenge
   const handleStartDailyChallenge = (dailyObj) => {
     setSelectedLanguage(dailyObj.lang);
     setCurrentLesson({
@@ -196,16 +237,22 @@ export const CodePracticePage = () => {
       snippet: dailyObj.snippet,
     });
     setActiveTab('daily');
-    showToast("Daily Challenge loaded! Focus on speed and accuracy.", 'info');
+    showToast('Daily Challenge loaded! Focus on speed and accuracy.', 'info');
   };
 
   // Open Share Modal
   const handleOpenShare = () => {
     const langLabel = selectedLanguage === 'html' ? 'HTML' : selectedLanguage === 'css' ? 'CSS' : 'JavaScript';
-    const text = `🚀 I just reached ${lastResults?.wpm || liveWpm} WPM while typing ${langLabel} code with ${lastResults?.accuracy || liveAccuracy}% accuracy on Clearfeed Code Practice! ⌨️🔥`;
+    const text = `🚀 I reached ${lastResults?.wpm || liveWpm} WPM with ${lastResults?.accuracy || liveAccuracy}% accuracy on Clearfeed Code Practice! ⌨️🔥`;
     setShareText(text);
     setIsResultsModalOpen(false);
     setIsShareModalOpen(true);
+  };
+
+  // Open Challenge Modal
+  const handleOpenChallenge = () => {
+    setIsResultsModalOpen(false);
+    setIsChallengeModalOpen(true);
   };
 
   const progressPercent = currentLesson?.snippet
@@ -225,10 +272,10 @@ export const CodePracticePage = () => {
             </div>
             <div>
               <h1 className="text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
-                Code Practice
+                Code Practice Arena
               </h1>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-                Improve your programming typing speed by typing real HTML, CSS, and JavaScript code.
+                Master programming speed with classic lessons, typing car races, arcade combos, and cyber hacker themes.
               </p>
             </div>
           </div>
@@ -252,6 +299,7 @@ export const CodePracticePage = () => {
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 select-none no-scrollbar">
         {[
           { id: 'lesson', label: 'Curriculum Lessons', icon: BookOpen },
+          { id: 'carrace', label: 'Car Typing Race 🏎️', icon: Car },
           { id: 'free', label: 'Free Practice', icon: Layers },
           { id: 'weak', label: 'Weak Keys Drill', icon: Target },
           { id: 'daily', label: 'Daily Challenge', icon: Flame },
@@ -288,7 +336,7 @@ export const CodePracticePage = () => {
         </NavLink>
       </div>
 
-      {/* 3. Main Dashboard View Tab (If My Progress Tab Selected) */}
+      {/* 3. My Progress Dashboard Tab */}
       {activeTab === 'progress' && (
         <div className="space-y-6 animate-fade-in">
           <CodeProgressDashboard progress={progress} />
@@ -300,8 +348,20 @@ export const CodePracticePage = () => {
         </div>
       )}
 
-      {/* 4. Main Practice Arena Views (Lesson / Free / Weak / Daily) */}
-      {activeTab !== 'progress' && (
+      {/* 4. Car Race Mode Tab */}
+      {activeTab === 'carrace' && (
+        <div className="space-y-5 animate-fade-in">
+          <CarRaceArena
+            key={currentLesson?.id || 'race'}
+            snippet={currentLesson?.snippet || 'const boostNitro = () => { console.log("Turbo Nitro Engaged! 🚀"); };'}
+            language={selectedLanguage}
+            onComplete={handleCompleteSnippet}
+          />
+        </div>
+      )}
+
+      {/* 5. Main Practice Arena Views (Lesson / Free / Weak / Daily) */}
+      {activeTab !== 'progress' && activeTab !== 'carrace' && (
         <div className="space-y-6 animate-fade-in">
           {/* Language Choices Cards/Tabs */}
           <LanguageSelector
@@ -310,7 +370,41 @@ export const CodePracticePage = () => {
             progress={progress}
           />
 
-          {/* Daily Challenge Banner if Daily Tab or Lesson View */}
+          {/* Typing Sub-Mode Selector Pills (Classic, Arcade, Cyber Hacker, Focus) */}
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-neutral-50 dark:bg-[#121519] border border-neutral-200/80 dark:border-neutral-800 flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-xs font-extrabold text-neutral-800 dark:text-neutral-200">
+              <Zap className="w-4 h-4 text-sky-500" />
+              <span>Arena Theme Mode:</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {[
+                { id: 'classic', label: 'Classic', icon: BookOpen },
+                { id: 'arcade', label: 'Arcade Combo ⚡', icon: Zap },
+                { id: 'cyber', label: 'Cyber Hacker 💻', icon: Terminal },
+                { id: 'focus', label: 'Focus Zen 🧘', icon: Eye },
+              ].map((m) => {
+                const isSel = typingMode === m.id;
+                const Icon = m.icon;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setTypingMode(m.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      isSel
+                        ? 'bg-sky-500 text-white shadow-xs'
+                        : 'bg-white dark:bg-[#181c23] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:border-neutral-400'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Daily Challenge Banner if Daily Tab */}
           {activeTab === 'daily' && (
             <DailyCodeChallenge onStartDaily={handleStartDailyChallenge} progress={progress} />
           )}
@@ -335,7 +429,7 @@ export const CodePracticePage = () => {
             </button>
           </div>
 
-          {/* Top Live Statistics Information Bar */}
+          {/* Live Statistics Information Bar */}
           <CodeStatsHeader
             language={selectedLanguage}
             lessonNumber={currentLessons.findIndex((l) => l.id === currentLesson?.id) + 1 || 1}
@@ -358,9 +452,10 @@ export const CodePracticePage = () => {
 
           {/* Code Editor Typing Arena */}
           <CodeTypingArena
-            key={currentLesson?.id}
+            key={`${currentLesson?.id}-${typingMode}`}
             snippet={currentLesson?.snippet || ''}
             language={selectedLanguage}
+            mode={typingMode}
             onKeystroke={handleKeystroke}
             onComplete={handleCompleteSnippet}
             onReset={handleResetCurrentLesson}
@@ -382,7 +477,7 @@ export const CodePracticePage = () => {
         </div>
       )}
 
-      {/* Lesson Selector Modal */}
+      {/* Curriculum Selector Modal */}
       <CodeLessonSelectorModal
         isOpen={isCurriculumModalOpen}
         onClose={() => setIsCurriculumModalOpen(false)}
@@ -393,7 +488,7 @@ export const CodePracticePage = () => {
         languageName={selectedLanguage === 'html' ? 'HTML' : selectedLanguage === 'css' ? 'CSS' : 'JavaScript'}
       />
 
-      {/* Lesson Results Modal */}
+      {/* Wide Horizontal Results Modal */}
       <CodeResultsModal
         isOpen={isResultsModalOpen}
         onClose={() => setIsResultsModalOpen(false)}
@@ -401,14 +496,25 @@ export const CodePracticePage = () => {
         onNextLesson={hasNextLesson ? handleNextLesson : null}
         onRetry={handleResetCurrentLesson}
         onShare={handleOpenShare}
+        onChallenge={handleOpenChallenge}
       />
 
       {/* Share Achievement Modal */}
       <ShareAchievementModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
+        results={lastResults}
         initialContent={shareText}
         initialLanguage={selectedLanguage}
+      />
+
+      {/* Challenge Friend Modal */}
+      <ChallengeFriendModal
+        isOpen={isChallengeModalOpen}
+        onClose={() => setIsChallengeModalOpen(false)}
+        results={lastResults}
+        language={selectedLanguage}
+        snippetTitle={currentLesson?.title || 'Code Battle'}
       />
     </div>
   );
