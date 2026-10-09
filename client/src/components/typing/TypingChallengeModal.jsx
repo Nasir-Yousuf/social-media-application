@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { saveLocalChallenge } from '../../utils/typingStorage';
 
-export default function TypingChallengeModal({
+export const TypingChallengeModal = ({
   isOpen,
   onClose,
   targetUser: initialTargetUser = null,
@@ -20,7 +20,7 @@ export default function TypingChallengeModal({
   initialWords = [],
   initialDuration = 15,
   initialMode = 'words_200',
-}) {
+}) => {
   const { user: currentUser } = useAuth();
   const { showToast } = useNotifications();
   const navigate = useNavigate();
@@ -419,4 +419,6 @@ export default function TypingChallengeModal({
       </div>
     </Modal>
   );
-}
+};
+
+export default TypingChallengeModal;
