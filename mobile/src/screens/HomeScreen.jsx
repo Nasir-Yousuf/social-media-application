@@ -21,7 +21,7 @@ import { ClearfeedLogo } from '../components/TwitterIcons';
 export const HomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { showToast } = useNotifications();
+  const { showToast, unreadCount } = useNotifications();
 
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'following'
   const [posts, setPosts] = useState([]);
@@ -89,13 +89,38 @@ export const HomeScreen = ({ navigation }) => {
           <Text style={styles.brandFeed}>feed</Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Bookmarks')}
-          style={styles.headerBtn}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="bookmark-outline" size={20} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Search')}
+            style={styles.headerBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="search-outline" size={21} color={colors.text} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Notifications')}
+            style={styles.headerBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={21} color={colors.text} />
+            {unreadCount > 0 && (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Bookmarks')}
+            style={styles.headerBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="bookmark-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Feed Tabs (Twitter Pill Tabs) */}
@@ -211,9 +236,33 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.5,
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   headerBtn: {
     padding: 6,
     borderRadius: 9999,
+    position: 'relative',
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: colors.like,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  headerBadgeText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+    lineHeight: 11,
   },
   headerBtnText: {
     fontSize: 18,

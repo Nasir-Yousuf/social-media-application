@@ -18,9 +18,11 @@ export const AppLayout = () => {
   const isMessages = location.pathname.startsWith('/messages');
   const isLearn = location.pathname.startsWith('/learn');
   const isCodePractice = location.pathname.startsWith('/code-practice');
+  const isLeaderboard = location.pathname.startsWith('/leaderboard');
   const isTyping =
     location.pathname.startsWith('/typing') ||
-    location.pathname === '/code-practice/typing';
+    location.pathname === '/code-practice/typing' ||
+    isLeaderboard;
 
   if (loading) {
     return (
@@ -39,7 +41,8 @@ export const AppLayout = () => {
   const isPublicLearn =
     location.pathname.startsWith('/learn') ||
     location.pathname.startsWith('/code-practice') ||
-    location.pathname.startsWith('/typing');
+    location.pathname.startsWith('/typing') ||
+    isLeaderboard;
   const isPublicRoute = isPublicPost || isPublicLearn;
 
   if (!isAuthenticated && !isPublicRoute) {

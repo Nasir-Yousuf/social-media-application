@@ -439,63 +439,63 @@ export const getResilientLeaderboard = (
     }
   };
 
-  // 1. Ingest remote scores if available
-  if (Array.isArray(remoteLeaderboard) && remoteLeaderboard.length > 0) {
+  // 1. If remote leaderboard from MongoDB is provided, it is authoritative
+  if (Array.isArray(remoteLeaderboard)) {
     for (const item of remoteLeaderboard) {
       addParticipantScore(item);
     }
-  }
-
-  // 2. Ingest cached leaderboard entries for this filter
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          addParticipantScore(item);
-        }
-      }
-    }
-  } catch (_) {}
-
-  // 3. Ingest local results history (all completed tests & races on this browser)
-  try {
-    const localResults = getLocalResults();
-    if (Array.isArray(localResults)) {
-      for (const res of localResults) {
-        addParticipantScore(res);
-      }
-    }
-  } catch (_) {}
-
-  // 4. Ingest race history from Multiplayer Racing Arena
-  try {
-    const rawRaces = localStorage.getItem('clearfeed_racing_history');
-    if (rawRaces) {
-      const races = JSON.parse(rawRaces);
-      if (Array.isArray(races)) {
-        for (const race of races) {
-          if (race.wpm > 0) {
-            addParticipantScore(
-              {
-                _id: race.id || `race_${Date.now()}`,
-                wpm: Number(race.wpm),
-                rawWpm: Number(race.wpm),
-                accuracy: Number(race.accuracy) || 100,
-                duration: Number(race.durationSec) || 30,
-                mode: 'words',
-                highestCombo: 0,
-                user: effectiveUser,
-                isRace: true,
-              },
-              true
-            );
+  } else {
+    // 2. Offline fallback: Ingest cached leaderboard entries for this filter
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            addParticipantScore(item);
           }
         }
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+
+    // 3. Ingest local results history (only used for offline resilience)
+    try {
+      const localResults = getLocalResults();
+      if (Array.isArray(localResults)) {
+        for (const res of localResults) {
+          addParticipantScore(res);
+        }
+      }
+    } catch (_) {}
+
+    // 4. Ingest race history (offline resilience)
+    try {
+      const rawRaces = localStorage.getItem('clearfeed_racing_history');
+      if (rawRaces) {
+        const races = JSON.parse(rawRaces);
+        if (Array.isArray(races)) {
+          for (const race of races) {
+            if (race.wpm > 0) {
+              addParticipantScore(
+                {
+                  _id: race.id || `race_${Date.now()}`,
+                  wpm: Number(race.wpm),
+                  rawWpm: Number(race.wpm),
+                  accuracy: Number(race.accuracy) || 100,
+                  duration: Number(race.durationSec) || 30,
+                  mode: 'words',
+                  highestCombo: 0,
+                  user: effectiveUser,
+                  isRace: true,
+                },
+                true
+              );
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   // 5. Ingest user's personal bests and racing profile
   const profile = getLocalTypingProfile();

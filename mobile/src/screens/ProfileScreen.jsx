@@ -8,6 +8,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,6 +37,13 @@ export const ProfileScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Edit Profile modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -81,6 +90,57 @@ export const ProfileScreen = ({ route, navigation }) => {
       showToast('Failed to update follow status', 'error');
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const openEditModal = () => {
+    setEditName(profile?.name || '');
+    setEditBio(profile?.bio || '');
+    setEditStatus(profile?.status || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      showToast('Name cannot be empty', 'error');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const res = await api.patch('/users/profile', {
+        name: editName.trim(),
+        bio: editBio.trim(),
+        status: editStatus.trim(),
+      });
+      setProfile((prev) => ({
+        ...prev,
+        ...res.data.user,
+      }));
+      updateUser(res.data.user);
+      setIsEditModalOpen(false);
+      showToast('Profile updated!', 'success');
+    } catch (err) {
+      showToast(err.data?.message || 'Failed to update profile', 'error');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleStartDirectMessage = async () => {
+    try {
+      const res = await api.post('/messages/conversations', {
+        recipientId: profile._id,
+      });
+      const conv = res.data.conversation;
+      if (conv) {
+        navigation.navigate('Conversation', {
+          conversationId: conv._id,
+          otherUser: profile,
+        });
+      }
+    } catch (err) {
+      showToast(err.data?.message || 'Could not start chat', 'error');
     }
   };
 
@@ -221,16 +281,34 @@ export const ProfileScreen = ({ route, navigation }) => {
               </TouchableOpacity>
 
               <View style={styles.actionCol}>
-                {!isSelf && (
+                {isSelf ? (
                   <Button
-                    variant={profile.isFollowing ? 'outline' : 'secondary'}
+                    variant="outline"
                     size="sm"
-                    onPress={handleFollowToggle}
-                    isLoading={followLoading}
-                    style={styles.followBtn}
+                    onPress={openEditModal}
+                    style={styles.editProfileBtn}
                   >
-                    {profile.isFollowing ? 'Following' : 'Follow'}
+                    Edit profile
                   </Button>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity
+                      style={styles.directMsgBtn}
+                      onPress={handleStartDirectMessage}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={17} color={colors.text} />
+                    </TouchableOpacity>
+                    <Button
+                      variant={profile.isFollowing ? 'outline' : 'secondary'}
+                      size="sm"
+                      onPress={handleFollowToggle}
+                      isLoading={followLoading}
+                      style={styles.followBtn}
+                    >
+                      {profile.isFollowing ? 'Following' : 'Follow'}
+                    </Button>
+                  </View>
                 )}
               </View>
             </View>
@@ -295,6 +373,69 @@ export const ProfileScreen = ({ route, navigation }) => {
           </View>
         }
       />
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={isEditModalOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsEditModalOpen(false)}
+      >
+        <View style={styles.editModalContainer}>
+          <View style={styles.editModalHeader}>
+            <TouchableOpacity onPress={() => setIsEditModalOpen(false)}>
+              <Text style={styles.editModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.editModalTitle}>Edit Profile</Text>
+            <Button
+              variant="primary"
+              size="sm"
+              onPress={handleSaveProfile}
+              isLoading={savingProfile}
+            >
+              Save
+            </Button>
+          </View>
+
+          <ScrollView style={styles.editModalContent}>
+            <View style={styles.editInputGroup}>
+              <Text style={styles.editInputLabel}>NAME</Text>
+              <TextInput
+                style={styles.editTextInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Your name"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+
+            <View style={styles.editInputGroup}>
+              <Text style={styles.editInputLabel}>STATUS LINE</Text>
+              <TextInput
+                style={styles.editTextInput}
+                value={editStatus}
+                onChangeText={setEditStatus}
+                placeholder="e.g. 🔨 Building a compiler"
+                placeholderTextColor={colors.textSecondary}
+                maxLength={60}
+              />
+            </View>
+
+            <View style={styles.editInputGroup}>
+              <Text style={styles.editInputLabel}>BIO</Text>
+              <TextInput
+                style={[styles.editTextInput, { height: 90, textAlignVertical: 'top', paddingTop: 10 }]}
+                value={editBio}
+                onChangeText={setEditBio}
+                placeholder="Write a brief bio..."
+                placeholderTextColor={colors.textSecondary}
+                multiline={true}
+                maxLength={160}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -486,6 +627,62 @@ const styles = StyleSheet.create({
   emptyPostsText: {
     color: colors.textSecondary,
     fontSize: 14,
+  },
+  editProfileBtn: {
+    paddingHorizontal: 16,
+  },
+  directMsgBtn: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
+  },
+  editModalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  editModalCancelText: {
+    color: colors.textSecondary,
+    fontSize: 15,
+  },
+  editModalTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  editModalContent: {
+    padding: 16,
+  },
+  editInputGroup: {
+    marginBottom: 16,
+  },
+  editInputLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  editTextInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 44,
+    fontSize: 15,
+    color: colors.text,
   },
 });
 

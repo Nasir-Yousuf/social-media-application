@@ -9,6 +9,7 @@ const Bookmark = require('../models/Bookmark');
 const { getClientIp } = require('../utils/ipUtils');
 const { logActivity } = require('../utils/auditLogger');
 const { extractMentions, notifyMentions } = require('../utils/mentionUtils');
+const { sendPushToUser } = require('../services/pushNotificationService');
 
 // Build Mongo query filter matching viewer's visibility permissions
 const buildVisibilityFilter = async (currentUserId, isAdmin = false) => {
@@ -759,6 +760,13 @@ exports.toggleLike = async (req, res) => {
           type: 'like',
           post: post._id,
         });
+
+        sendPushToUser(post.author, {
+          title: 'New Appreciation',
+          body: `${req.user.name || 'Someone'} appreciated your post`,
+          data: { type: 'like', postId: post._id.toString() },
+          channelId: 'social',
+        }).catch((err) => console.warn('Like push alert note:', err.message));
       }
 
       return res.status(200).json({

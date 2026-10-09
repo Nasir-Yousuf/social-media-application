@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,25 +11,34 @@ import { ClearfeedLogo } from '../components/TwitterIcons';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 
-// Screens
+// Primary Tab Screens
 import HomeScreen from '../screens/HomeScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import LearnScreen from '../screens/LearnScreen';
+import PracticeScreen from '../screens/PracticeScreen';
 import ExploreScreen from '../screens/ExploreScreen';
-import CodeHubScreen from '../screens/CodeHubScreen';
+
+// Stack Screens
+import ConversationScreen from '../screens/ConversationScreen';
+import LessonDetailScreen from '../screens/LessonDetailScreen';
+import SearchScreen from '../screens/SearchScreen';
+import RegisterScreen from '../screens/RegisterScreen';
+import LoginScreen from '../screens/LoginScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import MembersScreen from '../screens/MembersScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ComposeScreen from '../screens/ComposeScreen';
 import PostDetailScreen from '../screens/PostDetailScreen';
 import BookmarksScreen from '../screens/BookmarksScreen';
-import LoginScreen from '../screens/LoginScreen';
+import CodeHubScreen from '../screens/CodeHubScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Bottom Tab Navigator
+// Bottom Tab Navigator (5 ergonomic tabs)
 function MainTabs() {
   const insets = useSafeAreaInsets();
-  const { unreadCount } = useNotifications();
+  const { unreadMessagesCount } = useNotifications();
 
   return (
     <Tab.Navigator
@@ -39,7 +48,7 @@ function MainTabs() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 54 + insets.bottom : 60,
+          height: Platform.OS === 'ios' ? 56 + insets.bottom : 62,
           paddingBottom: Platform.OS === 'ios' ? insets.bottom : 8,
           paddingTop: 6,
         },
@@ -63,63 +72,53 @@ function MainTabs() {
       />
 
       <Tab.Screen
-        name="Explore"
+        name="Messages"
+        component={MessagesScreen}
+        options={{
+          tabBarLabel: 'Messages',
+          tabBarBadge: unreadMessagesCount > 0 ? (unreadMessagesCount > 9 ? '9+' : unreadMessagesCount) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.accent,
+            color: '#ffffff',
+            fontSize: 10,
+            fontWeight: '900',
+            lineHeight: 13,
+          },
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Learn"
+        component={LearnScreen}
+        options={{
+          tabBarLabel: 'Learn',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'school' : 'school-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Practice"
+        component={PracticeScreen}
+        options={{
+          tabBarLabel: 'Practice',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'terminal' : 'terminal-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Discover"
         component={ExploreScreen}
         options={{
           tabBarLabel: 'Discover',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="CodeHub"
-        component={CodeHubScreen}
-        options={{
-          tabBarLabel: 'Code',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'code-slash' : 'code-slash-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{
-          tabBarLabel: 'Alerts',
-          tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.like,
-            fontSize: 9,
-            fontWeight: '900',
-            lineHeight: 12,
-          },
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="Community"
-        component={MembersScreen}
-        options={{
-          tabBarLabel: 'Members',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'people' : 'people-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="MyProfile"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -130,6 +129,14 @@ function MainTabs() {
 // Root Navigator
 export const AppNavigator = () => {
   const { isAuthenticated, loading } = useAuth();
+  const { setNavigationRef } = useNotifications();
+  const navRef = useNavigationContainerRef();
+
+  useEffect(() => {
+    if (navRef) {
+      setNavigationRef(navRef);
+    }
+  }, [navRef, setNavigationRef]);
 
   if (loading) {
     return (
@@ -141,10 +148,13 @@ export const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
@@ -153,9 +163,15 @@ export const AppNavigator = () => {
               component={ComposeScreen}
               options={{ presentation: 'modal' }}
             />
+            <Stack.Screen name="Conversation" component={ConversationScreen} />
+            <Stack.Screen name="LessonDetail" component={LessonDetailScreen} />
+            <Stack.Screen name="Search" component={SearchScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="PostDetail" component={PostDetailScreen} />
             <Stack.Screen name="Bookmarks" component={BookmarksScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Members" component={MembersScreen} />
+            <Stack.Screen name="CodeHub" component={CodeHubScreen} />
           </>
         )}
       </Stack.Navigator>

@@ -2,6 +2,7 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { sendPushToUser } = require('../services/pushNotificationService');
 
 // Get all conversations for current user
 exports.getConversations = async (req, res) => {
@@ -274,6 +275,21 @@ exports.sendMessage = async (req, res) => {
       conversation.save(),
       notification.save(),
     ]);
+
+    // Dispatch background push alert to recipient
+    sendPushToUser(targetRecipientId, {
+      title: req.user.name || 'New Message',
+      body: trimmedText || (hasValidCode ? 'Shared a code snippet' : 'Sent you a message'),
+      data: {
+        type: 'message',
+        conversationId: conversation._id.toString(),
+        senderId: currentUserId.toString(),
+        senderName: req.user.name || req.user.username,
+      },
+      sound: 'default',
+      badge: (currentUnread || 0) + 1,
+      channelId: 'messages',
+    }).catch((err) => console.warn('Background push error:', err.message));
 
     return res.status(201).json({
       message: 'Message delivered.',

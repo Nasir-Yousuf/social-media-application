@@ -15,6 +15,7 @@ import Button from '../components/Button';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
 import { VerifiedBadge } from '../components/TwitterIcons';
+import { Ionicons } from '@expo/vector-icons';
 
 export const MembersScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -114,15 +115,38 @@ export const MembersScreen = ({ navigation }) => {
       </TouchableOpacity>
 
       {!item.isSelf && (
-        <Button
-          variant={item.isFollowing ? 'outline' : 'secondary'}
-          size="sm"
-          onPress={() => handleFollowToggle(item)}
-          isLoading={followLoadingId === item._id}
-          style={styles.followBtn}
-        >
-          {item.isFollowing ? 'Following' : 'Follow'}
-        </Button>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={styles.directChatBtn}
+            onPress={async () => {
+              try {
+                const res = await api.post('/messages/conversations', {
+                  recipientId: item._id,
+                });
+                const conv = res.data.conversation;
+                if (conv) {
+                  navigation.navigate('Conversation', {
+                    conversationId: conv._id,
+                    otherUser: item,
+                  });
+                }
+              } catch {
+                showToast('Could not start chat', 'error');
+              }
+            }}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.text} />
+          </TouchableOpacity>
+          <Button
+            variant={item.isFollowing ? 'outline' : 'secondary'}
+            size="sm"
+            onPress={() => handleFollowToggle(item)}
+            isLoading={followLoadingId === item._id}
+            style={styles.followBtn}
+          >
+            {item.isFollowing ? 'Following' : 'Follow'}
+          </Button>
+        </View>
       )}
     </View>
   );
@@ -284,6 +308,14 @@ const styles = StyleSheet.create({
   },
   followBtn: {
     minWidth: 84,
+  },
+  directChatBtn: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
   },
   centerLoading: {
     flex: 1,

@@ -31,6 +31,7 @@ import {
 } from '../../../utils/racingStorage';
 import { getResilientLeaderboard } from '../../../utils/typingStorage';
 import racingAudio from '../../../utils/racingAudio';
+import api from '../../../api/client';
 import RaceInviteModal from './RaceInviteModal';
 
 /**
@@ -74,7 +75,7 @@ export const RacingDashboard = ({
     return res.userRank || 1;
   });
 
-  // Sync profile & leaderboard when storage updates
+  // Sync profile & leaderboard when storage updates or tab changes
   useEffect(() => {
     const handleStatsUpdated = (e) => {
       if (e.detail) setProfile(e.detail);
@@ -82,8 +83,16 @@ export const RacingDashboard = ({
     const handleGarageUpdated = (e) => {
       if (e.detail) setGarage(e.detail);
     };
-    const syncLb = () => {
-      const res = getResilientLeaderboard('all', 'words', currentUser);
+    const syncLb = async () => {
+      let remote = null;
+      try {
+        const periodParam = leaderboardTab === 'weekly' ? 'weekly' : 'all';
+        const res = await api.get('/typing/leaderboard', {
+          params: { period: periodParam, duration: 'all', mode: 'all' },
+        });
+        if (res.data?.leaderboard) remote = res.data.leaderboard;
+      } catch (_) {}
+      const res = getResilientLeaderboard('all', 'words', currentUser, remote);
       setRacingLeaderboard(res.leaderboard || []);
       setRacingUserRank(res.userRank || 1);
     };
@@ -99,7 +108,7 @@ export const RacingDashboard = ({
       window.removeEventListener('clearfeed:typingScoreSaved', syncLb);
       window.removeEventListener('clearfeed:racingHistoryUpdated', syncLb);
     };
-  }, [currentUser]);
+  }, [currentUser, leaderboardTab]);
 
   const selectedCar = CAR_CATALOG[selectedCarIndex] || CAR_CATALOG[0];
 

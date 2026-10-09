@@ -60,10 +60,15 @@ const typingResultSchema = new mongoose.Schema(
       type: String, // e.g., '2026-W41'
       index: true,
     },
-    // Auto-expiry TTL field: practice logs auto-purge after 14 days to conserve Atlas 512MB storage
+    isPersonalBest: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    // Auto-expiry TTL field: only non-best practice trials expire; personal bests stay in MongoDB permanently
     expireAt: {
       type: Date,
-      default: () => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      default: null,
     },
   },
   { timestamps: true }
@@ -71,8 +76,12 @@ const typingResultSchema = new mongoose.Schema(
 
 // Compound indexes for fast leaderboard querying
 typingResultSchema.index({ duration: 1, mode: 1, wpm: -1, createdAt: -1 });
+typingResultSchema.index({ user: 1, wpm: -1, accuracy: -1 });
 typingResultSchema.index({ weeklyContestWeek: 1, wpm: -1 });
-typingResultSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
+typingResultSchema.index(
+  { expireAt: 1 },
+  { expireAfterSeconds: 0, partialFilterExpression: { expireAt: { $type: 'date' } } }
+);
 
 module.exports = mongoose.model('TypingResult', typingResultSchema);
 

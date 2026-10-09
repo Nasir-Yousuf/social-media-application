@@ -20,6 +20,7 @@ import {
   BookOpen,
   Keyboard,
   Zap,
+  Trophy,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -141,6 +142,7 @@ export const LeftSidebar = () => {
   const navItems = [
     { to: '/', label: 'Home', icon: Home, end: true },
     { to: '/explore', label: 'Explore', icon: Compass },
+    { to: '/leaderboard', label: 'Leaderboard', icon: Trophy },
     { to: '/typing', label: 'Typing Arena', icon: Zap },
     { to: '/code-practice', label: 'Code Practice', icon: Keyboard },
     { to: '/learn', label: 'Learn & Practice', icon: BookOpen },

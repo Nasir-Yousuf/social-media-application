@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 // Get all notifications for current user
 exports.getNotifications = async (req, res) => {
@@ -100,6 +101,114 @@ exports.getUnreadCount = async (req, res) => {
   } catch (err) {
     console.error('getUnreadCount error:', err);
     return res.status(500).json({ message: 'Failed to get unread count.' });
+  }
+};
+
+// Register or update device push token
+exports.registerPushToken = async (req, res) => {
+  try {
+    const { token, platform = 'expo' } = req.body;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ message: 'Valid push token string is required.' });
+    }
+
+    const cleanToken = token.trim();
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    if (!Array.isArray(user.pushTokens)) {
+      user.pushTokens = [];
+    }
+
+    // Check if token already exists for this user
+    const existingIdx = user.pushTokens.findIndex((t) => t.token === cleanToken);
+    if (existingIdx >= 0) {
+      user.pushTokens[existingIdx].updatedAt = new Date();
+      user.pushTokens[existingIdx].platform = platform;
+    } else {
+      user.pushTokens.push({
+        token: cleanToken,
+        platform,
+        updatedAt: new Date(),
+      });
+    }
+
+    // Keep at most 5 latest active devices per user
+    if (user.pushTokens.length > 5) {
+      user.pushTokens = user.pushTokens.slice(-5);
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Push token registered successfully.',
+    });
+  } catch (err) {
+    console.error('registerPushToken error:', err);
+    return res.status(500).json({ message: 'Failed to register push token.' });
+  }
+};
+
+// Remove push token on logout
+exports.removePushToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const userId = req.user._id;
+
+    if (!token) {
+      // Remove all tokens for user
+      await User.updateOne({ _id: userId }, { $set: { pushTokens: [] } });
+    } else {
+      await User.updateOne(
+        { _id: userId },
+        { $pull: { pushTokens: { token: token.trim() } } }
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Push token unregistered successfully.',
+    });
+  } catch (err) {
+    console.error('removePushToken error:', err);
+    return res.status(500).json({ message: 'Failed to remove push token.' });
+  }
+};
+
+// Update notification preferences
+exports.updatePreferences = async (req, res) => {
+  try {
+    const { preferences } = req.body;
+    const userId = req.user._id;
+
+    if (!preferences || typeof preferences !== 'object') {
+      return res.status(400).json({ message: 'Preferences object is required.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    user.notificationPreferences = {
+      ...user.notificationPreferences,
+      ...preferences,
+    };
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      preferences: user.notificationPreferences,
+    });
+  } catch (err) {
+    console.error('updatePreferences error:', err);
+    return res.status(500).json({ message: 'Failed to update preferences.' });
   }
 };
 

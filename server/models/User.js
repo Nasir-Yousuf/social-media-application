@@ -105,6 +105,21 @@ const userSchema = new mongoose.Schema(
         timestamp: { type: Date, default: Date.now },
       },
     ],
+    pushTokens: [
+      {
+        _id: false,
+        token: { type: String, required: true },
+        platform: { type: String, default: 'expo' },
+        updatedAt: { type: Date, default: Date.now },
+      },
+    ],
+    notificationPreferences: {
+      messages: { type: Boolean, default: true },
+      likes: { type: Boolean, default: true },
+      comments: { type: Boolean, default: true },
+      follows: { type: Boolean, default: true },
+      announcements: { type: Boolean, default: true },
+    },
   },
   {
     timestamps: true,

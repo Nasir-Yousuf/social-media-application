@@ -18,7 +18,7 @@ import { getBaseUrl, setBaseUrl } from '../api/client';
 import { ClearfeedLogo, VerifiedBadge } from '../components/TwitterIcons';
 import { Ionicons } from '@expo/vector-icons';
 
-export const LoginScreen = () => {
+export const LoginScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { login, register, loginGuest } = useAuth();
   const { showToast } = useNotifications();
@@ -181,13 +181,19 @@ export const LoginScreen = () => {
 
           {/* Toggle Login / Register */}
           <TouchableOpacity
-            onPress={() => setIsRegister(!isRegister)}
+            onPress={() => {
+              if (navigation?.navigate) {
+                navigation.navigate('Register');
+              } else {
+                setIsRegister(!isRegister);
+              }
+            }}
             style={styles.switchAuthBtn}
           >
             <Text style={styles.switchAuthText}>
               {isRegister
                 ? 'Already have an account? Sign in'
-                : "Don't have an account? Create one"}
+                : "Don't have an account? Create one with photo & bio"}
             </Text>
           </TouchableOpacity>
 

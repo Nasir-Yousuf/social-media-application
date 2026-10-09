@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { getClientIp } = require('../utils/ipUtils');
 const { logActivity } = require('../utils/auditLogger');
 const { canUserViewPost, canUserReplyToPost } = require('./postController');
+const { sendPushToUser } = require('../services/pushNotificationService');
 
 // Get comments for a post
 exports.getCommentsByPost = async (req, res) => {
@@ -117,6 +118,13 @@ exports.createComment = async (req, res) => {
         post: postId,
         comment: comment._id,
       });
+
+      sendPushToUser(post.author, {
+        title: 'New Reply',
+        body: `${req.user.name || 'Someone'} replied: "${content.trim().slice(0, 80)}"`,
+        data: { type: 'comment', postId: postId.toString() },
+        channelId: 'social',
+      }).catch((err) => console.warn('Comment push alert note:', err.message));
     }
 
     // Extract @mentions from comment and notify mentioned users

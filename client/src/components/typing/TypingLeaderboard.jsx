@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Trophy,
@@ -12,6 +12,11 @@ import {
   AlertTriangle,
   X,
   ShieldCheck,
+  Search,
+  Zap,
+  TrendingUp,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import Avatar from '../common/Avatar';
 import Modal from '../common/Modal';
@@ -30,19 +35,23 @@ export const TypingLeaderboard = ({
   onChallengeGhost,
   currentSessionDuration,
   currentSessionMode,
+  title = 'Speed Championship Leaderboard',
+  showFullControls = true,
 }) => {
   const { user } = useAuth();
   const { showToast } = useNotifications();
   const { confirm } = useConfirm();
 
   const [period, setPeriod] = useState('all'); // 'all' | 'weekly' | 'daily'
-  const [selectedDuration, setSelectedDuration] = useState(currentSessionDuration || 'all');
+  const [selectedDuration, setSelectedDuration] = useState('all'); // Default to all times for full ladder
+  const [modeFilter, setModeFilter] = useState('all'); // 'all' | 'words' | 'code' | 'quote'
+  const [searchQuery, setSearchQuery] = useState('');
   const [leaderboard, setLeaderboard] = useState(() => {
-    const init = getResilientLeaderboard(currentSessionDuration || 'all', currentSessionMode || 'words', user);
+    const init = getResilientLeaderboard('all', 'all', user);
     return init.leaderboard || [];
   });
   const [userRank, setUserRank] = useState(() => {
-    const init = getResilientLeaderboard(currentSessionDuration || 'all', currentSessionMode || 'words', user);
+    const init = getResilientLeaderboard('all', 'all', user);
     return init.userRank || null;
   });
   const [loading, setLoading] = useState(false);
@@ -55,16 +64,19 @@ export const TypingLeaderboard = ({
   const isAdmin = user && user.role === 'admin';
 
   useEffect(() => {
-    if (currentSessionDuration) {
+    if (currentSessionDuration && currentSessionDuration !== 'all') {
       setSelectedDuration(currentSessionDuration);
     }
   }, [currentSessionDuration]);
 
   const fetchLeaderboard = async () => {
+    setLoading(true);
     const queryMode =
-      currentSessionMode && currentSessionMode.startsWith('words')
+      modeFilter !== 'all'
+        ? modeFilter
+        : currentSessionMode && currentSessionMode.startsWith('words')
         ? 'words'
-        : currentSessionMode || 'words';
+        : currentSessionMode || 'all';
 
     // Instantly hydrate from local resilient storage first
     const localResilient = getResilientLeaderboard(
@@ -91,7 +103,9 @@ export const TypingLeaderboard = ({
         setUserRank(res.data.userRank);
       }
     } catch (err) {
-      // Remote notice: fall back to resilient leaderboard
+      // Graceful fallback to local resilient leaderboard
+    } finally {
+      setLoading(false);
     }
 
     const resilient = getResilientLeaderboard(
@@ -108,7 +122,7 @@ export const TypingLeaderboard = ({
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [period, selectedDuration, currentSessionMode, user]);
+  }, [period, selectedDuration, modeFilter, currentSessionMode, user]);
 
   // Instantly refresh when any score is saved or removed
   useEffect(() => {
@@ -117,7 +131,7 @@ export const TypingLeaderboard = ({
     };
     window.addEventListener('clearfeed:typingScoreSaved', handleScoreSaved);
     return () => window.removeEventListener('clearfeed:typingScoreSaved', handleScoreSaved);
-  }, [selectedDuration, currentSessionMode, user]);
+  }, [selectedDuration, modeFilter, currentSessionMode, user]);
 
   // Admin: Open Moderation Dialog
   const handleOpenAdminModal = (entry, e) => {
@@ -173,8 +187,29 @@ export const TypingLeaderboard = ({
     }
   };
 
-  const top3 = leaderboard.slice(0, 3);
-  const remaining = leaderboard.slice(3);
+  const filteredLeaderboard = useMemo(() => {
+    return leaderboard.filter((entry) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const name = String(entry.user?.name || '').toLowerCase();
+      const username = String(entry.user?.username || '').toLowerCase();
+      return name.includes(q) || username.includes(q);
+    });
+  }, [leaderboard, searchQuery]);
+
+  const top3 = filteredLeaderboard.slice(0, 3);
+  const remaining = filteredLeaderboard.slice(3);
+
+  // Ladder Context: who is directly above the current user?
+  const myIndex = leaderboard.findIndex(
+    (e) => e.isCurrentUser || (user && (e.user?._id === user._id || e.user?.id === user._id))
+  );
+  const playerAbove = myIndex > 0 ? leaderboard[myIndex - 1] : null;
+  const myEntry = myIndex !== -1 ? leaderboard[myIndex] : null;
+  const wpmDifference =
+    playerAbove && myEntry && playerAbove.wpm >= myEntry.wpm
+      ? playerAbove.wpm - myEntry.wpm + 1
+      : null;
 
   return (
     <div className="rounded-3xl bg-[#0e1116] border border-neutral-800 p-5 sm:p-6 font-sans">
@@ -184,13 +219,17 @@ export const TypingLeaderboard = ({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-400" />
-              <span>Speed Championship Leaderboard</span>
+              <span>{title}</span>
             </h3>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-[11px] font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>MongoDB Live ({leaderboard.length} Ranked)</span>
+            </span>
             {isAdmin && (
               <div className="inline-flex items-center gap-1.5">
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 font-mono text-[10px] font-bold">
                   <ShieldCheck className="w-3 h-3" />
-                  ADMIN MODERATION ACTIVE
+                  ADMIN ACTIVE
                 </span>
                 <button
                   type="button"
@@ -217,53 +256,110 @@ export const TypingLeaderboard = ({
             )}
           </div>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Real-time scoreboard of the fastest typists on Clearfeed (Genuine Racers Only)
+            Real-time scoreboard of verified typists stored in database. Higher speed moves you up the ladder!
           </p>
         </div>
 
         {/* Filter Controls: Durations & Period Tabs */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Duration Pills */}
-          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-neutral-800 text-xs font-mono">
-            {[15, 30, 60, 120, 'all'].map((d) => (
+        {showFullControls && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Duration Pills */}
+            <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-neutral-800 text-xs font-mono">
+              {[
+                { id: 'all', label: 'All Times' },
+                { id: 15, label: '15s' },
+                { id: 30, label: '30s' },
+                { id: 60, label: '60s' },
+                { id: 120, label: '120s' },
+              ].map((d) => (
+                <button
+                  key={String(d.id)}
+                  type="button"
+                  onClick={() => setSelectedDuration(d.id)}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
+                    String(selectedDuration) === String(d.id)
+                      ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Period Selector Tabs */}
+            <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-neutral-800 text-xs">
+              {[
+                { id: 'all', label: '👑 All-Time' },
+                { id: 'weekly', label: '🏆 Weekly' },
+                { id: 'daily', label: '⚡ Daily' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setPeriod(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                    period === tab.id
+                      ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                      : 'text-neutral-400 hover:text-neutral-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Secondary Controls: Search & Mode Switcher */}
+      {showFullControls && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+          {/* Search Box */}
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search typist by username or name..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-black/50 border border-neutral-800 text-xs text-white placeholder-neutral-500 focus:outline-hidden focus:border-sky-500/50"
+            />
+            {searchQuery && (
               <button
-                key={d}
                 type="button"
-                onClick={() => setSelectedDuration(d)}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                  selectedDuration === d
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white"
               >
-                {d === 'all' ? 'All Times' : `${d}s`}
+                <X className="w-3.5 h-3.5" />
               </button>
-            ))}
+            )}
           </div>
 
-          {/* Period Selector Tabs */}
+          {/* Mode Switcher */}
           <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-neutral-800 text-xs">
             {[
-              { id: 'all', label: '👑 All-Time' },
-              { id: 'weekly', label: '🏆 Weekly' },
-              { id: 'daily', label: '⚡ Daily' },
-            ].map((tab) => (
+              { id: 'all', label: 'All Modes' },
+              { id: 'words', label: '📝 Words' },
+              { id: 'code', label: '💻 Code' },
+              { id: 'quote', label: '💬 Quotes' },
+            ].map((m) => (
               <button
-                key={tab.id}
+                key={m.id}
                 type="button"
-                onClick={() => setPeriod(tab.id)}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
-                  period === tab.id
-                    ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                onClick={() => setModeFilter(m.id)}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+                  modeFilter === m.id
+                    ? 'bg-neutral-800 text-white font-bold'
                     : 'text-neutral-400 hover:text-neutral-200'
                 }`}
               >
-                {tab.label}
+                {m.label}
               </button>
             ))}
           </div>
         </div>
-      </div>
+      )}
 
       {loading ? (
         <div className="py-12 text-center text-xs text-neutral-500 space-y-2">
@@ -428,23 +524,68 @@ export const TypingLeaderboard = ({
             </div>
           )}
 
-          {/* Sticky Current User Rank Bar */}
-          {user && (
-            <div className="mt-4 p-3 rounded-2xl bg-neutral-900 border border-sky-500/30 flex items-center justify-between text-xs font-sans">
-              <div className="flex items-center gap-2">
-                <Avatar src={user.avatarUrl} name={user.name} size="xs" />
-                <span className="font-semibold text-neutral-200">
-                  Your Standing:{' '}
-                  {userRank ? (
-                    <span className="text-sky-400 font-mono font-bold">#{userRank}</span>
-                  ) : (
-                    <span className="text-neutral-500">Unranked this round</span>
-                  )}
-                </span>
+          {/* Sticky Current User Rank Bar with Ladder Progression Insights */}
+          {user ? (
+            <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-sky-950/40 via-neutral-900 to-amber-950/20 border border-sky-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans shadow-lg">
+              <div className="flex items-center gap-3">
+                <Avatar src={user.avatarUrl} name={user.name} size="sm" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-white">
+                      Your Standing:{' '}
+                      {userRank ? (
+                        <span className="text-sky-400 font-mono font-black text-sm">#{userRank}</span>
+                      ) : (
+                        <span className="text-neutral-400 font-medium">Unranked this filter</span>
+                      )}
+                    </span>
+                    {(myEntry?.wpm || userBestScore) && (
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-mono text-[11px] font-bold">
+                        {myEntry?.wpm || userBestScore} WPM
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-neutral-300 mt-0.5 flex items-center gap-1.5">
+                    {myIndex === 0 ? (
+                      <span className="text-amber-400 font-bold flex items-center gap-1">
+                        👑 You hold the #1 Crown on this ladder! Defend your title!
+                      </span>
+                    ) : wpmDifference && playerAbove ? (
+                      <span className="text-sky-300 flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
+                        <span>
+                          Only <strong className="text-white font-mono">+{wpmDifference} WPM</strong> needed to pass{' '}
+                          <strong className="text-amber-300">@{playerAbove.user?.username}</strong> and climb to #{myIndex}!
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">
+                        Type at higher speed to move up the ladder to the top!
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] text-neutral-400">
-                Complete a test to improve your rank
+
+              <NavLink
+                to="/typing"
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 shrink-0"
+              >
+                <Zap className="w-3.5 h-3.5 fill-black" />
+                <span>Climb Ladder Now</span>
+              </NavLink>
+            </div>
+          ) : (
+            <div className="mt-4 p-3.5 rounded-2xl bg-neutral-900 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <span className="text-neutral-400">
+                Log in or sign up to record your official typing speed in MongoDB and rank on the global ladder!
               </span>
+              <NavLink
+                to="/login"
+                className="px-3 py-1.5 rounded-xl bg-sky-500 text-white font-bold text-xs text-center hover:bg-sky-400 transition"
+              >
+                Sign In to Compete
+              </NavLink>
             </div>
           )}
         </div>

@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Terminal,
   Sparkles,
+  Trophy,
 } from 'lucide-react';
 
 export const THEMES = [
@@ -23,6 +24,13 @@ export const THEMES = [
     icon: Gauge,
     badge: 'LIVE',
     desc: 'Real-time Supercar Typing Race (Image 1)',
+  },
+  {
+    id: 'leaderboard',
+    label: 'Leaderboard',
+    icon: Trophy,
+    badge: 'TOP',
+    desc: 'Real-time MongoDB Speed Championship Leaderboard',
   },
   {
     id: 'garage',

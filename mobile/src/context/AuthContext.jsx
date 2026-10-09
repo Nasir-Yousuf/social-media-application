@@ -33,6 +33,20 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
+  const syncPushToken = async () => {
+    try {
+      const savedPushToken = await AsyncStorage.getItem('cf_push_token');
+      if (savedPushToken) {
+        await api.post('/notifications/push-token', {
+          token: savedPushToken,
+          platform: 'mobile',
+        });
+      }
+    } catch {
+      // Ignored
+    }
+  };
+
   const login = async (emailOrUsername, password) => {
     const res = await api.post('/auth/login', {
       loginId: emailOrUsername.trim(),
@@ -44,6 +58,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.setItem('token', receivedToken);
     setToken(receivedToken);
     setUser(receivedUser);
+    await syncPushToken();
     return receivedUser;
   };
 
@@ -53,6 +68,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.setItem('token', receivedToken);
     setToken(receivedToken);
     setUser(receivedUser);
+    await syncPushToken();
     return receivedUser;
   };
 
@@ -66,6 +82,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    try {
+      const savedPushToken = await AsyncStorage.getItem('cf_push_token');
+      if (savedPushToken) {
+        await api.delete('/notifications/push-token', {
+          body: { token: savedPushToken },
+        }).catch(() => {});
+      }
+    } catch {
+      // Ignored
+    }
     await AsyncStorage.removeItem('token');
     setToken(null);
     setUser(null);

@@ -80,6 +80,28 @@ exports.submitResult = async (req, res) => {
       ? telemetry.slice(0, 30).map((v) => Math.round(Number(v) || 0))
       : [];
 
+    // Find or initialize user's permanent typing profile
+    let profile = await TypingProfile.findOne({ user: userId });
+    if (!profile) {
+      profile = new TypingProfile({
+        user: userId,
+        testsCompleted: 0,
+        bestWpm: 0,
+        avgWpm: 0,
+        bestAccuracy: 0,
+        highestCombo: 0,
+        xp: 0,
+        badges: ['⌨️ Keyboard Initiate'],
+        personalBests: new Map(),
+      });
+    }
+
+    const durKey = String(parsedDur);
+    const existingDurPb = profile.personalBests ? profile.personalBests.get(durKey) : null;
+    const isNewDurBest = !existingDurPb || parsedWpm > (existingDurPb.wpm || 0);
+    const isNewOverallBest = parsedWpm > (profile.bestWpm || 0);
+
+    // Save individual test result
     const result = new TypingResult({
       user: userId,
       wpm: parsedWpm,
@@ -93,40 +115,15 @@ exports.submitResult = async (req, res) => {
       consistency: Number(consistency) || 0,
       telemetry: compactTelemetry,
       weeklyContestWeek: currentWeek,
-      expireAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // Auto-purge practice records in 14 days
+      isPersonalBest: isNewOverallBest || isNewDurBest,
+      // Personal best scores NEVER expire; only standard practice runs expire in 30 days
+      expireAt: isNewOverallBest || isNewDurBest ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
 
     await result.save();
 
-    // Storage optimization: Keep at most 20 recent TypingResult documents per user in Atlas
-    const userResultCount = await TypingResult.countDocuments({ user: userId });
-    if (userResultCount > 20) {
-      const oldestExcess = await TypingResult.find({ user: userId })
-        .sort({ wpm: 1, createdAt: 1 })
-        .limit(userResultCount - 20)
-        .select('_id');
-      if (oldestExcess.length > 0) {
-        await TypingResult.deleteMany({ _id: { $in: oldestExcess.map((d) => d._id) } });
-      }
-    }
-
     // XP calculation: base on WPM and accuracy
     const xpGained = Math.max(10, Math.round(parsedWpm * 2 + parsedAcc * 0.5));
-
-    // Update or create user's typing profile (permanent records live safely here)
-    let profile = await TypingProfile.findOne({ user: userId });
-    if (!profile) {
-      profile = new TypingProfile({
-        user: userId,
-        testsCompleted: 0,
-        bestWpm: 0,
-        avgWpm: 0,
-        bestAccuracy: 0,
-        highestCombo: 0,
-        xp: 0,
-        badges: ['⌨️ Keyboard Initiate'],
-      });
-    }
 
     const prevTests = profile.testsCompleted || 0;
     const newTests = prevTests + 1;
@@ -143,6 +140,19 @@ exports.submitResult = async (req, res) => {
     profile.xp = (profile.xp || 0) + xpGained;
     profile.currentRank = computeRankTitle(newBestWpm);
 
+    // Update personal best for this specific duration bucket
+    if (isNewDurBest) {
+      if (!profile.personalBests) profile.personalBests = new Map();
+      profile.personalBests.set(durKey, {
+        wpm: parsedWpm,
+        rawWpm: parsedRawWpm,
+        accuracy: parsedAcc,
+        mode: sanitizedMode,
+        duration: parsedDur,
+        date: new Date(),
+      });
+    }
+
     // Badges unlock checks
     const badgesSet = new Set(profile.badges || ['⌨️ Keyboard Initiate']);
     if (newBestWpm >= 60) badgesSet.add('⚡ Swift Hacker (60+ WPM)');
@@ -157,7 +167,8 @@ exports.submitResult = async (req, res) => {
 
     profile.badges = Array.from(badgesSet);
 
-    // Keep last 10 recent scores (bounded array for strict storage limits)
+    // Keep last 10 recent scores
+    if (!profile.recentScores) profile.recentScores = [];
     profile.recentScores.unshift({
       wpm: parsedWpm,
       accuracy: parsedAcc,
@@ -171,22 +182,36 @@ exports.submitResult = async (req, res) => {
 
     await profile.save();
 
-    // Calculate user's immediate rank for this specific duration & mode in all-time
-    const higherCount = await TypingResult.distinct('user', {
-      duration: parsedDur,
-      mode: sanitizedMode,
+    // Storage optimization: Keep non-best practice trials under 50 per user
+    const nonBestCount = await TypingResult.countDocuments({ user: userId, isPersonalBest: false });
+    if (nonBestCount > 50) {
+      const oldestExcess = await TypingResult.find({ user: userId, isPersonalBest: false })
+        .sort({ createdAt: 1 })
+        .limit(nonBestCount - 50)
+        .select('_id');
+      if (oldestExcess.length > 0) {
+        await TypingResult.deleteMany({ _id: { $in: oldestExcess.map((d) => d._id) } });
+      }
+    }
+
+    // Calculate user's immediate placement across all registered users on the ladder
+    const higherCount = await TypingProfile.countDocuments({
       $or: [
-        { wpm: { $gt: parsedWpm } },
-        { wpm: parsedWpm, accuracy: { $gt: parsedAcc } },
+        { bestWpm: { $gt: profile.bestWpm } },
+        { bestWpm: profile.bestWpm, bestAccuracy: { $gt: profile.bestAccuracy } },
       ],
     });
-    const immediateRank = higherCount.length + 1;
+    const immediateRank = higherCount + 1;
 
     return res.status(201).json({
-      message: 'Result recorded.',
+      success: true,
+      message: isNewOverallBest
+        ? `🚀 New Personal Best! You reached rank #${immediateRank} on the leaderboard!`
+        : 'Result recorded.',
       result,
       xpGained,
       userRank: immediateRank,
+      isNewBest: isNewOverallBest,
       profile: {
         bestWpm: profile.bestWpm,
         avgWpm: profile.avgWpm,
@@ -202,96 +227,163 @@ exports.submitResult = async (req, res) => {
   }
 };
 
+// Known test/dummy accounts to exclude from official leaderboard
+const EXCLUDED_LEADERBOARD_USERS = [
+  'amina_dev',
+  'tariq_codes',
+  'elena_r',
+  'dchen_fullstack',
+  'sofia_ux',
+  'dr_vance',
+  'seed_user_1',
+  'seed_user_2',
+  'seed_user_3',
+  'seed_user_4',
+  'seed_user_5',
+];
+
 // Get Leaderboards (Weekly Contest, Daily Sprint, All-Time Legends)
 exports.getLeaderboard = async (req, res) => {
   try {
-    const { period = 'all', duration, mode } = req.query;
+    const { period = 'all', duration = 'all', mode = 'all' } = req.query;
     const currentUserId = req.user ? req.user._id : null;
 
-    const filter = {};
+    let leaderboard = [];
 
-    if (duration && duration !== 'all') {
-      filter.duration = Number(duration);
-    }
+    // Path A: Global All-Time Leaderboard (Fast, indexed query directly on TypingProfile)
+    if (period === 'all' && (duration === 'all' || !duration) && (mode === 'all' || !mode || mode === 'words')) {
+      const profiles = await TypingProfile.find({ bestWpm: { $gt: 0 } })
+        .populate('user', 'name username avatarUrl role status bio isApproved')
+        .sort({ bestWpm: -1, bestAccuracy: -1, updatedAt: -1 })
+        .limit(100)
+        .lean();
 
-    if (mode && mode !== 'all') {
-      if (mode === 'words') {
-        filter.mode = { $in: ['words_200', 'words_1000', 'words_5000', 'words'] };
-      } else {
-        filter.mode = mode;
-      }
-    }
-
-    if (period === 'weekly') {
-      filter.weeklyContestWeek = getIsoWeekString();
-    } else if (period === 'daily') {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      filter.createdAt = { $gte: yesterday };
-    }
-
-    // Aggregate highest WPM per user to ensure fair competition (1 entry per user)
-    const pipeline = [
-      { $match: filter },
-      { $sort: { wpm: -1, accuracy: -1, createdAt: 1 } },
-      {
-        $group: {
-          _id: '$user',
-          bestWpm: { $first: '$wpm' },
-          accuracy: { $first: '$accuracy' },
-          duration: { $first: '$duration' },
-          mode: { $first: '$mode' },
-          highestCombo: { $first: '$highestCombo' },
-          telemetry: { $first: '$telemetry' },
-          createdAt: { $first: '$createdAt' },
-          resultId: { $first: '$_id' },
-        },
-      },
-      { $sort: { bestWpm: -1, accuracy: -1 } },
-      { $limit: 50 },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'user',
-        },
-      },
-      { $unwind: '$user' },
-      {
-        $match: {
-          'user.username': {
-            $nin: ['amina_dev', 'tariq_codes', 'elena_r', 'dchen_fullstack', 'sofia_ux', 'dr_vance'],
-          },
-        },
-      },
-      {
-        $project: {
-          _id: '$resultId',
-          wpm: '$bestWpm',
-          accuracy: 1,
-          duration: 1,
-          mode: 1,
-          highestCombo: 1,
-          telemetry: 1,
-          createdAt: 1,
+      leaderboard = profiles
+        .filter(
+          (p) =>
+            p.user &&
+            p.user.isApproved !== false &&
+            !EXCLUDED_LEADERBOARD_USERS.includes(p.user.username?.toLowerCase())
+        )
+        .map((p, idx) => ({
+          _id: p._id,
+          rank: idx + 1,
+          wpm: p.bestWpm,
+          accuracy: p.bestAccuracy || 100,
+          duration: 'all',
+          mode: 'all',
+          highestCombo: p.highestCombo || 0,
+          testsCompleted: p.testsCompleted || 0,
+          xp: p.xp || 0,
+          badges: p.badges || [],
+          createdAt: p.updatedAt,
           user: {
-            _id: '$user._id',
-            name: '$user.name',
-            username: '$user.username',
-            avatarUrl: '$user.avatarUrl',
-            role: '$user.role',
-            status: '$user.status',
+            _id: p.user._id,
+            name: p.user.name,
+            username: p.user.username,
+            avatarUrl: p.user.avatarUrl,
+            role: p.user.role,
+            status: p.user.status,
+            bio: p.user.bio,
+          },
+        }));
+    } else {
+      // Path B: Filtered Leaderboard (duration, period, or mode via TypingResult aggregation)
+      const filter = {};
+
+      if (duration && duration !== 'all') {
+        const dNum = Number(duration);
+        if (!isNaN(dNum)) {
+          filter.duration = dNum;
+        }
+      }
+
+      if (mode && mode !== 'all') {
+        if (mode === 'words') {
+          filter.mode = { $in: ['words_200', 'words_1000', 'words_5000', 'words'] };
+        } else if (mode.startsWith('code')) {
+          filter.mode = { $regex: '^code', $options: 'i' };
+        } else {
+          filter.mode = mode;
+        }
+      }
+
+      if (period === 'weekly') {
+        filter.weeklyContestWeek = getIsoWeekString();
+      } else if (period === 'daily') {
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        filter.createdAt = { $gte: yesterday };
+      }
+
+      const pipeline = [
+        { $match: filter },
+        { $sort: { wpm: -1, accuracy: -1, createdAt: -1 } },
+        {
+          $group: {
+            _id: '$user',
+            bestWpm: { $first: '$wpm' },
+            accuracy: { $first: '$accuracy' },
+            duration: { $first: '$duration' },
+            mode: { $first: '$mode' },
+            highestCombo: { $first: '$highestCombo' },
+            telemetry: { $first: '$telemetry' },
+            createdAt: { $first: '$createdAt' },
+            resultId: { $first: '$_id' },
           },
         },
-      },
-    ];
+        { $sort: { bestWpm: -1, accuracy: -1 } },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        { $unwind: '$user' },
+        {
+          $match: {
+            'user.isApproved': { $ne: false },
+            'user.username': {
+              $nin: EXCLUDED_LEADERBOARD_USERS,
+            },
+          },
+        },
+        { $limit: 100 },
+        {
+          $project: {
+            _id: '$resultId',
+            wpm: '$bestWpm',
+            accuracy: 1,
+            duration: 1,
+            mode: 1,
+            highestCombo: 1,
+            telemetry: 1,
+            createdAt: 1,
+            user: {
+              _id: '$user._id',
+              name: '$user.name',
+              username: '$user.username',
+              avatarUrl: '$user.avatarUrl',
+              role: '$user.role',
+              status: '$user.status',
+              bio: '$user.bio',
+            },
+          },
+        },
+      ];
 
-    const leaderboard = await TypingResult.aggregate(pipeline);
+      const aggResults = await TypingResult.aggregate(pipeline);
+      leaderboard = aggResults.map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+      }));
+    }
 
-    // Compute user's rank safely
+    // Compute requesting user's dynamic ladder rank safely
     let userRank = null;
     let userBestScore = null;
+
     if (currentUserId) {
       const currentUserIdStr = currentUserId.toString();
       const userIndex = leaderboard.findIndex(
@@ -300,36 +392,29 @@ exports.getLeaderboard = async (req, res) => {
 
       if (userIndex !== -1) {
         userRank = userIndex + 1;
-        userBestScore = leaderboard[userIndex];
+        userBestScore = leaderboard[userIndex].wpm;
       } else {
-        // If outside top 50, compute accurate placement
-        const userBest = await TypingResult.findOne({
-          user: currentUserId,
-          ...filter,
-        }).sort({ wpm: -1, accuracy: -1 });
-
-        if (userBest) {
-          userBestScore = {
-            wpm: userBest.wpm,
-            accuracy: userBest.accuracy,
-            duration: userBest.duration,
-            mode: userBest.mode,
-          };
-          const higherScoresCount = await TypingResult.distinct('user', {
-            ...filter,
+        // Outside the top leaderboard list: query user's profile or best score
+        const userProfile = await TypingProfile.findOne({ user: currentUserId });
+        if (userProfile && userProfile.bestWpm > 0) {
+          userBestScore = userProfile.bestWpm;
+          const higherCount = await TypingProfile.countDocuments({
             $or: [
-              { wpm: { $gt: userBest.wpm } },
-              { wpm: userBest.wpm, accuracy: { $gt: userBest.accuracy } },
+              { bestWpm: { $gt: userProfile.bestWpm } },
+              { bestWpm: userProfile.bestWpm, bestAccuracy: { $gt: userProfile.bestAccuracy } },
             ],
           });
-          userRank = higherScoresCount.length + 1;
+          userRank = higherCount + 1;
         }
       }
     }
 
     return res.status(200).json({
       period,
+      duration,
+      mode,
       contestWeek: getIsoWeekString(),
+      totalEntries: leaderboard.length,
       leaderboard,
       userRank,
       userBestScore,
@@ -895,6 +980,22 @@ exports.removeLeaderboardEntry = async (req, res) => {
 
     if (isObjectId) {
       result = await TypingResult.findById(id);
+      if (!result) {
+        // Could be a TypingProfile ID from the all-time leaderboard
+        const targetProfile = await TypingProfile.findById(id);
+        if (targetProfile) {
+          const pUserId = targetProfile.user;
+          await TypingResult.deleteMany({ user: pUserId });
+          targetProfile.bestWpm = 0;
+          targetProfile.personalBests = new Map();
+          await targetProfile.save();
+          return res.status(200).json({
+            success: true,
+            message: 'Leaderboard profile entry removed by admin.',
+            deletedId: id,
+          });
+        }
+      }
     }
 
     if (!result) {

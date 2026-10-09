@@ -46,6 +46,18 @@ const typingProfileSchema = new mongoose.Schema(
       type: [String],
       default: ['⌨️ Keyboard Initiate'],
     },
+    personalBests: {
+      type: Map,
+      of: {
+        wpm: Number,
+        rawWpm: Number,
+        accuracy: Number,
+        mode: String,
+        duration: Number,
+        date: { type: Date, default: Date.now },
+      },
+      default: () => new Map(),
+    },
     recentScores: [
       {
         wpm: Number,
@@ -58,5 +70,8 @@ const typingProfileSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Compound index for instant leaderboard querying by typing speed
+typingProfileSchema.index({ bestWpm: -1, bestAccuracy: -1, updatedAt: -1 });
 
 module.exports = mongoose.model('TypingProfile', typingProfileSchema);

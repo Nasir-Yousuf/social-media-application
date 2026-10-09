@@ -25,6 +25,7 @@ const PostDetailPage = lazy(() => import('./pages/PostDetailPage'));
 const LearnPage = lazy(() => import('./pages/LearnPage'));
 const CodePracticePage = lazy(() => import('./pages/CodePracticePage'));
 const TypingArenaPage = lazy(() => import('./pages/TypingArenaPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -50,6 +51,7 @@ export function App() {
                     <Route index element={<HomePage />} />
                     <Route path="home" element={<Navigate to="/" replace />} />
                     <Route path="explore" element={<ExplorePage />} />
+                    <Route path="leaderboard" element={<LeaderboardPage />} />
                     <Route path="typing" element={<TypingArenaPage />} />
                     <Route path="code-practice" element={<CodePracticePage />} />
                     <Route path="code-practice/typing" element={<TypingArenaPage />} />

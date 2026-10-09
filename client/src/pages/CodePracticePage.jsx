@@ -44,8 +44,11 @@ import {
 } from '../utils/codeTypingAnalyzer';
 
 import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
+import api from '../api/client';
 
 export const CodePracticePage = () => {
+  const { user } = useAuth();
   const { showToast } = useNotifications();
 
   // Code Practice Progress state loaded from storage
@@ -209,8 +212,35 @@ export const CodePracticePage = () => {
       if (sessionResult.isPersonalBestWpm) {
         showToast(`🎉 New Personal Best: ${wpm} WPM in ${selectedLanguage.toUpperCase()}!`, 'success');
       }
+
+      // Sync coding speed to MongoDB leaderboard
+      if (user && wpm > 0) {
+        api
+          .post('/typing/submit', {
+            wpm,
+            rawWpm: wpm,
+            accuracy,
+            duration: timeSeconds > 0 ? timeSeconds : 60,
+            mode: 'code',
+            charCount: typedLength,
+            errorCount: errors,
+            highestCombo: 0,
+          })
+          .then((res) => {
+            if (res.data?.userRank) {
+              window.dispatchEvent(
+                new CustomEvent('clearfeed:typingScoreSaved', {
+                  detail: { userRank: res.data.userRank, wpm },
+                })
+              );
+            }
+          })
+          .catch((err) => {
+            console.info('Code typing score sync notice (saved locally):', err?.message);
+          });
+      }
     },
-    [currentLesson, selectedLanguage, showToast, typingMode]
+    [currentLesson, selectedLanguage, showToast, typingMode, user]
   );
 
   // Navigate to Next / Prev Lesson

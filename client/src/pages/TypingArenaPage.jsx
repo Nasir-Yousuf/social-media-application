@@ -64,7 +64,7 @@ export const TypingArenaPage = () => {
     const themeParam = searchParams.get('theme');
     const challengeId = searchParams.get('challengeId');
     if (duelWith || themeParam === 'race' || challengeId) return 'race';
-    if (themeParam && ['racing_hub', 'garage', 'arcade', 'classic', 'game', 'hacker', 'zen'].includes(themeParam)) {
+    if (themeParam && ['racing_hub', 'race', 'leaderboard', 'garage', 'arcade', 'classic', 'game', 'hacker', 'zen'].includes(themeParam)) {
       return themeParam;
     }
     const saved = localStorage.getItem('typing_arena_theme');
@@ -1103,6 +1103,18 @@ export const TypingArenaPage = () => {
         <ArcadeLab onBack={() => setArenaTheme('racing_hub')} />
       )}
 
+      {/* 5. Leaderboard Standalone Championship View */}
+      {arenaTheme === 'leaderboard' && (
+        <div className="space-y-4">
+          <TypingLeaderboard
+            onChallengeGhost={handleChallengeGhost}
+            currentSessionDuration={duration}
+            currentSessionMode={mode}
+            title="Global Speed Championship Leaderboard"
+          />
+        </div>
+      )}
+
       {/* Render Selected Theme View */}
       {arenaTheme === 'game' && (
         <GameArenaLayout
@@ -1280,8 +1292,8 @@ export const TypingArenaPage = () => {
         </>
       )}
 
-      {/* Global Speed Championship Leaderboard Section (Visible unless actively racing) */}
-      {arenaTheme !== 'race' && (
+      {/* Global Speed Championship Leaderboard Section (Visible unless actively racing or viewing standalone leaderboard) */}
+      {arenaTheme !== 'race' && arenaTheme !== 'leaderboard' && (
         <div className="pt-8">
           <TypingLeaderboard
             onChallengeGhost={handleChallengeGhost}

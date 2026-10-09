@@ -98,7 +98,12 @@ export const NotificationsScreen = ({ navigation }) => {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => {
-          if (item.post) {
+          if (item.type === 'message' && (item.conversation?._id || item.conversation)) {
+            navigation.navigate('Conversation', {
+              conversationId: item.conversation._id || item.conversation,
+              otherUser: sender,
+            });
+          } else if (item.post) {
             navigation.navigate('PostDetail', { postId: item.post._id || item.post });
           } else if (sender.username) {
             navigation.navigate('Profile', { username: sender.username });

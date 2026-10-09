@@ -5,6 +5,7 @@ const Notification = require('../models/Notification');
 const TypingProfile = require('../models/TypingProfile');
 const TypingChallenge = require('../models/TypingChallenge');
 const { getAuthenticFollowCounts, purgeOrphanedFollows } = require('../utils/followUtils');
+const { sendPushToUser } = require('../services/pushNotificationService');
 
 // Get user profile by username
 exports.getProfileByUsername = async (req, res) => {
@@ -171,6 +172,13 @@ exports.followUser = async (req, res) => {
       sender: currentUserId,
       type: 'follow',
     });
+
+    sendPushToUser(targetUserId, {
+      title: 'New Follower',
+      body: `@${req.user.username} started following you`,
+      data: { type: 'follow', userId: currentUserId.toString() },
+      channelId: 'social',
+    }).catch((err) => console.warn('Follow push alert note:', err.message));
 
     const [targetCounts, currentCounts] = await Promise.all([
       getAuthenticFollowCounts(targetUserId),

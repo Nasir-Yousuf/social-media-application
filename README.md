@@ -41,6 +41,7 @@ A high-performance full-stack social network and developer code studio engineere
 Modern social networks are architected around algorithmic feedback loops, outrage amplification, and opaque ranking signals designed to maximize screen time rather than substantive discourse.
 
 **Clearfeed** re-engineers social interaction from first principles:
+
 - **Strictly Chronological Timeline**: Posts appear in the exact order they are created. No shadow-boosting, no engagement downranking.
 - **Developer First**: Native **VS Code-styled Multi-File CodeHub Studio** for sharing, inspecting, and 1-click remixing real codebases alongside technical discussions.
 - **Zero-Cloud-Cost Scalability**: Engineered with custom client-side HTML5 canvas compression and MongoDB binary stream avatars, eliminating AWS S3/Cloudinary monthly billing.
@@ -87,40 +88,45 @@ graph TD
 
 ## ⚡ Key Engineering Highlights
 
-| Highlight | Description |
-| :--- | :--- |
-| **Full-Stack Reactive Architecture** | Built with **React 19**, **Express 5**, and **Mongoose 8** with full end-to-end type safety, modern async middleware, and optimistic UI updates. |
-| **Client-Side Image Pre-Processing** | Canvas-based downscaling resizes profile photos to 128×128 JPEG at ≤100KB before transmission, reducing network payload by ~95%. |
-| **Reverse-Proxy-Aware IP Telemetry** | Extracts and normalizes genuine client IP addresses through Cloudflare, Vercel, and Railway headers (`CF-Connecting-IP`, `X-Forwarded-For`). |
+| Highlight                            | Description                                                                                                                                       |
+| :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Full-Stack Reactive Architecture** | Built with **React 19**, **Express 5**, and **Mongoose 8** with full end-to-end type safety, modern async middleware, and optimistic UI updates.  |
+| **Client-Side Image Pre-Processing** | Canvas-based downscaling resizes profile photos to 128×128 JPEG at ≤100KB before transmission, reducing network payload by ~95%.                  |
+| **Reverse-Proxy-Aware IP Telemetry** | Extracts and normalizes genuine client IP addresses through Cloudflare, Vercel, and Railway headers (`CF-Connecting-IP`, `X-Forwarded-For`).      |
 | **Maintainer Governance Safeguards** | Designated site maintainers (`@nasir` and `@whoissowrov`) are cryptographically shielded from unauthorized role changes, suspension, or deletion. |
-| **Mobile Parity** | Standalone iOS & Android application built with React Native and Expo featuring Twitter's "Lights Out" design system and native gesture handling. |
+| **Mobile Parity**                    | Standalone iOS & Android application built with React Native and Expo featuring Twitter's "Lights Out" design system and native gesture handling. |
 
 ---
 
 ## 🌟 Core Features
 
 ### 1. 🌿 The Chronological Feed & Calm Reading Experience
+
 - **Pure Chronology**: Guaranteed time-ordered feed with an explicit "No Algorithm" banner.
 - **Substance-Over-Soundbites**: 2,000-character thoughtful limit rendered with custom serif typography (`Source Serif 4`) for distraction-free reading.
 - **Anti-Doomscrolling**: Deliberate pagination buttons instead of infinite scroll traps.
 - **Quiet Engagements**: Appreciate, Respond, Bookmark, and Share without performative metrics.
 
 ### 2. 💻 Multi-File CodeHub Studio
+
 - **VS Code Interface**: Tabbed file switcher mirroring the IDE experience with syntax highlighting and file-type icons.
 - **Multi-File Projects**: Share HTML, CSS, JavaScript, TypeScript, Python, SQL, and React components in a single post.
 - **1-Click Remix & Fork**: Clone any shared code snippet directly into your composer with automatic author attribution.
 
 ### 3. 🛡️ Administrative Governance & Security Dashboard
+
 - **Role-Based Access Control**: Instant permission toggles (`admin` vs. `student`/member).
 - **Live Traffic & IP Audit Logs**: Real-time inspection of IP addresses attached to registrations, logins, posts, and comments.
 - **Platform Integrity**: Post deletion across the network, user suspension controls, and site-wide announcement broadcasts.
 - **Co-Maintainer Safeguards**: Nasir and Sowrov hold non-demotable administrative status to protect application infrastructure.
 
 ### 4. 🔖 Personal Knowledge Base & Bookmarks
+
 - Privately bookmark posts, technical guides, and code snippets to `/bookmarks`.
 - Instant search and filtering across saved entries.
 
 ### 5. 👥 Community Directory & Member Profiles
+
 - Public profiles displaying user bio, technical interests, role badges, and custom status lines (e.g. `🔨 Building a compiler`).
 - Community directory with real-time search and role filtering.
 
@@ -129,6 +135,7 @@ graph TD
 ## 🛠️ Tech Stack
 
 ### Web Frontend
+
 - **Framework**: [React 19](https://react.dev/) + [Vite 8](https://vitejs.dev/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + Custom CSS Design System Tokens
 - **Icons**: [Lucide React](https://lucide.dev/)
@@ -137,6 +144,7 @@ graph TD
 - **Deployment**: [Vercel](https://vercel.com/) Edge Network
 
 ### Backend API
+
 - **Runtime**: [Node.js](https://nodejs.org/) (ES Modules & CommonJS compatibility)
 - **Web Framework**: [Express 5](https://expressjs.com/)
 - **Database ODM**: [Mongoose 8](https://mongoosejs.com/)
@@ -145,10 +153,12 @@ graph TD
 - **Deployment**: [Railway](https://railway.app/) PaaS
 
 ### Database
+
 - **Primary Database**: [MongoDB Atlas](https://www.mongodb.com/atlas) (M0 Free Tier)
 - **Local Fallback**: Embedded `mongodb-memory-server` for instant offline zero-config development
 
 ### Mobile Application (`mobile/`)
+
 - **Framework**: [React Native 0.86](https://reactnative.dev/)
 - **Tooling**: [Expo SDK 57](https://expo.dev/)
 - **Navigation**: React Navigation v7 (Bottom Tabs & Native Stack)
@@ -158,21 +168,21 @@ graph TD
 
 ## 🔌 API Architecture
 
-| Endpoint | Method | Access | Description |
-| :--- | :---: | :---: | :--- |
-| `/api/auth/register` | `POST` | Public | Register new member with client IP tracking |
-| `/api/auth/login` | `POST` | Public | Authenticate user, update session IP, return JWT |
-| `/api/auth/me` | `GET` | Private | Retrieve authenticated profile and refresh roles |
-| `/api/posts` | `GET` | Public | Fetch chronological posts with pagination |
-| `/api/posts` | `POST` | Private | Create text/code post with IP attribution |
-| `/api/posts/:id` | `DELETE` | Author / Admin | Remove post and cascade delete comments |
-| `/api/posts/:id/comments` | `POST` | Private | Add comment with IP tracking |
-| `/api/users/:id/avatar` | `GET` | Public | Stream binary avatar buffer with HTTP caching |
-| `/api/users/:id/avatar` | `PUT` | Private | Upload compressed JPEG avatar buffer |
-| `/api/admin/users` | `GET` | Admin | Fetch user directory with IP audit data |
-| `/api/admin/traffic` | `GET` | Admin | Stream live IP traffic and security events |
-| `/api/admin/users/:id/role` | `PATCH` | Admin | Toggle admin status (protected against co-admins) |
-| `/api/admin/users/:id/status`| `PATCH` | Admin | Toggle account suspension |
+| Endpoint                      |  Method  |     Access     | Description                                       |
+| :---------------------------- | :------: | :------------: | :------------------------------------------------ |
+| `/api/auth/register`          |  `POST`  |     Public     | Register new member with client IP tracking       |
+| `/api/auth/login`             |  `POST`  |     Public     | Authenticate user, update session IP, return JWT  |
+| `/api/auth/me`                |  `GET`   |    Private     | Retrieve authenticated profile and refresh roles  |
+| `/api/posts`                  |  `GET`   |     Public     | Fetch chronological posts with pagination         |
+| `/api/posts`                  |  `POST`  |    Private     | Create text/code post with IP attribution         |
+| `/api/posts/:id`              | `DELETE` | Author / Admin | Remove post and cascade delete comments           |
+| `/api/posts/:id/comments`     |  `POST`  |    Private     | Add comment with IP tracking                      |
+| `/api/users/:id/avatar`       |  `GET`   |     Public     | Stream binary avatar buffer with HTTP caching     |
+| `/api/users/:id/avatar`       |  `PUT`   |    Private     | Upload compressed JPEG avatar buffer              |
+| `/api/admin/users`            |  `GET`   |     Admin      | Fetch user directory with IP audit data           |
+| `/api/admin/traffic`          |  `GET`   |     Admin      | Stream live IP traffic and security events        |
+| `/api/admin/users/:id/role`   | `PATCH`  |     Admin      | Toggle admin status (protected against co-admins) |
+| `/api/admin/users/:id/status` | `PATCH`  |     Admin      | Toggle account suspension                         |
 
 ---
 
@@ -194,9 +204,13 @@ Standard web applications often rely on paid third-party asset storage services 
 - **Multi-Proxy IP Telemetry**: Real-world web traffic routes through reverse proxies (Vercel, Cloudflare, Railway). Clearfeed implements a robust IP resolver:
   ```javascript
   const getClientIp = (req) => {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) return forwarded.split(',')[0].trim();
-    return req.headers['cf-connecting-ip'] || req.socket?.remoteAddress || '127.0.0.1';
+    const forwarded = req.headers["x-forwarded-for"];
+    if (forwarded) return forwarded.split(",")[0].trim();
+    return (
+      req.headers["cf-connecting-ip"] ||
+      req.socket?.remoteAddress ||
+      "127.0.0.1"
+    );
   };
   ```
 - **Co-Maintainer Safeguards**: Primary platform maintainers **Nasir** (`@nasir`) and **Sowrov** (`@whoissowrov`) possess immutable administrative rights in the backend controllers, preventing accidental demotion, suspension, or deletion.
@@ -209,6 +223,7 @@ Standard web applications often rely on paid third-party asset storage services 
 Clearfeed includes a native mobile client in the [`mobile/`](./mobile) directory.
 
 ### Key Mobile Features:
+
 - **Twitter "Lights Out" Aesthetic**: Deep AMOLED black `#000000`, surface card `#16181c`, borders `#2f3336`, and Twitter blue `#1d9bf0`.
 - **VS Code CodeBlock Component**: Multi-file tabbed code viewer with line numbers and 1-tap copy to clipboard via `expo-clipboard`.
 - **Gesture-Driven UX**: Pull-to-refresh (`RefreshControl`), smooth tab switching, and native OS share sheets.
@@ -226,6 +241,7 @@ cd mobile && npm start
 ## 🚀 Local Development & Setup
 
 ### Prerequisites
+
 - **Node.js**: v18.0.0 or higher
 - **npm**: v9.0.0 or higher
 - **Git**
@@ -233,21 +249,25 @@ cd mobile && npm start
 ### Installation
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/Nasir-Yousuf/social-media-application.git
    cd social-media-application
    ```
 
 2. **Install all dependencies:**
+
    ```bash
    npm run install:all
    ```
 
 3. **Start Development Servers:**
+
    ```bash
    npm run dev
    ```
-   *This starts both the backend API (port 5180) and frontend Vite dev server (port 5173).*
+
+   _This starts both the backend API (port 5180) and frontend Vite dev server (port 5173)._
 
 4. **Access the Application:**
    Open [http://localhost:5173](http://localhost:5173) in your browser.
@@ -258,15 +278,16 @@ cd mobile && npm start
 
 Clearfeed is pre-configured for frictionless zero-cost deployment across standard cloud providers:
 
-| Layer | Host | Configuration |
-| :--- | :--- | :--- |
-| **Frontend** | [Vercel](https://vercel.com/) | Root: `client` · Build: `npm run build` · Output: `dist` |
-| **Backend** | [Railway](https://railway.app/) | Root: `server` · Start: `node server.js` |
-| **Database** | [MongoDB Atlas](https://www.mongodb.com/) | Free M0 Cluster (512 MB storage) |
+| Layer        | Host                                      | Configuration                                            |
+| :----------- | :---------------------------------------- | :------------------------------------------------------- |
+| **Frontend** | [Vercel](https://vercel.com/)             | Root: `client` · Build: `npm run build` · Output: `dist` |
+| **Backend**  | [Railway](https://railway.app/)           | Root: `server` · Start: `node server.js`                 |
+| **Database** | [MongoDB Atlas](https://www.mongodb.com/) | Free M0 Cluster (512 MB storage)                         |
 
 ### Environment Variables
 
 **Backend (`server/.env`):**
+
 ```env
 PORT=5180
 NODE_ENV=production
@@ -275,6 +296,7 @@ JWT_SECRET=your_super_secret_jwt_key
 ```
 
 **Frontend (`client/.env`):**
+
 ```env
 VITE_API_URL=https://clearfeed518.up.railway.app
 ```
@@ -284,14 +306,14 @@ VITE_API_URL=https://clearfeed518.up.railway.app
 ## ⚖️ Engineering Decisions & Trade-Offs
 
 1. **In-Database Binary Avatars vs. AWS S3**:
-   - *Decision*: Stored compressed avatars directly in MongoDB Atlas.
-   - *Rationale*: Eliminates third-party billing and AWS IAM credential management for a zero-cost portfolio architecture. Canvas downscaling caps file sizes at ≤100 KB, preventing database bloat.
+   - _Decision_: Stored compressed avatars directly in MongoDB Atlas.
+   - _Rationale_: Eliminates third-party billing and AWS IAM credential management for a zero-cost portfolio architecture. Canvas downscaling caps file sizes at ≤100 KB, preventing database bloat.
 2. **Chronological Deliberate Pagination vs. Infinite Scroll**:
-   - *Decision*: Implemented explicit "Load earlier posts" buttons over automated infinite scroll listeners.
-   - *Rationale*: Respects user agency and aligns with the anti-doomscrolling philosophy while simplifying client-side virtualization requirements.
+   - _Decision_: Implemented explicit "Load earlier posts" buttons over automated infinite scroll listeners.
+   - _Rationale_: Respects user agency and aligns with the anti-doomscrolling philosophy while simplifying client-side virtualization requirements.
 3. **Stateless JWT vs. Stateful Sessions**:
-   - *Decision*: Issued stateless 7-day JWT tokens stored in browser `localStorage`.
-   - *Rationale*: Reduces server memory overhead, decouples horizontal scaling on Railway, and simplifies cross-origin requests between Vercel and Railway.
+   - _Decision_: Issued stateless 7-day JWT tokens stored in browser `localStorage`.
+   - _Rationale_: Reduces server memory overhead, decouples horizontal scaling on Railway, and simplifies cross-origin requests between Vercel and Railway.
 
 ---
 

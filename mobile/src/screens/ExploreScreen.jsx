@@ -63,8 +63,40 @@ export const ExploreScreen = ({ navigation }) => {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Discover</Text>
-        <Text style={styles.subtitle}>Explore thoughtful posts and discussions.</Text>
+        <View style={styles.topHeaderRow}>
+          <Text style={styles.title}>Discover</Text>
+        </View>
+
+        {/* Tap to Search Bar */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Search')}
+          style={styles.searchBarFake}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="search" size={17} color={colors.textSecondary} style={{ marginRight: 8 }} />
+          <Text style={styles.searchBarPlaceholder}>Search students, posts, discussions...</Text>
+        </TouchableOpacity>
+
+        {/* Quick Nav Chips */}
+        <View style={styles.quickNavRow}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Members')}
+            style={styles.quickNavChip}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="people-outline" size={14} color={colors.accent} style={{ marginRight: 5 }} />
+            <Text style={styles.quickNavChipText}>Cohort Members</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('CodeHub')}
+            style={styles.quickNavChip}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="code-slash-outline" size={14} color={colors.accent} style={{ marginRight: 5 }} />
+            <Text style={styles.quickNavChipText}>Code Hub</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Topics Scroll */}
         <ScrollView
@@ -142,14 +174,48 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
   },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
+  topHeaderRow: {
     marginBottom: 10,
+  },
+  searchBarFake: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  searchBarPlaceholder: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  quickNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  quickNavChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  quickNavChipText: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '700',
   },
   topicsScroll: {
     flexGrow: 0,
