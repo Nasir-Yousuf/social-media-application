@@ -168,7 +168,7 @@ export const TypingArenaPage = () => {
       setArenaThemeState(themeParam);
       localStorage.setItem('typing_arena_theme', themeParam);
     }
-  }, [searchParams]);
+  }, [searchParamsString]);
 
   // Fetch current user's challenges (merging resilient local storage + remote API)
   const fetchChallenges = useCallback(async () => {
@@ -449,10 +449,8 @@ export const TypingArenaPage = () => {
     setIsResultsOpen(false);
     startTimeRef.current = null;
     lastTelemetrySecRef.current = 0;
-    if (ghostData) {
-      setGhostData((prev) => (prev ? { ...prev, progress: 0 } : null));
-    }
-  }, [mode, duration, punctuation, numbers, ghostData]);
+    setGhostData((prev) => (!prev || prev.progress === 0 ? prev : { ...prev, progress: 0 }));
+  }, [mode, duration, punctuation, numbers]);
 
   useEffect(() => {
     initTest();
