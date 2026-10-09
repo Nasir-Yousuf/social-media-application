@@ -52,6 +52,7 @@ import { useConfirm } from '../context/ConfirmContext';
 
 export const TypingArenaPage = () => {
   const [searchParams] = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useNotifications();
@@ -221,7 +222,6 @@ export const TypingArenaPage = () => {
   }, [soundTheme]);
 
   // Check query params for challengeId or ghost challenge
-  const searchParamsString = searchParams.toString();
   useEffect(() => {
     const params = new URLSearchParams(searchParamsString);
     const challengeId = params.get('challengeId');
