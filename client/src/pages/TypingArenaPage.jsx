@@ -221,8 +221,11 @@ export const TypingArenaPage = () => {
   }, [soundTheme]);
 
   // Check query params for challengeId or ghost challenge
+  const searchParamsString = searchParams.toString();
   useEffect(() => {
-    const challengeId = searchParams.get('challengeId');
+    const params = new URLSearchParams(searchParamsString);
+    const challengeId = params.get('challengeId');
+
     if (challengeId) {
       const applyChallenge = (ch) => {
         if (!ch) return;
@@ -238,14 +241,14 @@ export const TypingArenaPage = () => {
         const isHighwayRace = Boolean(
           ch.isRace ||
           ch.mode === 'race_highway' ||
-          searchParams.get('theme') === 'race' ||
-          searchParams.get('duelWith')
+          params.get('theme') === 'race' ||
+          params.get('duelWith')
         );
 
         if (isHighwayRace) {
-          const carId = ch.carId || searchParams.get('car') || 'street_phantom';
+          const carId = ch.carId || params.get('car') || 'street_phantom';
           const catalogCar = CAR_CATALOG.find((c) => c.id === carId) || CAR_CATALOG[2];
-          const rivalUsername = ch.challenger?.username || searchParams.get('duelWith') || 'rival';
+          const rivalUsername = ch.challenger?.username || params.get('duelWith') || 'rival';
           const rivalName = ch.challenger?.name || rivalUsername;
 
           setRaceRival({
@@ -267,18 +270,21 @@ export const TypingArenaPage = () => {
             'success'
           );
         } else {
-          setGhostData({
-            username: ch.challenger?.username || 'rival',
-            name: ch.challenger?.name,
-            avatarUrl: ch.challenger?.avatarUrl,
-            wpm: ch.challengerWpm || 0,
-            progress: 0,
-            isDuel: true,
+          setGhostData((prev) => {
+            if (prev && prev.username === (ch.challenger?.username || 'rival')) return prev;
+            showToast(
+              `⚔️ 1v1 Typing Duel loaded! Race against @${ch.challenger?.username || 'rival'} (${ch.challengerWpm || 0} WPM)`,
+              'info'
+            );
+            return {
+              username: ch.challenger?.username || 'rival',
+              name: ch.challenger?.name,
+              avatarUrl: ch.challenger?.avatarUrl,
+              wpm: ch.challengerWpm || 0,
+              progress: 0,
+              isDuel: true,
+            };
           });
-          showToast(
-            `⚔️ 1v1 Typing Duel loaded! Race against @${ch.challenger?.username || 'rival'} (${ch.challengerWpm || 0} WPM)`,
-            'info'
-          );
         }
       };
 
@@ -293,29 +299,27 @@ export const TypingArenaPage = () => {
             if (localCh) applyChallenge(localCh);
           }
         })
-        .catch((err) => {
-          console.info('Remote challenge load 404/offline, checking local arena storage:', err.message);
+        .catch(() => {
           const localCh = getLocalChallengeById(challengeId);
-          if (localCh) {
-            applyChallenge(localCh);
-          } else {
-            console.warn('Could not locate challenge locally or remotely:', challengeId);
-          }
+          if (localCh) applyChallenge(localCh);
         });
       return;
     }
 
-    const rival = searchParams.get('rival');
-    const rivalWpm = Number(searchParams.get('wpm'));
+    const rival = params.get('rival');
+    const rivalWpm = Number(params.get('wpm'));
     if (rival && rivalWpm) {
-      setGhostData({
-        username: rival,
-        wpm: rivalWpm,
-        progress: 0,
+      setGhostData((prev) => {
+        if (prev && prev.username === rival && prev.wpm === rivalWpm) return prev;
+        showToast(`Ghost challenge active: beat @${rival}'s ${rivalWpm} WPM!`, 'info');
+        return {
+          username: rival,
+          wpm: rivalWpm,
+          progress: 0,
+        };
       });
-      showToast(`Ghost challenge active: beat @${rival}'s ${rivalWpm} WPM!`, 'info');
     }
-  }, [searchParams, showToast]);
+  }, [searchParamsString, showToast]);
 
   // Compute live correct characters for current incomplete word
   const currentWordTarget = words[currentWordIndex] || '';
