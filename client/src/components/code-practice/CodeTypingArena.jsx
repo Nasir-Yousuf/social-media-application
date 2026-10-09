@@ -24,6 +24,7 @@ export const CodeTypingArena = ({
   const [maxCombo, setMaxCombo] = useState(0);
 
   const containerRef = useRef(null);
+  const editorBodyRef = useRef(null);
   const inputRef = useRef(null);
   const activeCharRef = useRef(null);
 
@@ -53,13 +54,17 @@ export const CodeTypingArena = ({
     }
   };
 
+  // Keep active line visible vertically without thrashing horizontal scroll
   useEffect(() => {
-    if (activeCharRef.current) {
-      activeCharRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
-      });
+    if (activeCharRef.current && editorBodyRef.current) {
+      const activeEl = activeCharRef.current;
+      const containerEl = editorBodyRef.current;
+      const activeRect = activeEl.getBoundingClientRect();
+      const containerRect = containerEl.getBoundingClientRect();
+
+      if (activeRect.top < containerRect.top || activeRect.bottom > containerRect.bottom - 20) {
+        activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
     }
   }, [typedText]);
 
@@ -172,23 +177,23 @@ export const CodeTypingArena = ({
   let bgTheme = 'bg-[#181a1f] border-sky-500/50 shadow-xl shadow-sky-500/10';
   let fontTheme = 'text-neutral-400';
   let correctCharTheme = 'text-emerald-400 bg-emerald-500/10 font-semibold';
-  let currentCharTheme = 'bg-sky-500 text-white font-black underline decoration-sky-300 animate-pulse px-0.5 rounded-xs';
+  let currentCharTheme = 'bg-sky-500 text-white font-black underline decoration-sky-300 rounded-xs px-0.5';
 
   if (mode === 'cyber') {
     bgTheme = 'bg-[#050d08] border-emerald-500/60 shadow-2xl shadow-emerald-500/20';
     fontTheme = 'text-emerald-700 font-mono';
     correctCharTheme = 'text-emerald-400 font-bold bg-emerald-500/20 shadow-xs shadow-emerald-500/50';
-    currentCharTheme = 'bg-emerald-400 text-black font-black underline animate-ping px-0.5 rounded-xs';
+    currentCharTheme = 'bg-emerald-400 text-black font-black underline ring-1 ring-emerald-400 rounded-xs px-0.5';
   } else if (mode === 'arcade') {
     bgTheme = 'bg-[#0f0c1b] border-purple-500/60 shadow-2xl shadow-purple-500/20';
     fontTheme = 'text-purple-300 font-mono';
     correctCharTheme = 'text-amber-300 font-bold bg-amber-500/20';
-    currentCharTheme = 'bg-amber-400 text-black font-black underline animate-bounce px-0.5 rounded-xs';
+    currentCharTheme = 'bg-amber-400 text-black font-black underline ring-1 ring-amber-400 rounded-xs px-0.5';
   } else if (mode === 'focus') {
     bgTheme = 'bg-[#090a0f] border-neutral-800 shadow-lg';
     fontTheme = 'text-neutral-500 font-mono';
     correctCharTheme = 'text-sky-300 font-medium';
-    currentCharTheme = 'bg-white text-black font-bold px-0.5 rounded-xs';
+    currentCharTheme = 'bg-white text-black font-bold rounded-xs px-0.5';
   }
 
   return (
@@ -224,7 +229,7 @@ export const CodeTypingArena = ({
 
         {/* Combo Multiplier for Arcade */}
         {mode === 'arcade' && comboStreak >= 5 && (
-          <div className="flex items-center gap-1 px-3 py-0.5 rounded-full bg-amber-500 text-black font-black text-xs animate-bounce shadow-md">
+          <div className="flex items-center gap-1 px-3 py-0.5 rounded-full bg-amber-500 text-black font-black text-xs shadow-md">
             <Flame className="w-3.5 h-3.5 fill-black" />
             <span>{comboStreak}x STREAK COMBO!</span>
           </div>
@@ -245,7 +250,10 @@ export const CodeTypingArena = ({
       </div>
 
       {/* Code Body */}
-      <div className="p-4 sm:p-5 overflow-x-auto text-sm sm:text-base leading-relaxed tracking-wide min-h-[220px] max-h-[440px] overflow-y-auto">
+      <div
+        ref={editorBodyRef}
+        className="p-4 sm:p-5 overflow-y-auto text-sm sm:text-base leading-relaxed tracking-wide min-h-[220px] max-h-[440px]"
+      >
         {codeLines.map((lineText, lineIdx) => {
           const lineStartIndex = globalCharIndex;
           const lineChars = lineText.split('');
@@ -257,7 +265,7 @@ export const CodeTypingArena = ({
                 {lineIdx + 1}
               </div>
 
-              <div className="flex-1 whitespace-pre font-mono">
+              <div className="flex-1 whitespace-pre-wrap break-words font-mono">
                 {lineChars.map((char, charIdx) => {
                   const charGlobalIdx = lineStartIndex + charIdx;
                   const isTyped = charGlobalIdx < typedText.length;
@@ -288,7 +296,7 @@ export const CodeTypingArena = ({
                 {lineStartIndex + lineChars.length === typedText.length && (
                   <span
                     ref={activeCharRef}
-                    className="bg-sky-500 text-white font-bold text-xs px-1 rounded-xs animate-pulse ml-0.5"
+                    className="bg-sky-500 text-white font-bold text-xs px-1 rounded-xs ml-0.5"
                   >
                     ↵
                   </span>

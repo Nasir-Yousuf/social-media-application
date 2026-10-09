@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Trophy,
   Zap,
@@ -14,9 +14,9 @@ import {
   Gauge,
   Target,
   Flame,
-} from 'lucide-react';
-import Modal from '../common/Modal';
-import CodePerformanceGraph from './CodePerformanceGraph';
+} from "lucide-react";
+import Modal from "../common/Modal";
+import CodePerformanceGraph from "./CodePerformanceGraph";
 
 export const CodeResultsModal = ({
   isOpen = false,
@@ -40,20 +40,23 @@ export const CodeResultsModal = ({
     goodCategories = [],
     needsPracticeChars = [],
     xpGained = 50,
-    lessonTitle = '',
+    lessonTitle = "",
     wpmHistory = [],
-    modeName = 'Classic',
+    modeName = "Classic",
     raceRank = null,
   } = results;
 
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
   // Compute consistency rating percentage based on accuracy and speed stability
-  const consistencyScore = Math.min(100, Math.max(60, Math.round(accuracy * 0.95 + (wpm > 40 ? 5 : 0))));
+  const consistencyScore = Math.min(
+    100,
+    Math.max(60, Math.round(accuracy * 0.95 + (wpm > 40 ? 5 : 0))),
+  );
 
   return (
     <Modal
@@ -73,7 +76,9 @@ export const CodeResultsModal = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-xl sm:text-2xl font-black text-neutral-900 dark:text-white tracking-tight">
-                  {lessonTitle ? `Completed: ${lessonTitle}` : 'Awesome Typing Performance!'}
+                  {lessonTitle
+                    ? `Completed: ${lessonTitle}`
+                    : "Awesome Typing Performance!"}
                 </h3>
                 <span className="px-3 py-0.5 rounded-full bg-sky-500/20 border border-sky-500/40 text-sky-400 font-extrabold text-xs font-mono">
                   {modeName}
@@ -94,7 +99,11 @@ export const CodeResultsModal = ({
 
                 {raceRank && (
                   <span className="bg-emerald-500 text-white px-2.5 py-0.5 rounded-full font-black text-xs shadow-sm">
-                    {raceRank === 1 ? '🥇 1st Place Champion!' : raceRank === 2 ? '🥈 2nd Place Runner-Up' : '🥉 3rd Place Finish'}
+                    {raceRank === 1
+                      ? "🥇 1st Place Champion!"
+                      : raceRank === 2
+                        ? "🥈 2nd Place Runner-Up"
+                        : "🥉 3rd Place Finish"}
                   </span>
                 )}
               </div>
@@ -116,7 +125,9 @@ export const CodeResultsModal = ({
                 <span className="text-3xl sm:text-4xl font-black text-sky-500 font-mono tracking-tight">
                   {wpm}
                 </span>
-                <span className="text-[10px] text-neutral-500 font-bold block">Words Per Min</span>
+                <span className="text-[10px] text-neutral-500 font-bold block">
+                  Words Per Min
+                </span>
               </div>
 
               {/* Accuracy */}
@@ -126,12 +137,18 @@ export const CodeResultsModal = ({
                 </span>
                 <span
                   className={`text-3xl sm:text-4xl font-black font-mono tracking-tight ${
-                    accuracy >= 95 ? 'text-emerald-500' : accuracy >= 85 ? 'text-amber-500' : 'text-rose-500'
+                    accuracy >= 95
+                      ? "text-emerald-500"
+                      : accuracy >= 85
+                        ? "text-amber-500"
+                        : "text-rose-500"
                   }`}
                 >
                   {accuracy}%
                 </span>
-                <span className="text-[10px] text-neutral-500 font-bold block">Precision Score</span>
+                <span className="text-[10px] text-neutral-500 font-bold block">
+                  Precision Score
+                </span>
               </div>
 
               {/* Errors */}
@@ -141,12 +158,14 @@ export const CodeResultsModal = ({
                 </span>
                 <span
                   className={`text-3xl sm:text-4xl font-black font-mono tracking-tight ${
-                    errors === 0 ? 'text-emerald-500' : 'text-rose-500'
+                    errors === 0 ? "text-emerald-500" : "text-rose-500"
                   }`}
                 >
                   {errors}
                 </span>
-                <span className="text-[10px] text-neutral-500 font-bold block">Mistakes Count</span>
+                <span className="text-[10px] text-neutral-500 font-bold block">
+                  Mistakes Count
+                </span>
               </div>
 
               {/* Duration */}
@@ -157,7 +176,9 @@ export const CodeResultsModal = ({
                 <span className="text-3xl sm:text-4xl font-black text-neutral-800 dark:text-neutral-100 font-mono tracking-tight">
                   {formatTime(timeSeconds)}
                 </span>
-                <span className="text-[10px] text-neutral-500 font-bold block">MM:SS Elapsed</span>
+                <span className="text-[10px] text-neutral-500 font-bold block">
+                  MM:SS Elapsed
+                </span>
               </div>
             </div>
 
@@ -180,7 +201,9 @@ export const CodeResultsModal = ({
                       </span>
                     ))
                   ) : (
-                    <span className="text-neutral-500">Solid overall syntax control</span>
+                    <span className="text-neutral-500">
+                      Solid overall syntax control
+                    </span>
                   )}
                 </div>
               </div>
@@ -202,7 +225,9 @@ export const CodeResultsModal = ({
                       </span>
                     ))
                   ) : (
-                    <span className="text-emerald-500 font-bold">Zero key misstrikes! Perfect precision.</span>
+                    <span className="text-emerald-500 font-bold">
+                      Zero key misstrikes! Perfect precision.
+                    </span>
                   )}
                 </div>
               </div>
@@ -221,9 +246,24 @@ export const CodeResultsModal = ({
 
             {/* Quick Metrics Callout Bar */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-50 dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-xs font-medium text-neutral-600 dark:text-neutral-400">
-              <span>Typed length: <strong className="text-neutral-900 dark:text-white font-mono">{typedLength} chars</strong></span>
-              <span>Consistency rating: <strong className="text-sky-500 font-mono font-bold">{consistencyScore}%</strong></span>
-              <span>XP multiplier: <strong className="text-amber-500 font-mono font-bold">1.5x</strong></span>
+              <span>
+                Typed length:{" "}
+                <strong className="text-neutral-900 dark:text-white font-mono">
+                  {typedLength} chars
+                </strong>
+              </span>
+              <span>
+                Consistency rating:{" "}
+                <strong className="text-sky-500 font-mono font-bold">
+                  {consistencyScore}%
+                </strong>
+              </span>
+              <span>
+                XP multiplier:{" "}
+                <strong className="text-amber-500 font-mono font-bold">
+                  1.5x
+                </strong>
+              </span>
             </div>
           </div>
         </div>

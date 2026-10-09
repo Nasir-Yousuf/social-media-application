@@ -103,18 +103,50 @@ export const MarkdownRenderer = ({ content = '', className = '' }) => {
         const closeBracket = matchedStr.indexOf('](');
         const label = matchedStr.slice(1, closeBracket);
         const url = matchedStr.slice(closeBracket + 2, -1);
-        const safeUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
-        elements.push(
-          <a
-            key={key++}
-            href={safeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sky-500 hover:text-sky-400 underline underline-offset-2 transition-colors font-medium"
-          >
-            {label}
-          </a>
-        );
+        
+        // Check if internal app link
+        const isInternal = url.startsWith('/') || (url.includes(window.location.host) && url.includes('/'));
+        let internalPath = url;
+        if (url.includes(window.location.host)) {
+          try {
+            const parsed = new URL(url);
+            internalPath = parsed.pathname + parsed.search;
+          } catch {
+            internalPath = url;
+          }
+        }
+
+        if (isInternal) {
+          const isChallengeBtn = label.toLowerCase().includes('challenge') || label.toLowerCase().includes('battle');
+          elements.push(
+            <NavLink
+              key={key++}
+              to={internalPath}
+              className={
+                isChallengeBtn
+                  ? 'inline-flex items-center gap-1.5 px-3 py-1 my-1 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black text-xs shadow-sm hover:brightness-110 transition-all cursor-pointer'
+                  : 'text-sky-500 hover:text-sky-400 underline underline-offset-2 transition-colors font-semibold'
+              }
+              onClick={(e) => e.stopPropagation()}
+            >
+              {isChallengeBtn && <span>⚔️</span>}
+              <span>{label}</span>
+            </NavLink>
+          );
+        } else {
+          const safeUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+          elements.push(
+            <a
+              key={key++}
+              href={safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sky-500 hover:text-sky-400 underline underline-offset-2 transition-colors font-medium"
+            >
+              {label}
+            </a>
+          );
+        }
       } else if (matchedStr.startsWith('**') && matchedStr.endsWith('**')) {
         const boldText = matchedStr.slice(2, -2);
         elements.push(

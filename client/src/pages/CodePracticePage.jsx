@@ -77,8 +77,29 @@ export const CodePracticePage = () => {
   const [lastResults, setLastResults] = useState(null);
   const [shareText, setShareText] = useState('');
 
-  // User Progress local state
-  const [progress, setProgress] = useState(loadProgressFromStorage);
+  // Active challenge state from URL
+  const [activeChallengeInfo, setActiveChallengeInfo] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isChallenge = params.get('challenge') === 'true';
+    const langParam = params.get('lang');
+    const targetWpm = params.get('wpm');
+
+    if (isChallenge && langParam) {
+      const targetLang = ['html', 'css', 'javascript'].includes(langParam.toLowerCase())
+        ? langParam.toLowerCase()
+        : 'javascript';
+
+      setSelectedLanguage(targetLang);
+      setActiveTab('lesson');
+      setActiveChallengeInfo({
+        targetWpm: parseInt(targetWpm, 10) || 60,
+        lang: targetLang.toUpperCase(),
+      });
+      showToast(`⚔️ Challenge Battle Accepted! Target to beat: ${targetWpm || 60} WPM in ${targetLang.toUpperCase()}`, 'info');
+    }
+  }, []);
 
   // Load lessons whenever selected language changes
   useEffect(() => {
@@ -363,6 +384,32 @@ export const CodePracticePage = () => {
       {/* 5. Main Practice Arena Views (Lesson / Free / Weak / Daily) */}
       {activeTab !== 'progress' && activeTab !== 'carrace' && (
         <div className="space-y-6 animate-fade-in">
+          {/* Active Challenge Battle Banner */}
+          {activeChallengeInfo && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-amber-500/40 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 border border-amber-500/40 flex items-center justify-center font-black text-lg">
+                  ⚔️
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-neutral-900 dark:text-white">
+                    Typing Battle Challenge Active!
+                  </h4>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 font-medium">
+                    Target to Beat: <strong className="text-amber-500 font-mono text-sm">{activeChallengeInfo.targetWpm} WPM</strong> in {activeChallengeInfo.lang}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveChallengeInfo(null)}
+                className="px-3 py-1 rounded-full bg-neutral-200 dark:bg-neutral-800 text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+              >
+                Dismiss Banner
+              </button>
+            </div>
+          )}
+
           {/* Language Choices Cards/Tabs */}
           <LanguageSelector
             selectedLanguage={selectedLanguage}

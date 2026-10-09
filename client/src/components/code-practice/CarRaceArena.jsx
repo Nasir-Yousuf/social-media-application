@@ -215,11 +215,11 @@ export const CarRaceArena = ({
             <div className="absolute inset-0 border-b border-dashed border-sky-500/20 top-1/2 -translate-y-1/2 pointer-events-none" />
             {/* Animated Car */}
             <div
-              className="absolute transition-all duration-150 ease-out flex items-center gap-1"
-              style={{ left: `calc(${playerPercent}% * 0.92)` }}
+              className="absolute transition-all duration-200 ease-out flex items-center gap-1.5"
+              style={{ left: `${Math.min(90, Math.max(1, playerPercent * 0.9))}%` }}
             >
-              <div className="text-2xl animate-bounce">🏎️</div>
-              <div className="w-6 h-2 rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 blur-xs" />
+              <div className="text-xl">🏎️</div>
+              <div className="w-5 h-2 rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 blur-xs animate-pulse" />
             </div>
           </div>
         </div>
@@ -235,8 +235,8 @@ export const CarRaceArena = ({
               </div>
               <div className="relative w-full bg-[#0a0d14] rounded-full h-6 border border-neutral-800 overflow-hidden flex items-center px-1">
                 <div
-                  className="absolute transition-all duration-200 ease-out text-lg"
-                  style={{ left: `calc(${prog}% * 0.92)` }}
+                  className="absolute transition-all duration-200 ease-out text-base"
+                  style={{ left: `${Math.min(90, Math.max(1, prog * 0.9))}%` }}
                 >
                   🚗
                 </div>
