@@ -26,11 +26,11 @@ import {
 const QUICK_EMOJIS = ['😀', '😂', '🔥', '🚀', '💻', '💡', '⚡', '❤️', '🎯', '🎉', '✨', '☕', '🧠', '🐛', '👍', '🙌', '🤝', '💯', '🔒', '🛠️'];
 
 const LOCATION_PRESETS = [
-  'CS Lab 402B',
+  'Class 402B',
   'Campus Library',
   'Code Lounge',
   'Online / Remote',
-  'San Francisco, CA',
+  'Hall',
   'New York, NY',
 ];
 
@@ -679,7 +679,7 @@ export const PostComposer = ({
                   type="text"
                   value={customLocationInput}
                   onChange={(e) => setCustomLocationInput(e.target.value)}
-                  placeholder="Or type city or place (e.g. San Francisco)..."
+                  placeholder="Or type city or place (e.g. Hall)..."
                   className="flex-1 px-3 py-1.5 rounded-xl bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white outline-none focus:border-sky-500"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
