@@ -1,16 +1,27 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Terminal, Lock, Sparkles, CheckCircle2, RotateCcw, Flame, ShieldAlert } from 'lucide-react';
-import { calculateWPM, calculateAccuracy } from '../../utils/codeTypingAnalyzer';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Terminal,
+  Lock,
+  Sparkles,
+  CheckCircle2,
+  RotateCcw,
+  Flame,
+  ShieldAlert,
+} from "lucide-react";
+import {
+  calculateWPM,
+  calculateAccuracy,
+} from "../../utils/codeTypingAnalyzer";
 
 export const CodeTypingArena = ({
-  snippet = '',
-  language = 'javascript',
-  mode = 'classic',
+  snippet = "",
+  language = "javascript",
+  mode = "classic",
   onKeystroke,
   onComplete,
   onReset,
 }) => {
-  const [typedText, setTypedText] = useState('');
+  const [typedText, setTypedText] = useState("");
   const [mistakesMap, setMistakesMap] = useState({});
   const [errorCount, setErrorCount] = useState(0);
   const [totalKeystrokes, setTotalKeystrokes] = useState(0);
@@ -28,11 +39,11 @@ export const CodeTypingArena = ({
   const inputRef = useRef(null);
   const activeCharRef = useRef(null);
 
-  const targetCode = snippet || '';
+  const targetCode = snippet || "";
 
   // Reset state when snippet or mode changes
   useEffect(() => {
-    setTypedText('');
+    setTypedText("");
     setMistakesMap({});
     setErrorCount(0);
     setTotalKeystrokes(0);
@@ -62,8 +73,11 @@ export const CodeTypingArena = ({
       const activeRect = activeEl.getBoundingClientRect();
       const containerRect = containerEl.getBoundingClientRect();
 
-      if (activeRect.top < containerRect.top || activeRect.bottom > containerRect.bottom - 20) {
-        activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (
+        activeRect.top < containerRect.top ||
+        activeRect.bottom > containerRect.bottom - 20
+      ) {
+        activeEl.scrollIntoView({ block: "nearest", inline: "nearest" });
       }
     }
   }, [typedText]);
@@ -72,10 +86,23 @@ export const CodeTypingArena = ({
     (e) => {
       if (endTime || !targetCode) return;
 
-      if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      if (
+        [
+          "Shift",
+          "Control",
+          "Alt",
+          "Meta",
+          "CapsLock",
+          "Escape",
+          "ArrowLeft",
+          "ArrowRight",
+          "ArrowUp",
+          "ArrowDown",
+        ].includes(e.key)
+      ) {
         return;
       }
-      if ([' ', 'Backspace', 'Tab'].includes(e.key)) {
+      if ([" ", "Backspace", "Tab"].includes(e.key)) {
         e.preventDefault();
       }
 
@@ -87,7 +114,7 @@ export const CodeTypingArena = ({
       const currentIndex = typedText.length;
       const expectedChar = targetCode[currentIndex];
 
-      if (e.key === 'Backspace') {
+      if (e.key === "Backspace") {
         if (currentIndex > 0) {
           setTypedText((prev) => prev.slice(0, -1));
           setComboStreak(0);
@@ -96,8 +123,8 @@ export const CodeTypingArena = ({
       }
 
       let inputChar = e.key;
-      if (e.key === 'Tab') inputChar = '  ';
-      else if (e.key === 'Enter') inputChar = '\n';
+      if (e.key === "Tab") inputChar = "  ";
+      else if (e.key === "Enter") inputChar = "\n";
 
       const isCorrect = inputChar === expectedChar;
       setTotalKeystrokes((prev) => prev + 1);
@@ -121,10 +148,13 @@ export const CodeTypingArena = ({
       const liveWpm = calculateWPM(nextTyped.length, secondsElapsed);
 
       if (nextTyped.length % 6 === 0) {
-        setWpmHistory((prev) => [...prev, { timeSec: Math.round(secondsElapsed), wpm: liveWpm }]);
+        setWpmHistory((prev) => [
+          ...prev,
+          { timeSec: Math.round(secondsElapsed), wpm: liveWpm },
+        ]);
       }
 
-      const nextTargetChar = targetCode[nextTyped.length] || '';
+      const nextTargetChar = targetCode[nextTyped.length] || "";
       if (onKeystroke) {
         onKeystroke({
           isCorrect,
@@ -140,18 +170,24 @@ export const CodeTypingArena = ({
       if (nextTyped.length >= targetCode.length) {
         const finishTime = Date.now();
         setEndTime(finishTime);
-        const totalSec = Math.max(1, Math.round((finishTime - (startTime || now)) / 1000));
+        const totalSec = Math.max(
+          1,
+          Math.round((finishTime - (startTime || now)) / 1000),
+        );
         const finalWpm = calculateWPM(targetCode.length, totalSec);
-        const finalAccuracy = calculateAccuracy(targetCode.length, totalKeystrokes + 1);
+        const finalAccuracy = calculateAccuracy(
+          targetCode.length,
+          totalKeystrokes + 1,
+        );
 
         const modeLabel =
-          mode === 'arcade'
-            ? 'Arcade Combo ⚡'
-            : mode === 'cyber'
-            ? 'Cyber Hacker 💻'
-            : mode === 'focus'
-            ? 'Focus Zen 🧘'
-            : 'Classic Curriculum';
+          mode === "arcade"
+            ? "Arcade Combo ⚡"
+            : mode === "cyber"
+              ? "Cyber Hacker 💻"
+              : mode === "focus"
+                ? "Focus Zen 🧘"
+                : "Classic Curriculum";
 
         if (onComplete) {
           onComplete({
@@ -167,33 +203,52 @@ export const CodeTypingArena = ({
         }
       }
     },
-    [endTime, targetCode, startTime, typedText, errorCount, totalKeystrokes, onKeystroke, onComplete, mistakesMap, mode, wpmHistory, maxCombo]
+    [
+      endTime,
+      targetCode,
+      startTime,
+      typedText,
+      errorCount,
+      totalKeystrokes,
+      onKeystroke,
+      onComplete,
+      mistakesMap,
+      mode,
+      wpmHistory,
+      maxCombo,
+    ],
   );
 
-  const codeLines = targetCode.split('\n');
+  const codeLines = targetCode.split("\n");
   let globalCharIndex = 0;
 
   // Mode Theme Classes
-  let bgTheme = 'bg-[#181a1f] border-sky-500/50 shadow-xl shadow-sky-500/10';
-  let fontTheme = 'text-neutral-400';
-  let correctCharTheme = 'text-emerald-400 bg-emerald-500/10 font-semibold';
-  let currentCharTheme = 'bg-sky-500 text-white font-black underline decoration-sky-300 rounded-xs px-0.5';
+  let bgTheme = "bg-[#181a1f] border-sky-500/50 shadow-xl shadow-sky-500/10";
+  let fontTheme = "text-neutral-400";
+  let correctCharTheme = "text-emerald-400 bg-emerald-500/10 font-semibold";
+  let currentCharTheme =
+    "bg-sky-500 text-white font-black underline decoration-sky-300 rounded-xs px-0.5";
 
-  if (mode === 'cyber') {
-    bgTheme = 'bg-[#050d08] border-emerald-500/60 shadow-2xl shadow-emerald-500/20';
-    fontTheme = 'text-emerald-700 font-mono';
-    correctCharTheme = 'text-emerald-400 font-bold bg-emerald-500/20 shadow-xs shadow-emerald-500/50';
-    currentCharTheme = 'bg-emerald-400 text-black font-black underline ring-1 ring-emerald-400 rounded-xs px-0.5';
-  } else if (mode === 'arcade') {
-    bgTheme = 'bg-[#0f0c1b] border-purple-500/60 shadow-2xl shadow-purple-500/20';
-    fontTheme = 'text-purple-300 font-mono';
-    correctCharTheme = 'text-amber-300 font-bold bg-amber-500/20';
-    currentCharTheme = 'bg-amber-400 text-black font-black underline ring-1 ring-amber-400 rounded-xs px-0.5';
-  } else if (mode === 'focus') {
-    bgTheme = 'bg-[#090a0f] border-neutral-800 shadow-lg';
-    fontTheme = 'text-neutral-500 font-mono';
-    correctCharTheme = 'text-sky-300 font-medium';
-    currentCharTheme = 'bg-white text-black font-bold rounded-xs px-0.5';
+  if (mode === "cyber") {
+    bgTheme =
+      "bg-[#050d08] border-emerald-500/60 shadow-2xl shadow-emerald-500/20";
+    fontTheme = "text-emerald-700 font-mono";
+    correctCharTheme =
+      "text-emerald-400 font-bold bg-emerald-500/20 shadow-xs shadow-emerald-500/50";
+    currentCharTheme =
+      "bg-emerald-400 text-black font-black underline ring-1 ring-emerald-400 rounded-xs px-0.5";
+  } else if (mode === "arcade") {
+    bgTheme =
+      "bg-[#0f0c1b] border-purple-500/60 shadow-2xl shadow-purple-500/20";
+    fontTheme = "text-purple-300 font-mono";
+    correctCharTheme = "text-amber-300 font-bold bg-amber-500/20";
+    currentCharTheme =
+      "bg-amber-400 text-black font-black underline ring-1 ring-amber-400 rounded-xs px-0.5";
+  } else if (mode === "focus") {
+    bgTheme = "bg-[#090a0f] border-neutral-800 shadow-lg";
+    fontTheme = "text-neutral-500 font-mono";
+    correctCharTheme = "text-sky-300 font-medium";
+    currentCharTheme = "bg-white text-black font-bold rounded-xs px-0.5";
   }
 
   return (
@@ -228,7 +283,7 @@ export const CodeTypingArena = ({
         </div>
 
         {/* Combo Multiplier for Arcade */}
-        {mode === 'arcade' && comboStreak >= 5 && (
+        {mode === "arcade" && comboStreak >= 5 && (
           <div className="flex items-center gap-1 px-3 py-0.5 rounded-full bg-amber-500 text-black font-black text-xs shadow-md">
             <Flame className="w-3.5 h-3.5 fill-black" />
             <span>{comboStreak}x STREAK COMBO!</span>
@@ -256,11 +311,14 @@ export const CodeTypingArena = ({
       >
         {codeLines.map((lineText, lineIdx) => {
           const lineStartIndex = globalCharIndex;
-          const lineChars = lineText.split('');
+          const lineChars = lineText.split("");
           globalCharIndex += lineText.length + 1;
 
           return (
-            <div key={lineIdx} className="flex items-start hover:bg-white/[0.02] rounded-xs px-1">
+            <div
+              key={lineIdx}
+              className="flex items-start hover:bg-white/[0.02] rounded-xs px-1"
+            >
               <div className="w-8 sm:w-10 shrink-0 text-right pr-3 select-none text-neutral-600 font-mono text-xs sm:text-sm pt-0.5">
                 {lineIdx + 1}
               </div>
@@ -276,7 +334,7 @@ export const CodeTypingArena = ({
 
                   if (isTyped) {
                     charClass = isWrong
-                      ? 'bg-rose-500/30 text-rose-300 underline font-bold'
+                      ? "bg-rose-500/30 text-rose-300 underline font-bold"
                       : correctCharTheme;
                   } else if (isCurrent) {
                     charClass = currentCharTheme;

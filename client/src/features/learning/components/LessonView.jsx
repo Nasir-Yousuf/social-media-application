@@ -62,7 +62,7 @@ export const LessonView = ({
   );
   const [runTrigger, setRunTrigger] = useState(0);
 
-  // Reset editor & Feynman input when lessonId changes
+  // Reset editor, Feynman input & scroll to top when lessonId changes
   useEffect(() => {
     setUserCode({
       html: lesson.starterCode?.html || '',
@@ -75,6 +75,11 @@ export const LessonView = ({
     setFeynmanUserAnswer('');
     setShowFeynmanSample(false);
     setRunTrigger((prev) => prev + 1);
+
+    // Scroll window and root elements to top for seamless navigation
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }, [lesson.id, lesson.starterCode, lesson.track]);
 
   const handleRunCode = () => {

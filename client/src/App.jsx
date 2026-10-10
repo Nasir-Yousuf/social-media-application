@@ -1,11 +1,24 @@
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import AppLayout from './components/layout/AppLayout';
 import ThemeModal from './components/common/ThemeModal';
+
+// Automatically scrolls window to top whenever the route or lesson URL changes
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [pathname]);
+
+  return null;
+};
 
 // Lazy-loaded page routes for isolated, chunk-split loading
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -37,6 +50,7 @@ export function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <NotificationProvider>
             <ConfirmProvider>
