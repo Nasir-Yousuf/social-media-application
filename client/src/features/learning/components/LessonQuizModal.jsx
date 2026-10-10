@@ -19,13 +19,69 @@ export const LessonQuizModal = ({
   lessonId,
   lessonTitle,
   trackId,
+  lesson,
   isOpen,
   onClose,
   onQuizPassed,
   lang = 'both',
 }) => {
   const { showToast } = useNotifications();
-  const quiz = LESSON_QUIZZES[lessonId] || LESSON_QUIZZES['html-intro'];
+
+  let quiz = LESSON_QUIZZES[lessonId];
+
+  // If lesson has embedded quiz object (e.g. AI Academy lessons)
+  if (!quiz && lesson?.quiz) {
+    const qObj = lesson.quiz;
+    const lTitle = typeof lessonTitle === 'string' ? lessonTitle : (lesson?.title?.en || lessonId);
+    quiz = {
+      title: `${lTitle} Quiz`,
+      passingScore: 1,
+      xpReward: 25,
+      questions: [
+        {
+          id: `${lessonId}-q1`,
+          prompt: qObj.question || qObj.prompt || `Knowledge Check for ${lTitle}`,
+          options: qObj.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+          correctIndex: typeof qObj.correctAnswer === 'number' ? qObj.correctAnswer : (qObj.correctIndex || 0),
+          explanation: qObj.explanation || 'Review the lesson takeaways and core concepts.',
+        },
+      ],
+    };
+  }
+
+  // Fallback: If no predefined quiz, dynamically construct topic-specific quiz from lesson content
+  if (!quiz && lesson) {
+    const lTitle = typeof lessonTitle === 'string' ? lessonTitle : (lesson?.title?.en || lessonId);
+    const summaryPoints = Array.isArray(lesson.summary) && lesson.summary.length > 0
+      ? lesson.summary
+      : ['Understand the key principles of this topic.', 'Apply concept models in real-world scenarios.'];
+
+    quiz = {
+      title: `Lesson Knowledge Check: ${lTitle}`,
+      passingScore: 1,
+      xpReward: 25,
+      questions: [
+        {
+          id: `${lessonId}-dynamic-1`,
+          prompt: `What is a core takeaway from "${lTitle}"?`,
+          promptBn: `"${lTitle}" পাঠের মূল বিষয়বস্তু কী?`,
+          options: [
+            summaryPoints[0] || 'Master fundamental concepts and principles of the topic.',
+            'Disregard core principles and guess blindly.',
+            'Skip key examples and practice activities.',
+            'Memorize terms without understanding how they function.',
+          ],
+          correctIndex: 0,
+          explanation: summaryPoints[0] || 'Grasping fundamental principles is essential for topic mastery.',
+          explanationBn: 'মূল বিষয়বস্তু উপলব্ধি করা যেকোনো টপিক শেখার মূল চাবিকাঠি।',
+        },
+      ],
+    };
+  }
+
+  if (!quiz) {
+    quiz = LESSON_QUIZZES['html-intro'];
+  }
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({}); // questionId -> selectedIndex

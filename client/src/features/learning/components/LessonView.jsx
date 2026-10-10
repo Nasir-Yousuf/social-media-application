@@ -442,7 +442,7 @@ export const LessonView = ({
                   </div>
                   {showFeynmanSample && (
                     <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-200 leading-relaxed animate-fade-in">
-                      <strong>Sample Model Explanation:</strong> {lesson.feynmanChallenge.sampleAnswer}
+                      <strong>Sample Model Explanation:</strong> {lesson.feynmanChallenge.modelAnswer || lesson.feynmanChallenge.sampleAnswer}
                     </div>
                   )}
                 </div>
@@ -451,17 +451,41 @@ export const LessonView = ({
               {/* Misconceptions Card */}
               {lesson.misconceptions && lesson.misconceptions.length > 0 && (
                 <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-slate-900 to-slate-950 p-5 text-white space-y-3">
-                  <div className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                    ⚠️ Common Misconceptions & Pitfalls
+                  <div className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>⚠️</span>
+                    <span>Common Misconceptions & Pitfalls</span>
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-300">
-                    {lesson.misconceptions.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-amber-400 font-bold shrink-0">•</span>
-                        <span>{typeof item === 'string' ? item : item.en}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-2.5 text-xs text-slate-300">
+                    {lesson.misconceptions.map((item, idx) => {
+                      if (!item) return null;
+                      if (typeof item === 'string') {
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span className="text-amber-400 font-bold shrink-0">•</span>
+                            <span>{item}</span>
+                          </div>
+                        );
+                      }
+                      const mythText = item.misconception || item.myth || item.en || item.text;
+                      const truthText = item.correction || item.truth || item.explanation;
+                      return (
+                        <div key={idx} className="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-amber-500/20">
+                          {mythText && (
+                            <div className="flex items-start gap-2 text-rose-300">
+                              <span className="font-bold shrink-0 text-rose-400">❌ Myth:</span>
+                              <span>{mythText}</span>
+                            </div>
+                          )}
+                          {truthText && (
+                            <div className="flex items-start gap-2 text-emerald-300">
+                              <span className="font-bold shrink-0 text-emerald-400">✓ Truth:</span>
+                              <span>{truthText}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -475,7 +499,7 @@ export const LessonView = ({
                     {lesson.summary.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-2">
                         <span className="text-sky-400 font-bold shrink-0">✓</span>
-                        <span>{item}</span>
+                        <span>{typeof item === 'string' ? item : item.en || item.text}</span>
                       </li>
                     ))}
                   </ul>
@@ -501,7 +525,7 @@ export const LessonView = ({
                 to={`/learn/${nextLesson.track}/${nextLesson.id}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shadow-xs shadow-sky-500/20"
               >
-                <span>Next: {nextLesson.title.en.split('.')[0]}</span>
+                <span>Next: {typeof nextLesson.title === 'string' ? nextLesson.title.split('.')[0] : nextLesson.title.en.split('.')[0]}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </NavLink>
             ) : (
@@ -518,8 +542,9 @@ export const LessonView = ({
 
       {/* Lesson Quiz Modal */}
       <LessonQuizModal
+        lesson={lesson}
         lessonId={lesson.id}
-        lessonTitle={lesson.title.en}
+        lessonTitle={typeof lesson.title === 'string' ? lesson.title : lesson.title?.en}
         trackId={lesson.track}
         isOpen={isQuizModalOpen}
         onClose={() => setIsQuizModalOpen(false)}
