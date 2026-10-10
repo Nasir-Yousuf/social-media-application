@@ -803,3 +803,249 @@ exports.getCertificate = async (req, res) => {
   }
 };
 
+// ==========================================
+// 3. Question & Answer CRUD Operations (Author & Admin Control)
+// ==========================================
+
+// Edit Question
+exports.updateQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, track, tags, codeSnippet } = req.body;
+
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    let question = await LearningQuestion.findById(id);
+    if (question) {
+      const isOwner = question.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to edit this question.' });
+      }
+
+      if (title && title.trim()) question.title = title.trim();
+      if (description && description.trim()) question.description = description.trim();
+      if (track) question.track = track;
+      if (Array.isArray(tags)) {
+        question.tags = tags.map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 5);
+      }
+      if (codeSnippet) {
+        question.codeSnippet = {
+          html: codeSnippet.html || '',
+          css: codeSnippet.css || '',
+          javascript: codeSnippet.javascript || '',
+        };
+      }
+
+      await question.save();
+      await question.populate('author', 'name username avatarUrl role status');
+      return res.status(200).json({ message: 'Question updated successfully.', question });
+    }
+
+    // Check if question exists as a Post
+    const post = await Post.findById(id);
+    if (post) {
+      const isOwner = post.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to edit this question.' });
+      }
+
+      let postContent = `❓ **Question:** ${(title || '').trim()}\n\n${(description || '').trim()}`;
+      post.content = postContent;
+      if (Array.isArray(tags)) {
+        post.tags = tags.map((t) => t.trim().toLowerCase()).filter(Boolean);
+      }
+      await post.save();
+      await post.populate('author', 'name username avatarUrl role status');
+
+      return res.status(200).json({
+        message: 'Question updated successfully.',
+        question: {
+          _id: post._id,
+          title: title || '',
+          description: description || '',
+          track: track || 'general',
+          tags: post.tags,
+          author: post.author,
+          updatedAt: post.updatedAt,
+        },
+      });
+    }
+
+    return res.status(404).json({ message: 'Question not found.' });
+  } catch (err) {
+    console.error('updateQuestion error:', err);
+    return res.status(500).json({ message: 'Error updating question.' });
+  }
+};
+
+// Delete Question
+exports.deleteQuestion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    let question = await LearningQuestion.findById(id);
+    if (question) {
+      const isOwner = question.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to delete this question.' });
+      }
+
+      await LearningQuestion.deleteOne({ _id: id });
+      await LearningAnswer.deleteMany({ question: id });
+      return res.status(200).json({ message: 'Question deleted successfully.' });
+    }
+
+    // Fallback: check Post collection
+    const post = await Post.findById(id);
+    if (post) {
+      const isOwner = post.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to delete this question.' });
+      }
+
+      await Post.deleteOne({ _id: id });
+      const Comment = require('../models/Comment');
+      await Comment.deleteMany({ post: id });
+      return res.status(200).json({ message: 'Question deleted successfully.' });
+    }
+
+    return res.status(404).json({ message: 'Question not found.' });
+  } catch (err) {
+    console.error('deleteQuestion error:', err);
+    return res.status(500).json({ message: 'Error deleting question.' });
+  }
+};
+
+// Edit Answer
+exports.updateAnswer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, codeSnippet } = req.body;
+
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    let answer = await LearningAnswer.findById(id);
+    if (answer) {
+      const isOwner = answer.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to edit this answer.' });
+      }
+
+      if (content && content.trim()) answer.content = content.trim();
+      if (codeSnippet) {
+        answer.codeSnippet = {
+          html: codeSnippet.html || '',
+          css: codeSnippet.css || '',
+          javascript: codeSnippet.javascript || '',
+        };
+      }
+      await answer.save();
+      await answer.populate('author', 'name username avatarUrl role status');
+      return res.status(200).json({ message: 'Answer updated successfully.', answer });
+    }
+
+    // Fallback: check Comment model
+    const Comment = require('../models/Comment');
+    const comment = await Comment.findById(id);
+    if (comment) {
+      const isOwner = comment.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to edit this answer.' });
+      }
+
+      if (content && content.trim()) comment.content = content.trim();
+      await comment.save();
+      await comment.populate('author', 'name username avatarUrl role status');
+
+      return res.status(200).json({
+        message: 'Answer updated successfully.',
+        answer: {
+          _id: comment._id,
+          content: comment.content,
+          author: comment.author,
+          updatedAt: comment.updatedAt,
+        },
+      });
+    }
+
+    return res.status(404).json({ message: 'Answer not found.' });
+  } catch (err) {
+    console.error('updateAnswer error:', err);
+    return res.status(500).json({ message: 'Error updating answer.' });
+  }
+};
+
+// Delete Answer
+exports.deleteAnswer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
+
+    let answer = await LearningAnswer.findById(id);
+    if (answer) {
+      const isOwner = answer.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to delete this answer.' });
+      }
+
+      const questionId = answer.question;
+      await LearningAnswer.deleteOne({ _id: id });
+
+      if (questionId) {
+        const question = await LearningQuestion.findById(questionId);
+        if (question) {
+          question.answersCount = Math.max(0, question.answersCount - 1);
+          await question.save();
+        }
+      }
+
+      return res.status(200).json({ message: 'Answer deleted successfully.' });
+    }
+
+    // Fallback: check Comment model
+    const Comment = require('../models/Comment');
+    const comment = await Comment.findById(id);
+    if (comment) {
+      const isOwner = comment.author.equals(req.user._id);
+      const isAdmin = req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ message: 'Unauthorized to delete this answer.' });
+      }
+
+      const postId = comment.post;
+      await Comment.deleteOne({ _id: id });
+
+      if (postId) {
+        const post = await Post.findById(postId);
+        if (post) {
+          post.commentsCount = Math.max(0, post.commentsCount - 1);
+          await post.save();
+        }
+      }
+
+      return res.status(200).json({ message: 'Answer deleted successfully.' });
+    }
+
+    return res.status(404).json({ message: 'Answer not found.' });
+  } catch (err) {
+    console.error('deleteAnswer error:', err);
+    return res.status(500).json({ message: 'Error deleting answer.' });
+  }
+};
+

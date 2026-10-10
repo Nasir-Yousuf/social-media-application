@@ -12,6 +12,7 @@ import {
   Filter,
   ArrowLeft,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../../api/client';
@@ -28,6 +29,21 @@ export const CommunityQA = ({ lang = 'both' }) => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleDeleteQuestionCard = async (e, questionId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this question?')) return;
+    try {
+      await api.delete(`/learning/questions/${questionId}`).catch(async () => {
+        await api.delete(`/posts/${questionId}`);
+      });
+      setQuestions((prev) => prev.filter((q) => q._id !== questionId));
+      showToast('Question deleted successfully', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not delete question', 'error');
+    }
+  };
   const [activeTrack, setActiveTrack] = useState('all');
   const [filterSolved, setFilterSolved] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -292,7 +308,7 @@ export const CommunityQA = ({ lang = 'both' }) => {
                       ))}
                     </div>
 
-                    {/* Author & Answers count */}
+                    {/* Author & Answers count & Delete */}
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-400">
                         <MessageSquare className="w-3.5 h-3.5" />
@@ -311,6 +327,17 @@ export const CommunityQA = ({ lang = 'both' }) => {
                             @{q.author.username}
                           </span>
                         </div>
+                      )}
+
+                      {user && (user.role === 'admin' || q.author?._id === user._id || q.author === user._id || q.author?._id?.toString() === user._id?.toString()) && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteQuestionCard(e, q._id)}
+                          className="p-1 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer ml-1"
+                          title="Delete question (Owner / Admin)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   </div>

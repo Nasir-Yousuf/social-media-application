@@ -12,6 +12,10 @@ import {
   Send,
   AlertCircle,
   AtSign,
+  Trash2,
+  Edit3,
+  Save,
+  X,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../../api/client';
@@ -34,6 +38,15 @@ export const QuestionDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Question edit state
+  const [editingQuestion, setEditingQuestion] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+
+  // Answer edit state
+  const [editingAnswerId, setEditingAnswerId] = useState(null);
+  const [editAnswerText, setEditAnswerText] = useState('');
+
   // New answer form
   const [newAnswer, setNewAnswer] = useState('');
   const [includeCode, setIncludeCode] = useState(false);
@@ -49,6 +62,79 @@ export const QuestionDetail = () => {
     handleKeyDown: handleMentionKeyDown,
     closeMention,
   } = useMentionAutocomplete(newAnswer, setNewAnswer, answerRef);
+
+  const handleDeleteQuestion = async () => {
+    if (!window.confirm('Are you sure you want to delete this question? This action cannot be undone.')) return;
+    try {
+      await api.delete(`/learning/questions/${id}`).catch(async () => {
+        await api.delete(`/posts/${id}`);
+      });
+      showToast('Question deleted successfully.', 'success');
+      navigate('/learn/questions');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not delete question.', 'error');
+    }
+  };
+
+  const handleStartQuestionEdit = () => {
+    setEditTitle(question?.title || '');
+    setEditDescription(question?.description || '');
+    setEditingQuestion(true);
+  };
+
+  const handleSaveQuestionEdit = async () => {
+    if (!editTitle.trim() || !editDescription.trim()) return;
+    try {
+      await api.patch(`/learning/questions/${id}`, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+      }).catch(async () => {
+        await api.patch(`/posts/${id}`, {
+          content: `❓ **Question:** ${editTitle.trim()}\n\n${editDescription.trim()}`,
+        });
+      });
+      setQuestion((prev) => ({ ...prev, title: editTitle.trim(), description: editDescription.trim() }));
+      setEditingQuestion(false);
+      showToast('Question updated successfully!', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update question.', 'error');
+    }
+  };
+
+  const handleDeleteAnswer = async (answerId) => {
+    if (!window.confirm('Are you sure you want to delete this answer?')) return;
+    try {
+      await api.delete(`/learning/answers/${answerId}`).catch(async () => {
+        await api.delete(`/comments/${answerId}`);
+      });
+      setAnswers((prev) => prev.filter((a) => a._id !== answerId));
+      setQuestion((prev) => ({ ...prev, answersCount: Math.max(0, (prev?.answersCount || 1) - 1) }));
+      showToast('Answer deleted.', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not delete answer.', 'error');
+    }
+  };
+
+  const handleStartAnswerEdit = (answer) => {
+    setEditingAnswerId(answer._id);
+    setEditAnswerText(answer.content || '');
+  };
+
+  const handleSaveAnswerEdit = async (answerId) => {
+    if (!editAnswerText.trim()) return;
+    try {
+      await api.patch(`/learning/answers/${answerId}`, { content: editAnswerText.trim() }).catch(async () => {
+        await api.patch(`/comments/${answerId}`, { content: editAnswerText.trim() });
+      });
+      setAnswers((prev) =>
+        prev.map((a) => (a._id === answerId ? { ...a, content: editAnswerText.trim() } : a))
+      );
+      setEditingAnswerId(null);
+      showToast('Answer updated successfully!', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update answer.', 'error');
+    }
+  };
 
   const fetchQuestion = useCallback(async () => {
     if (!id) return;
@@ -372,34 +458,95 @@ export const QuestionDetail = () => {
               </span>
             </div>
 
-            <h1 className="text-lg sm:text-xl font-black text-neutral-900 dark:text-neutral-100 leading-snug">
-              {question.title}
-            </h1>
-
-            {/* Author bar */}
-            {question.author && (
-              <div className="flex items-center gap-2 mt-2">
-                <NavLink to={`/profile/${question.author.username}`}>
-                  <Avatar
-                    src={question.author.avatarUrl}
-                    name={question.author.name}
-                    size="xs"
-                    showRoleBadge={false}
-                  />
-                </NavLink>
-                <NavLink
-                  to={`/profile/${question.author.username}`}
-                  className="text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:underline"
-                >
-                  {question.author.name} (@{question.author.username})
-                </NavLink>
+            {editingQuestion ? (
+              <div className="mt-3 space-y-3 p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-sky-500/30">
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-sm font-bold text-neutral-900 dark:text-neutral-100 outline-none focus:border-sky-500"
+                  placeholder="Question title"
+                />
+                <textarea
+                  rows={4}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-neutral-100 outline-none focus:border-sky-500"
+                  placeholder="Question description"
+                />
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setEditingQuestion(false)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveQuestionEdit}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </button>
+                </div>
               </div>
-            )}
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <h1 className="text-lg sm:text-xl font-black text-neutral-900 dark:text-neutral-100 leading-snug">
+                    {question.title}
+                  </h1>
 
-            {/* Description with full Markdown and @mention support */}
-            <div className="mt-4">
-              <MarkdownRenderer content={question.description} />
-            </div>
+                  {canManageQuestion && (
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={handleStartQuestionEdit}
+                        className="p-1.5 rounded-lg text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                        title="Edit question (Owner / Admin)"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteQuestion}
+                        className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Delete question (Owner / Admin)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Author bar */}
+                {question.author && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <NavLink to={`/profile/${question.author.username}`}>
+                      <Avatar
+                        src={question.author.avatarUrl}
+                        name={question.author.name}
+                        size="xs"
+                        showRoleBadge={false}
+                      />
+                    </NavLink>
+                    <NavLink
+                      to={`/profile/${question.author.username}`}
+                      className="text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:underline"
+                    >
+                      {question.author.name} (@{question.author.username})
+                    </NavLink>
+                  </div>
+                )}
+
+                {/* Description with full Markdown and @mention support */}
+                <div className="mt-4">
+                  <MarkdownRenderer content={question.description} />
+                </div>
+              </>
+            )}
 
             {/* Attached Code Snippet */}
             {question.codeSnippet &&
@@ -513,14 +660,65 @@ export const QuestionDetail = () => {
                         </div>
                       )}
 
-                      <span className="text-[11px] text-neutral-400">
-                        {formatTime(answer.createdAt)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-neutral-400">
+                          {formatTime(answer.createdAt)}
+                        </span>
+
+                        {user && (user.role === 'admin' || answer.author?._id === user._id || answer.author === user._id || answer.author?._id?.toString() === user._id?.toString()) && (
+                          <div className="flex items-center gap-1 shrink-0 ml-1">
+                            <button
+                              type="button"
+                              onClick={() => handleStartAnswerEdit(answer)}
+                              className="p-1 rounded-lg text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                              title="Edit answer (Owner / Admin)"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAnswer(answer._id)}
+                              className="p-1 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete answer (Owner / Admin)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed">
-                      <MarkdownRenderer content={answer.content} />
-                    </div>
+                    {editingAnswerId === answer._id ? (
+                      <div className="mt-2 space-y-2">
+                        <textarea
+                          rows={3}
+                          value={editAnswerText}
+                          onChange={(e) => setEditAnswerText(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-sky-500/30 text-xs text-neutral-900 dark:text-neutral-100 outline-none focus:border-sky-500"
+                        />
+                        <div className="flex items-center gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEditingAnswerId(null)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveAnswerEdit(answer._id)}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 cursor-pointer"
+                          >
+                            <Save className="w-3 h-3" />
+                            <span>Save</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed">
+                        <MarkdownRenderer content={answer.content} />
+                      </div>
+                    )}
 
                     {/* Answer Code Snippet */}
                     {answer.codeSnippet &&

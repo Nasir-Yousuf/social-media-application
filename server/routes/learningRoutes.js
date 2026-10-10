@@ -39,4 +39,16 @@ router.post('/question/:id/answers/:answerId/accept', requireAuth, learningContr
 router.post('/answers/:id/upvote', requireAuth, learningController.toggleAnswerUpvote);
 router.post('/answer/:id/upvote', requireAuth, learningController.toggleAnswerUpvote);
 
+// Question CRUD (Edit & Delete)
+router.patch('/questions/:id', requireAuth, learningController.updateQuestion);
+router.patch('/question/:id', requireAuth, learningController.updateQuestion);
+router.delete('/questions/:id', requireAuth, learningController.deleteQuestion);
+router.delete('/question/:id', requireAuth, learningController.deleteQuestion);
+
+// Answer CRUD (Edit & Delete)
+router.patch('/answers/:id', requireAuth, learningController.updateAnswer);
+router.patch('/answer/:id', requireAuth, learningController.updateAnswer);
+router.delete('/answers/:id', requireAuth, learningController.deleteAnswer);
+router.delete('/answer/:id', requireAuth, learningController.deleteAnswer);
+
 module.exports = router;
