@@ -26,6 +26,7 @@ import MarkdownRenderer from '../../../components/posts/MarkdownRenderer';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
 import { useMentionAutocomplete, MentionDropdown } from '../../../components/common/MentionAutocomplete';
+import ConfirmDeleteModal from '../../../components/common/ConfirmDeleteModal';
 
 export const QuestionDetail = () => {
   const { id } = useParams();
@@ -38,14 +39,18 @@ export const QuestionDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Question edit state
+  // Question edit & delete state
   const [editingQuestion, setEditingQuestion] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [showDeleteQuestionModal, setShowDeleteQuestionModal] = useState(false);
+  const [isDeletingQuestion, setIsDeletingQuestion] = useState(false);
 
-  // Answer edit state
+  // Answer edit & delete state
   const [editingAnswerId, setEditingAnswerId] = useState(null);
   const [editAnswerText, setEditAnswerText] = useState('');
+  const [deletingAnswerId, setDeletingAnswerId] = useState(null);
+  const [isDeletingAnswer, setIsDeletingAnswer] = useState(false);
 
   // New answer form
   const [newAnswer, setNewAnswer] = useState('');
@@ -63,8 +68,12 @@ export const QuestionDetail = () => {
     closeMention,
   } = useMentionAutocomplete(newAnswer, setNewAnswer, answerRef);
 
-  const handleDeleteQuestion = async () => {
-    if (!window.confirm('Are you sure you want to delete this question? This action cannot be undone.')) return;
+  const handleDeleteQuestion = () => {
+    setShowDeleteQuestionModal(true);
+  };
+
+  const confirmDeleteQuestion = async () => {
+    setIsDeletingQuestion(true);
     try {
       await api.delete(`/learning/questions/${id}`).catch(async () => {
         await api.delete(`/posts/${id}`);
@@ -73,6 +82,9 @@ export const QuestionDetail = () => {
       navigate('/learn/questions');
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not delete question.', 'error');
+    } finally {
+      setIsDeletingQuestion(false);
+      setShowDeleteQuestionModal(false);
     }
   };
 
@@ -101,17 +113,25 @@ export const QuestionDetail = () => {
     }
   };
 
-  const handleDeleteAnswer = async (answerId) => {
-    if (!window.confirm('Are you sure you want to delete this answer?')) return;
+  const handleDeleteAnswer = (answerId) => {
+    setDeletingAnswerId(answerId);
+  };
+
+  const confirmDeleteAnswer = async () => {
+    if (!deletingAnswerId) return;
+    setIsDeletingAnswer(true);
     try {
-      await api.delete(`/learning/answers/${answerId}`).catch(async () => {
-        await api.delete(`/comments/${answerId}`);
+      await api.delete(`/learning/answers/${deletingAnswerId}`).catch(async () => {
+        await api.delete(`/comments/${deletingAnswerId}`);
       });
-      setAnswers((prev) => prev.filter((a) => a._id !== answerId));
+      setAnswers((prev) => prev.filter((a) => a._id !== deletingAnswerId));
       setQuestion((prev) => ({ ...prev, answersCount: Math.max(0, (prev?.answersCount || 1) - 1) }));
-      showToast('Answer deleted.', 'success');
+      showToast('Answer deleted successfully.', 'success');
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not delete answer.', 'error');
+    } finally {
+      setIsDeletingAnswer(false);
+      setDeletingAnswerId(null);
     }
   };
 
@@ -855,6 +875,28 @@ export const QuestionDetail = () => {
           </form>
         </div>
       </div>
+
+      {/* Delete Question Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={showDeleteQuestionModal}
+        onClose={() => setShowDeleteQuestionModal(false)}
+        onConfirm={confirmDeleteQuestion}
+        title="Delete Question?"
+        message="Are you sure you want to delete this question? All associated answers will also be removed."
+        confirmText="Delete Question"
+        isDeleting={isDeletingQuestion}
+      />
+
+      {/* Delete Answer Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(deletingAnswerId)}
+        onClose={() => setDeletingAnswerId(null)}
+        onConfirm={confirmDeleteAnswer}
+        title="Delete Answer?"
+        message="Are you sure you want to delete this answer? This action cannot be undone."
+        confirmText="Delete Answer"
+        isDeleting={isDeletingAnswer}
+      />
     </div>
   );
 };

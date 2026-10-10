@@ -22,6 +22,8 @@ import AskQuestionModal from './AskQuestionModal';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
 
+import ConfirmDeleteModal from '../../../components/common/ConfirmDeleteModal';
+
 export const CommunityQA = ({ lang = 'both' }) => {
   const { user } = useAuth();
   const { showToast } = useNotifications();
@@ -29,19 +31,29 @@ export const CommunityQA = ({ lang = 'both' }) => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingQuestionId, setDeletingQuestionId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDeleteQuestionCard = async (e, questionId) => {
+  const handleDeleteQuestionCard = (e, questionId) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this question?')) return;
+    setDeletingQuestionId(questionId);
+  };
+
+  const confirmDeleteQuestion = async () => {
+    if (!deletingQuestionId) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/learning/questions/${questionId}`).catch(async () => {
-        await api.delete(`/posts/${questionId}`);
+      await api.delete(`/learning/questions/${deletingQuestionId}`).catch(async () => {
+        await api.delete(`/posts/${deletingQuestionId}`);
       });
-      setQuestions((prev) => prev.filter((q) => q._id !== questionId));
+      setQuestions((prev) => prev.filter((q) => q._id !== deletingQuestionId));
       showToast('Question deleted successfully', 'success');
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not delete question', 'error');
+    } finally {
+      setIsDeleting(false);
+      setDeletingQuestionId(null);
     }
   };
   const [activeTrack, setActiveTrack] = useState('all');
@@ -355,6 +367,17 @@ export const CommunityQA = ({ lang = 'both' }) => {
         onQuestionCreated={(newQ) => {
           setQuestions((prev) => [newQ, ...prev]);
         }}
+      />
+
+      {/* Delete Question Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(deletingQuestionId)}
+        onClose={() => setDeletingQuestionId(null)}
+        onConfirm={confirmDeleteQuestion}
+        title="Delete Question?"
+        message="Are you sure you want to delete this question? It will be permanently removed for all users."
+        confirmText="Delete Question"
+        isDeleting={isDeleting}
       />
     </div>
   );
