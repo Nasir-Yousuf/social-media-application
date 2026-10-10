@@ -55,11 +55,85 @@ export const QuestionDetail = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/learning/questions/${id}`);
-      setQuestion(res.data.question);
-      setAnswers(res.data.answers || []);
+      let qData = null;
+      let aData = [];
+
+      try {
+        const res = await api.get(`/learning/questions/${id}`);
+        qData = res.data.question;
+        aData = res.data.answers || [];
+      } catch (err1) {
+        if (err1.response?.status === 404) {
+          try {
+            const res = await api.get(`/learning/question/${id}`);
+            qData = res.data.question;
+            aData = res.data.answers || [];
+          } catch (err2) {
+            // Robust fallback: fetch from /posts/:id
+            const postRes = await api.get(`/posts/${id}`);
+            const post = postRes.data.post;
+            if (post) {
+              const firstLine = post.content?.split('\n')[0] || '';
+              const title = firstLine.replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim() || 'Community Question';
+              const description = post.content?.split('\n').slice(1).join('\n').trim() || post.content;
+
+              qData = {
+                _id: post._id,
+                title,
+                description,
+                track: 'general',
+                tags: post.tags || [],
+                author: post.author,
+                codeSnippet: post.codeSnippet
+                  ? {
+                      html:
+                        post.codeSnippet.files?.find((f) => f.name === 'index.html')?.code ||
+                        (post.codeSnippet.language === 'html' ? post.codeSnippet.code : ''),
+                      css:
+                        post.codeSnippet.files?.find((f) => f.name === 'styles.css')?.code ||
+                        (post.codeSnippet.language === 'css' ? post.codeSnippet.code : ''),
+                      javascript:
+                        post.codeSnippet.files?.find((f) => f.name === 'script.js')?.code ||
+                        (post.codeSnippet.language === 'javascript' ? post.codeSnippet.code : ''),
+                    }
+                  : null,
+                upvotesCount: post.likesCount || 0,
+                isUpvoted: post.isLiked || false,
+                isOwner: post.isOwner || false,
+                createdAt: post.createdAt,
+              };
+
+              // Fetch comments on post as answers
+              try {
+                const commentRes = await api.get(`/posts/${id}/comments`);
+                const comments = commentRes.data.comments || [];
+                aData = comments.map((c) => ({
+                  _id: c._id,
+                  content: c.content,
+                  author: c.author,
+                  upvotesCount: c.likesCount || 0,
+                  isUpvoted: c.isLiked || false,
+                  isAccepted: false,
+                  createdAt: c.createdAt,
+                }));
+              } catch {
+                aData = [];
+              }
+            }
+          }
+        } else {
+          throw err1;
+        }
+      }
+
+      if (!qData) {
+        setError('Question not found.');
+      } else {
+        setQuestion(qData);
+        setAnswers(aData);
+      }
     } catch (err) {
-      console.warn('Remote question fetch notice:', err?.message);
+      console.warn('Remote question fetch error:', err?.message);
       setError('Could not load question.');
     } finally {
       setLoading(false);
