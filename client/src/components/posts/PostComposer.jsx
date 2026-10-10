@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   Code2,
   X,
@@ -9,55 +9,79 @@ import {
   Smile,
   Navigation,
   AtSign,
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useNotifications } from '../../context/NotificationContext';
-import Avatar from '../common/Avatar';
-import Button from '../common/Button';
-import api from '../../api/client';
-import { useMentionAutocomplete, MentionDropdown } from '../common/MentionAutocomplete';
-import PostAudienceControl from './PostAudienceControl';
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
+import Avatar from "../common/Avatar";
+import Button from "../common/Button";
+import api from "../../api/client";
+import {
+  useMentionAutocomplete,
+  MentionDropdown,
+} from "../common/MentionAutocomplete";
+import PostAudienceControl from "./PostAudienceControl";
 import {
   FileTabIcon,
   getLanguageFromFilename,
   SNIPPET_PRESETS,
-} from './vscodeUtils';
+} from "./vscodeUtils";
 
-const QUICK_EMOJIS = ['😀', '😂', '🔥', '🚀', '💻', '💡', '⚡', '❤️', '🎯', '🎉', '✨', '☕', '🧠', '🐛', '👍', '🙌', '🤝', '💯', '🔒', '🛠️'];
+const QUICK_EMOJIS = [
+  "😀",
+  "😂",
+  "🔥",
+  "🚀",
+  "💻",
+  "💡",
+  "⚡",
+  "❤️",
+  "🎯",
+  "🎉",
+  "✨",
+  "☕",
+  "🧠",
+  "🐛",
+  "👍",
+  "🙌",
+  "🤝",
+  "💯",
+  "🔒",
+  "🛠️",
+];
 
 const LOCATION_PRESETS = [
-  'Class 402B',
-  'Campus Library',
-  'Code Lounge',
-  'Online / Remote',
-  'Hall',
-  'New York, NY',
+  "Class Room",
+  "Campus Library",
+  "Online / Remote",
+  "Hall",
+  "Auditorium",
+  "JU Campus",
 ];
 
 const SUPPORTED_LANGUAGES = [
-  { value: 'javascript', label: 'JavaScript' },
-  { value: 'html', label: 'HTML5' },
-  { value: 'css', label: 'CSS3' },
-  { value: 'react', label: 'React / JSX' },
-  { value: 'typescript', label: 'TypeScript' },
-  { value: 'python', label: 'Python' },
-  { value: 'sql', label: 'SQL' },
-  { value: 'json', label: 'JSON' },
-  { value: 'cpp', label: 'C++' },
-  { value: 'java', label: 'Java' },
-  { value: 'shell', label: 'Bash / Shell' },
-  { value: 'markdown', label: 'Markdown' },
+  { value: "javascript", label: "JavaScript" },
+  { value: "html", label: "HTML5" },
+  { value: "css", label: "CSS3" },
+  { value: "react", label: "React / JSX" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "python", label: "Python" },
+  { value: "sql", label: "SQL" },
+  { value: "json", label: "JSON" },
+  { value: "cpp", label: "C++" },
+  { value: "java", label: "Java" },
+  { value: "shell", label: "Bash / Shell" },
+  { value: "markdown", label: "Markdown" },
 ];
 
 const DEFAULT_FILES = [
   {
-    name: 'index.html',
-    language: 'html',
+    name: "index.html",
+    language: "html",
     code: `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <title>Clearfeed Idea</title>\n  <link rel="stylesheet" href="styles.css">\n</head>\n<body>\n  <h1>Clearfeed Project</h1>\n</body>\n</html>`,
   },
   {
-    name: 'styles.css',
-    language: 'css',
+    name: "styles.css",
+    language: "css",
     code: `body {\n  font-family: 'Source Serif 4', Georgia, serif;\n  background: #faf8f5;\n  color: #2c2825;\n  padding: 2rem;\n}\n\nh1 {\n  color: #6b7c5e;\n}`,
   },
 ];
@@ -66,12 +90,12 @@ export const PostComposer = ({
   onPostCreated,
   compact = false,
   initialShowCode = false,
-  initialLanguage = 'javascript',
-  initialContent = '',
+  initialLanguage = "javascript",
+  initialContent = "",
 }) => {
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
-  const [content, setContent] = useState(initialContent || '');
+  const [content, setContent] = useState(initialContent || "");
   useEffect(() => {
     if (initialContent) {
       setContent(initialContent);
@@ -92,13 +116,13 @@ export const PostComposer = ({
   } = useMentionAutocomplete(content, setContent, textareaRef);
 
   // Twitter-style Location and Emoji state
-  const [location, setLocation] = useState('');
-  const [visibility, setVisibility] = useState('public');
+  const [location, setLocation] = useState("");
+  const [visibility, setVisibility] = useState("public");
   const [audience, setAudience] = useState([]);
   const [excludedAudience, setExcludedAudience] = useState([]);
-  const [replyPolicy, setReplyPolicy] = useState('everyone');
+  const [replyPolicy, setReplyPolicy] = useState("everyone");
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [customLocationInput, setCustomLocationInput] = useState('');
+  const [customLocationInput, setCustomLocationInput] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
 
@@ -108,11 +132,11 @@ export const PostComposer = ({
 
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
-      showToast('Geolocation is not supported by your browser', 'info');
+      showToast("Geolocation is not supported by your browser", "info");
       return;
     }
     setDetectingLocation(true);
-    showToast('Detecting location...', 'info');
+    showToast("Detecting location...", "info");
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -120,7 +144,7 @@ export const PostComposer = ({
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
           );
           const data = await res.json();
           const city =
@@ -128,16 +152,16 @@ export const PostComposer = ({
             data.address?.town ||
             data.address?.village ||
             data.address?.state ||
-            'Nearby';
+            "Nearby";
           const country = data.address?.country_code
             ? data.address.country_code.toUpperCase()
-            : '';
+            : "";
           const tag = country ? `${city}, ${country}` : city;
           setLocation(tag);
           setShowLocationPicker(false);
-          showToast(`Tagged: ${tag}`, 'success');
+          showToast(`Tagged: ${tag}`, "success");
         } catch {
-          setLocation('Campus Lab');
+          setLocation("Campus Lab");
           setShowLocationPicker(false);
         } finally {
           setDetectingLocation(false);
@@ -145,32 +169,39 @@ export const PostComposer = ({
       },
       () => {
         setDetectingLocation(false);
-        showToast('Location access denied or unavailable. You can type one below.', 'info');
+        showToast(
+          "Location access denied or unavailable. You can type one below.",
+          "info",
+        );
       },
-      { timeout: 8000 }
+      { timeout: 8000 },
     );
   };
 
   // Multi-File Code Snippet State
   const [showCodeEditor, setShowCodeEditor] = useState(initialShowCode);
-  const [snippetTitle, setSnippetTitle] = useState('');
+  const [snippetTitle, setSnippetTitle] = useState("");
   const [files, setFiles] = useState(
-    initialLanguage === 'html'
+    initialLanguage === "html"
       ? DEFAULT_FILES
       : [
           {
-            name: initialLanguage === 'python' ? 'main.py' : 'script.js',
+            name: initialLanguage === "python" ? "main.py" : "script.js",
             language: initialLanguage,
-            code: '',
+            code: "",
           },
-        ]
+        ],
   );
   const [activeFileIndex, setActiveFileIndex] = useState(0);
 
   // Listen for fork events from PostCard
   useEffect(() => {
     const handleForkEvent = (e) => {
-      const { originalPostId, codeSnippet, content: forkContent } = e.detail || {};
+      const {
+        originalPostId,
+        codeSnippet,
+        content: forkContent,
+      } = e.detail || {};
       if (originalPostId) {
         setForkedFromId(originalPostId);
       }
@@ -185,16 +216,17 @@ export const PostComposer = ({
         } else if (codeSnippet.code) {
           setFiles([
             {
-              name: 'snippet.js',
-              language: codeSnippet.language || 'javascript',
+              name: "snippet.js",
+              language: codeSnippet.language || "javascript",
               code: codeSnippet.code,
             },
           ]);
         }
       }
     };
-    window.addEventListener('clearfeed:forkPost', handleForkEvent);
-    return () => window.removeEventListener('clearfeed:forkPost', handleForkEvent);
+    window.addEventListener("clearfeed:forkPost", handleForkEvent);
+    return () =>
+      window.removeEventListener("clearfeed:forkPost", handleForkEvent);
   }, []);
 
   const MAX_CHARS = 2000;
@@ -205,20 +237,27 @@ export const PostComposer = ({
   const safeIndex = Math.min(activeFileIndex, files.length - 1);
   const currentFile = files[safeIndex] || files[0];
 
-  const hasCode = showCodeEditor && files.some((f) => f.code && f.code.trim().length > 0);
+  const hasCode =
+    showCodeEditor && files.some((f) => f.code && f.code.trim().length > 0);
   const hasContent = content.trim().length > 0;
   const isValid = (hasContent || hasCode) && !isOverLimit;
 
   // Character percentage
-  const charPercent = Math.min(100, Math.max(0, (content.length / MAX_CHARS) * 100));
+  const charPercent = Math.min(
+    100,
+    Math.max(0, (content.length / MAX_CHARS) * 100),
+  );
 
   const handleSelectTab = (idx) => {
     setActiveFileIndex(idx);
   };
 
-  const handleAddFile = (suggestedName = '', suggestedLang = '') => {
-    const ext = suggestedName.includes('.') ? suggestedName.split('.').pop() : 'js';
-    const lang = suggestedLang || getLanguageFromFilename(suggestedName) || 'javascript';
+  const handleAddFile = (suggestedName = "", suggestedLang = "") => {
+    const ext = suggestedName.includes(".")
+      ? suggestedName.split(".").pop()
+      : "js";
+    const lang =
+      suggestedLang || getLanguageFromFilename(suggestedName) || "javascript";
     const name = suggestedName || `file${files.length + 1}.${ext}`;
 
     const newFiles = [
@@ -226,7 +265,7 @@ export const PostComposer = ({
       {
         name,
         language: lang,
-        code: '',
+        code: "",
       },
     ];
     setFiles(newFiles);
@@ -236,7 +275,7 @@ export const PostComposer = ({
   const handleRemoveFile = (e, indexToRemove) => {
     e.stopPropagation();
     if (files.length <= 1) {
-      showToast('At least one file is required', 'info');
+      showToast("At least one file is required", "info");
       return;
     }
     const updated = files.filter((_, idx) => idx !== indexToRemove);
@@ -260,7 +299,7 @@ export const PostComposer = ({
           return updated;
         }
         return f;
-      })
+      }),
     );
   };
 
@@ -268,16 +307,17 @@ export const PostComposer = ({
     setFiles(preset.files);
     setSnippetTitle(preset.title);
     setActiveFileIndex(0);
-    showToast(`Loaded ${preset.title} preset`, 'info');
+    showToast(`Loaded ${preset.title} preset`, "info");
   };
 
   const handleCodeKeyDown = (e) => {
-    if (e.key === 'Tab') {
+    if (e.key === "Tab") {
       e.preventDefault();
       const start = e.target.selectionStart;
       const end = e.target.selectionEnd;
-      const currentCode = currentFile.code || '';
-      const newCode = currentCode.substring(0, start) + '  ' + currentCode.substring(end);
+      const currentCode = currentFile.code || "";
+      const newCode =
+        currentCode.substring(0, start) + "  " + currentCode.substring(end);
 
       updateCurrentFile({ code: newCode });
       setTimeout(() => {
@@ -296,15 +336,19 @@ export const PostComposer = ({
       let formattedSnippet = null;
 
       if (showCodeEditor && hasCode) {
-        const validFiles = files.filter((f) => f && f.code && f.code.trim().length > 0);
+        const validFiles = files.filter(
+          (f) => f && f.code && f.code.trim().length > 0,
+        );
 
         if (validFiles.length > 0) {
           formattedSnippet = {
             title:
               snippetTitle.trim() ||
-              (validFiles.length > 1 ? `${validFiles.length} files workspace` : validFiles[0].name),
+              (validFiles.length > 1
+                ? `${validFiles.length} files workspace`
+                : validFiles[0].name),
             files: validFiles.map((f) => ({
-              name: f.name.trim() || 'file',
+              name: f.name.trim() || "file",
               language: f.language.toLowerCase().trim(),
               code: f.code.trim(),
             })),
@@ -314,17 +358,30 @@ export const PostComposer = ({
         }
       }
 
-      if (visibility === 'specific' && (!audience || audience.length === 0)) {
-        showToast('Please select at least one person for specific audience, or select Everyone.', 'info');
+      if (visibility === "specific" && (!audience || audience.length === 0)) {
+        showToast(
+          "Please select at least one person for specific audience, or select Everyone.",
+          "info",
+        );
         return;
       }
-      if (visibility === 'exclude' && (!excludedAudience || excludedAudience.length === 0)) {
-        showToast('Please select at least one person to exclude, or select Everyone.', 'info');
+      if (
+        visibility === "exclude" &&
+        (!excludedAudience || excludedAudience.length === 0)
+      ) {
+        showToast(
+          "Please select at least one person to exclude, or select Everyone.",
+          "info",
+        );
         return;
       }
 
       const payload = {
-        content: postText || (formattedSnippet ? `Shared snippet: ${formattedSnippet.title}` : 'Shared a post'),
+        content:
+          postText ||
+          (formattedSnippet
+            ? `Shared snippet: ${formattedSnippet.title}`
+            : "Shared a post"),
         isAnnouncement: false,
         forkedFrom: forkedFromId || null,
         location: location.trim() || undefined,
@@ -338,37 +395,40 @@ export const PostComposer = ({
         payload.codeSnippet = formattedSnippet;
       }
 
-      const res = await api.post('/posts', payload);
+      const res = await api.post("/posts", payload);
 
       // Reset
-      setContent('');
+      setContent("");
       closeMention();
-      setLocation('');
-      setVisibility('public');
+      setLocation("");
+      setVisibility("public");
       setAudience([]);
       setExcludedAudience([]);
-      setReplyPolicy('everyone');
+      setReplyPolicy("everyone");
       setShowLocationPicker(false);
       setShowEmojiPicker(false);
       setFiles([
         {
-          name: 'script.js',
-          language: 'javascript',
-          code: '',
+          name: "script.js",
+          language: "javascript",
+          code: "",
         },
       ]);
-      setSnippetTitle('');
+      setSnippetTitle("");
       setShowCodeEditor(false);
       setForkedFromId(null);
       setActiveFileIndex(0);
 
-      showToast('Published to Clearfeed', 'success');
+      showToast("Published to Clearfeed", "success");
 
       if (onPostCreated) {
         onPostCreated(res.data.post);
       }
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to publish post', 'error');
+      showToast(
+        err.response?.data?.message || "Failed to publish post",
+        "error",
+      );
     } finally {
       setLoading(false);
     }
@@ -378,8 +438,8 @@ export const PostComposer = ({
     <div
       className={`transition-colors ${
         compact
-          ? 'p-0'
-          : 'rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-4 sm:p-5 mb-5 shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-200'
+          ? "p-0"
+          : "rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-4 sm:p-5 mb-5 shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-200"
       }`}
     >
       <div className="flex gap-3.5">
@@ -432,8 +492,8 @@ export const PostComposer = ({
                 isAdmin
                   ? "What's happening? Share a course note or update..."
                   : showCodeEditor
-                  ? 'Describe your code snippet or solution...'
-                  : "What's happening? Share your thoughts or code..."
+                    ? "Describe your code snippet or solution..."
+                    : "What's happening? Share your thoughts or code..."
               }
               rows={compact ? 2 : showCodeEditor ? 2 : 3}
               className="w-full bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 text-lg resize-none focus:outline-none leading-relaxed font-sans"
@@ -447,7 +507,7 @@ export const PostComposer = ({
               <span>{location}</span>
               <button
                 type="button"
-                onClick={() => setLocation('')}
+                onClick={() => setLocation("")}
                 className="p-0.5 rounded-full hover:bg-sky-200/50 dark:hover:bg-sky-500/20 text-sky-500 cursor-pointer ml-1"
                 title="Remove location"
               >
@@ -459,7 +519,9 @@ export const PostComposer = ({
           {/* Markdown Hint Accordion */}
           {showMarkdownHint && (
             <div className="mb-3 p-3 rounded-xl bg-sky-50 dark:bg-sky-500/10 text-xs text-sky-700 dark:text-sky-300 border border-sky-200/70 dark:border-sky-500/20 space-y-1 font-mono">
-              <p className="font-sans font-semibold">Markdown formatting supported:</p>
+              <p className="font-sans font-semibold">
+                Markdown formatting supported:
+              </p>
               <p>• **bold text** • *italic text* • `inline code`</p>
               <p>• [Link title](https://example.com)</p>
               <p>• - Bullet point list items</p>
@@ -489,7 +551,9 @@ export const PostComposer = ({
 
                 {/* Preset Templates Quick Load */}
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[11px] text-[#71767b] hidden sm:inline">Presets:</span>
+                  <span className="text-[11px] text-[#71767b] hidden sm:inline">
+                    Presets:
+                  </span>
                   <div className="flex items-center gap-1">
                     {SNIPPET_PRESETS.map((p) => (
                       <button
@@ -499,7 +563,11 @@ export const PostComposer = ({
                         title={p.description}
                         className="px-2 py-0.5 rounded text-[11px] font-mono bg-[#252526] hover:bg-[#333333] text-[#cccccc] hover:text-white border border-[#3c3c3c] transition-colors cursor-pointer"
                       >
-                        {p.id === 'web' ? '🌐 Web' : p.id === 'react' ? '⚛ React' : '🐍 Python'}
+                        {p.id === "web"
+                          ? "🌐 Web"
+                          : p.id === "react"
+                            ? "⚛ React"
+                            : "🐍 Python"}
                       </button>
                     ))}
                   </div>
@@ -509,7 +577,7 @@ export const PostComposer = ({
                     type="button"
                     onClick={() => {
                       setShowCodeEditor(false);
-                      setSnippetTitle('');
+                      setSnippetTitle("");
                     }}
                     title="Remove code snippet"
                     className="p-1 text-[#71767b] hover:text-[var(--color-cf-danger)] rounded transition-colors cursor-pointer ml-1"
@@ -529,12 +597,18 @@ export const PostComposer = ({
                       onClick={() => handleSelectTab(idx)}
                       className={`flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-r border-[#252526] cursor-pointer transition-colors shrink-0 group ${
                         isActive
-                          ? 'bg-[#1e1e1e] text-white font-medium border-t-2 border-t-[var(--color-cf-accent)]'
-                          : 'bg-[#141414] text-[#858585] hover:bg-[#1a1a1a] hover:text-[#cccccc] border-t-2 border-t-transparent'
+                          ? "bg-[#1e1e1e] text-white font-medium border-t-2 border-t-[var(--color-cf-accent)]"
+                          : "bg-[#141414] text-[#858585] hover:bg-[#1a1a1a] hover:text-[#cccccc] border-t-2 border-t-transparent"
                       }`}
                     >
-                      <FileTabIcon filename={file.name} language={file.language} size="sm" />
-                      <span className="truncate max-w-[120px]">{file.name}</span>
+                      <FileTabIcon
+                        filename={file.name}
+                        language={file.language}
+                        size="sm"
+                      />
+                      <span className="truncate max-w-[120px]">
+                        {file.name}
+                      </span>
 
                       {files.length > 1 && (
                         <button
@@ -564,25 +638,37 @@ export const PostComposer = ({
               {/* Active Tab Filename & Language Bar */}
               <div className="flex items-center justify-between px-3 py-1.5 bg-[#1e1e1e] border-b border-[#252526] flex-wrap gap-2 text-xs">
                 <div className="flex items-center gap-2 flex-1 min-w-[160px]">
-                  <span className="text-[#858585] text-xs font-mono">File:</span>
+                  <span className="text-[#858585] text-xs font-mono">
+                    File:
+                  </span>
                   <input
                     type="text"
                     value={currentFile.name}
-                    onChange={(e) => updateCurrentFile({ name: e.target.value })}
+                    onChange={(e) =>
+                      updateCurrentFile({ name: e.target.value })
+                    }
                     placeholder="e.g. index.html"
                     className="bg-[#252526] text-xs font-mono text-white px-2.5 py-1 rounded border border-[#3c3c3c] focus:outline-none focus:border-[var(--color-cf-accent)] flex-1 max-w-[220px]"
                   />
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[#858585] text-xs font-mono">Lang:</span>
+                  <span className="text-[#858585] text-xs font-mono">
+                    Lang:
+                  </span>
                   <select
                     value={currentFile.language}
-                    onChange={(e) => updateCurrentFile({ language: e.target.value })}
+                    onChange={(e) =>
+                      updateCurrentFile({ language: e.target.value })
+                    }
                     className="bg-[#252526] text-xs font-mono text-white px-2.5 py-1 rounded border border-[#3c3c3c] focus:outline-none focus:border-[var(--color-cf-accent)] cursor-pointer"
                   >
                     {SUPPORTED_LANGUAGES.map((lang) => (
-                      <option key={lang.value} value={lang.value} className="bg-[#1e1e1e] text-white">
+                      <option
+                        key={lang.value}
+                        value={lang.value}
+                        className="bg-[#1e1e1e] text-white"
+                      >
                         {lang.label}
                       </option>
                     ))}
@@ -613,7 +699,10 @@ export const PostComposer = ({
                   <span>Tab = 2 spaces</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span>{currentFile.code ? currentFile.code.split('\n').length : 0} lines</span>
+                  <span>
+                    {currentFile.code ? currentFile.code.split("\n").length : 0}{" "}
+                    lines
+                  </span>
                   <span className="font-semibold uppercase bg-black/20 px-1.5 py-0.2 rounded">
                     {currentFile.language}
                   </span>
@@ -653,8 +742,12 @@ export const PostComposer = ({
                   disabled={detectingLocation}
                   className="flex items-center gap-1 text-sky-500 font-semibold hover:underline cursor-pointer"
                 >
-                  <Navigation className={`w-3.5 h-3.5 ${detectingLocation ? 'animate-spin' : ''}`} />
-                  <span>{detectingLocation ? 'Detecting...' : 'Use Current GPS'}</span>
+                  <Navigation
+                    className={`w-3.5 h-3.5 ${detectingLocation ? "animate-spin" : ""}`}
+                  />
+                  <span>
+                    {detectingLocation ? "Detecting..." : "Use Current GPS"}
+                  </span>
                 </button>
               </div>
 
@@ -682,11 +775,11 @@ export const PostComposer = ({
                   placeholder="Or type city or place (e.g. Hall)..."
                   className="flex-1 px-3 py-1.5 rounded-xl bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-white outline-none focus:border-sky-500"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       e.preventDefault();
                       if (customLocationInput.trim()) {
                         setLocation(customLocationInput.trim());
-                        setCustomLocationInput('');
+                        setCustomLocationInput("");
                         setShowLocationPicker(false);
                       }
                     }
@@ -697,7 +790,7 @@ export const PostComposer = ({
                   onClick={() => {
                     if (customLocationInput.trim()) {
                       setLocation(customLocationInput.trim());
-                      setCustomLocationInput('');
+                      setCustomLocationInput("");
                       setShowLocationPicker(false);
                     }
                   }}
@@ -715,12 +808,14 @@ export const PostComposer = ({
             <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
-                title={showCodeEditor ? 'Hide code editor' : 'Attach code snippet'}
+                title={
+                  showCodeEditor ? "Hide code editor" : "Attach code snippet"
+                }
                 onClick={() => setShowCodeEditor(!showCodeEditor)}
                 className={`p-2 rounded-full transition-all duration-150 cursor-pointer flex items-center gap-1 text-xs font-semibold ${
                   showCodeEditor
-                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
-                    : 'text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10'
+                    ? "text-sky-500 bg-sky-50 dark:bg-sky-500/15"
+                    : "text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10"
                 }`}
               >
                 <Code2 className="w-5 h-5" />
@@ -741,8 +836,8 @@ export const PostComposer = ({
                 }}
                 className={`p-2 rounded-full transition-all duration-150 cursor-pointer ${
                   showEmojiPicker
-                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
-                    : 'text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10'
+                    ? "text-sky-500 bg-sky-50 dark:bg-sky-500/15"
+                    : "text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10"
                 }`}
               >
                 <Smile className="w-5 h-5" />
@@ -757,8 +852,8 @@ export const PostComposer = ({
                 }}
                 className={`p-2 rounded-full transition-all duration-150 cursor-pointer ${
                   location || showLocationPicker
-                    ? 'text-sky-500 bg-sky-50 dark:bg-sky-500/15'
-                    : 'text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10'
+                    ? "text-sky-500 bg-sky-50 dark:bg-sky-500/15"
+                    : "text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-500/10"
                 }`}
               >
                 <MapPin className="w-5 h-5" />
@@ -768,8 +863,9 @@ export const PostComposer = ({
                 type="button"
                 title="Mention a member (@)"
                 onClick={() => {
-                  const needsSpace = content.length > 0 && !content.endsWith(' ');
-                  setContent((prev) => `${prev}${needsSpace ? ' ' : ''}@`);
+                  const needsSpace =
+                    content.length > 0 && !content.endsWith(" ");
+                  setContent((prev) => `${prev}${needsSpace ? " " : ""}@`);
                   setTimeout(() => {
                     if (textareaRef.current) {
                       textareaRef.current.focus();
@@ -789,8 +885,8 @@ export const PostComposer = ({
                 onClick={() => setShowMarkdownHint(!showMarkdownHint)}
                 className={`p-2 rounded-full transition-all duration-150 cursor-pointer ${
                   showMarkdownHint
-                    ? 'text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-neutral-800'
-                    : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                    ? "text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-neutral-800"
+                    : "text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 }`}
               >
                 <Info className="w-4 h-4" />
@@ -822,10 +918,10 @@ export const PostComposer = ({
                         strokeDashoffset={47.1 - (47.1 * charPercent) / 100}
                         className={
                           remaining < 0
-                            ? 'text-rose-500'
+                            ? "text-rose-500"
                             : remaining < 100
-                            ? 'text-amber-500'
-                            : 'text-sky-500'
+                              ? "text-amber-500"
+                              : "text-sky-500"
                         }
                         fill="none"
                         strokeLinecap="round"
@@ -836,8 +932,8 @@ export const PostComposer = ({
                     <span
                       className={
                         remaining < 0
-                          ? 'text-rose-500 font-bold'
-                          : 'text-amber-500'
+                          ? "text-rose-500 font-bold"
+                          : "text-amber-500"
                       }
                     >
                       {remaining}
@@ -852,7 +948,7 @@ export const PostComposer = ({
                 onClick={handleSubmit}
                 className="px-5 py-2 rounded-full bg-sky-500 hover:bg-sky-400 active:bg-sky-600 disabled:opacity-50 disabled:pointer-events-none text-white font-bold text-sm shadow-xs transition-all duration-150 active:scale-95 cursor-pointer"
               >
-                {loading ? 'Posting...' : 'Post'}
+                {loading ? "Posting..." : "Post"}
               </button>
             </div>
           </div>

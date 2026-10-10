@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
-import Modal from '../common/Modal';
-import Button from '../common/Button';
-import api from '../../api/client';
-import { useAuth } from '../../context/AuthContext';
-import { useNotifications } from '../../context/NotificationContext';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Mail,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import Modal from "../common/Modal";
+import Button from "../common/Button";
+import api from "../../api/client";
+import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../context/NotificationContext";
 
 export const ForgotPasswordModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -13,26 +24,26 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
   const { showToast } = useNotifications();
 
   const [step, setStep] = useState(1); // 1 = Request code, 2 = Enter code & new password
-  const [loginId, setLoginId] = useState('');
-  const [resetCode, setResetCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loginId, setLoginId] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [codeHint, setCodeHint] = useState('');
+  const [error, setError] = useState("");
+  const [codeHint, setCodeHint] = useState("");
 
   const resetState = () => {
     setStep(1);
-    setLoginId('');
-    setResetCode('');
-    setNewPassword('');
-    setConfirmPassword('');
+    setLoginId("");
+    setResetCode("");
+    setNewPassword("");
+    setConfirmPassword("");
     setShowPassword(false);
     setShowConfirmPassword(false);
-    setError('');
-    setCodeHint('');
+    setError("");
+    setCodeHint("");
   };
 
   const handleClose = () => {
@@ -43,16 +54,16 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
   // Step 1: Request reset code
   const handleRequestCode = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!loginId.trim()) {
-      setError('Please enter your username or email address.');
+      setError("Please enter your username or email address.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await api.post('/auth/forgot-password', {
+      const res = await api.post("/auth/forgot-password", {
         loginId: loginId.trim(),
       });
 
@@ -60,11 +71,13 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
       setCodeHint(generatedCode);
       setResetCode(generatedCode); // Auto-fill for seamless user experience
       setStep(2);
-      showToast(`Reset code generated for @${res.data.username}!`, 'success');
+      showToast(`Reset code generated for @${res.data.username}!`, "success");
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to request reset code. Please check your username or email.';
+      const msg =
+        err.response?.data?.message ||
+        "Failed to request reset code. Please check your username or email.";
       setError(msg);
-      showToast(msg, 'error');
+      showToast(msg, "error");
     } finally {
       setLoading(false);
     }
@@ -73,26 +86,26 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
   // Step 2: Reset password with code
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!resetCode.trim() || !newPassword || !confirmPassword) {
-      setError('Please fill in all fields.');
+      setError("Please fill in all fields.");
       return;
     }
 
     if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters long.');
+      setError("New password must be at least 6 characters long.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError("Passwords do not match.");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await api.post('/auth/reset-password', {
+      const res = await api.post("/auth/reset-password", {
         loginId: loginId.trim(),
         resetCode: resetCode.trim(),
         newPassword,
@@ -101,18 +114,20 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
 
       // If token and user are returned, automatically authenticate
       if (res.data.token && res.data.user) {
-        localStorage.setItem('pulse518_token', res.data.token);
-        localStorage.setItem('pulse518_user', JSON.stringify(res.data.user));
+        localStorage.setItem("pulse518_token", res.data.token);
+        localStorage.setItem("pulse518_user", JSON.stringify(res.data.user));
         if (updateUser) updateUser(res.data.user);
       }
 
-      showToast('Password reset successfully! Welcome back.', 'success');
+      showToast("Password reset successfully! Welcome back.", "success");
       handleClose();
-      navigate('/');
+      navigate("/");
     } catch (err) {
-      const msg = err.response?.data?.message || 'Invalid or expired code. Please verify the code or use the course key.';
+      const msg =
+        err.response?.data?.message ||
+        "Invalid or expired code. Please verify the code or use the course key.";
       setError(msg);
-      showToast(msg, 'error');
+      showToast(msg, "error");
     } finally {
       setLoading(false);
     }
@@ -122,7 +137,7 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={step === 1 ? 'Find Your Account' : 'Choose New Password'}
+      title={step === 1 ? "Find Your Account" : "Choose New Password"}
     >
       <div className="space-y-4 font-sans py-1">
         {error && (
@@ -136,7 +151,8 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
           /* Step 1: Identifier Input */
           <form onSubmit={handleRequestCode} className="space-y-4">
             <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-              Enter the username or email address associated with your Clearfeed account to reset your password.
+              Enter the username or email address associated with your Clearfeed
+              account to reset your password.
             </p>
 
             <div>
@@ -149,7 +165,7 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
                   type="text"
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
-                  placeholder="e.g. nasir or user@example.com"
+                  placeholder="e.g. name or user@example.com"
                   required
                   autoFocus
                   className="w-full bg-neutral-100 dark:bg-[#16181c] text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 pl-10 pr-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors"
@@ -188,7 +204,12 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
                   <span>Verification Code Ready</span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Your 6-digit code is <strong className="font-mono text-sm tracking-wider px-1.5 py-0.5 rounded bg-sky-200/60 dark:bg-sky-500/20">{codeHint}</strong>. (You can also use the course key <code className="font-mono font-bold">CS518-2026</code>).
+                  Your 6-digit code is{" "}
+                  <strong className="font-mono text-sm tracking-wider px-1.5 py-0.5 rounded bg-sky-200/60 dark:bg-sky-500/20">
+                    {codeHint}
+                  </strong>
+                  . (You can also use the course key{" "}
+                  <code className="font-mono font-bold">CS518-2026</code>).
                 </p>
               </div>
             )}
@@ -214,12 +235,15 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
             {/* New Password */}
             <div>
               <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1.5">
-                New Password <span className="text-[11px] text-neutral-400 font-normal">(min 6 characters)</span>
+                New Password{" "}
+                <span className="text-[11px] text-neutral-400 font-normal">
+                  (min 6 characters)
+                </span>
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
@@ -233,7 +257,11 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer p-1"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -246,7 +274,7 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
-                  type={showConfirmPassword ? 'text' : 'password'}
+                  type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
@@ -259,10 +287,18 @@ export const ForgotPasswordModal = ({ isOpen, onClose }) => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer p-1"
                   tabIndex={-1}
-                  title={showConfirmPassword ? 'Hide password' : 'Show password'}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  title={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
+                  aria-label={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
                 >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
