@@ -8,12 +8,11 @@ import RagSearchSimulator from './RagSearchSimulator';
 import DecisionTreeClassifierSimulator from './DecisionTreeClassifierSimulator';
 import CnnKernelVisualizer from './CnnKernelVisualizer';
 import PromptInjectionGuardrailSimulator from './PromptInjectionGuardrailSimulator';
-import PythonCodeSandbox from './PythonCodeSandbox';
 
 export default function AiSimulationRenderer({ lesson }) {
   if (!lesson || lesson.track !== 'ai') return null;
 
-  const { id, simulationType, codeLab } = lesson;
+  const { id, simulationType } = lesson;
 
   let simulationComponent = null;
 
@@ -58,9 +57,6 @@ export default function AiSimulationRenderer({ lesson }) {
     <div className="space-y-6">
       {/* Interactive Visual Simulation */}
       {simulationComponent}
-
-      {/* Python Interactive Code Sandbox (if lesson contains codeLab) */}
-      {codeLab && <PythonCodeSandbox codeLab={codeLab} />}
     </div>
   );
 }
