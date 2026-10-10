@@ -407,7 +407,13 @@ export const QuestionDetail = () => {
     );
   }
 
-  const isQuestionOwner = user && (question.author?._id === user._id || question.author === user._id);
+  const isQuestionOwner = user && (
+    question.author?._id === user._id ||
+    question.author === user._id ||
+    question.author?._id?.toString() === user._id?.toString() ||
+    question.author?.toString() === user._id?.toString()
+  );
+  const canManageQuestion = user && (isQuestionOwner || user.role === 'admin');
 
   return (
     <div className="space-y-6 font-sans">
