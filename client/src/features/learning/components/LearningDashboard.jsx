@@ -13,6 +13,7 @@ import {
   Play,
   HelpCircle,
   Layout,
+  Brain,
 } from 'lucide-react';
 import { TRACKS, LESSONS } from '../data/learningCurriculum';
 import LanguageToggle from './LanguageToggle';
@@ -49,6 +50,8 @@ export const LearningDashboard = ({
         return <Code2 className="w-5 h-5 text-purple-500" />;
       case 'javascript':
         return <Sparkles className="w-5 h-5 text-amber-500" />;
+      case 'ai':
+        return <Brain className="w-5 h-5 text-emerald-500" />;
       default:
         return <Code2 className="w-5 h-5" />;
     }
@@ -193,6 +196,8 @@ export const LearningDashboard = ({
                             ? 'bg-orange-500'
                             : track.id === 'css'
                             ? 'bg-sky-500'
+                            : track.id === 'ai'
+                            ? 'bg-emerald-500'
                             : 'bg-amber-400'
                         }`}
                         style={{ width: `${percent}%` }}

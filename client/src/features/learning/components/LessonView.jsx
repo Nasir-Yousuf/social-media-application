@@ -46,6 +46,8 @@ export const LessonView = ({
   const isQuizPassed = passedQuizzesSet.has(lesson.id);
 
   const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [feynmanUserAnswer, setFeynmanUserAnswer] = useState('');
+  const [showFeynmanSample, setShowFeynmanSample] = useState(false);
 
   // Initialize editor code
   const initialCode = {
@@ -60,7 +62,7 @@ export const LessonView = ({
   );
   const [runTrigger, setRunTrigger] = useState(0);
 
-  // Reset editor when lessonId changes
+  // Reset editor & Feynman input when lessonId changes
   useEffect(() => {
     setUserCode({
       html: lesson.starterCode?.html || '',
@@ -70,6 +72,8 @@ export const LessonView = ({
     setActiveEditorTab(
       lesson.track === 'css' ? 'css' : lesson.track === 'javascript' ? 'javascript' : 'html'
     );
+    setFeynmanUserAnswer('');
+    setShowFeynmanSample(false);
     setRunTrigger((prev) => prev + 1);
   }, [lesson.id, lesson.starterCode, lesson.track]);
 
@@ -324,18 +328,20 @@ export const LessonView = ({
             )}
           </div>
 
-          {/* Exercise Challenge Box */}
-          <ExerciseChallenge
-            lesson={lesson}
-            userCode={userCode}
-            lang={lang}
-            onRunCode={handleRunCode}
-            onCheckCode={handleCheckCode}
-            onNextLesson={() => nextLesson && navigate(`/learn/${nextLesson.track}/${nextLesson.id}`)}
-            hasNextLesson={Boolean(nextLesson)}
-            isCompleted={isCompleted}
-            onApplySolution={handleApplySolution}
-          />
+          {/* Exercise Challenge Box (Web Tracks Only) */}
+          {lesson.track !== 'ai' && (
+            <ExerciseChallenge
+              lesson={lesson}
+              userCode={userCode}
+              lang={lang}
+              onRunCode={handleRunCode}
+              onCheckCode={handleCheckCode}
+              onNextLesson={() => nextLesson && navigate(`/learn/${nextLesson.track}/${nextLesson.id}`)}
+              hasNextLesson={Boolean(nextLesson)}
+              isCompleted={isCompleted}
+              onApplySolution={handleApplySolution}
+            />
+          )}
 
           {/* Lesson Concept Knowledge Check Test Card */}
           <div className="rounded-2xl border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
@@ -380,24 +386,103 @@ export const LessonView = ({
           </div>
         </div>
 
-        {/* Right Column: Interactive Editor & Live Sandboxed Preview (7 cols on lg) */}
+        {/* Right Column: Web Code Editor OR AI Learning Workspace Cards */}
         <div className="lg:col-span-7 space-y-4">
-          {/* Interactive Code Editor */}
-          <CodeEditor
-            code={userCode}
-            onChange={setUserCode}
-            onReset={handleResetCode}
-            activeTab={activeEditorTab}
-            setActiveTab={setActiveEditorTab}
-          />
+          {lesson.track !== 'ai' ? (
+            <>
+              {/* Web Development Interactive Code Editor */}
+              <CodeEditor
+                code={userCode}
+                onChange={setUserCode}
+                onReset={handleResetCode}
+                activeTab={activeEditorTab}
+                setActiveTab={setActiveEditorTab}
+              />
 
-          {/* Sandboxed Live Preview & Console Output */}
-          <CodePreview
-            html={userCode.html}
-            css={userCode.css}
-            javascript={userCode.javascript}
-            runTrigger={runTrigger}
-          />
+              {/* Sandboxed Live Preview & Console Output */}
+              <CodePreview
+                html={userCode.html}
+                css={userCode.css}
+                javascript={userCode.javascript}
+                runTrigger={runTrigger}
+              />
+            </>
+          ) : (
+            <div className="space-y-4">
+              {/* Feynman Technique Self-Explanation Card */}
+              {lesson.feynmanChallenge && (
+                <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 to-slate-950 p-5 shadow-xl text-white space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                    <Lightbulb className="w-4 h-4" />
+                    <span>Feynman Technique: Explain in Your Own Words</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-300 font-medium">
+                    {lesson.feynmanChallenge.question}
+                  </p>
+                  <textarea
+                    value={feynmanUserAnswer}
+                    onChange={(e) => setFeynmanUserAnswer(e.target.value)}
+                    placeholder="Write your explanation here in plain English or Bangla..."
+                    rows={3}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500 transition resize-none"
+                  />
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowFeynmanSample(!showFeynmanSample)}
+                      className="text-xs text-emerald-400 hover:underline font-semibold"
+                    >
+                      {showFeynmanSample ? 'Hide Model Explanation ↑' : 'Compare with Model Explanation ↓'}
+                    </button>
+                    {feynmanUserAnswer.trim().length > 10 && (
+                      <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Thought recorded!
+                      </span>
+                    )}
+                  </div>
+                  {showFeynmanSample && (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-200 leading-relaxed animate-fade-in">
+                      <strong>Sample Model Explanation:</strong> {lesson.feynmanChallenge.sampleAnswer}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Misconceptions Card */}
+              {lesson.misconceptions && lesson.misconceptions.length > 0 && (
+                <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-slate-900 to-slate-950 p-5 text-white space-y-3">
+                  <div className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                    ⚠️ Common Misconceptions & Pitfalls
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-300">
+                    {lesson.misconceptions.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-amber-400 font-bold shrink-0">•</span>
+                        <span>{typeof item === 'string' ? item : item.en}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Key Takeaways Summary Card */}
+              {lesson.summary && lesson.summary.length > 0 && (
+                <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-slate-900 to-slate-950 p-5 text-white space-y-3">
+                  <div className="text-xs font-bold text-sky-400 uppercase tracking-wider">
+                    📌 Key Takeaways & Summary
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-300">
+                    {lesson.summary.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-sky-400 font-bold shrink-0">✓</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Stepper Navigation (Previous Lesson / Next Lesson) */}
           <div className="flex items-center justify-between pt-2">

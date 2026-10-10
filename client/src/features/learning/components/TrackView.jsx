@@ -139,16 +139,28 @@ export const TrackView = ({
           {trackLessons.map((lesson, idx) => {
             const isCompleted = completedSet.has(lesson.id);
             const isQuizPassed = passedQuizzesSet.has(lesson.id);
+            const showChapterHeader = idx === 0 || trackLessons[idx - 1]?.chapter !== lesson.chapter;
 
             return (
-              <div
-                key={lesson.id}
-                className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${
-                  isCompleted
-                    ? 'bg-white dark:bg-[#121519] border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500'
-                    : 'bg-white dark:bg-[#121519] border-neutral-200 dark:border-neutral-800 hover:border-sky-500/50'
-                }`}
-              >
+              <React.Fragment key={lesson.id}>
+                {showChapterHeader && lesson.chapterTitle && (
+                  <div className="pt-4 pb-2 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                      <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                        {lesson.chapterTitle}
+                      </h3>
+                    </div>
+                    <span className="text-xs font-mono text-neutral-400">10 Lessons</span>
+                  </div>
+                )}
+                <div
+                  className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${
+                    isCompleted
+                      ? 'bg-white dark:bg-[#121519] border-emerald-500/30 dark:border-emerald-500/20 hover:border-emerald-500'
+                      : 'bg-white dark:bg-[#121519] border-neutral-200 dark:border-neutral-800 hover:border-sky-500/50'
+                  }`}
+                >
                 <NavLink
                   to={`/learn/${track.id}/${lesson.id}`}
                   className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1"
@@ -213,8 +225,9 @@ export const TrackView = ({
                   </NavLink>
                 </div>
               </div>
-            );
-          })}
+            </React.Fragment>
+          );
+        })}
         </div>
 
         {/* Grand Milestone: Final Certification Exam & Certificate Card */}

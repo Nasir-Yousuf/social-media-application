@@ -122,7 +122,7 @@ export const LearnPage = () => {
         onProgressUpdate={fetchProgress}
       />
     );
-  } else if (track && ['html', 'css', 'javascript', 'bootstrap'].includes(track)) {
+  } else if (track && ['html', 'css', 'javascript', 'bootstrap', 'ai'].includes(track)) {
     // 4. Track Roadmap View: /learn/:track
     mainContent = (
       <TrackView
