@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Copy, RotateCcw, Check, Code2, Palette, Sparkles, Terminal } from 'lucide-react';
 
 export const CodeEditor = ({
@@ -10,7 +10,7 @@ export const CodeEditor = ({
   readOnly = false,
   className = '',
 }) => {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
   const textareaRef = useRef(null);
 
   const handleKeyDown = (e) => {
