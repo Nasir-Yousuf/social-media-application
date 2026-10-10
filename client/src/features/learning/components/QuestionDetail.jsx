@@ -54,36 +54,16 @@ export const QuestionDetail = () => {
     if (!id) return;
     setLoading(true);
     setError(null);
-    let loadedQuestion = null;
-    let loadedAnswers = [];
-
     try {
       const res = await api.get(`/learning/questions/${id}`);
-      loadedQuestion = res.data.question;
-      loadedAnswers = res.data.answers || [];
+      setQuestion(res.data.question);
+      setAnswers(res.data.answers || []);
     } catch (err) {
       console.warn('Remote question fetch notice:', err?.message);
-    }
-
-    // Check localStorage fallback if not found remotely
-    if (!loadedQuestion) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('clearfeed_learning_questions') || '[]');
-        const found = stored.find((q) => q._id === id);
-        if (found) {
-          loadedQuestion = found;
-          loadedAnswers = found.answers || [];
-        }
-      } catch (_) {}
-    }
-
-    if (loadedQuestion) {
-      setQuestion(loadedQuestion);
-      setAnswers(loadedAnswers);
-    } else {
       setError('Could not load question.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [id]);
 
   useEffect(() => {

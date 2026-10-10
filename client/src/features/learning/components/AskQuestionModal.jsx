@@ -136,68 +136,7 @@ export const AskQuestionModal = ({
       }
       onClose();
     } catch (err) {
-      if (err.response?.status === 404 || !err.response) {
-        // Resilient fallback: store locally so the user is never blocked by delayed server deployments
-        const localQuestion = {
-          _id: 'q_' + Date.now(),
-          title: title.trim(),
-          description: description.trim(),
-          track,
-          tags,
-          lessonId: initialLesson?.id || '',
-          codeSnippet: includeCode ? codeSnippet : { html: '', css: '', javascript: '' },
-          author: {
-            _id: user?._id || 'guest',
-            name: user?.name || 'You',
-            username: user?.username || 'you',
-            avatarUrl: user?.avatarUrl || '',
-            role: user?.role || 'user',
-          },
-          upvotes: [],
-          upvotesCount: 0,
-          isUpvoted: false,
-          isSolved: false,
-          answers: [],
-          answersCount: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isLocal: true,
-        };
-
-        try {
-          const stored = JSON.parse(localStorage.getItem('clearfeed_learning_questions') || '[]');
-          localStorage.setItem('clearfeed_learning_questions', JSON.stringify([localQuestion, ...stored]));
-        } catch (_) {}
-
-        if (postToFeed) {
-          try {
-            let postText = `❓ **Question:** ${title.trim()}\n\n${description.trim()}`;
-            if (tags.length > 0) {
-              postText += `\n\n${tags.map((t) => `#${t.replace(/^#/, '')}`).join(' ')}`;
-            }
-            await api.post('/posts', {
-              content: postText,
-              codeSnippet: includeCode ? {
-                title: title.trim(),
-                files: [
-                  codeSnippet.html?.trim() && { name: 'index.html', language: 'html', code: codeSnippet.html.trim() },
-                  codeSnippet.css?.trim() && { name: 'styles.css', language: 'css', code: codeSnippet.css.trim() },
-                  codeSnippet.javascript?.trim() && { name: 'script.js', language: 'javascript', code: codeSnippet.javascript.trim() },
-                ].filter(Boolean),
-              } : undefined,
-            });
-          } catch (_) {}
-        }
-
-        showToast('Question posted to community!', 'success');
-        if (onQuestionCreated) {
-          onQuestionCreated(localQuestion);
-        }
-        onClose();
-        return;
-      }
-
-      showToast(err.response?.data?.message || 'Failed to post question', 'error');
+      showToast(err.response?.data?.message || 'Failed to post question. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

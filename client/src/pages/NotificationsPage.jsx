@@ -48,7 +48,7 @@ export const NotificationsPage = () => {
     if (n.type === 'new_post' || n.type === 'announcement' || n.type === 'like' || n.type === 'comment') {
       if (n.post?._id || n.post) return `/posts/${n.post?._id || n.post}`;
     }
-    if (n.type === 'question_answer' || n.type === 'question_accepted' || n.type === 'question_mention') {
+    if (n.type === 'new_question' || n.type === 'question_answer' || n.type === 'question_accepted' || n.type === 'question_mention') {
       if (n.question?._id || n.question) return `/learn/questions/${n.question?._id || n.question}`;
     }
     if (n.type === 'follow' && n.sender?.username) {
@@ -360,10 +360,35 @@ export const NotificationsPage = () => {
                     {n.type === 'announcement' && 'published an official announcement.'}
                     {n.type === 'question_answer' && 'answered your question on Learn & Practice.'}
                     {n.type === 'question_accepted' && 'marked your answer as the accepted solution! 🎉'}
+                    {n.type === 'new_question' && 'asked a new question on Learn & Practice! ❓'}
                     {n.type === 'typing_challenge' && 'challenged you to a Highway Supercar Race in Typing Arena! 🏎️⚡'}
                     {n.type === 'typing_challenge_result' && 'completed your Highway Supercar Race Duel! 🏆'}
                     {n.type === 'new_post' && 'published a new post.'}
                   </p>
+
+                  {(n.type === 'new_question' || n.type === 'question_answer' || n.type === 'question_accepted' || n.type === 'question_mention') && n.question && typeof n.question === 'object' && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60 text-xs text-neutral-700 dark:text-neutral-300 space-y-1">
+                      {n.question.title && (
+                        <p className="font-bold text-neutral-900 dark:text-neutral-100 line-clamp-1">
+                          ❓ {n.question.title}
+                        </p>
+                      )}
+                      {n.question.description && (
+                        <p className="line-clamp-2 text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                          {n.question.description}
+                        </p>
+                      )}
+                      <div className="pt-1.5">
+                        <NavLink
+                          to={`/learn/questions/${n.question._id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold text-xs hover:bg-sky-100 dark:hover:bg-sky-500/20 transition-colors cursor-pointer"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span>View question →</span>
+                        </NavLink>
+                      </div>
+                    </div>
+                  )}
 
                   {(n.type === 'new_post' || n.type === 'announcement') && n.post && (
                     <div className="mt-2.5 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60 text-xs text-neutral-700 dark:text-neutral-300">

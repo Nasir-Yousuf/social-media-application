@@ -40,34 +40,10 @@ export const CommunityQA = ({ lang = 'both' }) => {
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
       if (filterSolved) params.append('sort', 'unsolved');
 
-      let remoteList = [];
-      try {
-        const res = await api.get(`/learning/questions?${params.toString()}`);
-        remoteList = res.data.questions || [];
-      } catch (err) {
-        console.warn('Backend questions sync notice:', err?.message);
-      }
-
-      // Merge locally created questions seamlessly
-      try {
-        const stored = JSON.parse(localStorage.getItem('clearfeed_learning_questions') || '[]');
-        if (Array.isArray(stored) && stored.length > 0) {
-          const matchingLocal = stored.filter((q) => {
-            if (activeTrack !== 'all' && q.track !== activeTrack) return false;
-            if (searchQuery.trim()) {
-              const term = searchQuery.toLowerCase();
-              return q.title?.toLowerCase().includes(term) || q.description?.toLowerCase().includes(term);
-            }
-            return true;
-          });
-          const existingIds = new Set(remoteList.map((q) => q._id));
-          const additions = matchingLocal.filter((q) => !existingIds.has(q._id));
-          remoteList = [...additions, ...remoteList];
-        }
-      } catch (_) {}
-
-      setQuestions(remoteList);
-    } catch {
+      const res = await api.get(`/learning/questions?${params.toString()}`);
+      setQuestions(res.data.questions || []);
+    } catch (err) {
+      console.warn('Backend questions fetch notice:', err?.message);
       showToast('Could not load community questions', 'error');
     } finally {
       setLoading(false);

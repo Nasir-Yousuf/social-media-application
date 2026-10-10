@@ -29,6 +29,7 @@ const notificationSchema = new mongoose.Schema(
         'typing_challenge',
         'typing_challenge_result',
         'new_post',
+        'new_question',
       ],
       required: true,
     },

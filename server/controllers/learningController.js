@@ -319,6 +319,33 @@ exports.createQuestion = async (req, res) => {
       }
     }
 
+    // Broadcast notification to all approved members about the new question
+    try {
+      const User = require('../models/User');
+      const { sendPushToUser } = require('../services/pushNotificationService');
+      const allMembers = await User.find({ _id: { $ne: req.user._id }, isApproved: true }).select('_id');
+      if (allMembers.length > 0) {
+        const notifications = allMembers.map((member) => ({
+          recipient: member._id,
+          sender: req.user._id,
+          type: 'new_question',
+          question: newQuestion._id,
+        }));
+        await Notification.insertMany(notifications, { ordered: false }).catch(() => {});
+
+        // Send push notifications asynchronously
+        allMembers.forEach((member) => {
+          sendPushToUser(member._id, {
+            title: 'New Learning Question ❓',
+            body: `${req.user.name || req.user.username} asked: "${newQuestion.title}"`,
+            data: { questionId: newQuestion._id.toString(), type: 'new_question' },
+          }).catch(() => {});
+        });
+      }
+    } catch (notifErr) {
+      console.warn('createQuestion broad notification error:', notifErr.message);
+    }
+
     // Notify mentions (e.g. @username, @everyone, @followers)
     try {
       await notifyMentions({
@@ -424,6 +451,13 @@ exports.createAnswer = async (req, res) => {
           type: 'question_answer',
           question: question._id,
         });
+
+        const { sendPushToUser } = require('../services/pushNotificationService');
+        sendPushToUser(question.author, {
+          title: 'New Answer to your Question! 💡',
+          body: `${req.user.name || req.user.username} answered your question: "${question.title}"`,
+          data: { questionId: question._id.toString(), type: 'question_answer' },
+        }).catch(() => {});
       } catch (notifyErr) {
         console.warn('Failed to send question answer notification:', notifyErr.message);
       }
