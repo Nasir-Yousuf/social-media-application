@@ -16,6 +16,7 @@ import CodePreview from './CodePreview';
 import ExerciseChallenge from './ExerciseChallenge';
 import LessonQuizModal from './LessonQuizModal';
 import AiSimulationRenderer from './aiSimulations/AiSimulationRenderer';
+import EnglishGrammarLessonUI from './EnglishGrammarLessonUI';
 import { useNotifications } from '../../../context/NotificationContext';
 import { useConfirm } from '../../../context/ConfirmContext';
 
@@ -238,11 +239,17 @@ export const LessonView = ({
         </div>
       </div>
 
+      {/* Render English Grammar Interactive UI */}
+      {lesson.track === 'english' && (
+        <EnglishGrammarLessonUI lesson={lesson} onCompleteLesson={onLessonCompleted} />
+      )}
+
       {/* Render AI Interactive Simulation Canvas if available */}
       {lesson.track === 'ai' && <AiSimulationRenderer lesson={lesson} />}
 
-      {/* Main Split: Left Column (Lesson Explanation) & Right Column (Code Editor & Preview) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Main Split for Code Tracks */}
+      {lesson.track !== 'english' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Lesson Explanations (5 cols on lg) */}
         <div className="lg:col-span-5 space-y-4">
           {/* Concept Card: What & Why & Analogy */}
@@ -544,6 +551,7 @@ export const LessonView = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Lesson Quiz Modal */}
       <LessonQuizModal

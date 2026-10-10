@@ -1,8 +1,26 @@
 // Clearfeed Learn & Practice - Beginner Web Development & AI Curriculum
 // Bilingual: English + বাংলা + Both
 import { AI_LESSONS } from './aiCurriculum';
+import { ENGLISH_GRAMMAR_LESSONS } from './englishGrammarData';
 
 export const TRACKS = [
+  {
+    id: 'english',
+    title: 'English Grammar Master',
+    subtitle: {
+      en: 'Master Guide for Bangladeshi Curriculum (JSC, SSC, HSC & Admission)',
+      bn: 'জেএসসি, এসএসসি, এইচএসসি ও ভর্তি পরীক্ষার জন্য সম্পূর্ণ গ্রামার রোডম্যাপ',
+    },
+    description: {
+      en: 'Step-by-step master guide from Class 6 to Class 12 with 33 Right Form of Verbs rules, 51 Completing Sentences rules, RVCPTN Narration formula, Spatial Preposition diagram, Suffix techniques, and HSC Modifiers.',
+      bn: 'ষষ্ঠ থেকে দ্বাদশ শ্রেণীর সিলেবাসভিত্তিক ১০০% কমন উপযোগী গ্রামার নির্দেশিকা। ৩৩টি রাইট ফর্ম অব ভার্বস রুলস, ৫১টি কমপ্লিটিং সেন্টেন্স রুলস, RVCPTN ন্যারেশন ফর্মুলা ও প্রিপজিশন ছড়া।',
+    },
+    icon: 'book',
+    color: 'from-emerald-600 via-teal-600 to-cyan-600',
+    accentColor: '#059669',
+    badge: 'JSC, SSC, HSC & Admission',
+    totalLessons: 10,
+  },
   {
     id: 'html',
     title: 'HTML',
@@ -2627,5 +2645,5 @@ const WEB_DEVELOPMENT_LESSONS = [
   },
 ];
 
-export const LESSONS = [...WEB_DEVELOPMENT_LESSONS, ...AI_LESSONS];
+export const LESSONS = [...ENGLISH_GRAMMAR_LESSONS, ...WEB_DEVELOPMENT_LESSONS, ...AI_LESSONS];
 

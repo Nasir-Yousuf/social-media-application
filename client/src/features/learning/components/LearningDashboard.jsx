@@ -64,6 +64,8 @@ export const LearningDashboard = ({
 
   const getTrackIcon = (trackId) => {
     switch (trackId) {
+      case 'english':
+        return <BookOpen className="w-5 h-5 text-emerald-500" />;
       case 'html':
         return <Layout className="w-5 h-5 text-orange-500" />;
       case 'css':
