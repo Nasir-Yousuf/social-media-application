@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HelpCircle, Code2, Sparkles, X, AtSign } from 'lucide-react';
+import { HelpCircle, Code2, Sparkles, X, AtSign, Share2 } from 'lucide-react';
 import Modal from '../../../components/common/Modal';
 import Button from '../../../components/common/Button';
 import api from '../../../api/client';
@@ -22,6 +22,7 @@ export const AskQuestionModal = ({
   const [tags, setTags] = useState(['Beginner']);
   const [tagInput, setTagInput] = useState('');
   const [includeCode, setIncludeCode] = useState(false);
+  const [postToFeed, setPostToFeed] = useState(true);
   const [codeTab, setCodeTab] = useState('html');
   const [codeSnippet, setCodeSnippet] = useState({
     html: '',
@@ -68,6 +69,7 @@ export const AskQuestionModal = ({
         setIncludeCode(false);
         setCodeSnippet({ html: '', css: '', javascript: '' });
       }
+      setPostToFeed(true);
       setTagInput('');
     } else {
       closeMention();
@@ -125,6 +127,7 @@ export const AskQuestionModal = ({
         tags,
         lessonId: initialLesson?.id || '',
         codeSnippet: includeCode ? codeSnippet : undefined,
+        postToFeed,
       });
 
       showToast('Question posted to community!', 'success');
@@ -165,6 +168,26 @@ export const AskQuestionModal = ({
           const stored = JSON.parse(localStorage.getItem('clearfeed_learning_questions') || '[]');
           localStorage.setItem('clearfeed_learning_questions', JSON.stringify([localQuestion, ...stored]));
         } catch (_) {}
+
+        if (postToFeed) {
+          try {
+            let postText = `❓ **Question:** ${title.trim()}\n\n${description.trim()}`;
+            if (tags.length > 0) {
+              postText += `\n\n${tags.map((t) => `#${t.replace(/^#/, '')}`).join(' ')}`;
+            }
+            await api.post('/posts', {
+              content: postText,
+              codeSnippet: includeCode ? {
+                title: title.trim(),
+                files: [
+                  codeSnippet.html?.trim() && { name: 'index.html', language: 'html', code: codeSnippet.html.trim() },
+                  codeSnippet.css?.trim() && { name: 'styles.css', language: 'css', code: codeSnippet.css.trim() },
+                  codeSnippet.javascript?.trim() && { name: 'script.js', language: 'javascript', code: codeSnippet.javascript.trim() },
+                ].filter(Boolean),
+              } : undefined,
+            });
+          } catch (_) {}
+        }
 
         showToast('Question posted to community!', 'success');
         if (onQuestionCreated) {
@@ -379,6 +402,27 @@ export const AskQuestionModal = ({
             placeholder="e.g. flexbox, headings..."
             className="w-full px-3 py-1.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#121519] text-neutral-900 dark:text-neutral-100 text-xs focus:outline-none"
           />
+        </div>
+
+        {/* Post to Feed Option */}
+        <div className="pt-1">
+          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-sky-500/20 bg-sky-50/50 dark:bg-sky-500/10 cursor-pointer select-none transition-colors hover:border-sky-500/40">
+            <input
+              type="checkbox"
+              checked={postToFeed}
+              onChange={(e) => setPostToFeed(e.target.checked)}
+              className="mt-0.5 rounded text-sky-500 focus:ring-sky-500 cursor-pointer"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-sky-700 dark:text-sky-300">
+                <Share2 className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                <span>Also post to main social feed / সোশ্যাল ফিডে শেয়ার করুন</span>
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
+                Posts your question to the main timeline so followers can see, mention users, and help you faster.
+              </p>
+            </div>
+          </label>
         </div>
 
         {/* Submit Buttons */}

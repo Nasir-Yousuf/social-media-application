@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   Trophy,
   Share2,
@@ -14,13 +14,13 @@ import {
   ChevronRight,
   X,
   Flag,
-} from 'lucide-react';
-import { getSpeedTier } from '../../utils/typingEngine';
-import { useAuth } from '../../context/AuthContext';
+} from "lucide-react";
+import { getSpeedTier } from "../../utils/typingEngine";
+import { useAuth } from "../../context/AuthContext";
 
 // Cubic Bezier spline generator for smooth velocity curves
 const getSmoothSvgPath = (points) => {
-  if (!points || points.length < 2) return '';
+  if (!points || points.length < 2) return "";
   let d = `M ${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
   for (let i = 0; i < points.length - 1; i++) {
     const p0 = points[i === 0 ? 0 : i - 1];
@@ -52,7 +52,10 @@ const GoldenTrophyGraphic = () => (
     </div>
 
     {/* SVG 3D Trophy */}
-    <svg viewBox="0 0 160 160" className="w-full h-full filter drop-shadow-[0_10px_25px_rgba(245,158,11,0.5)]">
+    <svg
+      viewBox="0 0 160 160"
+      className="w-full h-full filter drop-shadow-[0_10px_25px_rgba(245,158,11,0.5)]"
+    >
       <defs>
         <linearGradient id="goldCupGrad" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#fef08a" />
@@ -81,31 +84,75 @@ const GoldenTrophyGraphic = () => (
       </defs>
 
       {/* Laurel Wreath Left */}
-      <path d="M 35 95 C 20 80 20 50 38 35 M 35 80 C 25 65 28 45 42 38 M 38 65 C 30 55 35 42 45 42" fill="none" stroke="url(#laurelGrad)" strokeWidth="3" strokeLinecap="round" />
+      <path
+        d="M 35 95 C 20 80 20 50 38 35 M 35 80 C 25 65 28 45 42 38 M 38 65 C 30 55 35 42 45 42"
+        fill="none"
+        stroke="url(#laurelGrad)"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
       {/* Laurel Wreath Right */}
-      <path d="M 125 95 C 140 80 140 50 122 35 M 125 80 C 135 65 132 45 118 38 M 122 65 C 130 55 125 42 115 42" fill="none" stroke="url(#laurelGrad)" strokeWidth="3" strokeLinecap="round" />
+      <path
+        d="M 125 95 C 140 80 140 50 122 35 M 125 80 C 135 65 132 45 118 38 M 122 65 C 130 55 125 42 115 42"
+        fill="none"
+        stroke="url(#laurelGrad)"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
 
       {/* Trophy Handles */}
-      <path d="M 45 45 C 22 45 22 75 48 78" fill="none" stroke="url(#goldCupGrad)" strokeWidth="7" strokeLinecap="round" />
-      <path d="M 115 45 C 138 45 138 75 112 78" fill="none" stroke="url(#goldCupGrad)" strokeWidth="7" strokeLinecap="round" />
+      <path
+        d="M 45 45 C 22 45 22 75 48 78"
+        fill="none"
+        stroke="url(#goldCupGrad)"
+        strokeWidth="7"
+        strokeLinecap="round"
+      />
+      <path
+        d="M 115 45 C 138 45 138 75 112 78"
+        fill="none"
+        stroke="url(#goldCupGrad)"
+        strokeWidth="7"
+        strokeLinecap="round"
+      />
 
       {/* Trophy Cup Body */}
-      <path d="M 45 32 L 115 32 C 115 32 115 75 80 92 C 45 75 45 32 45 32 Z" fill="url(#goldCupGrad)" filter="url(#trophyGlow)" />
+      <path
+        d="M 45 32 L 115 32 C 115 32 115 75 80 92 C 45 75 45 32 45 32 Z"
+        fill="url(#goldCupGrad)"
+        filter="url(#trophyGlow)"
+      />
 
       {/* Cup Rim Top */}
       <ellipse cx="80" cy="32" rx="35" ry="6" fill="#fef08a" />
 
       {/* Star Emblem inside Cup */}
-      <polygon points="80,44 83,53 92,53 85,58 87,67 80,62 73,67 75,58 68,53 77,53" fill="#ffffff" />
+      <polygon
+        points="80,44 83,53 92,53 85,58 87,67 80,62 73,67 75,58 68,53 77,53"
+        fill="#ffffff"
+      />
 
       {/* Trophy Stem */}
       <path d="M 72 90 L 88 90 L 85 112 L 75 112 Z" fill="url(#goldStemGrad)" />
       <ellipse cx="80" cy="112" rx="14" ry="4" fill="#fbbf24" />
 
       {/* Pedestal Base */}
-      <path d="M 52 116 L 108 116 L 114 132 L 46 132 Z" fill="#1e293b" stroke="#334155" strokeWidth="2" />
+      <path
+        d="M 52 116 L 108 116 L 114 132 L 46 132 Z"
+        fill="#1e293b"
+        stroke="#334155"
+        strokeWidth="2"
+      />
       <rect x="58" y="119" width="44" height="10" rx="2" fill="#0f172a" />
-      <rect x="62" y="122" width="36" height="4" rx="1" fill="#fbbf24" opacity="0.9" />
+      <rect
+        x="62"
+        y="122"
+        width="36"
+        height="4"
+        rx="1"
+        fill="#fbbf24"
+        opacity="0.9"
+      />
     </svg>
   </div>
 );
@@ -126,15 +173,15 @@ export const TypingResultsModal = ({
   // Keyboard Escape key & body scroll lock handler
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen && onClose) onClose();
+      if (e.key === "Escape" && isOpen && onClose) onClose();
     };
     if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
+      window.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
     }
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
     };
   }, [isOpen, onClose]);
 
@@ -145,7 +192,7 @@ export const TypingResultsModal = ({
     rawWpm = 0,
     accuracy = 100,
     duration = 60,
-    mode = 'words_200',
+    mode = "words_200",
     highestCombo = 0,
     xpGained = 20,
     telemetry = [],
@@ -156,7 +203,7 @@ export const TypingResultsModal = ({
 
   const tier = getSpeedTier(wpm);
   const effectiveDuration = Number(duration) || 60;
-  const userName = user?.name || user?.username || '';
+  const userName = user?.name || user?.username || "";
 
   const handleCopy = () => {
     const summary = `⌨️ Clearfeed Typing Arena: ${wpm} WPM (${rawWpm} Raw) | ${accuracy}% Accuracy | ${highestCombo}x Streak [Tier: ${tier.name}]`;
@@ -166,7 +213,8 @@ export const TypingResultsModal = ({
   };
 
   // --- Process & Normalize Speed Trajectory Data ---
-  let rawList = Array.isArray(telemetry) && telemetry.length > 0 ? telemetry : [];
+  let rawList =
+    Array.isArray(telemetry) && telemetry.length > 0 ? telemetry : [];
 
   if (rawList.length === 0) {
     const steps = Math.min(Math.max(5, effectiveDuration), 30);
@@ -179,20 +227,32 @@ export const TypingResultsModal = ({
   }
 
   let normalizedPoints = [];
-  const targetSamples = Math.min(rawList.length, Math.max(8, effectiveDuration));
+  const targetSamples = Math.min(
+    rawList.length,
+    Math.max(8, effectiveDuration),
+  );
 
   if (rawList.length <= targetSamples) {
     normalizedPoints = rawList.map((val, idx) => ({
-      second: rawList.length === 1
-        ? effectiveDuration
-        : Math.max(1, Math.round(((idx + 1) / rawList.length) * effectiveDuration)),
+      second:
+        rawList.length === 1
+          ? effectiveDuration
+          : Math.max(
+              1,
+              Math.round(((idx + 1) / rawList.length) * effectiveDuration),
+            ),
       speed: Math.max(0, Math.round(Number(val) || 0)),
     }));
   } else {
     for (let i = 0; i < targetSamples; i++) {
-      const sampleIdx = Math.round((i / (targetSamples - 1)) * (rawList.length - 1));
+      const sampleIdx = Math.round(
+        (i / (targetSamples - 1)) * (rawList.length - 1),
+      );
       normalizedPoints.push({
-        second: Math.max(1, Math.round(((i + 1) / targetSamples) * effectiveDuration)),
+        second: Math.max(
+          1,
+          Math.round(((i + 1) / targetSamples) * effectiveDuration),
+        ),
         speed: Math.max(0, Math.round(Number(rawList[sampleIdx]) || 0)),
       });
     }
@@ -207,11 +267,19 @@ export const TypingResultsModal = ({
 
   const speedValues = normalizedPoints.map((p) => p.speed);
   const peakWpm = Math.max(...speedValues, wpm, 72);
-  const avgWpm = Math.round(speedValues.reduce((a, b) => a + b, 0) / Math.max(1, speedValues.length)) || wpm;
+  const avgWpm =
+    Math.round(
+      speedValues.reduce((a, b) => a + b, 0) / Math.max(1, speedValues.length),
+    ) || wpm;
 
-  const variance = speedValues.reduce((sum, v) => sum + Math.pow(v - avgWpm, 2), 0) / Math.max(1, speedValues.length);
+  const variance =
+    speedValues.reduce((sum, v) => sum + Math.pow(v - avgWpm, 2), 0) /
+    Math.max(1, speedValues.length);
   const stdDev = Math.sqrt(variance);
-  const consistencyScore = Math.max(65, Math.min(99, Math.round(100 - (stdDev / Math.max(1, avgWpm)) * 45)));
+  const consistencyScore = Math.max(
+    65,
+    Math.min(99, Math.round(100 - (stdDev / Math.max(1, avgWpm)) * 45)),
+  );
 
   // --- SVG Dimensions & Coordinate Mapping ---
   const svgWidth = 620;
@@ -237,11 +305,15 @@ export const TypingResultsModal = ({
   });
 
   const curvePath = getSmoothSvgPath(mappedPoints);
-  const areaPath = mappedPoints.length > 1
-    ? `${curvePath} L ${mappedPoints[mappedPoints.length - 1].x},${svgHeight - paddingBottom} L ${mappedPoints[0].x},${svgHeight - paddingBottom} Z`
-    : '';
+  const areaPath =
+    mappedPoints.length > 1
+      ? `${curvePath} L ${mappedPoints[mappedPoints.length - 1].x},${svgHeight - paddingBottom} L ${mappedPoints[0].x},${svgHeight - paddingBottom} Z`
+      : "";
 
-  const peakPoint = mappedPoints.reduce((max, p) => (p.speed > max.speed ? p : max), mappedPoints[0]);
+  const peakPoint = mappedPoints.reduce(
+    (max, p) => (p.speed > max.speed ? p : max),
+    mappedPoints[0],
+  );
   const lastPoint = mappedPoints[mappedPoints.length - 1] || mappedPoints[0];
 
   const yIntervals = [100, 75, 50, 25, 0];
@@ -282,7 +354,7 @@ export const TypingResultsModal = ({
     setHoveredPoint(null);
   };
 
-  const formattedMode = mode.replace('_', ' ');
+  const formattedMode = mode.replace("_", " ");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
@@ -294,7 +366,6 @@ export const TypingResultsModal = ({
 
       {/* Main Pixel-Perfect Modal Card */}
       <div className="relative w-full max-w-5xl rounded-[28px] bg-[#070b14] border border-sky-500/30 shadow-[0_0_60px_rgba(2,132,199,0.25)] p-5 sm:p-7 text-white font-sans overflow-hidden flex flex-col gap-5 z-10 my-auto animate-fade-in">
-        
         {/* 1. Modal Header Bar */}
         <div className="flex items-center justify-between pb-4 border-b border-sky-500/20">
           <div className="flex items-center gap-3">
@@ -306,7 +377,8 @@ export const TypingResultsModal = ({
                 Test Performance Completed
               </h2>
               <p className="text-xs text-neutral-400 mt-0.5 font-medium">
-                Great job{userName ? `, ${userName}` : ''}! You just leveled up your typing game!
+                Great job{userName ? `, ${userName}` : ""}! You just leveled up
+                your typing game!
               </p>
             </div>
           </div>
@@ -322,10 +394,8 @@ export const TypingResultsModal = ({
 
         {/* 2. Main 2-Column Dashboard Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          
           {/* LEFT COLUMN: Achievement & Metrics (5 cols / approx 42%) */}
           <div className="lg:col-span-5 space-y-4 flex flex-col justify-between">
-            
             {/* Achievement Card */}
             <div className="relative p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-[#1c1409] via-[#0b101c] to-[#070b14] border border-amber-500/40 shadow-[0_0_30px_rgba(245,158,11,0.15)] overflow-hidden flex items-center justify-between gap-4">
               {/* Left Content */}
@@ -333,7 +403,7 @@ export const TypingResultsModal = ({
                 {/* Swift Hacker Badge */}
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-mono font-bold shadow-xs">
                   <Zap className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
-                  <span>{tier.name || 'Swift Hacker'}</span>
+                  <span>{tier.name || "Swift Hacker"}</span>
                 </div>
 
                 {/* Big WPM Metric */}
@@ -348,7 +418,12 @@ export const TypingResultsModal = ({
 
                 {/* Details Subtext */}
                 <p className="text-xs text-neutral-300 font-medium leading-relaxed">
-                  {accuracy}% accuracy over <strong className="text-white">{duration} seconds</strong> • Words: <strong className="text-white">{formattedMode.replace('words ', '')}</strong>
+                  {accuracy}% accuracy over{" "}
+                  <strong className="text-white">{duration} seconds</strong> •
+                  Words:{" "}
+                  <strong className="text-white">
+                    {formattedMode.replace("words ", "")}
+                  </strong>
                 </p>
 
                 {/* XP Awarded Pill */}
@@ -391,8 +466,12 @@ export const TypingResultsModal = ({
                   <Zap className="w-3.5 h-3.5 text-sky-400" />
                   <span>RAW SPEED</span>
                 </div>
-                <div className="text-2xl font-black text-white">{rawWpm || wpm}</div>
-                <div className="text-[10px] text-neutral-500 font-sans mt-0.5">Your typing speed</div>
+                <div className="text-2xl font-black text-white">
+                  {rawWpm || wpm}
+                </div>
+                <div className="text-[10px] text-neutral-500 font-sans mt-0.5">
+                  Your typing speed
+                </div>
               </div>
 
               {/* Card 2: Accuracy */}
@@ -401,9 +480,11 @@ export const TypingResultsModal = ({
                   <Target className="w-3.5 h-3.5 text-teal-400" />
                   <span>ACCURACY</span>
                 </div>
-                <div className="text-2xl font-black text-teal-400">{accuracy}%</div>
+                <div className="text-2xl font-black text-teal-400">
+                  {accuracy}%
+                </div>
                 <div className="text-[10px] text-teal-500/80 font-sans mt-0.5">
-                  {accuracy === 100 ? 'No mistakes!' : 'High accuracy'}
+                  {accuracy === 100 ? "No mistakes!" : "High accuracy"}
                 </div>
               </div>
 
@@ -413,8 +494,12 @@ export const TypingResultsModal = ({
                   <Flame className="w-3.5 h-3.5 text-amber-400" />
                   <span>MAX STREAK</span>
                 </div>
-                <div className="text-2xl font-black text-amber-400">{highestCombo}x</div>
-                <div className="text-[10px] text-amber-500/80 font-sans mt-0.5">Your best streak</div>
+                <div className="text-2xl font-black text-amber-400">
+                  {highestCombo}x
+                </div>
+                <div className="text-[10px] text-amber-500/80 font-sans mt-0.5">
+                  Your best streak
+                </div>
               </div>
             </div>
           </div>
@@ -422,7 +507,6 @@ export const TypingResultsModal = ({
           {/* RIGHT COLUMN: Speed & Accuracy Analytics Chart (7 cols / approx 58%) */}
           <div className="lg:col-span-7 flex flex-col justify-between">
             <div className="p-5 rounded-3xl bg-[#060a14] border border-sky-500/30 shadow-2xl flex flex-col justify-between h-full space-y-3">
-              
               {/* Graph Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-800/80">
                 <div className="flex items-center gap-2.5">
@@ -461,7 +545,9 @@ export const TypingResultsModal = ({
                   <div className="px-2.5 py-1 rounded-xl bg-teal-500/15 border border-teal-500/40 text-teal-300 text-xs font-mono font-bold flex items-center gap-1">
                     <Target className="w-3 h-3 text-teal-300" />
                     <span>Consistency</span>
-                    <span className="text-white font-extrabold">{consistencyScore}%</span>
+                    <span className="text-white font-extrabold">
+                      {consistencyScore}%
+                    </span>
                   </div>
                 </div>
               </div>
@@ -479,22 +565,56 @@ export const TypingResultsModal = ({
                 >
                   <defs>
                     {/* Electric Blue Gradient Fill */}
-                    <linearGradient id="speedAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0284c7" stopOpacity="0.45" />
-                      <stop offset="65%" stopColor="#0369a1" stopOpacity="0.15" />
-                      <stop offset="100%" stopColor="#070b14" stopOpacity="0.0" />
+                    <linearGradient
+                      id="speedAreaGrad"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="#0284c7"
+                        stopOpacity="0.45"
+                      />
+                      <stop
+                        offset="65%"
+                        stopColor="#0369a1"
+                        stopOpacity="0.15"
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="#070b14"
+                        stopOpacity="0.0"
+                      />
                     </linearGradient>
 
                     {/* Smooth Spline Stroke Gradient */}
-                    <linearGradient id="speedStrokeGrad" x1="0" y1="0" x2="1" y2="0">
+                    <linearGradient
+                      id="speedStrokeGrad"
+                      x1="0"
+                      y1="0"
+                      x2="1"
+                      y2="0"
+                    >
                       <stop offset="0%" stopColor="#38bdf8" />
                       <stop offset="50%" stopColor="#60a5fa" />
                       <stop offset="100%" stopColor="#2dd4bf" />
                     </linearGradient>
 
-                    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <filter
+                      id="neonGlow"
+                      x="-20%"
+                      y="-20%"
+                      width="140%"
+                      height="140%"
+                    >
                       <feGaussianBlur stdDeviation="3" result="blur" />
-                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                      <feComposite
+                        in="SourceGraphic"
+                        in2="blur"
+                        operator="over"
+                      />
                     </filter>
                   </defs>
 
@@ -529,7 +649,8 @@ export const TypingResultsModal = ({
 
                   {/* Time Ticks & X-Axis Labels */}
                   {timeTicks.map((t) => {
-                    const x = paddingLeft + (t / effectiveDuration) * graphWidth;
+                    const x =
+                      paddingLeft + (t / effectiveDuration) * graphWidth;
                     return (
                       <g key={`x-${t}`}>
                         <line
@@ -582,9 +703,26 @@ export const TypingResultsModal = ({
                         stroke="#000000"
                         strokeWidth="2"
                       />
-                      <g transform={`translate(${Math.max(40, Math.min(svgWidth - 50, peakPoint.x))}, ${Math.max(20, peakPoint.y - 24)})`}>
-                        <rect x="-30" y="-11" width="60" height="20" rx="10" fill="#fbbf24" />
-                        <text x="0" y="3" textAnchor="middle" fill="#000000" fontSize="11" fontFamily="monospace" fontWeight="900">
+                      <g
+                        transform={`translate(${Math.max(40, Math.min(svgWidth - 50, peakPoint.x))}, ${Math.max(20, peakPoint.y - 24)})`}
+                      >
+                        <rect
+                          x="-30"
+                          y="-11"
+                          width="60"
+                          height="20"
+                          rx="10"
+                          fill="#fbbf24"
+                        />
+                        <text
+                          x="0"
+                          y="3"
+                          textAnchor="middle"
+                          fill="#000000"
+                          fontSize="11"
+                          fontFamily="monospace"
+                          fontWeight="900"
+                        >
                           {peakPoint.speed} ⚡WPM
                         </text>
                       </g>
@@ -602,9 +740,28 @@ export const TypingResultsModal = ({
                         stroke="#000000"
                         strokeWidth="2"
                       />
-                      <g transform={`translate(${Math.max(45, Math.min(svgWidth - 45, lastPoint.x - 15))}, ${Math.max(20, lastPoint.y - 24)})`}>
-                        <rect x="-42" y="-11" width="84" height="20" rx="10" fill="#0d9488" stroke="#2dd4bf" strokeWidth="1" />
-                        <text x="0" y="3" textAnchor="middle" fill="#ffffff" fontSize="11" fontFamily="monospace" fontWeight="900">
+                      <g
+                        transform={`translate(${Math.max(45, Math.min(svgWidth - 45, lastPoint.x - 15))}, ${Math.max(20, lastPoint.y - 24)})`}
+                      >
+                        <rect
+                          x="-42"
+                          y="-11"
+                          width="84"
+                          height="20"
+                          rx="10"
+                          fill="#0d9488"
+                          stroke="#2dd4bf"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x="0"
+                          y="3"
+                          textAnchor="middle"
+                          fill="#ffffff"
+                          fontSize="11"
+                          fontFamily="monospace"
+                          fontWeight="900"
+                        >
                           AVG {avgWpm} WPM
                         </text>
                       </g>
@@ -623,7 +780,14 @@ export const TypingResultsModal = ({
                         strokeWidth="1.5"
                         strokeDasharray="3 3"
                       />
-                      <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r="6" fill="#38bdf8" stroke="#ffffff" strokeWidth="2" />
+                      <circle
+                        cx={hoveredPoint.x}
+                        cy={hoveredPoint.y}
+                        r="6"
+                        fill="#38bdf8"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                      />
                     </g>
                   )}
                 </svg>
@@ -633,7 +797,9 @@ export const TypingResultsModal = ({
               <div className="flex items-center justify-between text-xs text-neutral-400 font-mono pt-2 border-t border-neutral-800">
                 <div className="flex items-center gap-1.5 text-neutral-400">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Hover over the graph to see detailed stats at any moment.</span>
+                  <span>
+                    Hover over the graph to see detailed stats at any moment.
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-neutral-400">
                   <span>📖 Mode: {formattedMode}</span>
@@ -645,7 +811,6 @@ export const TypingResultsModal = ({
 
         {/* 3. Bottom Action Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-sky-500/20">
-          
           {/* Button 1: Challenge a Friend (Orange-to-Gold Gradient Pill) */}
           <button
             type="button"
@@ -718,7 +883,11 @@ export const TypingResultsModal = ({
             title="Copy summary text"
             className="p-3 rounded-2xl bg-[#121826] hover:bg-[#1a2336] border border-neutral-700/80 text-neutral-300 hover:text-white transition-colors cursor-pointer shrink-0"
           >
-            {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+            {copied ? (
+              <Check className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <Copy className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>

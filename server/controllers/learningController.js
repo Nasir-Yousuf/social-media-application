@@ -3,6 +3,7 @@ const LearningProgress = require('../models/LearningProgress');
 const LearningQuestion = require('../models/LearningQuestion');
 const LearningAnswer = require('../models/LearningAnswer');
 const Notification = require('../models/Notification');
+const Post = require('../models/Post');
 const { notifyMentions } = require('../utils/mentionUtils');
 
 // ==========================================
@@ -245,7 +246,7 @@ exports.getQuestionById = async (req, res) => {
 // Create a new question
 exports.createQuestion = async (req, res) => {
   try {
-    const { title, description, track = 'general', tags = [], lessonId = '', codeSnippet } = req.body;
+    const { title, description, track = 'general', tags = [], lessonId = '', codeSnippet, postToFeed = true } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ message: 'Question title is required.' });
@@ -275,12 +276,55 @@ exports.createQuestion = async (req, res) => {
 
     await newQuestion.populate('author', 'name username avatarUrl role status');
 
+    // Optionally post to main social feed
+    let createdPost = null;
+    if (postToFeed) {
+      try {
+        let postText = `❓ **Question:** ${title.trim()}\n\n${description.trim()}`;
+        if (formattedTags.length > 0) {
+          postText += `\n\n${formattedTags.map((t) => `#${t.replace(/^#/, '')}`).join(' ')}`;
+        }
+
+        let formattedPostSnippet = null;
+        if (codeSnippet) {
+          const files = [];
+          if (codeSnippet.html && codeSnippet.html.trim()) {
+            files.push({ name: 'index.html', language: 'html', code: codeSnippet.html.trim() });
+          }
+          if (codeSnippet.css && codeSnippet.css.trim()) {
+            files.push({ name: 'styles.css', language: 'css', code: codeSnippet.css.trim() });
+          }
+          if (codeSnippet.javascript && codeSnippet.javascript.trim()) {
+            files.push({ name: 'script.js', language: 'javascript', code: codeSnippet.javascript.trim() });
+          }
+          if (files.length > 0) {
+            formattedPostSnippet = {
+              title: title.trim().slice(0, 120),
+              files,
+              code: files[0].code,
+              language: files[0].language,
+            };
+          }
+        }
+
+        createdPost = await Post.create({
+          author: req.user._id,
+          content: postText.slice(0, 2000),
+          codeSnippet: formattedPostSnippet,
+          tags: formattedTags,
+          visibility: 'public',
+        });
+      } catch (feedErr) {
+        console.warn('Failed to post question to feed:', feedErr.message);
+      }
+    }
+
     // Notify mentions (e.g. @username, @everyone, @followers)
     try {
       await notifyMentions({
         texts: [newQuestion.title, newQuestion.description],
         senderId: req.user._id,
-        refs: { question: newQuestion._id },
+        refs: { question: newQuestion._id, post: createdPost?._id },
         directType: 'question_mention',
         broadcastType: 'everyone_mention',
       });
@@ -291,6 +335,7 @@ exports.createQuestion = async (req, res) => {
     return res.status(201).json({
       message: 'Question posted successfully!',
       question: newQuestion,
+      post: createdPost,
     });
   } catch (err) {
     console.error('createQuestion error:', err);
