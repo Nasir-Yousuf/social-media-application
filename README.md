@@ -93,7 +93,7 @@ graph TD
 | **Full-Stack Reactive Architecture** | Built with **React 19**, **Express 5**, and **Mongoose 8** with full end-to-end type safety, modern async middleware, and optimistic UI updates.  |
 | **Client-Side Image Pre-Processing** | Canvas-based downscaling resizes profile photos to 128×128 JPEG at ≤100KB before transmission, reducing network payload by ~95%.                  |
 | **Reverse-Proxy-Aware IP Telemetry** | Extracts and normalizes genuine client IP addresses through Cloudflare, Vercel, and Railway headers (`CF-Connecting-IP`, `X-Forwarded-For`).      |
-| **Maintainer Governance Safeguards** | Designated site maintainers (`@nasir` and `@whoissowrov`) are cryptographically shielded from unauthorized role changes, suspension, or deletion. |
+| **Maintainer Governance Safeguards** | Designated site maintainers are cryptographically shielded from unauthorized role changes, suspension, or deletion. |
 | **Mobile Parity**                    | Standalone iOS & Android application built with React Native and Expo featuring Twitter's "Lights Out" design system and native gesture handling. |
 
 ---
@@ -118,7 +118,7 @@ graph TD
 - **Role-Based Access Control**: Instant permission toggles (`admin` vs. `student`/member).
 - **Live Traffic & IP Audit Logs**: Real-time inspection of IP addresses attached to registrations, logins, posts, and comments.
 - **Platform Integrity**: Post deletion across the network, user suspension controls, and site-wide announcement broadcasts.
-- **Co-Maintainer Safeguards**: Nasir and Sowrov hold non-demotable administrative status to protect application infrastructure.
+- **Maintainer Safeguards**: Primary platform maintainers hold non-demotable administrative status to protect application infrastructure.
 
 ### 4. 🔖 Personal Knowledge Base & Bookmarks
 
@@ -213,7 +213,7 @@ Standard web applications often rely on paid third-party asset storage services 
     );
   };
   ```
-- **Co-Maintainer Safeguards**: Primary platform maintainers **Nasir** (`@nasir`) and **Sowrov** (`@whoissowrov`) possess immutable administrative rights in the backend controllers, preventing accidental demotion, suspension, or deletion.
+- **Maintainer Safeguards**: Primary platform maintainers possess immutable administrative rights in the backend controllers, preventing accidental demotion, suspension, or deletion.
 - **Strict Role-Based Middleware**: Sensitive administrative endpoints require verified JWT authentication and validated `role === 'admin'`.
 
 ---
@@ -317,14 +317,11 @@ VITE_API_URL=https://clearfeed518.up.railway.app
 
 ---
 
-## 👥 Authors & Core Maintainers
+## 👤 Author & Maintainer
 
 - **Nasir Yousuf** — Founder & Lead Developer
   - GitHub: [@Nasir-Yousuf](https://github.com/Nasir-Yousuf)
   - Clearfeed: `@nasir`
-- **Sowrov Sarker** — Co-Maintainer & Admin
-  - GitHub: [@whoissowrov](https://github.com/whoissowrov)
-  - Clearfeed: `@whoissowrov`
 
 ---
 

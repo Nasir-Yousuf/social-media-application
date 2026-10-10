@@ -79,7 +79,7 @@ exports.toggleUserRole = async (req, res) => {
       targetE === 'sowrovsarker2003@gmail.com'
     ) {
       return res.status(400).json({
-        message: 'Primary site maintainers (@nasir and @whoissowrov) cannot be demoted from admin.',
+        message: 'Primary site maintainers cannot be demoted from admin.',
       });
     }
 
@@ -117,7 +117,7 @@ exports.toggleUserStatus = async (req, res) => {
       targetE === 'sowrovsarker2003@gmail.com'
     ) {
       return res.status(400).json({
-        message: 'Primary site maintainers (@nasir and @whoissowrov) cannot be suspended.',
+        message: 'Primary site maintainers cannot be suspended.',
       });
     }
 
@@ -154,7 +154,7 @@ exports.deleteUser = async (req, res) => {
       targetE === 'sowrovsarker2003@gmail.com'
     ) {
       return res.status(400).json({
-        message: 'Primary site maintainers (@nasir and @whoissowrov) cannot be deleted.',
+        message: 'Primary site maintainers cannot be deleted.',
       });
     }
 

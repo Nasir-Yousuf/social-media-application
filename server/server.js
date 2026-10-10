@@ -115,7 +115,7 @@ const startServer = async () => {
       console.log(' Live database ready (auto-seeding disabled).');
     }
 
-    // Automatically remove dr_vance and guarantee Nasir and Sowrov have admin role
+    // Automatically remove dr_vance and guarantee platform maintainers have admin role
     try {
       const User = require('./models/User');
       await User.deleteMany({ username: 'dr_vance' });

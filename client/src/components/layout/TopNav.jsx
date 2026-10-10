@@ -51,7 +51,7 @@ export const TopNav = () => {
     { to: '/', label: 'Feed', icon: Home, end: true },
     { to: '/explore', label: 'Discover', icon: Compass },
     { to: '/code-practice', label: 'Code Practice', icon: Keyboard },
-    { to: '/code', label: 'Code', icon: Code2 },
+    { to: '/code', label: 'Code', icon: Code2, end: true },
     { to: '/search', label: 'Search', icon: Search },
     {
       to: '/notifications',

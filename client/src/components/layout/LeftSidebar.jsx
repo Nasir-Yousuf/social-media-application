@@ -156,7 +156,7 @@ export const LeftSidebar = () => {
       icon: MessageSquare,
       badge: unreadMessagesCount,
     },
-    { to: '/code', label: 'CodeHub', icon: Code2 },
+    { to: '/code', label: 'CodeHub', icon: Code2, end: true },
     { to: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
     { to: '/members', label: 'Community', icon: Users },
     { to: `/profile/${user?.username}`, label: 'Profile', icon: User },
@@ -199,7 +199,7 @@ export const LeftSidebar = () => {
                 const isActive =
                   item.end
                     ? location.pathname === item.to
-                    : location.pathname.startsWith(item.to);
+                    : location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to + '/'));
 
                 return (
                   <NavLink

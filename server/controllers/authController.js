@@ -13,7 +13,7 @@ const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 };
 
-// Designated platform maintainers with guaranteed Admin powers: Nasir and Sowrov
+// Designated platform maintainers with guaranteed Admin powers
 const isCoAdmin = (username = '', email = '') => {
   const cleanU = (username || '').toLowerCase().trim();
   const cleanE = (email || '').toLowerCase().trim();
