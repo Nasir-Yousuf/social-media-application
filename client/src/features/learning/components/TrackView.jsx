@@ -26,14 +26,16 @@ export const TrackView = ({
   lang = 'both',
   onLangChange,
   onProgressUpdate,
+  onLessonCompleted,
 }) => {
   const { user } = useAuth();
   const track = TRACKS.find((t) => t.id === trackId) || TRACKS[0];
   const trackLessons = LESSONS.filter((l) => l.track === track.id);
   const completedSet = new Set(progress.completedLessons || []);
   const passedQuizzesSet = new Set(progress.passedQuizzes || []);
+  const finishedSet = new Set([...completedSet, ...passedQuizzesSet]);
 
-  const completedCount = trackLessons.filter((l) => completedSet.has(l.id)).length;
+  const completedCount = trackLessons.filter((l) => finishedSet.has(l.id)).length;
   const percent = Math.round((completedCount / Math.max(1, trackLessons.length)) * 100);
   const allCompleted = trackLessons.length > 0 && completedCount === trackLessons.length;
 
@@ -48,7 +50,7 @@ export const TrackView = ({
       const found = trackLessons.find((l) => l.id === lastSavedId);
       if (found) return found;
     }
-    const uncompleted = trackLessons.find((l) => !completedSet.has(l.id));
+    const uncompleted = trackLessons.find((l) => !finishedSet.has(l.id));
     if (uncompleted) return uncompleted;
     return trackLessons[0];
   };
@@ -71,6 +73,9 @@ export const TrackView = ({
   };
 
   const handleQuizPassed = (lessonId, score, xpEarned) => {
+    if (onLessonCompleted) {
+      onLessonCompleted(lessonId, track.id);
+    }
     if (onProgressUpdate) {
       onProgressUpdate();
     }
@@ -170,7 +175,7 @@ export const TrackView = ({
 
         <div className="space-y-3">
           {trackLessons.map((lesson, idx) => {
-            const isCompleted = completedSet.has(lesson.id);
+            const isCompleted = finishedSet.has(lesson.id);
             const isQuizPassed = passedQuizzesSet.has(lesson.id);
             const showChapterHeader = idx === 0 || trackLessons[idx - 1]?.chapter !== lesson.chapter;
 

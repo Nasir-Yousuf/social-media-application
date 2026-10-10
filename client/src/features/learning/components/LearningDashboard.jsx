@@ -25,7 +25,10 @@ export const LearningDashboard = ({
   onOpenAskQuestion,
 }) => {
   const completedSet = new Set(progress.completedLessons || []);
-  const totalCompleted = completedSet.size;
+  const passedQuizzesSet = new Set(progress.passedQuizzes || []);
+  const finishedSet = new Set([...completedSet, ...passedQuizzesSet]);
+
+  const totalCompleted = LESSONS.filter((l) => finishedSet.has(l.id)).length;
   const totalLessons = LESSONS.length;
   const percentOverall = Math.round((totalCompleted / Math.max(1, totalLessons)) * 100);
 
@@ -45,7 +48,7 @@ export const LearningDashboard = ({
     }
 
     // 2. Find first uncompleted lesson in track
-    const uncompleted = trackLessons.find((l) => !completedSet.has(l.id));
+    const uncompleted = trackLessons.find((l) => !finishedSet.has(l.id));
     if (uncompleted) return uncompleted;
 
     // 3. Fallback to first lesson
@@ -54,7 +57,7 @@ export const LearningDashboard = ({
 
   const getTrackProgress = (trackId) => {
     const trackLessons = LESSONS.filter((l) => l.track === trackId);
-    const completedCount = trackLessons.filter((l) => completedSet.has(l.id)).length;
+    const completedCount = trackLessons.filter((l) => finishedSet.has(l.id)).length;
     const percent = Math.round((completedCount / Math.max(1, trackLessons.length)) * 100);
     return { completedCount, total: trackLessons.length, percent };
   };

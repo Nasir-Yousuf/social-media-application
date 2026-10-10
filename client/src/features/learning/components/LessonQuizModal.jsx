@@ -139,18 +139,24 @@ export const LessonQuizModal = ({
 
     try {
       setSubmitting(true);
-      const res = await api.post('/learning/quiz/submit', {
-        lessonId,
-        track: trackId,
-        score,
-        passed,
-      });
+      let xpEarned = 25;
+      try {
+        const res = await api.post('/learning/quiz/submit', {
+          lessonId,
+          track: trackId,
+          score,
+          passed,
+        });
+        if (res.data?.xpEarned) {
+          xpEarned = res.data.xpEarned;
+        }
+      } catch (err) {
+        console.warn('Failed to save quiz progress to backend API:', err.message);
+      }
 
       if (passed && onQuizPassed) {
-        onQuizPassed(lessonId, score, res.data.xpEarned || 25);
+        onQuizPassed(lessonId, score, xpEarned);
       }
-    } catch (err) {
-      console.warn('Failed to save quiz progress to backend:', err);
     } finally {
       setSubmitting(false);
     }

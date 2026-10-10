@@ -48,8 +48,31 @@ export const LearnPage = () => {
     try {
       const res = await api.get('/learning/progress');
       if (res.data?.progress) {
-        setProgress(res.data.progress);
-        localStorage.setItem('clearfeed_learning_progress', JSON.stringify(res.data.progress));
+        const serverProg = res.data.progress;
+        const localSaved = localStorage.getItem('clearfeed_learning_progress');
+        let localProg = {};
+        try { localProg = localSaved ? JSON.parse(localSaved) : {}; } catch {}
+
+        const mergedCompleted = Array.from(new Set([
+          ...(serverProg.completedLessons || []),
+          ...(localProg.completedLessons || []),
+        ]));
+        const mergedQuizzes = Array.from(new Set([
+          ...(serverProg.passedQuizzes || []),
+          ...(localProg.passedQuizzes || []),
+        ]));
+
+        const merged = {
+          ...serverProg,
+          completedLessons: mergedCompleted,
+          passedQuizzes: mergedQuizzes,
+          lastLessonByTrack: {
+            ...(serverProg.lastLessonByTrack || {}),
+            ...(localProg.lastLessonByTrack || {}),
+          },
+        };
+        setProgress(merged);
+        localStorage.setItem('clearfeed_learning_progress', JSON.stringify(merged));
       }
     } catch {
       // Fallback silently to localStorage
@@ -86,14 +109,28 @@ export const LearnPage = () => {
   const handleLessonCompleted = async (completedId, completedTrack) => {
     // 1. Optimistic update
     setProgress((prev) => {
-      const already = prev.completedLessons?.includes(completedId);
-      const nextCompleted = already ? prev.completedLessons : [...(prev.completedLessons || []), completedId];
-      const nextXP = already ? prev.xp : (prev.xp || 0) + 25;
+      const completedList = prev.completedLessons || [];
+      const passedList = prev.passedQuizzes || [];
+
+      const alreadyCompleted = completedList.includes(completedId);
+      const alreadyPassed = passedList.includes(completedId);
+
+      const nextCompleted = alreadyCompleted ? completedList : [...completedList, completedId];
+      const nextPassed = alreadyPassed ? passedList : [...passedList, completedId];
+      const nextXP = (alreadyCompleted || alreadyPassed) ? (prev.xp || 0) : (prev.xp || 0) + 25;
+
+      const lastByTrack = { ...(prev.lastLessonByTrack || {}) };
+      if (completedTrack) {
+        lastByTrack[completedTrack] = completedId;
+      }
+
       const updated = {
         ...prev,
         completedLessons: nextCompleted,
+        passedQuizzes: nextPassed,
         currentTrack: completedTrack || prev.currentTrack,
         currentLessonId: completedId,
+        lastLessonByTrack: lastByTrack,
         xp: nextXP,
       };
       localStorage.setItem('clearfeed_learning_progress', JSON.stringify(updated));
@@ -153,6 +190,7 @@ export const LearnPage = () => {
         lang={lang}
         onLangChange={handleLangChange}
         onProgressUpdate={fetchProgress}
+        onLessonCompleted={handleLessonCompleted}
       />
     );
   } else {
