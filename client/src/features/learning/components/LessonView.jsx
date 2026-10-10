@@ -15,6 +15,7 @@ import CodeEditor from './CodeEditor';
 import CodePreview from './CodePreview';
 import ExerciseChallenge from './ExerciseChallenge';
 import LessonQuizModal from './LessonQuizModal';
+import AiSimulationRenderer from './aiSimulations/AiSimulationRenderer';
 import { useNotifications } from '../../../context/NotificationContext';
 import { useConfirm } from '../../../context/ConfirmContext';
 
@@ -228,21 +229,24 @@ export const LessonView = ({
         </div>
       </div>
 
+      {/* Render AI Interactive Simulation Canvas if available */}
+      {lesson.track === 'ai' && <AiSimulationRenderer lesson={lesson} />}
+
       {/* Main Split: Left Column (Lesson Explanation) & Right Column (Code Editor & Preview) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Lesson Explanations (5 cols on lg) */}
         <div className="lg:col-span-5 space-y-4">
           {/* Concept Card: What & Why & Analogy */}
           <div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] p-5 shadow-xs space-y-5">
-            {/* 1. What is it? */}
+            {/* 1. Simple Explanation / What is it? */}
             <div>
               <div className="flex items-center gap-2 text-xs font-bold text-sky-600 dark:text-sky-400 mb-1.5">
                 <Info className="w-3.5 h-3.5" />
-                <span>What is it? / কী এটা?</span>
+                <span>Simple Explanation / সহজ ভাষায় পরিচিতি</span>
               </div>
               {(lang === 'en' || lang === 'both') && (
                 <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed font-medium">
-                  {lesson.explanation?.whatIsIt?.en}
+                  {lesson.explanation?.simple?.en || lesson.explanation?.whatIsIt?.en}
                 </p>
               )}
               {(lang === 'bn' || lang === 'both') && (
@@ -251,34 +255,12 @@ export const LessonView = ({
                     lang === 'both' ? 'mt-1.5 border-l-2 border-sky-400 pl-2.5 text-xs text-neutral-600 dark:text-neutral-400' : ''
                   }`}
                 >
-                  {lesson.explanation?.whatIsIt?.bn}
+                  {lesson.explanation?.simple?.bn || lesson.explanation?.whatIsIt?.bn}
                 </p>
               )}
             </div>
 
-            {/* 2. Why do we need it? */}
-            <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800/80">
-              <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">
-                <Layers className="w-3.5 h-3.5" />
-                <span>Why do we need it? / কেন প্রয়োজন?</span>
-              </div>
-              {(lang === 'en' || lang === 'both') && (
-                <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed font-medium">
-                  {lesson.explanation?.whyNeedIt?.en}
-                </p>
-              )}
-              {(lang === 'bn' || lang === 'both') && (
-                <p
-                  className={`text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed ${
-                    lang === 'both' ? 'mt-1.5 border-l-2 border-emerald-400 pl-2.5 text-xs text-neutral-600 dark:text-neutral-400' : ''
-                  }`}
-                >
-                  {lesson.explanation?.whyNeedIt?.bn}
-                </p>
-              )}
-            </div>
-
-            {/* 3. Real-life Analogy */}
+            {/* 2. Real-Life Analogy */}
             <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800/80">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 mb-1.5">
                 <Lightbulb className="w-3.5 h-3.5" />
@@ -294,6 +276,32 @@ export const LessonView = ({
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* 3. Technical Explanation / Why do we need it? */}
+            <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800/80">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-1.5">
+                <Layers className="w-3.5 h-3.5" />
+                <span>
+                  {lesson.explanation?.technical
+                    ? 'Behind The Scenes (Technical) / প্রযুক্তিগত মেকানিজম'
+                    : 'Why do we need it? / কেন প্রয়োজন?'}
+                </span>
+              </div>
+              {(lang === 'en' || lang === 'both') && (
+                <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed font-medium">
+                  {lesson.explanation?.technical?.en || lesson.explanation?.whyNeedIt?.en}
+                </p>
+              )}
+              {(lang === 'bn' || lang === 'both') && (
+                <p
+                  className={`text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed ${
+                    lang === 'both' ? 'mt-1.5 border-l-2 border-emerald-400 pl-2.5 text-xs text-neutral-600 dark:text-neutral-400' : ''
+                  }`}
+                >
+                  {lesson.explanation?.technical?.bn || lesson.explanation?.whyNeedIt?.bn}
+                </p>
+              )}
             </div>
 
             {/* 4. Code Example */}

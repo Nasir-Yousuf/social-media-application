@@ -115,6 +115,8 @@ export const TrackView = ({
                 ? 'bg-orange-500'
                 : track.id === 'css'
                 ? 'bg-sky-500'
+                : track.id === 'ai'
+                ? 'bg-emerald-500'
                 : 'bg-amber-400'
             }`}
             style={{ width: `${percent}%` }}

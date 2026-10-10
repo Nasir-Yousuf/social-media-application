@@ -1,5 +1,6 @@
-// Clearfeed Learn & Practice - Beginner Web Development Curriculum
+// Clearfeed Learn & Practice - Beginner Web Development & AI Curriculum
 // Bilingual: English + বাংলা + Both
+import { AI_LESSONS } from './aiCurriculum';
 
 export const TRACKS = [
   {
@@ -70,9 +71,26 @@ export const TRACKS = [
     badge: 'Logic & Interactivity',
     totalLessons: 8,
   },
+  {
+    id: 'ai',
+    title: 'AI Academy',
+    subtitle: {
+      en: 'Master Artificial Intelligence from zero to building AI apps',
+      bn: 'শূন্য থেকে এআই-এর কাজ বোঝা ও এআই অ্যাপস তৈরি শিখুন',
+    },
+    description: {
+      en: 'A complete 100-lesson interactive academy guiding beginners from AI history and hardware, to neural networks, LLMs, RAG, agents, and building custom capstone AI applications.',
+      bn: 'একটি ১০০-লেসনের সম্পূর্ণ ইন্টারেক্টিভ কোর্স যেখানে এআই-এর ইতিহাস, হার্ডওয়্যার, ম্যাথ, নিউরাল নেটওয়ার্ক, এলএলএম এবং নিজস্ব এআই অ্যাপ তৈরি শেখানো হয়।',
+    },
+    icon: 'brain',
+    color: 'from-emerald-500 to-teal-600',
+    accentColor: '#10b981',
+    badge: '100 Lessons • Interactive AI',
+    totalLessons: 100,
+  },
 ];
 
-export const LESSONS = [
+const WEB_DEVELOPMENT_LESSONS = [
   // ==========================================
   // HTML TRACK (8 Lessons)
   // ==========================================
@@ -2181,3 +2199,6 @@ export const LESSONS = [
     },
   },
 ];
+
+export const LESSONS = [...WEB_DEVELOPMENT_LESSONS, ...AI_LESSONS];
+
