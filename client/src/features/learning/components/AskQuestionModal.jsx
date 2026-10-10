@@ -166,12 +166,13 @@ export const AskQuestionModal = ({
           <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1">
             Topic Track
           </label>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
             {[
               { id: 'html', label: 'HTML' },
               { id: 'css', label: 'CSS' },
               { id: 'javascript', label: 'JS' },
               { id: 'bootstrap', label: 'Bootstrap' },
+              { id: 'ai', label: 'AI Academy' },
               { id: 'general', label: 'General' },
             ].map((t) => (
               <button

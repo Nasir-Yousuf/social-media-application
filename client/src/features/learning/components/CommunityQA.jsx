@@ -144,7 +144,7 @@ export const CommunityQA = ({ lang = 'both' }) => {
 
         {/* Track Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto select-none no-scrollbar">
-          {['all', 'html', 'css', 'javascript', 'bootstrap', 'general'].map((t) => (
+          {['all', 'html', 'css', 'javascript', 'bootstrap', 'ai', 'general'].map((t) => (
             <button
               key={t}
               type="button"

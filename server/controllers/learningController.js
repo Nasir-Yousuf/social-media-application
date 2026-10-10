@@ -264,7 +264,7 @@ exports.createQuestion = async (req, res) => {
       author: req.user._id,
       title: title.trim(),
       description: description.trim(),
-      track: ['html', 'css', 'javascript', 'bootstrap', 'general'].includes(track) ? track : 'general',
+      track: ['html', 'css', 'javascript', 'bootstrap', 'ai', 'general'].includes(track) ? track : 'general',
       lessonId: (lessonId || '').trim(),
       tags: formattedTags,
       codeSnippet: {
