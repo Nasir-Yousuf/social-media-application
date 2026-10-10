@@ -14,6 +14,8 @@ import {
   HelpCircle,
   Layout,
   Brain,
+  Terminal,
+  Layers,
 } from 'lucide-react';
 import { TRACKS, LESSONS } from '../data/learningCurriculum';
 import LanguageToggle from './LanguageToggle';
