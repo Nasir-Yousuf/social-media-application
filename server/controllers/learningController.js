@@ -256,12 +256,29 @@ exports.createQuestion = async (req, res) => {
       return res.status(400).json({ message: 'Question description is required.' });
     }
 
+    let authorUser = req.user;
+    if (!authorUser) {
+      const User = require('../models/User');
+      let guestUser = await User.findOne({ username: 'guest' });
+      if (!guestUser) {
+        guestUser = await User.create({
+          name: 'Guest User',
+          username: 'guest',
+          email: 'guest@clearfeed.local',
+          password: 'guestpassword123',
+          bio: 'Exploring Clearfeed as a guest community visitor.',
+          isApproved: true,
+        });
+      }
+      authorUser = guestUser;
+    }
+
     const formattedTags = Array.isArray(tags)
       ? tags.map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 5)
       : [];
 
     const newQuestion = await LearningQuestion.create({
-      author: req.user._id,
+      author: authorUser._id,
       title: title.trim(),
       description: description.trim(),
       track: ['html', 'css', 'javascript', 'bootstrap', 'ai', 'general'].includes(track) ? track : 'general',
@@ -308,7 +325,7 @@ exports.createQuestion = async (req, res) => {
         }
 
         createdPost = await Post.create({
-          author: req.user._id,
+          author: authorUser._id,
           content: postText.slice(0, 2000),
           codeSnippet: formattedPostSnippet,
           tags: formattedTags,
@@ -323,11 +340,11 @@ exports.createQuestion = async (req, res) => {
     try {
       const User = require('../models/User');
       const { sendPushToUser } = require('../services/pushNotificationService');
-      const allMembers = await User.find({ _id: { $ne: req.user._id }, isApproved: true }).select('_id');
+      const allMembers = await User.find({ _id: { $ne: authorUser._id }, isApproved: true }).select('_id');
       if (allMembers.length > 0) {
         const notifications = allMembers.map((member) => ({
           recipient: member._id,
-          sender: req.user._id,
+          sender: authorUser._id,
           type: 'new_question',
           question: newQuestion._id,
         }));
@@ -337,7 +354,7 @@ exports.createQuestion = async (req, res) => {
         allMembers.forEach((member) => {
           sendPushToUser(member._id, {
             title: 'New Learning Question ❓',
-            body: `${req.user.name || req.user.username} asked: "${newQuestion.title}"`,
+            body: `${authorUser.name || authorUser.username} asked: "${newQuestion.title}"`,
             data: { questionId: newQuestion._id.toString(), type: 'new_question' },
           }).catch(() => {});
         });
@@ -350,7 +367,7 @@ exports.createQuestion = async (req, res) => {
     try {
       await notifyMentions({
         texts: [newQuestion.title, newQuestion.description],
-        senderId: req.user._id,
+        senderId: authorUser._id,
         refs: { question: newQuestion._id, post: createdPost?._id },
         directType: 'question_mention',
         broadcastType: 'everyone_mention',

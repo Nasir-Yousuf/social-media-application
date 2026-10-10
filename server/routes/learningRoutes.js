@@ -17,10 +17,10 @@ router.get('/certificate/:certificateId', optionalAuth, learningController.getCe
 router.get('/questions', optionalAuth, learningController.getQuestions);
 router.get('/question', optionalAuth, learningController.getQuestions);
 
-router.post('/questions', requireAuth, learningController.createQuestion);
-router.post('/question', requireAuth, learningController.createQuestion);
-router.post('/questions/create', requireAuth, learningController.createQuestion);
-router.post('/question/create', requireAuth, learningController.createQuestion);
+router.post('/questions', optionalAuth, learningController.createQuestion);
+router.post('/question', optionalAuth, learningController.createQuestion);
+router.post('/questions/create', optionalAuth, learningController.createQuestion);
+router.post('/question/create', optionalAuth, learningController.createQuestion);
 
 router.get('/questions/:id', optionalAuth, learningController.getQuestionById);
 router.get('/question/:id', optionalAuth, learningController.getQuestionById);
