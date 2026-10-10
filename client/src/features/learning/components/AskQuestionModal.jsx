@@ -130,15 +130,44 @@ export const AskQuestionModal = ({
     };
 
     try {
-      let res;
+      let createdQuestion = null;
       try {
-        res = await api.post('/learning/questions', payload);
+        const res = await api.post('/learning/questions', payload);
+        createdQuestion = res.data.question;
       } catch (err1) {
         if (err1.response?.status === 404) {
           try {
-            res = await api.post('/learning/question', payload);
+            const res = await api.post('/learning/question', payload);
+            createdQuestion = res.data.question;
           } catch (err2) {
-            res = await api.post('/learning/questions/create', payload);
+            // Robust fail-safe fallback: mirror question to main posts API (/api/posts)
+            const postContent = `❓ **Question:** ${title.trim()}\n\n${description.trim()}`;
+            const postPayload = {
+              content: postContent,
+              tags: tags.map((t) => t.replace(/^#/, '')),
+              visibility: 'public',
+            };
+            if (includeCode && (codeSnippet.html || codeSnippet.css || codeSnippet.javascript)) {
+              const files = [];
+              if (codeSnippet.html) files.push({ name: 'index.html', language: 'html', code: codeSnippet.html });
+              if (codeSnippet.css) files.push({ name: 'styles.css', language: 'css', code: codeSnippet.css });
+              if (codeSnippet.javascript) files.push({ name: 'script.js', language: 'javascript', code: codeSnippet.javascript });
+              if (files.length > 0) {
+                postPayload.codeSnippet = { title: title.trim(), files, code: files[0].code, language: files[0].language };
+              }
+            }
+            const postRes = await api.post('/posts', postPayload);
+            createdQuestion = {
+              _id: postRes.data.post?._id || Date.now().toString(),
+              title: title.trim(),
+              description: description.trim(),
+              track,
+              tags,
+              author: postRes.data.post?.author || user || { name: 'Guest User', username: 'guest' },
+              answersCount: 0,
+              upvotesCount: 0,
+              createdAt: new Date().toISOString(),
+            };
           }
         } else {
           throw err1;
@@ -147,7 +176,7 @@ export const AskQuestionModal = ({
 
       showToast('Question posted to community!', 'success');
       if (onQuestionCreated) {
-        onQuestionCreated(res.data.question);
+        onQuestionCreated(createdQuestion);
       }
       onClose();
     } catch (err) {

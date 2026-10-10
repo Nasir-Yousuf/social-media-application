@@ -40,15 +40,44 @@ export const CommunityQA = ({ lang = 'both' }) => {
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
       if (filterSolved) params.append('sort', 'unsolved');
 
-      const res = await api.get(`/learning/questions?${params.toString()}`);
-      setQuestions(res.data.questions || []);
+      try {
+        const res = await api.get(`/learning/questions?${params.toString()}`);
+        setQuestions(res.data.questions || []);
+      } catch (err1) {
+        if (err1.response?.status === 404) {
+          const exploreRes = await api.get('/posts/explore');
+          const posts = exploreRes.data.posts || [];
+          const questionPosts = posts.filter(
+            (p) => p.content?.startsWith('❓') || p.content?.toLowerCase().includes('question:') || p.tags?.includes('question')
+          );
+          const mapped = questionPosts.map((p) => {
+            const firstLine = p.content?.split('\n')[0] || '';
+            const rawTitle = firstLine.replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim() || 'Community Question';
+            const rawDesc = p.content?.split('\n').slice(1).join('\n').trim() || p.content;
+            return {
+              _id: p._id,
+              title: rawTitle,
+              description: rawDesc,
+              track: activeTrack !== 'all' ? activeTrack : 'general',
+              tags: p.tags || [],
+              author: p.author,
+              answersCount: p.commentsCount || 0,
+              upvotesCount: p.likesCount || 0,
+              isSolved: false,
+              createdAt: p.createdAt,
+            };
+          });
+          setQuestions(mapped);
+        } else {
+          throw err1;
+        }
+      }
     } catch (err) {
       console.warn('Backend questions fetch notice:', err?.message);
-      showToast('Could not load community questions', 'error');
     } finally {
       setLoading(false);
     }
-  }, [activeTrack, searchQuery, filterSolved, showToast]);
+  }, [activeTrack, searchQuery, filterSolved]);
 
   useEffect(() => {
     fetchQuestions();
