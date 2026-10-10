@@ -1,12 +1,21 @@
 import axios from 'axios';
 
-const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-const apiBaseUrl = rawUrl
-  ? (rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`)
-  : '/api';
+const PRODUCTION_BACKEND_URL = 'https://clearfeed518.up.railway.app/api';
+
+const getBaseUrl = () => {
+  const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+  if (rawUrl) {
+    return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
+  }
+  // When deployed on Vercel or remote hosts, target Railway production API directly if VITE_API_URL is missing
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return PRODUCTION_BACKEND_URL;
+  }
+  return '/api';
+};
 
 const api = axios.create({
-  baseURL: apiBaseUrl,
+  baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
