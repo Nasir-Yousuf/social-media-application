@@ -119,16 +119,31 @@ export const AskQuestionModal = ({
     }
 
     setSubmitting(true);
+    const payload = {
+      title: title.trim(),
+      description: description.trim(),
+      track,
+      tags,
+      lessonId: initialLesson?.id || '',
+      codeSnippet: includeCode ? codeSnippet : undefined,
+      postToFeed,
+    };
+
     try {
-      const res = await api.post('/learning/questions', {
-        title: title.trim(),
-        description: description.trim(),
-        track,
-        tags,
-        lessonId: initialLesson?.id || '',
-        codeSnippet: includeCode ? codeSnippet : undefined,
-        postToFeed,
-      });
+      let res;
+      try {
+        res = await api.post('/learning/questions', payload);
+      } catch (err1) {
+        if (err1.response?.status === 404) {
+          try {
+            res = await api.post('/learning/question', payload);
+          } catch (err2) {
+            res = await api.post('/learning/questions/create', payload);
+          }
+        } else {
+          throw err1;
+        }
+      }
 
       showToast('Question posted to community!', 'success');
       if (onQuestionCreated) {
