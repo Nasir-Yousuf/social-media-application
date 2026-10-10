@@ -840,7 +840,7 @@ const WEB_DEVELOPMENT_LESSONS = [
   },
 
   // ==========================================
-  // CSS TRACK (8 Lessons)
+  // CSS TRACK (15 Lessons)
   // ==========================================
   {
     id: 'css-intro',
@@ -1327,6 +1327,433 @@ const WEB_DEVELOPMENT_LESSONS = [
       validation: {
         type: 'css_contains',
         keyword: ':hover',
+      },
+    },
+  },
+  {
+    id: 'css-grid',
+    track: 'css',
+    order: 9,
+    difficulty: 'Intermediate',
+    title: {
+      en: '9. CSS Grid Layout Foundations',
+      bn: '৯. CSS গ্রিড লেআউট পরিচিতি',
+    },
+    subtitle: {
+      en: 'Creating 2D grid columns and rows for complex page layouts.',
+      bn: 'টু-ডাইমেনশনাল কলাম ও রো দিয়ে লেআউট তৈরি।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'CSS Grid is a 2D layout system. While Flexbox is ideal for 1D rows or columns, Grid excels at managing both rows and columns at the same time.',
+        bn: 'CSS Grid হলো টু-ডি (2D) লেআউট সিস্টেম। ফ্লেক্সবক্স ১-ডি রো বা কলামের জন্য ভালো হলেও গ্রিড একসাথে রো ও কলাম সাজাতে অনন্য।',
+      },
+      whyNeedIt: {
+        en: 'Grid simplifies building photo galleries, dashboard widgets, and multi-column article layouts without complex floats or margins.',
+        bn: 'গ্রিড ব্যবহার করে গ্যালারি, ড্যাশবোর্ড বা মাল্টি-কলাম ব্লক তৈরি করা অত্যন্ত সহজ হয়ে যায়।',
+      },
+      analogy: {
+        en: 'A chessboard or graph paper where every element fits perfectly into a specific cell or column span!',
+        bn: 'একটি দাবা বোর্ড বা গ্রাফ পেপার, যেখানে প্রতিটি বক্স নির্দিষ্ট জায়গায় নিখুঁতভাবে বসে!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="grid-container">\n  <div class="card">Box 1</div>\n  <div class="card">Box 2</div>\n  <div class="card">Box 3</div>\n</div>`,
+      css: `.grid-container {\n  display: grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap: 16px;\n}\n.card {\n  background: #0284c7;\n  color: white;\n  padding: 20px;\n  border-radius: 8px;\n}`,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'display: grid activates grid mode. grid-template-columns: repeat(3, 1fr) creates 3 equal columns.',
+      bn: 'display: grid দিয়ে গ্রিড চালু করা হয় এবং repeat(3, 1fr) দিয়ে ৩টি সমান কলাম তৈরি হয়।',
+    },
+    starterCode: {
+      html: `<div class="dashboard-grid">\n  <div class="widget">Widget A</div>\n  <div class="widget">Widget B</div>\n</div>`,
+      css: `.dashboard-grid {\n  /* Set display grid and 2 equal columns */\n  display: block;\n}\n.widget {\n  background: #38bdf8;\n  padding: 16px;\n  border-radius: 8px;\n  color: white;\n}`,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Change display to grid in .dashboard-grid and add grid-template-columns: 1fr 1fr; with gap: 12px.',
+        bn: '.dashboard-grid এ display: grid এবং grid-template-columns: 1fr 1fr; সাথে gap: 12px দিন।',
+      },
+      hint: {
+        en: 'Write display: grid; grid-template-columns: 1fr 1fr; gap: 12px; inside .dashboard-grid',
+        bn: '.dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } লিখুন।',
+      },
+      solution: {
+        html: `<div class="dashboard-grid">\n  <div class="widget">Widget A</div>\n  <div class="widget">Widget B</div>\n</div>`,
+        css: `.dashboard-grid {\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 12px;\n}\n.widget {\n  background: #38bdf8;\n  padding: 16px;\n  border-radius: 8px;\n  color: white;\n}`,
+        javascript: ``,
+      },
+      validation: {
+        type: 'css_property',
+        property: 'grid-template-columns',
+      },
+    },
+  },
+  {
+    id: 'css-positioning',
+    track: 'css',
+    order: 10,
+    difficulty: 'Intermediate',
+    title: {
+      en: '10. CSS Positioning & Z-Index',
+      bn: '১০. CSS পজিশনিং ও লেয়ারিং (z-index)',
+    },
+    subtitle: {
+      en: 'Controlling element placement with relative, absolute, fixed, and sticky.',
+      bn: 'উপাদানগুলোকে পেজের যেকোনো নির্দিষ্ট স্থানে বসানো।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'The position property determines how an element is placed on the document: static (default), relative, absolute, fixed, or sticky.',
+        bn: 'position প্রোপার্টি দিয়ে এলিমেন্টকে পেজে অবস্থান দেওয়া হয়: relative, absolute, fixed, বা sticky।',
+      },
+      whyNeedIt: {
+        en: 'You need position: absolute for badge overlays on avatars, position: fixed for sticky top headers, and position: sticky for scroll headers.',
+        bn: 'নোটিফিকেশন ব্যাজ, স্থায়ী নেভিগেশন বার এবং স্টিকি হেডারের জন্য পজিশনিং অপরিহার্য।',
+      },
+      analogy: {
+        en: 'Placing stickers on a notebook: relative moves a sticker slightly; absolute pins it to a specific corner of the cover!',
+        bn: 'খাতার কভারে স্টিকার লাগানোর মতো: relative একটু সরায়, আর absolute ঠিক নির্দিষ্ট কোণায় পিন করে দেয়!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="avatar-container">\n  <img src="avatar.jpg" alt="User" />\n  <span class="badge">Online</span>\n</div>`,
+      css: `.avatar-container {\n  position: relative;\n  width: 60px;\n}\n.badge {\n  position: absolute;\n  bottom: 0;\n  right: 0;\n  background: #22c55e;\n  color: white;\n  font-size: 10px;\n  padding: 2px 6px;\n  border-radius: 999px;\n}`,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'position: relative on parent establishes a boundary; position: absolute on child places it relative to that parent.',
+      bn: 'প্যারেন্ট ক্লাসে position: relative দিলে চাইল্ডের position: absolute ওই প্যারেন্টের ভেতর পজিশন নেয়।',
+    },
+    starterCode: {
+      html: `<div class="card-box">\n  <span class="tag">NEW</span>\n  <h3>Product Heading</h3>\n</div>`,
+      css: `.card-box {\n  position: relative;\n  padding: 20px;\n  background: #f1f5f9;\n  border-radius: 8px;\n}\n.tag {\n  /* Set position absolute, top 8px, right 8px */\n  background: #ef4444;\n  color: white;\n  padding: 4px 8px;\n  border-radius: 4px;\n}`,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Set position: absolute; top: 8px; right: 8px; on the .tag selector.',
+        bn: '.tag সিলেক্টরে position: absolute; top: 8px; right: 8px; দিন।',
+      },
+      hint: {
+        en: 'In .tag write: position: absolute; top: 8px; right: 8px;',
+        bn: '.tag ক্লাসে position: absolute; top: 8px; right: 8px; যোগ করুন।',
+      },
+      solution: {
+        html: `<div class="card-box">\n  <span class="tag">NEW</span>\n  <h3>Product Heading</h3>\n</div>`,
+        css: `.card-box {\n  position: relative;\n  padding: 20px;\n  background: #f1f5f9;\n  border-radius: 8px;\n}\n.tag {\n  position: absolute;\n  top: 8px;\n  right: 8px;\n  background: #ef4444;\n  color: white;\n  padding: 4px 8px;\n  border-radius: 4px;\n}`,
+        javascript: ``,
+      },
+      validation: {
+        type: 'css_property',
+        property: 'position',
+      },
+    },
+  },
+  {
+    id: 'css-variables',
+    track: 'css',
+    order: 11,
+    difficulty: 'Intermediate',
+    title: {
+      en: '11. CSS Custom Properties (Variables)',
+      bn: '১১. CSS ভ্যারিয়েবল ও থিম কাস্টমাইজেশন',
+    },
+    subtitle: {
+      en: 'Reusing colors and measurements dynamically across your styles.',
+      bn: 'এক জায়গায় কালার ডিফাইন করে পুরো ওয়েবসাইট নিয়ন্ত্রণ।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'CSS Variables allow you to store reusable values like colors, font sizes, and spacing tokens under custom names starting with --.',
+        bn: 'CSS ভ্যারিয়েবল (Custom Properties) দিয়ে রিউজেবল কালার ও মেজারমেন্ট একই জায়গায় সংরক্ষণ করা যায় (--নাম দিয়ে)।',
+      },
+      whyNeedIt: {
+        en: 'Instead of manually changing hex code #0284c7 in 50 places when rebranding or switching dark mode, you update 1 variable!',
+        bn: '৫০ জায়গায় কালার কোড ম্যানুয়ালি বদলানোর বদলে মাত্র ১টি ভ্যারিয়েবল চেঞ্জ করলেই পুরো সাইটের থিম বদলে যায়!',
+      },
+      analogy: {
+        en: 'Assigning a label to a paint bucket: when you change the color in the bucket, every room painted with that bucket instantly changes!',
+        bn: 'রঙের ডাব্বায় লেবেল দেওয়ার মতো: ডাব্বার রং চেঞ্জ করলেই সব দেয়ালে সেই পরিবর্তন চলে আসে!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="hero-box">\n  <h1>Theme Controlled</h1>\n</div>`,
+      css: `:root {\n  --brand-primary: #0284c7;\n  --brand-bg: #f0f9ff;\n}\n.hero-box {\n  background-color: var(--brand-bg);\n  color: var(--brand-primary);\n  padding: 24px;\n  border-radius: 12px;\n}`,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: ':root defines global variables. var(--variable-name) consumes the stored value.',
+      bn: ':root এ গ্লোবাল ভ্যারিয়েবল লিখা হয় এবং var(--variable-name) দিয়ে ব্যবহার করা হয়।',
+    },
+    starterCode: {
+      html: `<button class="btn">Primary Action</button>`,
+      css: `:root {\n  --accent-color: #ec4899;\n}\n.btn {\n  /* Set background-color to var(--accent-color) */\n  color: white;\n  padding: 10px 20px;\n  border: none;\n  border-radius: 8px;\n}`,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Set background-color: var(--accent-color); inside the .btn class.',
+        bn: '.btn ক্লাসে background-color: var(--accent-color); ব্যবহার করুন।',
+      },
+      hint: {
+        en: 'Inside .btn add background-color: var(--accent-color);',
+        bn: '.btn এ লিখুন: background-color: var(--accent-color);',
+      },
+      solution: {
+        html: `<button class="btn">Primary Action</button>`,
+        css: `:root {\n  --accent-color: #ec4899;\n}\n.btn {\n  background-color: var(--accent-color);\n  color: white;\n  padding: 10px 20px;\n  border: none;\n  border-radius: 8px;\n}`,
+        javascript: ``,
+      },
+      validation: {
+        type: 'css_contains',
+        keyword: 'var(--accent-color)',
+      },
+    },
+  },
+  {
+    id: 'css-media-queries',
+    track: 'css',
+    order: 12,
+    difficulty: 'Intermediate',
+    title: {
+      en: '12. Responsive Web Design & Media Queries',
+      bn: '১২. রেসপন্সিভ ডিজাইন ও মিডিয়া কোয়েরি',
+    },
+    subtitle: {
+      en: 'Adapting layouts seamlessly for mobile, tablet, and desktop screens.',
+      bn: 'মোবাইল, ট্যাবলেট ও ডেসটপ স্ক্রিনে পারফেক্ট লেআউট অ্যাডাপ্ট করা।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Media queries (@media) allow you to apply CSS rules only when specific viewport conditions are met (e.g. max-width: 768px).',
+        bn: 'মিডিয়া কোয়েরি (@media) ব্যবহার করে স্ক্রিন সাইজ অনুযায়ী নির্দিষ্ট CSS রুল চালু করা যায়।',
+      },
+      whyNeedIt: {
+        en: 'Over 60% of web traffic comes from mobile devices. Responsive design ensures your site looks great on phones, tablets, and 4K monitors.',
+        bn: '৬০% এর বেশি ইউজার মোবাইল থেকে ব্রাউজ করে। সব স্ক্রিনে সাইট সুন্দর দেখানোর জন্য রেসপন্সিভ ডিজাইন বাধ্যতামূলক।',
+      },
+      analogy: {
+        en: 'A liquid filling different shaped containers: it flows gracefully into a narrow glass or wide bowl!',
+        bn: 'একটি তরল পদার্থ যেভাবে যেকোনো পাত্রের আকার নেয়, রেসপন্সিভ পেজও যেকোনো স্ক্রিনে সেভাবে ফিট হয়ে যায়!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="responsive-card">\n  <h2>Adaptive Box</h2>\n</div>`,
+      css: `.responsive-card {\n  background: #38bdf8;\n  padding: 30px;\n  color: white;\n}\n\n@media (max-width: 640px) {\n  .responsive-card {\n    background: #f43f5e;\n    padding: 15px;\n  }\n}`,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'When screen width is 640px or smaller, the background switches to rose red.',
+      bn: 'স্ক্রিনের চওড়া ৬৪০ পিক্সেল বা কম হলে ব্যাকগ্রাউন্ড হয়ে যাবে গোলাপী লাল।',
+    },
+    starterCode: {
+      html: `<div class="box">Resize Friendly</div>`,
+      css: `.box {\n  font-size: 24px;\n  color: #0f172a;\n}\n\n/* Add @media (max-width: 600px) rule */\n@media (max-width: 600px) {\n  .box {\n    font-size: 16px;\n  }\n}`,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Ensure the @media (max-width: 600px) block contains font-size: 16px for .box.',
+        bn: '@media (max-width: 600px) মিডিয়া কোয়েরিতে .box এর font-size: 16px দিন।',
+      },
+      hint: {
+        en: 'Inside @media (max-width: 600px) { .box { font-size: 16px; } }',
+        bn: 'মিডিয়া ব্লকে .box এর ফন্ট সাইজ পিক্সেল দিয়ে ফিক্স করুন।',
+      },
+      solution: {
+        html: `<div class="box">Resize Friendly</div>`,
+        css: `.box {\n  font-size: 24px;\n  color: #0f172a;\n}\n\n@media (max-width: 600px) {\n  .box {\n    font-size: 16px;\n  }\n}`,
+        javascript: ``,
+      },
+      validation: {
+        type: 'css_contains',
+        keyword: '@media',
+      },
+    },
+  },
+  {
+    id: 'css-pseudo-elements',
+    track: 'css',
+    order: 13,
+    difficulty: 'Advanced',
+    title: {
+      en: '13. Pseudo-elements (::before & ::after)',
+      bn: '১৩. সিউডো-এলিমেন্ট (::before এবং ::after)',
+    },
+    subtitle: {
+      en: 'Injecting decorative content and styling elements without extra HTML.',
+      bn: 'বাড়তি HTML ছাড়াই স্টাইলিশ ডেকোরেটিভ কনটেন্ট যোগ করা।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'Pseudo-elements (::before and ::after) allow you to insert content before or after an element’s real content using CSS.',
+        bn: 'সিউডো-এলিমেন্ট (::before ও ::after) দিয়ে কোনো ট্যাগের আগে বা পরে সিএসএস থেকেই বাড়তি অংশ বা ডিজাইন যোগ করা যায়।',
+      },
+      whyNeedIt: {
+        en: 'Use ::before for decorative icons, quote marks, badge highlights, and divider dots without cluttering your HTML markup.',
+        bn: 'HTML পরিষ্কার রেখে ব্যাজ, ডট, আইকন বা ডিজাইন এলিমেন্ট যুক্ত করতে এটি দারুণ কার্যকরী।',
+      },
+      analogy: {
+        en: 'Adding a bow tie or badge to an outfit: it accessorizes the outfit without stitching a whole new coat!',
+        bn: 'জামা কাপড়ে অতিরিক্ত ব্যাজ বা ফুল লাগানোর মতো: মূল কাপড় ঠিক রেখেই সুন্দর এক্সেসরিজ যুক্ত করা!',
+      },
+    },
+    exampleCode: {
+      html: `<h2 class="featured">Special Topic</h2>`,
+      css: `.featured::before {\n  content: "★ ";\n  color: #f59e0b;\n}\n.featured {\n  color: #1e293b;\n}`,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'content: "★ "; tells CSS what text/symbol to render before the heading.',
+      bn: 'content: "★ "; নির্দেশ দেয় হেডারের শুরুতে কী প্রতীক দেখাবে।',
+    },
+    starterCode: {
+      html: `<p class="quote">Knowledge is power.</p>`,
+      css: `.quote::before {\n  /* Add content property with opening quote */\n  content: "“ ";\n  color: #0284c7;\n  font-weight: bold;\n}`,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Make sure .quote::before has content: "“ "; defined in the CSS tab.',
+        bn: '.quote::before এলিমেন্টে content প্রোপার্টি সঠিক কোট দিয়ে ডিফাইন করুন।',
+      },
+      hint: {
+        en: 'Write content: "“ "; inside .quote::before selector.',
+        bn: '.quote::before এ content: "“ "; লিখুন।',
+      },
+      solution: {
+        html: `<p class="quote">Knowledge is power.</p>`,
+        css: `.quote::before {\n  content: "“ ";\n  color: #0284c7;\n  font-weight: bold;\n}`,
+        javascript: ``,
+      },
+      validation: {
+        type: 'css_contains',
+        keyword: 'content:',
+      },
+    },
+  },
+  {
+    id: 'css-animations',
+    track: 'css',
+    order: 14,
+    difficulty: 'Advanced',
+    title: {
+      en: '14. Keyframe Animations & Transform Scaling',
+      bn: '১৪. কিফ্রেম অ্যানিমেশন ও ট্রান্সফর্ম স্কেলিং',
+    },
+    subtitle: {
+      en: 'Bringing web pages alive with keyframes, scale, and smooth motion.',
+      bn: 'ওয়েব পেজকে গতিশীল ও দৃষ্টিনন্দন করার অ্যানিমেশন কৌশল।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: '@keyframes defines animation steps from start (0%) to end (100%), and animation binds keyframes to elements.',
+        bn: '@keyframes দিয়ে অ্যানিমেশনের ধাপ (0% থেকে 100%) ডিফাইন করা হয় এবং animation দিয়ে মোশন চালু করা হয়।',
+      },
+      whyNeedIt: {
+        en: 'Keyframes power pulse effects, loading spinners, floating badges, and smooth entrance transitions that engage users.',
+        bn: 'স্পিনার, পালস ইফেক্ট বা পেজ লোডিং অ্যানিমেশনের জন্য কিফ্রেম অ্যানিমেশন অত্যন্ত জরুরি।',
+      },
+      analogy: {
+        en: 'Flipbook drawings: each page is a keyframe step; flipping the pages rapidly creates smooth life-like motion!',
+        bn: 'ফ্লিপবুকের পাতার ড্রয়িংয়ের মতো: পাতাগুলো দ্রুত উল্টালেই সুন্দর নড়াচড়া বা মোশন তৈরি হয়!',
+      },
+    },
+    exampleCode: {
+      html: `<div class="pulse-circle"></div>`,
+      css: `.pulse-circle {\n  width: 40px;\n  height: 40px;\n  background: #3b82f6;\n  border-radius: 50%;\n  animation: pulse 1.5s infinite;\n}\n\n@keyframes pulse {\n  0% { transform: scale(1); opacity: 1; }\n  50% { transform: scale(1.2); opacity: 0.7; }\n  100% { transform: scale(1); opacity: 1; }\n}`,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'transform: scale(1.2) expands the circle to 120% size smoothly.',
+      bn: 'transform: scale(1.2) দিলে সার্কেলটি ১২০% বড় হয়ে পোলস করে।',
+    },
+    starterCode: {
+      html: `<div class="badge-spin">⚡ FAST</div>`,
+      css: `.badge-spin {\n  display: inline-block;\n  background: #f59e0b;\n  color: white;\n  padding: 6px 12px;\n  border-radius: 20px;\n  /* Add animation property: spin 2s linear infinite */\n  animation: spin 2s linear infinite;\n}\n\n@keyframes spin {\n  0% { transform: rotate(0deg); }\n  100% { transform: rotate(360deg); }\n}`,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Add animation: spin 2s linear infinite; to the .badge-spin selector.',
+        bn: '.badge-spin সিলেক্টরে animation: spin 2s linear infinite; দিন।',
+      },
+      hint: {
+        en: 'Inside .badge-spin add: animation: spin 2s linear infinite;',
+        bn: '.badge-spin এ লিখুন: animation: spin 2s linear infinite;',
+      },
+      solution: {
+        html: `<div class="badge-spin">⚡ FAST</div>`,
+        css: `.badge-spin {\n  display: inline-block;\n  background: #f59e0b;\n  color: white;\n  padding: 6px 12px;\n  border-radius: 20px;\n  animation: spin 2s linear infinite;\n}\n\n@keyframes spin {\n  0% { transform: rotate(0deg); }\n  100% { transform: rotate(360deg); }\n}`,
+        javascript: ``,
+      },
+      validation: {
+        type: 'css_contains',
+        keyword: 'animation',
+      },
+    },
+  },
+  {
+    id: 'css-mastery-project',
+    track: 'css',
+    order: 15,
+    difficulty: 'Challenge',
+    title: {
+      en: '15. Advanced Capstone: Responsive Navbar & Card Grid',
+      bn: '১৫. অ্যাডভান্সড ক্যাপস্টোন: রেসপন্সিভ নেভবার ও কার্ড গ্রিড',
+    },
+    subtitle: {
+      en: 'Building a production-grade responsive layout combining Grid, Flexbox, & Variables.',
+      bn: 'গ্রিড, ফ্লেক্সবক্স এবং ভ্যারিয়েবল ব্যবহার করে পূর্ণাঙ্গ রেসপন্সিভ লেআউট তৈরি।',
+    },
+    explanation: {
+      whatIsIt: {
+        en: 'The ultimate CSS milestone! You will combine Flexbox header navigation, Grid product cards, custom variables, and responsive media queries.',
+        bn: 'CSS ট্র্যাকের মূল গ্র্যান্ড ফাইনাল! ফ্লেক্সবক্স নেভবার, গ্রিড কার্ড, ভ্যারিয়েবল এবং মিডিয়া কোয়েরি একসাথে মিলিয়ে প্রফেশনাল লেআউট বানাবেন।',
+      },
+      whyNeedIt: {
+        en: 'Completing this capstone proves you have mastered modern CSS and can build real-world web applications from scratch.',
+        bn: 'এটি সম্পন্ন করার মাধ্যমে প্রমাণিত হবে যে আপনি আধুনিক CSS পুরোপুরি আয়ত্ত করেছেন এবং পেজ লেআউট তৈরি করতে প্রস্তুত।',
+      },
+      analogy: {
+        en: 'Architecting a modern skyscraper: combining solid steel frameworks, glass windows, elevators, and interior aesthetics!',
+        bn: 'একটি সুউচ্চ আধুনিক ভবন বানানোর মতো: রড, কাচ, লিফট এবং ডেকোরেশন সব একত্রে এনে অসাধারণ রূপ দেওয়া!',
+      },
+    },
+    exampleCode: {
+      html: `<nav class="nav">\n  <div class="logo">Clearfeed</div>\n  <div class="menu">Home • Docs</div>\n</nav>\n<main class="grid">\n  <div class="item">Card A</div>\n  <div class="item">Card B</div>\n</main>`,
+      css: `:root {\n  --primary: #0284c7;\n}\n.nav {\n  display: flex;\n  justify-content: space-between;\n  padding: 16px;\n  background: #0f172a;\n  color: white;\n}\n.grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));\n  gap: 16px;\n  padding: 20px;\n}\n.item {\n  background: white;\n  padding: 20px;\n  border-radius: 12px;\n  box-shadow: 0 4px 10px rgba(0,0,0,0.05);\n}`,
+      javascript: ``,
+    },
+    exampleExplanation: {
+      en: 'Flexbox handles 1D navigation header while Grid handles 2D responsive card grid layout.',
+      bn: 'ফ্লেক্সবক্স নেভিগেশন বারের জন্য এবং গ্রিড অটো-রেসপন্সিভ কার্ডগুলোর জন্য কাজ করছে।',
+    },
+    starterCode: {
+      html: `<div class="app-wrapper">\n  <header class="app-header">\n    <span>Clearfeed Studio</span>\n  </header>\n  <section class="card-grid">\n    <div class="card">Box 1</div>\n    <div class="card">Box 2</div>\n  </section>\n</div>`,
+      css: `.app-header {\n  display: flex;\n  justify-content: space-between;\n  background-color: #0f172a;\n  color: white;\n  padding: 16px 20px;\n}\n\n.card-grid {\n  /* Set display: grid and gap: 16px */\n  display: grid;\n  gap: 16px;\n  padding: 20px;\n}\n\n.card {\n  background-color: #ffffff;\n  padding: 20px;\n  border-radius: 12px;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.08);\n}`,
+      javascript: ``,
+    },
+    exercise: {
+      instructions: {
+        en: 'Add box-shadow to .card and ensure .card-grid has display: grid; with gap: 16px.',
+        bn: '.card এ box-shadow এবং .card-grid এ display: grid; সাথে gap: 16px নিশ্চিত করুন।',
+      },
+      hint: {
+        en: 'In .card-grid set display: grid; gap: 16px; and check .card styling.',
+        bn: '.card-grid এ display: grid; gap: 16px; লিখুন।',
+      },
+      solution: {
+        html: `<div class="app-wrapper">\n  <header class="app-header">\n    <span>Clearfeed Studio</span>\n  </header>\n  <section class="card-grid">\n    <div class="card">Box 1</div>\n    <div class="card">Box 2</div>\n  </section>\n</div>`,
+        css: `.app-header {\n  display: flex;\n  justify-content: space-between;\n  background-color: #0f172a;\n  color: white;\n  padding: 16px 20px;\n}\n\n.card-grid {\n  display: grid;\n  gap: 16px;\n  padding: 20px;\n}\n\n.card {\n  background-color: #ffffff;\n  padding: 20px;\n  border-radius: 12px;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.08);\n}`,
+        javascript: ``,
+      },
+      validation: {
+        type: 'css_property',
+        property: 'box-shadow',
       },
     },
   },
