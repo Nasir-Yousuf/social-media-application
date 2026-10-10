@@ -237,61 +237,50 @@ export const QuestionDetail = () => {
 
     setSubmitting(true);
     try {
-      const res = await api.post(`/learning/questions/${id}/answers`, {
-        content: newAnswer.trim(),
-        codeSnippet: includeCode ? answerCode : undefined,
-      });
+      let createdAnswer = null;
+      let updatedAnswersCount = undefined;
 
-      setAnswers((prev) => [...prev, res.data.answer]);
-      setQuestion((prev) => ({ ...prev, answersCount: res.data.answersCount }));
+      try {
+        const res = await api.post(`/learning/questions/${id}/answers`, {
+          content: newAnswer.trim(),
+          codeSnippet: includeCode ? answerCode : undefined,
+        });
+        createdAnswer = res.data.answer;
+        updatedAnswersCount = res.data.answersCount;
+      } catch (err1) {
+        if (err1.response?.status === 404 || !err1.response) {
+          // Persist answer permanently via post comment database endpoint
+          const res = await api.post(`/posts/${id}/comments`, {
+            content: newAnswer.trim(),
+          });
+          const comment = res.data.comment;
+          createdAnswer = {
+            _id: comment?._id || Date.now().toString(),
+            content: newAnswer.trim(),
+            codeSnippet: includeCode ? answerCode : { html: '', css: '', javascript: '' },
+            author: comment?.author || user || { name: 'Guest User', username: 'guest' },
+            upvotes: [],
+            upvotesCount: 0,
+            isUpvoted: false,
+            isAccepted: false,
+            createdAt: comment?.createdAt || new Date().toISOString(),
+          };
+        } else {
+          throw err1;
+        }
+      }
+
+      setAnswers((prev) => [...prev, createdAnswer]);
+      setQuestion((prev) => ({
+        ...prev,
+        answersCount: typeof updatedAnswersCount === 'number' ? updatedAnswersCount : (prev?.answersCount || 0) + 1,
+      }));
       setNewAnswer('');
       setIncludeCode(false);
       setAnswerCode({ html: '', css: '', javascript: '' });
       showToast('Your answer was posted! Thanks for helping!', 'success');
     } catch (err) {
-      if (err.response?.status === 404 || !err.response) {
-        // Local fallback answer creation
-        const localAnswer = {
-          _id: 'ans_' + Date.now(),
-          content: newAnswer.trim(),
-          codeSnippet: includeCode ? answerCode : { html: '', css: '', javascript: '' },
-          author: {
-            _id: user?._id || 'guest',
-            name: user?.name || 'You',
-            username: user?.username || 'you',
-            avatarUrl: user?.avatarUrl || '',
-            role: user?.role || 'user',
-          },
-          upvotes: [],
-          upvotesCount: 0,
-          isUpvoted: false,
-          isAccepted: false,
-          createdAt: new Date().toISOString(),
-        };
-
-        setAnswers((prev) => [...prev, localAnswer]);
-        setQuestion((prev) => {
-          const updated = { ...prev, answersCount: (prev.answersCount || 0) + 1 };
-          try {
-            const stored = JSON.parse(localStorage.getItem('clearfeed_learning_questions') || '[]');
-            const updatedStored = stored.map((q) =>
-              q._id === id
-                ? { ...q, answers: [...(q.answers || []), localAnswer], answersCount: (q.answersCount || 0) + 1 }
-                : q
-            );
-            localStorage.setItem('clearfeed_learning_questions', JSON.stringify(updatedStored));
-          } catch (_) {}
-          return updated;
-        });
-
-        setNewAnswer('');
-        setIncludeCode(false);
-        setAnswerCode({ html: '', css: '', javascript: '' });
-        showToast('Your answer was posted! Thanks for helping!', 'success');
-        return;
-      }
-
-      showToast(err.response?.data?.message || 'Failed to post answer', 'error');
+      showToast(err.response?.data?.message || 'Failed to post answer. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

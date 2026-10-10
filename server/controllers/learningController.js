@@ -438,14 +438,66 @@ exports.createAnswer = async (req, res) => {
       return res.status(400).json({ message: 'Answer content cannot be empty.' });
     }
 
-    const question = await LearningQuestion.findById(id);
+    let authorUser = req.user;
+    if (!authorUser) {
+      const User = require('../models/User');
+      let guestUser = await User.findOne({ username: 'guest' });
+      if (!guestUser) {
+        guestUser = await User.create({
+          name: 'Guest User',
+          username: 'guest',
+          email: 'guest@clearfeed.local',
+          password: 'guestpassword123',
+          bio: 'Exploring Clearfeed as a guest community visitor.',
+          isApproved: true,
+        });
+      }
+      authorUser = guestUser;
+    }
+
+    let question = await LearningQuestion.findById(id);
     if (!question) {
+      const post = await Post.findById(id);
+      if (post) {
+        const Comment = require('../models/Comment');
+        const newComment = await Comment.create({
+          post: post._id,
+          author: authorUser._id,
+          content: content.trim(),
+        });
+        post.commentsCount = (post.commentsCount || 0) + 1;
+        await post.save();
+        await newComment.populate('author', 'name username avatarUrl role status');
+
+        if (!post.author.equals(authorUser._id)) {
+          await Notification.create({
+            recipient: post.author,
+            sender: authorUser._id,
+            type: 'comment',
+            post: post._id,
+          }).catch(() => {});
+        }
+
+        return res.status(201).json({
+          message: 'Answer posted successfully!',
+          answer: {
+            _id: newComment._id,
+            content: newComment.content,
+            author: newComment.author,
+            upvotesCount: 0,
+            isUpvoted: false,
+            isAccepted: false,
+            createdAt: newComment.createdAt,
+          },
+          answersCount: post.commentsCount,
+        });
+      }
       return res.status(404).json({ message: 'Question not found.' });
     }
 
     const newAnswer = await LearningAnswer.create({
       question: question._id,
-      author: req.user._id,
+      author: authorUser._id,
       content: content.trim(),
       codeSnippet: {
         html: codeSnippet?.html || '',
