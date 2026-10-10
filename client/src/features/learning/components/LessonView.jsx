@@ -50,8 +50,11 @@ export const LessonView = ({
   const [feynmanUserAnswer, setFeynmanUserAnswer] = useState('');
   const [showFeynmanSample, setShowFeynmanSample] = useState(false);
 
+  const isPythonTrack = ['python', 'python-ai', 'pycharm'].includes(lesson.track) || Boolean(lesson.starterCode?.python);
+
   // Initialize editor code
   const initialCode = {
+    python: lesson.starterCode?.python || '',
     html: lesson.starterCode?.html || '',
     css: lesson.starterCode?.css || '',
     javascript: lesson.starterCode?.javascript || '',
@@ -59,19 +62,20 @@ export const LessonView = ({
 
   const [userCode, setUserCode] = useState(initialCode);
   const [activeEditorTab, setActiveEditorTab] = useState(
-    lesson.track === 'css' ? 'css' : lesson.track === 'javascript' ? 'javascript' : 'html'
+    isPythonTrack ? 'python' : lesson.track === 'css' ? 'css' : lesson.track === 'javascript' ? 'javascript' : 'html'
   );
   const [runTrigger, setRunTrigger] = useState(0);
 
   // Reset editor, Feynman input & scroll to top when lessonId changes
   useEffect(() => {
     setUserCode({
+      python: lesson.starterCode?.python || '',
       html: lesson.starterCode?.html || '',
       css: lesson.starterCode?.css || '',
       javascript: lesson.starterCode?.javascript || '',
     });
     setActiveEditorTab(
-      lesson.track === 'css' ? 'css' : lesson.track === 'javascript' ? 'javascript' : 'html'
+      isPythonTrack ? 'python' : lesson.track === 'css' ? 'css' : lesson.track === 'javascript' ? 'javascript' : 'html'
     );
     setFeynmanUserAnswer('');
     setShowFeynmanSample(false);
@@ -81,7 +85,7 @@ export const LessonView = ({
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
-  }, [lesson.id, lesson.starterCode, lesson.track]);
+  }, [lesson.id, lesson.starterCode, lesson.track, isPythonTrack]);
 
   const handleRunCode = () => {
     setRunTrigger((prev) => prev + 1);
@@ -180,6 +184,14 @@ export const LessonView = ({
         return {
           success: false,
           message: `Make sure to declare variables using let or const.`,
+        };
+      }
+    } else if (type === 'py_contains') {
+      const pyCode = (userCode.python || '').toLowerCase();
+      if (keyword && !pyCode.includes(keyword.toLowerCase())) {
+        return {
+          success: false,
+          message: `Python code is missing required keyword "${keyword}". Please check the instructions.`,
         };
       }
     }
@@ -416,6 +428,7 @@ export const LessonView = ({
                 html={userCode.html}
                 css={userCode.css}
                 javascript={userCode.javascript}
+                python={userCode.python}
                 runTrigger={runTrigger}
               />
             </>

@@ -24,6 +24,8 @@ export const LearningDashboard = ({
   onLangChange,
   onOpenAskQuestion,
 }) => {
+  const [selectedCategory, setSelectedCategory] = useState('All');
+
   const completedSet = new Set(progress.completedLessons || []);
   const passedQuizzesSet = new Set(progress.passedQuizzes || []);
   const finishedSet = new Set([...completedSet, ...passedQuizzesSet]);
@@ -65,7 +67,20 @@ export const LearningDashboard = ({
   const getTrackIcon = (trackId) => {
     switch (trackId) {
       case 'english':
-        return <BookOpen className="w-5 h-5 text-emerald-500" />;
+        return <BookOpen className="w-5 h-5 text-sky-500" />;
+      case 'python':
+      case 'python-ai':
+        return <Terminal className="w-5 h-5 text-blue-500" />;
+      case 'tailwind':
+        return <Palette className="w-5 h-5 text-cyan-400" />;
+      case 'react':
+        return <Sparkles className="w-5 h-5 text-sky-400" />;
+      case 'typescript':
+        return <Code2 className="w-5 h-5 text-blue-600" />;
+      case 'nextjs':
+        return <Layers className="w-5 h-5 text-neutral-300" />;
+      case 'pycharm':
+        return <Brain className="w-5 h-5 text-emerald-400" />;
       case 'html':
         return <Layout className="w-5 h-5 text-orange-500" />;
       case 'css':
@@ -77,7 +92,7 @@ export const LearningDashboard = ({
       case 'ai':
         return <Brain className="w-5 h-5 text-emerald-500" />;
       default:
-        return <Code2 className="w-5 h-5" />;
+        return <BookOpen className="w-5 h-5 text-sky-500" />;
     }
   };
 
@@ -160,19 +175,39 @@ export const LearningDashboard = ({
         </div>
       )}
 
-      {/* 3 Core Tracks (HTML, CSS, JavaScript) */}
+      {/* Learning Tracks Grid */}
       <div>
-        <div className="flex items-center justify-between mb-3.5">
-          <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
-            {lang === 'bn' ? 'লার্নিং ট্র্যাকসমূহ' : 'Learning Tracks'}
-          </h2>
-          <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-            {totalCompleted} / {totalLessons} Lessons Completed ({percentOverall}%)
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+              {lang === 'bn' ? 'লার্নিং ট্র্যাকসমূহ' : 'Learning Tracks'}
+            </h2>
+            <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+              {totalCompleted} / {totalLessons} Lessons Completed ({percentOverall}%)
+            </span>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {['All', 'Python & AI', 'Frontend & Web', 'Foundations'].map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  selectedCategory === cat
+                    ? 'bg-sky-500 text-white shadow-xs'
+                    : 'bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {TRACKS.map((track) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {(selectedCategory === 'All' ? TRACKS : TRACKS.filter((t) => t.category === selectedCategory)).map((track) => {
             const { completedCount, total, percent } = getTrackProgress(track.id);
             const firstTrackLesson = LESSONS.find((l) => l.track === track.id);
 
@@ -215,16 +250,8 @@ export const LearningDashboard = ({
                     </div>
                     <div className="w-full h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          track.id === 'html'
-                            ? 'bg-orange-500'
-                            : track.id === 'css'
-                            ? 'bg-sky-500'
-                            : track.id === 'ai'
-                            ? 'bg-emerald-500'
-                            : 'bg-amber-400'
-                        }`}
-                        style={{ width: `${percent}%` }}
+                        className="h-full rounded-full transition-all duration-500 bg-sky-500"
+                        style={{ width: `${percent}%`, backgroundColor: track.accentColor || '#1d9bf0' }}
                       />
                     </div>
                   </div>

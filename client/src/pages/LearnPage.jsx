@@ -6,6 +6,7 @@ import LessonView from '../features/learning/components/LessonView';
 import CommunityQA from '../features/learning/components/CommunityQA';
 import QuestionDetail from '../features/learning/components/QuestionDetail';
 import AskQuestionModal from '../features/learning/components/AskQuestionModal';
+import { TRACKS } from '../features/learning/data/learningCurriculum';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -181,7 +182,7 @@ export const LearnPage = () => {
         onProgressUpdate={fetchProgress}
       />
     );
-  } else if (track && ['html', 'css', 'javascript', 'bootstrap', 'ai'].includes(track)) {
+  } else if (track && TRACKS.some((t) => t.id === track)) {
     // 4. Track Roadmap View: /learn/:track
     mainContent = (
       <TrackView

@@ -129,18 +129,8 @@ export const TrackView = ({
         {/* Progress Bar */}
         <div className="w-full h-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 mt-5 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              track.id === 'english'
-                ? 'bg-emerald-500'
-                : track.id === 'html'
-                ? 'bg-orange-500'
-                : track.id === 'css'
-                ? 'bg-sky-500'
-                : track.id === 'ai'
-                ? 'bg-emerald-500'
-                : 'bg-amber-400'
-            }`}
-            style={{ width: `${percent}%` }}
+            className="h-full rounded-full transition-all duration-500 bg-sky-500"
+            style={{ width: `${percent}%`, backgroundColor: track.accentColor || '#1d9bf0' }}
           />
         </div>
 

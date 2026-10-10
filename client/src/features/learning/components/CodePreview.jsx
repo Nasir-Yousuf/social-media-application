@@ -1,18 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, RotateCw, Terminal, Eye, Trash2 } from 'lucide-react';
+import { runPythonCode } from '../../../utils/pythonRunner';
 
 export const CodePreview = ({
   html = '',
   css = '',
   javascript = '',
+  python = '',
   autoRun = true,
   runTrigger = 0,
   className = '',
 }) => {
-  const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'console'
+  const isPythonMode = Boolean(python && python.trim().length > 0);
+  const [activeTab, setActiveTab] = useState(isPythonMode ? 'console' : 'preview'); // 'preview' | 'console'
   const [logs, setLogs] = useState([]);
   const [iframeSrcDoc, setIframeSrcDoc] = useState('');
   const iframeRef = useRef(null);
+
+  useEffect(() => {
+    if (isPythonMode) {
+      setActiveTab('console');
+    }
+  }, [isPythonMode]);
 
   const generateSourceDoc = () => {
     // Generate secure sandbox document with console interception
@@ -73,9 +82,17 @@ export const CodePreview = ({
 </html>`;
   };
 
-  const handleRun = () => {
+  const handleRun = async () => {
     setLogs([]);
-    setIframeSrcDoc(generateSourceDoc());
+    if (python && python.trim().length > 0) {
+      setActiveTab('console');
+      const res = await runPythonCode(python);
+      const outputLogs = res.logs.map((l) => ({ type: 'log', text: l, time: new Date() }));
+      const errorLogs = res.errors.map((e) => ({ type: 'error', text: e, time: new Date() }));
+      setLogs([...outputLogs, ...errorLogs]);
+    } else {
+      setIframeSrcDoc(generateSourceDoc());
+    }
   };
 
   useEffect(() => {

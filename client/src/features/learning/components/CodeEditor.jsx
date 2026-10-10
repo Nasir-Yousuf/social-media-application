@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Copy, RotateCcw, Check, Code2, Palette, Sparkles } from 'lucide-react';
+import { Copy, RotateCcw, Check, Code2, Palette, Sparkles, Terminal } from 'lucide-react';
 
 export const CodeEditor = ({
   code,
@@ -48,44 +48,65 @@ export const CodeEditor = ({
       {/* Editor Header Bar with Tabs */}
       <div className="flex items-center justify-between px-3 py-2 bg-neutral-100/90 dark:bg-[#161a22] border-b border-neutral-200 dark:border-neutral-800/80">
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('html')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'html'
-                ? 'bg-orange-500 text-white shadow-xs'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-orange-500'
-            }`}
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            <span>HTML</span>
-          </button>
+          {(code.python !== undefined || activeTab === 'python') && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('python')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'python'
+                  ? 'bg-blue-600 text-white shadow-xs font-black'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-blue-500'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Python 🐍</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('css')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'css'
-                ? 'bg-sky-500 text-white shadow-xs'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-sky-500'
-            }`}
-          >
-            <Palette className="w-3.5 h-3.5" />
-            <span>CSS</span>
-          </button>
+          {code.html !== undefined && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('html')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'html'
+                  ? 'bg-orange-500 text-white shadow-xs'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-orange-500'
+              }`}
+            >
+              <Code2 className="w-3.5 h-3.5" />
+              <span>HTML</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('javascript')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'javascript'
-                ? 'bg-amber-400 text-black shadow-xs font-black'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-amber-500'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>JS</span>
-          </button>
+          {code.css !== undefined && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('css')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'css'
+                  ? 'bg-sky-500 text-white shadow-xs'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-sky-500'
+              }`}
+            >
+              <Palette className="w-3.5 h-3.5" />
+              <span>CSS</span>
+            </button>
+          )}
+
+          {code.javascript !== undefined && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('javascript')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'javascript'
+                  ? 'bg-amber-400 text-black shadow-xs font-black'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-amber-500'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>JS</span>
+            </button>
+          )}
         </div>
 
         {/* Quick Toolbar */}
