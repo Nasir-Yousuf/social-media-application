@@ -60,6 +60,28 @@ export const LearnPage = () => {
     fetchProgress();
   }, [fetchProgress]);
 
+  // Sync current active lesson to state and backend whenever user visits a lesson
+  useEffect(() => {
+    if (track && lessonId) {
+      setProgress((prev) => {
+        const lastByTrack = { ...(prev.lastLessonByTrack || {}) };
+        lastByTrack[track] = lessonId;
+        const updated = {
+          ...prev,
+          currentTrack: track,
+          currentLessonId: lessonId,
+          lastLessonByTrack: lastByTrack,
+        };
+        localStorage.setItem('clearfeed_learning_progress', JSON.stringify(updated));
+        return updated;
+      });
+
+      if (user) {
+        api.post('/learning/progress/active', { lessonId, track }).catch(() => {});
+      }
+    }
+  }, [track, lessonId, user]);
+
   // Handle lesson completed callback
   const handleLessonCompleted = async (completedId, completedTrack) => {
     // 1. Optimistic update

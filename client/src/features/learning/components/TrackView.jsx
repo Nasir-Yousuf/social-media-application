@@ -40,6 +40,20 @@ export const TrackView = ({
   // Check if user already holds a certificate for this track
   const userCertificate = (progress.certificates || []).find((c) => c.trackId === track.id);
 
+  // Find the exact active or next uncompleted lesson to resume
+  const getResumeLesson = () => {
+    if (!trackLessons || trackLessons.length === 0) return null;
+    const lastSavedId = progress.lastLessonByTrack?.[track.id] || (progress.currentTrack === track.id ? progress.currentLessonId : null);
+    if (lastSavedId) {
+      const found = trackLessons.find((l) => l.id === lastSavedId);
+      if (found) return found;
+    }
+    const uncompleted = trackLessons.find((l) => !completedSet.has(l.id));
+    if (uncompleted) return uncompleted;
+    return trackLessons[0];
+  };
+  const resumeLesson = getResumeLesson();
+
   // Modal States
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
@@ -122,6 +136,25 @@ export const TrackView = ({
             style={{ width: `${percent}%` }}
           />
         </div>
+
+        {/* Action Button: Continue / Start Learning */}
+        {resumeLesson && (
+          <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-xs text-neutral-600 dark:text-neutral-400">
+              <span className="font-bold text-neutral-900 dark:text-neutral-100">Target Lesson: </span>
+              <span className="font-medium text-sky-600 dark:text-sky-400">
+                {typeof resumeLesson.title === 'string' ? resumeLesson.title : resumeLesson.title?.en}
+              </span>
+            </div>
+            <NavLink
+              to={`/learn/${track.id}/${resumeLesson.id}`}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-xs shadow-sky-500/20 shrink-0"
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>{percent > 0 ? 'Resume Learning' : 'Start Learning'}</span>
+            </NavLink>
+          </div>
+        )}
       </div>
 
       {/* Roadmap Lessons List */}
@@ -358,16 +391,22 @@ export const TrackView = ({
       />
 
       {/* Lesson Quiz Modal (if launched from roadmap) */}
-      {quizLessonId && (
-        <LessonQuizModal
-          lessonId={quizLessonId}
-          trackId={track.id}
-          isOpen={!!quizLessonId}
-          onClose={() => setQuizLessonId(null)}
-          onQuizPassed={handleQuizPassed}
-          lang={lang}
-        />
-      )}
+      {quizLessonId && (() => {
+        const quizLesson = LESSONS.find((l) => l.id === quizLessonId);
+        const lTitle = quizLesson ? (typeof quizLesson.title === 'string' ? quizLesson.title : quizLesson.title?.en) : '';
+        return (
+          <LessonQuizModal
+            lesson={quizLesson}
+            lessonId={quizLessonId}
+            lessonTitle={lTitle}
+            trackId={track.id}
+            isOpen={!!quizLessonId}
+            onClose={() => setQuizLessonId(null)}
+            onQuizPassed={handleQuizPassed}
+            lang={lang}
+          />
+        );
+      })()}
     </div>
   );
 };

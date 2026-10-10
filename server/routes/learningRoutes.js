@@ -6,6 +6,7 @@ const { requireAuth, optionalAuth } = require('../middleware/auth');
 // Progress tracking
 router.get('/progress', optionalAuth, learningController.getProgress);
 router.post('/progress/complete', requireAuth, learningController.completeLesson);
+router.post('/progress/active', requireAuth, learningController.setActiveLesson);
 router.post('/progress/save-code', requireAuth, learningController.saveLessonCode);
 
 // Quizzes & Final Certification Exams

@@ -11,6 +11,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { LESSON_QUIZZES } from '../data/lessonQuizzes';
+import { LESSONS } from '../data/learningCurriculum';
 import api from '../../../api/client';
 import { useNotifications } from '../../../context/NotificationContext';
 import typingSounds from '../../../utils/typingSounds';
@@ -27,20 +28,24 @@ export const LessonQuizModal = ({
 }) => {
   const { showToast } = useNotifications();
 
+  const activeLesson = lesson || LESSONS.find((l) => l.id === lessonId);
+  const activeTitle = (typeof lessonTitle === 'string' && lessonTitle.trim().length > 0)
+    ? lessonTitle
+    : (activeLesson ? (typeof activeLesson.title === 'string' ? activeLesson.title : activeLesson.title?.en) : lessonId);
+
   let quiz = LESSON_QUIZZES[lessonId];
 
   // If lesson has embedded quiz object (e.g. AI Academy lessons)
-  if (!quiz && lesson?.quiz) {
-    const qObj = lesson.quiz;
-    const lTitle = typeof lessonTitle === 'string' ? lessonTitle : (lesson?.title?.en || lessonId);
+  if (!quiz && activeLesson?.quiz) {
+    const qObj = activeLesson.quiz;
     quiz = {
-      title: `${lTitle} Quiz`,
+      title: `${activeTitle} Quiz`,
       passingScore: 1,
       xpReward: 25,
       questions: [
         {
           id: `${lessonId}-q1`,
-          prompt: qObj.question || qObj.prompt || `Knowledge Check for ${lTitle}`,
+          prompt: qObj.question || qObj.prompt || `Knowledge Check for ${activeTitle}`,
           options: qObj.options || ['Option A', 'Option B', 'Option C', 'Option D'],
           correctIndex: typeof qObj.correctAnswer === 'number' ? qObj.correctAnswer : (qObj.correctIndex || 0),
           explanation: qObj.explanation || 'Review the lesson takeaways and core concepts.',
@@ -50,21 +55,21 @@ export const LessonQuizModal = ({
   }
 
   // Fallback: If no predefined quiz, dynamically construct topic-specific quiz from lesson content
-  if (!quiz && lesson) {
-    const lTitle = typeof lessonTitle === 'string' ? lessonTitle : (lesson?.title?.en || lessonId);
-    const summaryPoints = Array.isArray(lesson.summary) && lesson.summary.length > 0
-      ? lesson.summary
+  if (!quiz && activeLesson) {
+    const rawSummary = Array.isArray(activeLesson.summary) && activeLesson.summary.length > 0
+      ? activeLesson.summary
       : ['Understand the key principles of this topic.', 'Apply concept models in real-world scenarios.'];
+    const summaryPoints = rawSummary.map(s => typeof s === 'string' ? s : (s.en || s.text || String(s)));
 
     quiz = {
-      title: `Lesson Knowledge Check: ${lTitle}`,
+      title: `Lesson Knowledge Check: ${activeTitle}`,
       passingScore: 1,
       xpReward: 25,
       questions: [
         {
           id: `${lessonId}-dynamic-1`,
-          prompt: `What is a core takeaway from "${lTitle}"?`,
-          promptBn: `"${lTitle}" পাঠের মূল বিষয়বস্তু কী?`,
+          prompt: `What is a core takeaway from "${activeTitle}"?`,
+          promptBn: `"${activeTitle}" পাঠের মূল বিষয়বস্তু কী?`,
           options: [
             summaryPoints[0] || 'Master fundamental concepts and principles of the topic.',
             'Disregard core principles and guess blindly.',

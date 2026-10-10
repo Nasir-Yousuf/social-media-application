@@ -33,6 +33,25 @@ export const LearningDashboard = ({
   const currentLessonId = progress.currentLessonId || 'html-intro';
   const currentLesson = LESSONS.find((l) => l.id === currentLessonId) || LESSONS[0];
 
+  const getResumeLessonForTrack = (trackId) => {
+    const trackLessons = LESSONS.filter((l) => l.track === trackId);
+    if (!trackLessons || trackLessons.length === 0) return null;
+
+    // 1. Check last saved lesson for this specific track
+    const lastSavedId = progress.lastLessonByTrack?.[trackId] || (progress.currentTrack === trackId ? progress.currentLessonId : null);
+    if (lastSavedId) {
+      const found = trackLessons.find((l) => l.id === lastSavedId);
+      if (found) return found;
+    }
+
+    // 2. Find first uncompleted lesson in track
+    const uncompleted = trackLessons.find((l) => !completedSet.has(l.id));
+    if (uncompleted) return uncompleted;
+
+    // 3. Fallback to first lesson
+    return trackLessons[0];
+  };
+
   const getTrackProgress = (trackId) => {
     const trackLessons = LESSONS.filter((l) => l.track === trackId);
     const completedCount = trackLessons.filter((l) => completedSet.has(l.id)).length;
@@ -214,13 +233,19 @@ export const LearningDashboard = ({
                       View Roadmap
                     </NavLink>
 
-                    <NavLink
-                      to={`/learn/${track.id}/${firstTrackLesson?.id || 'html-intro'}`}
-                      className="flex-1 inline-flex items-center justify-center gap-1 py-2 px-3 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shadow-xs"
-                    >
-                      <span>{percent > 0 ? 'Resume' : 'Start'}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </NavLink>
+                    {(() => {
+                      const resumeLesson = getResumeLessonForTrack(track.id);
+                      const targetId = resumeLesson ? resumeLesson.id : (firstTrackLesson?.id || 'html-intro');
+                      return (
+                        <NavLink
+                          to={`/learn/${track.id}/${targetId}`}
+                          className="flex-1 inline-flex items-center justify-center gap-1 py-2 px-3 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shadow-xs"
+                        >
+                          <span>{percent > 0 ? 'Resume' : 'Start'}</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </NavLink>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

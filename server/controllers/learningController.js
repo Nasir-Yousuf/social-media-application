@@ -73,6 +73,13 @@ exports.completeLesson = async (req, res) => {
 
     if (track) progress.currentTrack = track;
     progress.currentLessonId = lessonId;
+
+    if (!progress.lastLessonByTrack) {
+      progress.lastLessonByTrack = new Map();
+    }
+    if (track) {
+      progress.lastLessonByTrack.set(track, lessonId);
+    }
     progress.lastActiveAt = new Date();
 
     await progress.save();
@@ -85,6 +92,50 @@ exports.completeLesson = async (req, res) => {
   } catch (err) {
     console.error('completeLesson error:', err);
     return res.status(500).json({ message: 'Error updating learning progress.' });
+  }
+};
+
+// Record active lesson position
+exports.setActiveLesson = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(200).json({ message: 'Guest session' });
+    }
+
+    const { lessonId, track } = req.body;
+    if (!lessonId) {
+      return res.status(400).json({ message: 'Lesson ID is required.' });
+    }
+
+    let progress = await LearningProgress.findOne({ user: req.user._id });
+    if (!progress) {
+      progress = new LearningProgress({
+        user: req.user._id,
+        completedLessons: [],
+        xp: 0,
+      });
+    }
+
+    if (track) progress.currentTrack = track;
+    progress.currentLessonId = lessonId;
+
+    if (!progress.lastLessonByTrack) {
+      progress.lastLessonByTrack = new Map();
+    }
+    if (track) {
+      progress.lastLessonByTrack.set(track, lessonId);
+    }
+    progress.lastActiveAt = new Date();
+
+    await progress.save();
+
+    return res.status(200).json({
+      message: 'Active lesson updated successfully.',
+      progress,
+    });
+  } catch (err) {
+    console.error('setActiveLesson error:', err);
+    return res.status(500).json({ message: 'Error updating active lesson.' });
   }
 };
 

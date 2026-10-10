@@ -15,12 +15,16 @@ const learningProgressSchema = new mongoose.Schema(
     },
     currentTrack: {
       type: String,
-      enum: ['html', 'css', 'javascript'],
       default: 'html',
     },
     currentLessonId: {
       type: String,
       default: 'html-intro',
+    },
+    lastLessonByTrack: {
+      type: Map,
+      of: String,
+      default: {},
     },
     savedCode: {
       type: Map,
