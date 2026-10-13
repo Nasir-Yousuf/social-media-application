@@ -11,6 +11,12 @@ import HardwareSoftwareChart from './HardwareSoftwareChart';
 import MemoryHierarchyVisualizer from './MemoryHierarchyVisualizer';
 import ElectricalVsElectronicComparator from './ElectricalVsElectronicComparator';
 import ComputerBasicsQuiz from './ComputerBasicsQuiz';
+import IPOMachineSimulator from './IPOMachineSimulator';
+import SpeedRaceSimulator from './SpeedRaceSimulator';
+import FiveUnitsHubVisualizer from './FiveUnitsHubVisualizer';
+import DeskVsBookshelfSimulator from './DeskVsBookshelfSimulator';
+import GuiVsCliInteractiveConsole from './GuiVsCliInteractiveConsole';
+import SystemFeedbackLoopSimulator from './SystemFeedbackLoopSimulator';
 
 export const LessonContent = ({
   lesson,
@@ -37,7 +43,7 @@ export const LessonContent = ({
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
               <Clock className="w-3.5 h-3.5" />
-              <span>{lesson.estimatedMinutes} mins read & practice</span>
+              <span>{lesson.estimatedMinutes} mins read & interact</span>
             </span>
           </div>
 
@@ -64,7 +70,7 @@ export const LessonContent = ({
         <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 space-y-3">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
             <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>Essential Key Takeaways / মূল শিক্ষণীয় বিষয়সমূহ</span>
+            <span>Key Takeaways / মূল শিক্ষণীয় বিষয়সমূহ (Quick & Simple)</span>
           </div>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-neutral-700 dark:text-neutral-300">
             {lesson.keyTakeaways.map((item, idx) => (
@@ -77,16 +83,34 @@ export const LessonContent = ({
         </div>
       )}
 
-      {/* Dedicated Interactive Lesson Component (If Present) */}
+      {/* ========================================================
+          INTERACTIVE ANIMATIONS & SUITES (1 to 2 PER LESSON)
+         ======================================================== */}
+      {/* LESSON 1 SUITE: IPO Conveyor + Speed Race */}
+      {lesson.interactiveType === 'lesson1-suite' && (
+        <div className="space-y-6">
+          <IPOMachineSimulator />
+          <SpeedRaceSimulator />
+        </div>
+      )}
+
+      {/* LESSON 2 SUITE: 5 Functional Units Communication Hub */}
+      {lesson.interactiveType === 'lesson2-suite' && (
+        <div className="space-y-6">
+          <FiveUnitsHubVisualizer />
+        </div>
+      )}
+
+      {/* LESSON 3 SUITE: Signature Functional Block Diagram Simulation */}
       {lesson.interactiveType === 'architecture-diagram-simulation' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
               <Layers className="w-5 h-5 text-sky-500" />
-              <span>Interactive Functional Block Diagram & Simulation</span>
+              <span>Interactive Functional Block Diagram & Guided Simulation</span>
             </h2>
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400">
-              Signature Feature
+              Signature Simulation
             </span>
           </div>
           <ComputerArchitectureDiagram
@@ -98,44 +122,49 @@ export const LessonContent = ({
         </div>
       )}
 
-      {lesson.interactiveType === 'hardware-software-chart' && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-black text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-indigo-500" />
-            <span>Organizational Taxonomy of Computer Systems</span>
-          </h2>
-          <HardwareSoftwareChart lang={lang} />
+      {/* LESSON 4 SUITE: Feedback Loop + Taxonomy Tree */}
+      {lesson.interactiveType === 'lesson4-suite' && (
+        <div className="space-y-6">
+          <SystemFeedbackLoopSimulator />
+          <HardwareSoftwareChart />
         </div>
       )}
 
-      {lesson.interactiveType === 'memory-hierarchy-pyramid' && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-black text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-emerald-500" />
-            <span>Memory Hierarchy Pyramid & Storage Media</span>
-          </h2>
-          <MemoryHierarchyVisualizer lang={lang} />
+      {/* LESSON 5 SUITE: Desk vs Bookshelf (RAM vs SSD) + Hierarchy Pyramid */}
+      {lesson.interactiveType === 'lesson5-suite' && (
+        <div className="space-y-6">
+          <DeskVsBookshelfSimulator />
+          <MemoryHierarchyVisualizer />
         </div>
       )}
 
-      {lesson.interactiveType === 'electrical-electronic-comparator' && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-black text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-orange-500" />
-            <span>Electrical vs Electronic Demonstrator & Classifier</span>
-          </h2>
-          <ElectricalVsElectronicComparator lang={lang} />
+      {/* LESSON 6 SUITE: GUI vs CLI Interactive Console */}
+      {lesson.interactiveType === 'lesson6-suite' && (
+        <div className="space-y-6">
+          <GuiVsCliInteractiveConsole />
         </div>
       )}
 
+      {/* LESSON 7 SUITE: Electrical vs Electronic Demonstrator & Transistor Switch */}
+      {lesson.interactiveType === 'lesson7-suite' && (
+        <div className="space-y-6">
+          <ElectricalVsElectronicComparator />
+        </div>
+      )}
+
+      {/* LESSON 8 SUITE: Revision Assessment & Sorting Drills */}
       {lesson.interactiveType === 'comprehensive-quiz-and-drills' && (
         <div className="space-y-3">
-          <h2 className="text-lg font-black text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-            <Award className="w-5 h-5 text-amber-500" />
-            <span>Exam Revision Center & Practice Assessment</span>
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+              <Award className="w-5 h-5 text-amber-500" />
+              <span>Exam Revision Center & Practice Assessment</span>
+            </h2>
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              Interactive Quiz
+            </span>
+          </div>
           <ComputerBasicsQuiz
-            lang={lang}
             onComplete={() => {
               if (onLessonCompleted) onLessonCompleted(lesson.id);
             }}
@@ -143,16 +172,22 @@ export const LessonContent = ({
         </div>
       )}
 
-      {/* Main Educational Reading Sections */}
-      <div className="space-y-6">
+      {/* ========================================================
+          CLEAN, BITE-SIZED EDUCATIONAL EXPLANATIONS
+         ======================================================== */}
+      <div className="space-y-5">
+        <h3 className="text-sm font-black text-neutral-400 uppercase tracking-wider">
+          Study Guide & Clear Explanations / সহজ ভাষায় ব্যাখ্যা
+        </h3>
+
         {lesson.contentSections?.map((section, sIdx) => (
           <div
             key={sIdx}
             className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#12161f] p-5 sm:p-6 shadow-xs space-y-3"
           >
-            <h3 className="text-base sm:text-lg font-black text-neutral-900 dark:text-neutral-100 pb-2 border-b border-neutral-100 dark:border-neutral-800">
+            <h4 className="text-base sm:text-lg font-black text-neutral-900 dark:text-neutral-100 pb-2 border-b border-neutral-100 dark:border-neutral-800">
               {section.heading}
-            </h3>
+            </h4>
 
             {/* English Explanations */}
             {(lang === 'en' || lang === 'both') && (
