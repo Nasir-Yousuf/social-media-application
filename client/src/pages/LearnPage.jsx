@@ -6,6 +6,7 @@ import LessonView from '../features/learning/components/LessonView';
 import CommunityQA from '../features/learning/components/CommunityQA';
 import QuestionDetail from '../features/learning/components/QuestionDetail';
 import AskQuestionModal from '../features/learning/components/AskQuestionModal';
+import ComputerBasicsPage from '../features/learning/components/computer-basics/ComputerBasicsPage';
 import { TRACKS } from '../features/learning/data/learningCurriculum';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -169,6 +170,19 @@ export const LearnPage = () => {
   } else if (pathname === '/learn/questions') {
     // 2. Questions Hub: /learn/questions
     mainContent = <CommunityQA lang={lang} />;
+  } else if (track === 'computer-basics') {
+    // 3. Dedicated Computer Basics Course Hub & Interactive Lessons
+    mainContent = (
+      <ComputerBasicsPage
+        lessonId={lessonId}
+        progress={progress}
+        lang={lang}
+        onLangChange={handleLangChange}
+        onLessonCompleted={handleLessonCompleted}
+        onOpenAskQuestion={handleOpenAskQuestion}
+        onProgressUpdate={fetchProgress}
+      />
+    );
   } else if (track && lessonId) {
     // 3. Lesson & Playground View: /learn/:track/:lessonId
     mainContent = (

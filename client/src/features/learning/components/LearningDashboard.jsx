@@ -16,6 +16,7 @@ import {
   Brain,
   Terminal,
   Layers,
+  Cpu,
 } from 'lucide-react';
 import { TRACKS, LESSONS } from '../data/learningCurriculum';
 import LanguageToggle from './LanguageToggle';
@@ -68,6 +69,8 @@ export const LearningDashboard = ({
 
   const getTrackIcon = (trackId) => {
     switch (trackId) {
+      case 'computer-basics':
+        return <Cpu className="w-5 h-5 text-emerald-500" />;
       case 'english':
         return <BookOpen className="w-5 h-5 text-sky-500" />;
       case 'python':

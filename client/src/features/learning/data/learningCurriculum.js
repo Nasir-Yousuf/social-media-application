@@ -9,8 +9,27 @@ import { REACT_LESSONS } from './reactCurriculum';
 import { TYPESCRIPT_LESSONS } from './typescriptCurriculum';
 import { NEXTJS_LESSONS } from './nextjsCurriculum';
 import { PYCHARM_LESSONS } from './pycharmCurriculum';
+import { COMPUTER_BASICS_LESSONS } from './computerBasicsCurriculum';
 
 export const TRACKS = [
+  {
+    id: 'computer-basics',
+    title: 'Computer Basics',
+    subtitle: {
+      en: 'Master hardware, software, CPU architecture & fundamentals',
+      bn: 'কম্পিউটার হার্ডওয়্যার, সফটওয়্যার, আর্কিটেকচার ও মূল বিষয়সমূহ',
+    },
+    description: {
+      en: 'Web-101 Lecture 01: Computer Hardware & Software Fundamentals. Learn how computers work, five functional units, CPU, ALU, Control Unit, memory hierarchy, operating systems, and electrical vs electronic devices.',
+      bn: 'ওয়েব-১০১: কম্পিউটার ফান্ডামেন্টালস। কম্পিউটার কীভাবে কাজ করে, ৫টি কার্যকরী ইউনিট, সিপিইউ, মেমোরি এবং সফটওয়্যার সম্পর্কে জানুন।',
+    },
+    icon: 'cpu',
+    color: 'from-emerald-500 via-teal-600 to-sky-600',
+    accentColor: '#10b981',
+    badge: '8 Lessons • Web-101 Core',
+    category: 'Foundations',
+    totalLessons: 8,
+  },
   {
     id: 'html',
     title: 'HTML',
@@ -2785,6 +2804,7 @@ const WEB_DEVELOPMENT_LESSONS = [
 ];
 
 export const LESSONS = [
+  ...COMPUTER_BASICS_LESSONS,
   ...ENGLISH_GRAMMAR_LESSONS,
   ...WEB_DEVELOPMENT_LESSONS,
   ...AI_LESSONS,
