@@ -5,6 +5,7 @@ import {
   Clock,
   Award,
   Layers,
+  BookOpen,
 } from 'lucide-react';
 import ComputerArchitectureDiagram from './ComputerArchitectureDiagram';
 import HardwareSoftwareChart from './HardwareSoftwareChart';
@@ -17,6 +18,7 @@ import FiveUnitsHubVisualizer from './FiveUnitsHubVisualizer';
 import DeskVsBookshelfSimulator from './DeskVsBookshelfSimulator';
 import GuiVsCliInteractiveConsole from './GuiVsCliInteractiveConsole';
 import SystemFeedbackLoopSimulator from './SystemFeedbackLoopSimulator';
+import EducationalContentRenderer from './EducationalContentRenderer';
 
 export const LessonContent = ({
   lesson,
@@ -67,19 +69,54 @@ export const LessonContent = ({
 
       {/* Key Takeaways Card */}
       {lesson.keyTakeaways && (
-        <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 space-y-3">
+        <div className="rounded-3xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 sm:p-6 space-y-3">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
             <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>Key Takeaways / মূল শিক্ষণীয় বিষয়সমূহ (Quick & Simple)</span>
+            <span>
+              {lang === 'bn'
+                ? 'মূল শিক্ষণীয় বিষয়সমূহ (Key Takeaways)'
+                : lang === 'both'
+                ? 'Key Takeaways / মূল শিক্ষণীয় বিষয়সমূহ'
+                : 'Key Takeaways (Quick & Simple)'}
+            </span>
           </div>
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-neutral-700 dark:text-neutral-300">
-            {lesson.keyTakeaways.map((item, idx) => (
-              <li key={idx} className="flex items-start gap-2 leading-relaxed">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+
+          {/* If Both: Pair English with Bengali bullet */}
+          {lang === 'both' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              {lesson.keyTakeaways.map((item, idx) => {
+                const bnItem = lesson.keyTakeawaysBn?.[idx];
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-2xl bg-white/80 dark:bg-neutral-900/60 border border-emerald-100 dark:border-emerald-900/40 space-y-1.5"
+                  >
+                    <div className="flex items-start gap-2 text-neutral-800 dark:text-neutral-200 font-semibold leading-relaxed">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </div>
+                    {bnItem && (
+                      <p className="text-[11.5px] text-emerald-700 dark:text-emerald-400 pl-6 leading-relaxed">
+                        {bnItem}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs text-neutral-700 dark:text-neutral-300">
+              {(lang === 'bn' && lesson.keyTakeawaysBn
+                ? lesson.keyTakeawaysBn
+                : lesson.keyTakeaways
+              ).map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -175,37 +212,67 @@ export const LessonContent = ({
       {/* ========================================================
           CLEAN, BITE-SIZED EDUCATIONAL EXPLANATIONS
          ======================================================== */}
-      <div className="space-y-5">
-        <h3 className="text-sm font-black text-neutral-400 uppercase tracking-wider">
-          Study Guide & Clear Explanations / সহজ ভাষায় ব্যাখ্যা
-        </h3>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between pb-1 border-b border-neutral-200/60 dark:border-neutral-800">
+          <h3 className="text-xs font-black uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-sky-500" />
+            <span>Study Guide & Clear Explanations / সহজ ভাষায় বিস্তারিত ব্যাখ্যা</span>
+          </h3>
+          <span className="text-[11px] font-bold text-neutral-400">
+            {lang === 'bn' ? 'বাংলা সংস্করণ' : lang === 'both' ? 'দ্বিভাষিক সংস্করণ (Bilingual)' : 'English Edition'}
+          </span>
+        </div>
 
         {lesson.contentSections?.map((section, sIdx) => (
           <div
             key={sIdx}
-            className="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#12161f] p-5 sm:p-6 shadow-xs space-y-3"
+            className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#12161f] p-5 sm:p-7 shadow-xs space-y-4"
           >
-            <h4 className="text-base sm:text-lg font-black text-neutral-900 dark:text-neutral-100 pb-2 border-b border-neutral-100 dark:border-neutral-800">
-              {section.heading}
-            </h4>
+            {/* Section Header */}
+            <div className="pb-3 border-b border-neutral-100 dark:border-neutral-800/80">
+              <h4 className="text-base sm:text-lg font-black text-neutral-900 dark:text-neutral-100">
+                {lang === 'bn'
+                  ? section.headingBn || section.heading
+                  : lang === 'both'
+                  ? `${section.heading} ${section.headingBn ? `· ${section.headingBn}` : ''}`
+                  : section.heading}
+              </h4>
+            </div>
 
-            {/* English Explanations */}
-            {(lang === 'en' || lang === 'both') && (
-              <div className="text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-line space-y-2">
-                {section.bodyEn}
-              </div>
+            {/* 1. English-Only Mode */}
+            {lang === 'en' && (
+              <EducationalContentRenderer content={section.bodyEn} />
             )}
 
-            {/* Bengali Explanations */}
-            {(lang === 'bn' || lang === 'both') && (
-              <div
-                className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line p-3.5 rounded-xl ${
-                  lang === 'both'
-                    ? 'bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/60 dark:border-neutral-800/80 text-neutral-600 dark:text-neutral-400 italic'
-                    : 'text-neutral-700 dark:text-neutral-300'
-                }`}
-              >
-                {section.bodyBn}
+            {/* 2. Bangla-Only Mode */}
+            {lang === 'bn' && (
+              <EducationalContentRenderer content={section.bodyBn || section.bodyEn} />
+            )}
+
+            {/* 3. Both (Bilingual Mode): Structured Side-by-Side or Stacked Bilingual Cards */}
+            {lang === 'both' && (
+              <div className="space-y-5">
+                {/* English Content Box */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                      🇺🇸 English Explanation
+                    </span>
+                  </div>
+                  <EducationalContentRenderer content={section.bodyEn} />
+                </div>
+
+                {/* Bangla Content Box */}
+                {section.bodyBn && (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-neutral-50/90 dark:bg-neutral-900/60 border border-neutral-200/70 dark:border-neutral-800/80 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                        🇧🇩 সহজ বাংলায় সম্পূর্ণ ব্যাখ্যা (Bangla Guide)
+                      </span>
+                    </div>
+                    <EducationalContentRenderer content={section.bodyBn} />
+                  </div>
+                )}
               </div>
             )}
           </div>
