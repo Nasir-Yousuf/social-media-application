@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Eye,
   EyeOff,
+  Sliders,
 } from 'lucide-react';
 
 export const SimulationControls = ({
@@ -47,80 +48,80 @@ export const SimulationControls = ({
 
   return (
     <div className="space-y-4">
-      {/* Current Step Banner & Description */}
-      <div className="rounded-2xl border border-sky-200 dark:border-sky-900/60 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent p-4 sm:p-5">
+      {/* Current Step Banner & Narrative */}
+      <div className="rounded-3xl border border-sky-200/80 dark:border-sky-900/60 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent p-4 sm:p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-full text-xs font-black bg-sky-500 text-white tracking-wide shadow-xs shadow-sky-500/25">
+          <div className="flex items-center gap-2.5">
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-sky-500 text-white tracking-wide shadow-xs shadow-sky-500/30">
               STEP {currentStep} OF {totalSteps}
             </span>
             <h4 className="text-sm sm:text-base font-black text-neutral-900 dark:text-neutral-100">
-              {stepInfo?.title || 'Processing...'}
+              {stepInfo?.title || 'Processing Step...'}
             </h4>
           </div>
 
-          {/* Quick Stats / Formula Badge */}
+          {/* Quick Active Formula Tag */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs font-bold text-neutral-500 dark:text-neutral-400">
-              Formula:
+              Calculation:
             </span>
-            <span className="px-2.5 py-1 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-black font-mono text-sky-600 dark:text-sky-400">
+            <span className="px-3 py-1 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-black font-mono text-sky-600 dark:text-sky-400 shadow-2xs">
               {customInput.a} {customInput.op} {customInput.b} = {stepInfo?.previewResult ?? '?'}
             </span>
           </div>
         </div>
 
-        {/* Step Detailed Narrative */}
-        <p className="mt-2 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+        {/* Narrative Explanation */}
+        <p className="mt-2.5 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed font-normal">
           {stepInfo?.description}
         </p>
 
-        {/* Active Flow Signals */}
+        {/* Active Signal Badges */}
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold">
           {stepInfo?.activeFlow === 'info' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/30">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30">
               <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
-              Information Flow Active (Solid Arrow)
+              Information Flow Active (Solid Cyan Line · Data Packet Traveling)
             </span>
           )}
           {stepInfo?.activeFlow === 'control' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-              Timing & Control Signal Active (Dashed Arrow)
+              Control Signal Active (Dashed Amber Line · Supervisory Pulse)
             </span>
           )}
           {stepInfo?.activeFlow === 'both' && (
             <>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/30">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30">
                 <span className="w-2 h-2 rounded-full bg-sky-500" />
-                Information Flow
+                Information Flow (Data)
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
-                Control Signal
+                Control Signal (Supervision)
               </span>
             </>
           )}
         </div>
 
-        {/* Step Progress Bar */}
-        <div className="mt-3 w-full bg-neutral-200/80 dark:bg-neutral-800 h-2 rounded-full overflow-hidden">
+        {/* Step Progress Track */}
+        <div className="mt-3.5 w-full bg-neutral-200/80 dark:bg-neutral-800/80 h-2 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 rounded-full transition-all duration-300"
+            className="h-full bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 rounded-full transition-all duration-300 shadow-xs"
             style={{ width: `${percent}%` }}
           />
         </div>
       </div>
 
-      {/* Main Simulation Control Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-neutral-100/80 dark:bg-[#161a22] border border-neutral-200/80 dark:border-neutral-800">
-        {/* Playback Controls */}
+      {/* Main Simulation Control Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-neutral-100/90 dark:bg-[#151922] border border-neutral-200/80 dark:border-neutral-800">
+        {/* Left: Playback Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {isPlaying ? (
             <button
               type="button"
               onClick={onPause}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-colors shadow-xs shadow-amber-500/20 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-colors shadow-xs shadow-amber-500/30 cursor-pointer"
               title="Pause Simulation"
               aria-label="Pause Simulation"
             >
@@ -131,9 +132,9 @@ export const SimulationControls = ({
             <button
               type="button"
               onClick={onPlay}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 text-white font-bold text-xs hover:bg-sky-600 transition-colors shadow-xs shadow-sky-500/20 cursor-pointer"
-              title="Start / Resume Simulation"
-              aria-label="Start / Resume Simulation"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 text-white font-bold text-xs hover:bg-sky-600 transition-colors shadow-xs shadow-sky-500/30 cursor-pointer"
+              title="Start or Resume Simulation"
+              aria-label="Start or Resume Simulation"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>{currentStep === 1 ? 'Start Simulation' : 'Play'}</span>
@@ -152,11 +153,12 @@ export const SimulationControls = ({
 
           <div className="h-4 w-px bg-neutral-300 dark:bg-neutral-700 mx-1" />
 
+          {/* Step Back & Next */}
           <button
             type="button"
             onClick={onPrev}
             disabled={currentStep <= 1}
-            className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             title="Previous Step"
             aria-label="Previous Step"
           >
@@ -168,7 +170,7 @@ export const SimulationControls = ({
             type="button"
             onClick={onNext}
             disabled={currentStep >= totalSteps}
-            className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             title="Next Step"
             aria-label="Next Step"
           >
@@ -177,43 +179,43 @@ export const SimulationControls = ({
           </button>
         </div>
 
-        {/* Speed, Custom Inputs & Accessibility Toggles */}
+        {/* Right: Speed, Reduced Motion & Custom Input Config */}
         <div className="flex items-center gap-2">
-          {/* Speed selector */}
-          <div className="flex items-center bg-white dark:bg-neutral-800 rounded-xl p-0.5 border border-neutral-200 dark:border-neutral-700 text-[11px] font-bold">
+          {/* Speed Selector */}
+          <div className="flex items-center bg-white dark:bg-neutral-800/90 rounded-xl p-0.5 border border-neutral-200 dark:border-neutral-700 text-[11px] font-bold">
             <button
               type="button"
               onClick={() => onSpeedChange(0.5)}
-              className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
                 speed === 0.5
                   ? 'bg-sky-500 text-white'
                   : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
               }`}
-              title="0.5x Speed (Slow)"
+              title="0.5x Playback Speed (Slow & Detailed)"
             >
               0.5x
             </button>
             <button
               type="button"
               onClick={() => onSpeedChange(1)}
-              className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
                 speed === 1
                   ? 'bg-sky-500 text-white'
                   : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
               }`}
-              title="1x Speed (Normal)"
+              title="1x Playback Speed (Standard)"
             >
               1x
             </button>
             <button
               type="button"
               onClick={() => onSpeedChange(2)}
-              className={`px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
                 speed === 2
                   ? 'bg-sky-500 text-white'
                   : 'text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
               }`}
-              title="2x Speed (Fast)"
+              title="2x Playback Speed (Fast)"
             >
               2x
             </button>
@@ -230,8 +232,8 @@ export const SimulationControls = ({
             }`}
             title={
               reducedMotion
-                ? 'Animations paused (Reduced Motion Mode). Click to re-enable.'
-                : 'Reduce Motion / Static diagram mode'
+                ? 'Reduced motion mode active (static clear indicators). Click to re-enable smooth animations.'
+                : 'Toggle Reduced Motion mode'
             }
             aria-label="Toggle Reduced Motion"
           >
@@ -247,24 +249,24 @@ export const SimulationControls = ({
                 ? 'bg-sky-500 text-white border-sky-500'
                 : 'text-neutral-700 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-800'
             }`}
-            title="Customize Numbers and Arithmetic Operation"
+            title="Configure custom operands and arithmetic operation"
           >
             <Settings2 className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Custom Input</span>
+            <span className="hidden sm:inline">Custom Input</span>
           </button>
         </div>
       </div>
 
-      {/* Custom Input Modal / Drawer */}
+      {/* Custom Input Modal / Configuration Drawer */}
       {showConfig && (
         <form
           onSubmit={handleApplyCustom}
-          className="p-4 rounded-2xl border border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 space-y-3 animate-in fade-in duration-150"
+          className="p-5 rounded-3xl border border-sky-300 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/20 space-y-3.5 animate-in fade-in duration-150"
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-800 dark:text-sky-300">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Configure Arithmetic Operation for the Simulation</span>
+            <div className="flex items-center gap-2 text-xs font-bold text-sky-900 dark:text-sky-300">
+              <Sparkles className="w-4 h-4 text-sky-500" />
+              <span>Configure Custom Math Operation for the Architecture Diagram</span>
             </div>
             <button
               type="button"
@@ -273,34 +275,34 @@ export const SimulationControls = ({
                 setInputB(20);
                 setOp('+');
               }}
-              className="text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+              className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
             >
-              Reset to 10 + 20
+              Reset to Lecture (10 + 20)
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[11px] font-bold text-neutral-600 dark:text-neutral-400 mb-1">
-                Number 1 (Input A)
+                Operand 1 (Number A)
               </label>
               <input
                 type="number"
                 value={inputA}
                 onChange={(e) => setInputA(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-xs font-mono font-bold"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-xs font-mono font-bold"
                 required
               />
             </div>
 
             <div>
               <label className="block text-[11px] font-bold text-neutral-600 dark:text-neutral-400 mb-1">
-                Operation
+                Arithmetic Operation
               </label>
               <select
                 value={op}
                 onChange={(e) => setOp(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-xs font-bold"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-xs font-bold"
               >
                 <option value="+">+ (Addition)</option>
                 <option value="-">- (Subtraction)</option>
@@ -311,13 +313,13 @@ export const SimulationControls = ({
 
             <div>
               <label className="block text-[11px] font-bold text-neutral-600 dark:text-neutral-400 mb-1">
-                Number 2 (Input B)
+                Operand 2 (Number B)
               </label>
               <input
                 type="number"
                 value={inputB}
                 onChange={(e) => setInputB(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-xs font-mono font-bold"
+                className="w-full px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 text-xs font-mono font-bold"
                 required
               />
             </div>
@@ -327,13 +329,13 @@ export const SimulationControls = ({
             <button
               type="button"
               onClick={() => setShowConfig(false)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shadow-xs cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-600 transition-colors shadow-xs cursor-pointer"
             >
               Apply & Run Simulation
             </button>
@@ -341,10 +343,10 @@ export const SimulationControls = ({
         </form>
       )}
 
-      {/* Clear Visual Legend for Connections */}
+      {/* Visual Bus Legend */}
       <div className="flex flex-wrap items-center justify-center gap-6 pt-2 pb-1 text-xs font-bold text-neutral-600 dark:text-neutral-400 border-t border-neutral-200/60 dark:border-neutral-800/60">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-0.5 bg-sky-500 rounded-full" />
+          <div className="w-6 h-1 bg-sky-500 rounded-full" />
           <span>Solid Line: Information Flow (Data & Results)</span>
         </div>
         <div className="flex items-center gap-2">
@@ -353,7 +355,7 @@ export const SimulationControls = ({
         </div>
         <div className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400 text-[11px]">
           <HelpCircle className="w-3.5 h-3.5" />
-          <span>Click, hover, or tap any component card to inspect details</span>
+          <span>Click any component card in the diagram to inspect its internal anatomy</span>
         </div>
       </div>
     </div>

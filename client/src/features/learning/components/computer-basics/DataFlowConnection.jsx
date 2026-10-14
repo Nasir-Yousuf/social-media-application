@@ -2,34 +2,36 @@ import React from 'react';
 
 /**
  * DataFlowConnection
- * Renders SVG lines between computer architecture nodes.
- * Supports solid information flow lines and dashed control signal lines.
- * Renders animated traveling packets when active.
+ * High-precision SVG connection between computer architecture components.
+ * Supports:
+ * - Solid Information Flow lines (Data & Results)
+ * - Segmented / Dashed Control Signal lines (Control Unit supervisory pulses)
+ * - Directed arrows with proper marker orientation
+ * - Animated traveling data packets with distinct payload tags
+ * - Pulse glow halos when active
+ * - Reduced motion fallbacks (accessible static indicator)
  */
 export const DataFlowConnection = ({
   id,
   from,
   to,
-  type = 'info', // 'info' (solid) or 'control' (dashed)
+  type = 'info', // 'info' (solid blue) or 'control' (dashed amber)
   isActive = false,
   bidirectional = false,
   payload = null,
   reducedMotion = false,
   label = '',
+  speed = 1,
 }) => {
-  // Coordinates are defined in viewBox coordinates (e.g. 1000 x 650)
   const x1 = from.x;
   const y1 = from.y;
   const x2 = to.x;
   const y2 = to.y;
 
-  // Compute intermediate control points for pleasant curved or elbow paths if specified
-  const isCurved = from.curve || to.curve;
   let pathD = '';
-
   if (from.pathPoints) {
     pathD = from.pathPoints;
-  } else if (isCurved) {
+  } else if (from.curve || to.curve) {
     const midX = (x1 + x2) / 2 + (from.curveOffsetX || 0);
     const midY = (y1 + y2) / 2 + (from.curveOffsetY || 0);
     pathD = `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
@@ -38,39 +40,46 @@ export const DataFlowConnection = ({
   }
 
   const isControl = type === 'control';
+
+  // Base colors conforming to technical visualization standards
   const strokeColor = isControl
     ? isActive
-      ? '#f59e0b' // Amber glow
-      : '#d97706' // Darker amber
+      ? '#f59e0b' // Bright amber
+      : '#d97706' // Technical bronze-amber
     : isActive
-    ? '#0284c7' // Bright sky blue
-    : '#38bdf8'; // Sky blue
+    ? '#38bdf8' // Vibrant sky cyan
+    : '#0284c7'; // Deep technical blue
 
-  const strokeWidth = isActive ? (isControl ? 3 : 4) : isControl ? 2 : 2.5;
+  const strokeWidth = isActive ? (isControl ? 3.5 : 4) : isControl ? 2 : 2.5;
+
+  // Duration scales inversely with playback speed
+  const animDur = (isControl ? 1.4 : 1.6) / (speed || 1);
 
   return (
     <g className="data-flow-connection" id={`conn-${id}`}>
-      {/* Background halo for active connection */}
+      {/* Background ambient glow halo when active */}
       {isActive && (
         <path
           d={pathD}
           fill="none"
-          stroke={isControl ? 'rgba(245, 158, 11, 0.25)' : 'rgba(56, 189, 248, 0.3)'}
-          strokeWidth={strokeWidth + 6}
+          stroke={isControl ? 'rgba(245, 158, 11, 0.35)' : 'rgba(56, 189, 248, 0.4)'}
+          strokeWidth={strokeWidth + 8}
           strokeLinecap="round"
+          strokeLinejoin="round"
+          className="transition-all duration-300 pointer-events-none"
         />
       )}
 
-      {/* Main Path */}
+      {/* Main Connection Path */}
       <path
         d={pathD}
         id={`path-${id}`}
         fill="none"
         stroke={strokeColor}
         strokeWidth={strokeWidth}
-        strokeDasharray={isControl ? '6 5' : 'none'}
+        strokeDasharray={isControl ? '7 5' : 'none'}
         strokeLinecap="round"
-        className={isActive && !reducedMotion ? (isControl ? 'animate-pulse' : '') : ''}
+        strokeLinejoin="round"
         style={{
           transition: 'stroke 0.3s ease, stroke-width 0.3s ease',
         }}
@@ -82,27 +91,16 @@ export const DataFlowConnection = ({
         }
       />
 
-      {/* Animated Traveling Packet when active and motion allowed */}
+      {/* Moving Signal Packet on Active Paths */}
       {isActive && !reducedMotion && (
-        <g>
-          {/* Animated circle traveling along path */}
-          <circle r={isControl ? 4.5 : 6} fill={isControl ? '#fbbf24' : '#38bdf8'}>
-            <animateMotion
-              dur={isControl ? '1.4s' : '1.8s'}
-              repeatCount="indefinite"
-              rotate="auto"
-            >
-              <mpath href={`#path-${id}`} />
-            </animateMotion>
-          </circle>
-
-          {/* Pulse glow around the traveling packet */}
+        <g className="pointer-events-none">
+          {/* Outer glow aura for packet */}
           <circle
-            r={isControl ? 8 : 11}
-            fill={isControl ? 'rgba(251, 191, 36, 0.4)' : 'rgba(56, 189, 248, 0.45)'}
+            r={isControl ? 8 : 10}
+            fill={isControl ? 'rgba(245, 158, 11, 0.4)' : 'rgba(56, 189, 248, 0.45)'}
           >
             <animateMotion
-              dur={isControl ? '1.4s' : '1.8s'}
+              dur={`${animDur}s`}
               repeatCount="indefinite"
               rotate="auto"
             >
@@ -110,35 +108,52 @@ export const DataFlowConnection = ({
             </animateMotion>
           </circle>
 
-          {/* Payload tag badge if payload is provided */}
+          {/* Core particle packet */}
+          <circle
+            r={isControl ? 4.5 : 6}
+            fill={isControl ? '#fbbf24' : '#ffffff'}
+            stroke={isControl ? '#d97706' : '#0284c7'}
+            strokeWidth="1.5"
+          >
+            <animateMotion
+              dur={`${animDur}s`}
+              repeatCount="indefinite"
+              rotate="auto"
+            >
+              <mpath href={`#path-${id}`} />
+            </animateMotion>
+          </circle>
+
+          {/* Floating Data Payload Tag (Values such as "10", "20", "ADD", "30") */}
           {payload && (
             <g>
               <animateMotion
-                dur={isControl ? '1.4s' : '1.8s'}
+                dur={`${animDur}s`}
                 repeatCount="indefinite"
                 rotate="auto"
               >
                 <mpath href={`#path-${id}`} />
               </animateMotion>
               <rect
-                x="-22"
-                y="-24"
-                width="44"
-                height="18"
-                rx="5"
-                fill="#0f172a"
+                x="-26"
+                y="-26"
+                width="52"
+                height="19"
+                rx="6"
+                fill="#090d16"
                 stroke={isControl ? '#f59e0b' : '#38bdf8'}
                 strokeWidth="1.5"
-                className="shadow-sm"
+                className="filter drop-shadow-md"
               />
               <text
                 x="0"
-                y="-12"
+                y="-13"
                 textAnchor="middle"
-                fill="#ffffff"
-                fontSize="9"
-                fontWeight="bold"
-                fontFamily="sans-serif"
+                fill={isControl ? '#fde68a' : '#e0f2fe'}
+                fontSize="9.5"
+                fontWeight="800"
+                fontFamily="ui-monospace, monospace"
+                letterSpacing="0.05em"
               >
                 {payload}
               </text>
@@ -147,16 +162,43 @@ export const DataFlowConnection = ({
         </g>
       )}
 
-      {/* Optional Mid-path connection label */}
+      {/* Reduced-Motion Static Indicator */}
+      {isActive && reducedMotion && payload && (
+        <g className="pointer-events-none">
+          <rect
+            x={(x1 + x2) / 2 - 28}
+            y={(y1 + y2) / 2 - 12}
+            width="56"
+            height="20"
+            rx="6"
+            fill="#090d16"
+            stroke={isControl ? '#f59e0b' : '#38bdf8'}
+            strokeWidth="1.5"
+          />
+          <text
+            x={(x1 + x2) / 2}
+            y={(y1 + y2) / 2 + 2}
+            textAnchor="middle"
+            fill={isControl ? '#fde68a' : '#e0f2fe'}
+            fontSize="9"
+            fontWeight="bold"
+            fontFamily="ui-monospace, monospace"
+          >
+            {payload}
+          </text>
+        </g>
+      )}
+
+      {/* Optional mid-connection functional label */}
       {label && (
         <text
           x={(x1 + x2) / 2}
           y={(y1 + y2) / 2 - 8}
           textAnchor="middle"
-          fill={isControl ? '#d97706' : '#0284c7'}
-          fontSize="9"
+          fill={isControl ? '#b45309' : '#0369a1'}
+          fontSize="9.5"
           fontWeight="bold"
-          className="select-none pointer-events-none bg-white"
+          className="select-none pointer-events-none"
         >
           {label}
         </text>
