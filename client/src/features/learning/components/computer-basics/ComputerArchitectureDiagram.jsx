@@ -17,6 +17,7 @@ import SimulationControls from './SimulationControls';
 import ComponentDetailsPanel from './ComponentDetailsPanel';
 import VirtualMonitor from './VirtualMonitor';
 import ElectronicCircuitsExploration from './ElectronicCircuitsExploration';
+import FiveUnitsHubVisualizer from './FiveUnitsHubVisualizer';
 
 export const ComputerArchitectureDiagram = ({
   lang = 'both',
@@ -467,6 +468,19 @@ export const ComputerArchitectureDiagram = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('textbook')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              activeTab === 'textbook'
+                ? 'bg-red-500 text-white shadow-xs shadow-red-500/30'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Textbook Block Diagram</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('electronics')}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
               activeTab === 'electronics'
@@ -475,7 +489,7 @@ export const ComputerArchitectureDiagram = ({
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
-            <span>Inside Electronic Devices (Logic & Gates)</span>
+            <span>Inside Electronic Devices</span>
           </button>
         </div>
 
@@ -1013,7 +1027,16 @@ export const ComputerArchitectureDiagram = ({
       )}
 
       {/* ========================================================
-          MODE 3: INSIDE ELECTRONIC DEVICES (TRANSISTORS & GATES)
+          MODE 3: TEXTBOOK ARCHITECTURE BLOCK DIAGRAM
+         ======================================================== */}
+      {activeTab === 'textbook' && (
+        <div className="animate-in fade-in duration-200">
+          <FiveUnitsHubVisualizer lang={lang} />
+        </div>
+      )}
+
+      {/* ========================================================
+          MODE 4: INSIDE ELECTRONIC DEVICES (TRANSISTORS & GATES)
          ======================================================== */}
       {activeTab === 'electronics' && (
         <div className="animate-in fade-in duration-200">

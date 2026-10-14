@@ -97,7 +97,7 @@ export const LessonContent = ({
       {/* LESSON 2 SUITE: 5 Functional Units Communication Hub */}
       {lesson.interactiveType === 'lesson2-suite' && (
         <div className="space-y-6">
-          <FiveUnitsHubVisualizer />
+          <FiveUnitsHubVisualizer lang={lang} />
         </div>
       )}
 
