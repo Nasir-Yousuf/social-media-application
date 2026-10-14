@@ -39,6 +39,8 @@ export const ComputerArchitectureDiagram = ({
 
   // Selected component node for inspector details
   const [selectedComponent, setSelectedComponent] = useState(null);
+  // Hovered component for map-style quick popover
+  const [hoveredNode, setHoveredNode] = useState(null);
 
   // Custom calculation parameters (defaults to lecture: 10 + 20 = 30)
   const [customInput, setCustomInput] = useState({
@@ -430,6 +432,64 @@ export const ComputerArchitectureDiagram = ({
     virtualMonitor: { x: 660, y: 345, w: 230, h: 120 },
   };
 
+  // Map-of-Bangladesh style interactive hover summaries
+  const NODE_MAP_DATA = {
+    operator: {
+      name: 'Operator (Human User)',
+      bnName: 'অপারেটর (মানুষ / ব্যবহারকারী)',
+      tag: 'User & Requester',
+      accentColor: '#3b82f6',
+      summary: 'Initiates commands and observes calculated results. Does not interact directly with internal CPU registers.',
+      summaryBn: 'কীবোর্ডে ইনপুট প্রদান করেন এবং মনিটরে ফলাফল দেখেন। সিপিইউ-এর ভেতরের মেমোরিতে সরাসরি হাত দেন না।',
+      popoverStyle: { top: '32%', left: '2%' },
+    },
+    input: {
+      name: 'Input Device (Keyboard/Mouse)',
+      bnName: 'ইনপুট ডিভাইস (কীবোর্ড ও মাউস)',
+      tag: 'Binary Encoder',
+      accentColor: '#0284c7',
+      summary: 'Converts keystrokes & actions into digital binary bits (0s and 1s) and writes straight to Memory.',
+      summaryBn: 'কীবোর্ড বা মাউসের ক্লিককে ডিজিটাল বাইনারি (০ ও ১) সংকেতে রূপান্তর করে সরাসরি মেমোরিতে পাঠায়।',
+      popoverStyle: { top: '3%', left: '16%' },
+    },
+    controlUnit: {
+      name: 'Control Unit (CU)',
+      bnName: 'কন্ট্রোল ইউনিট (কেন্দ্রীয় সমন্বয়ক)',
+      tag: 'Master Conductor',
+      accentColor: '#8b5cf6',
+      summary: 'Supervises all units with synchronized clock and timing signals. Directs data traffic without doing math.',
+      summaryBn: 'ট্রাফিক পুলিশের মতো ক্লক পালস দিয়ে সকল ইউনিটের কাজ সমন্বয় করে। নিজে কোনো গণিত করে না।',
+      popoverStyle: { top: '22%', left: '40%' },
+    },
+    memory: {
+      name: 'Memory Unit (Primary RAM)',
+      bnName: 'মেমোরি ইউনিট (প্রাইমারি স্টোরেজ / র‍্যাম)',
+      tag: 'Central Data Hub',
+      accentColor: '#10b981',
+      summary: 'Central holding hub. Temporarily stores raw inputs, calculation variables, and finalized results.',
+      summaryBn: 'তথ্যের কেন্দ্রীয় ভাণ্ডার। সাময়িকভাবে সকল তথ্য, মধ্যবর্তী ভ্যারিয়েবল এবং ফলাফল ধরে রাখে।',
+      popoverStyle: { top: '3%', left: '40%' },
+    },
+    alu: {
+      name: 'ALU (Arithmetic & Logic Unit)',
+      bnName: 'অ্যারিথমেটিক অ্যান্ড লজিক ইউনিট (ALU)',
+      tag: 'Mathematical Engine',
+      accentColor: '#f59e0b',
+      summary: 'Executes mathematical calculations (+, -, ×, ÷) and true/false logic. Connects strictly to Memory.',
+      summaryBn: 'সব ধরনের গাণিতিক যোগ-বিয়োগ ও লজিক্যাল সত্য/মিথ্যা তুলনা সম্পন্ন করে। শুধুমাত্র মেমোরির সাথেই যুক্ত।',
+      popoverStyle: { top: '3%', left: '66%' },
+    },
+    output: {
+      name: 'Output Device (Display Adapter)',
+      bnName: 'আউটপুট ডিভাইস (ডিসপ্লে অ্যাডাপ্টার)',
+      tag: 'Visual Presentation',
+      accentColor: '#f43f5e',
+      summary: 'Reads processed results from Memory and drives pixel signals to the monitor screen for human eyes.',
+      summaryBn: 'মেমোরি থেকে ফলাফল নিয়ে স্ক্রিনের পিক্সেলে ফুটিয়ে তোলে, যাতে মানুষ তা দেখতে পায়।',
+      popoverStyle: { top: '56%', left: '40%' },
+    },
+  };
+
   return (
     <div className="space-y-6 font-sans">
       {/* ========================================================
@@ -534,6 +594,59 @@ export const ComputerArchitectureDiagram = ({
                 backgroundSize: '24px 24px',
               }}
             />
+
+            {/* MAP-OF-BANGLADESH STYLE FLOATING QUICK-SUMMARY POPOVER */}
+            {hoveredNode && NODE_MAP_DATA[hoveredNode] && (
+              <div
+                className="absolute z-30 pointer-events-none transition-all duration-300 ease-out animate-in fade-in zoom-in-95"
+                style={NODE_MAP_DATA[hoveredNode].popoverStyle}
+              >
+                <div
+                  className="max-w-[270px] rounded-2xl border-2 bg-white/95 dark:bg-[#0b1019]/95 p-3 shadow-2xl backdrop-blur-md space-y-1.5 transition-all duration-200"
+                  style={{ borderColor: NODE_MAP_DATA[hoveredNode].accentColor }}
+                >
+                  <div className="flex items-center justify-between gap-1.5 border-b border-neutral-100 dark:border-neutral-800/80 pb-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full animate-ping shrink-0"
+                        style={{ backgroundColor: NODE_MAP_DATA[hoveredNode].accentColor }}
+                      />
+                      <h5 className="text-[11.5px] font-black text-neutral-900 dark:text-neutral-100 truncate">
+                        {lang === 'bn'
+                          ? NODE_MAP_DATA[hoveredNode].bnName.split('(')[0].trim()
+                          : NODE_MAP_DATA[hoveredNode].name.split('(')[0].trim()}
+                      </h5>
+                    </div>
+                    <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 shrink-0">
+                      {NODE_MAP_DATA[hoveredNode].tag}
+                    </span>
+                  </div>
+
+                  <p className="text-[10.5px] text-neutral-700 dark:text-neutral-300 leading-snug">
+                    {lang === 'bn'
+                      ? NODE_MAP_DATA[hoveredNode].summaryBn
+                      : NODE_MAP_DATA[hoveredNode].summary}
+                  </p>
+
+                  {/* Live Simulation Value */}
+                  {currentStepData?.nodeStates?.[hoveredNode] && (
+                    <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-[9.5px] font-mono">
+                      <span className="text-neutral-500 font-bold">
+                        {currentStepData.nodeStates[hoveredNode].label}
+                      </span>
+                      <span className="font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+                        {currentStepData.nodeStates[hoveredNode].value}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="pt-0.5 text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                    <span>Click node to open full architecture inspector</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Diagram SVG Canvas */}
             <div className="relative w-full overflow-x-auto">
@@ -768,8 +881,9 @@ export const ComputerArchitectureDiagram = ({
                   height={NODES.operator.h}
                   isActive={isNodeActive('operator')}
                   isSelected={selectedComponent === 'operator'}
-                  onSelect={setSelectedComponent}
-                  onHover={setSelectedComponent}
+                  onSelect={(id) => setSelectedComponent(selectedComponent === id ? null : id)}
+                  onHover={(id) => setHoveredNode(id)}
+                  onLeave={() => setHoveredNode(null)}
                   liveData={currentStepData.nodeStates?.operator}
                   detailedState={currentStepData.detailedState}
                   reducedMotion={reducedMotion}
@@ -786,8 +900,9 @@ export const ComputerArchitectureDiagram = ({
                   height={NODES.input.h}
                   isActive={isNodeActive('input')}
                   isSelected={selectedComponent === 'input'}
-                  onSelect={setSelectedComponent}
-                  onHover={setSelectedComponent}
+                  onSelect={(id) => setSelectedComponent(selectedComponent === id ? null : id)}
+                  onHover={(id) => setHoveredNode(id)}
+                  onLeave={() => setHoveredNode(null)}
                   liveData={currentStepData.nodeStates?.input}
                   detailedState={currentStepData.detailedState}
                   reducedMotion={reducedMotion}
@@ -804,8 +919,9 @@ export const ComputerArchitectureDiagram = ({
                   height={NODES.controlUnit.h}
                   isActive={isNodeActive('controlUnit')}
                   isSelected={selectedComponent === 'controlUnit'}
-                  onSelect={setSelectedComponent}
-                  onHover={setSelectedComponent}
+                  onSelect={(id) => setSelectedComponent(selectedComponent === id ? null : id)}
+                  onHover={(id) => setHoveredNode(id)}
+                  onLeave={() => setHoveredNode(null)}
                   liveData={currentStepData.nodeStates?.controlUnit}
                   detailedState={currentStepData.detailedState}
                   reducedMotion={reducedMotion}
@@ -822,8 +938,9 @@ export const ComputerArchitectureDiagram = ({
                   height={NODES.memory.h}
                   isActive={isNodeActive('memory')}
                   isSelected={selectedComponent === 'memory'}
-                  onSelect={setSelectedComponent}
-                  onHover={setSelectedComponent}
+                  onSelect={(id) => setSelectedComponent(selectedComponent === id ? null : id)}
+                  onHover={(id) => setHoveredNode(id)}
+                  onLeave={() => setHoveredNode(null)}
                   liveData={currentStepData.nodeStates?.memory}
                   detailedState={currentStepData.detailedState}
                   reducedMotion={reducedMotion}
@@ -840,8 +957,9 @@ export const ComputerArchitectureDiagram = ({
                   height={NODES.alu.h}
                   isActive={isNodeActive('alu')}
                   isSelected={selectedComponent === 'alu'}
-                  onSelect={setSelectedComponent}
-                  onHover={setSelectedComponent}
+                  onSelect={(id) => setSelectedComponent(selectedComponent === id ? null : id)}
+                  onHover={(id) => setHoveredNode(id)}
+                  onLeave={() => setHoveredNode(null)}
                   liveData={currentStepData.nodeStates?.alu}
                   detailedState={currentStepData.detailedState}
                   reducedMotion={reducedMotion}
@@ -858,8 +976,9 @@ export const ComputerArchitectureDiagram = ({
                   height={NODES.output.h}
                   isActive={isNodeActive('output')}
                   isSelected={selectedComponent === 'output'}
-                  onSelect={setSelectedComponent}
-                  onHover={setSelectedComponent}
+                  onSelect={(id) => setSelectedComponent(selectedComponent === id ? null : id)}
+                  onHover={(id) => setHoveredNode(id)}
+                  onLeave={() => setHoveredNode(null)}
                   liveData={currentStepData.nodeStates?.output}
                   detailedState={currentStepData.detailedState}
                   reducedMotion={reducedMotion}
@@ -961,14 +1080,30 @@ export const ComputerArchitectureDiagram = ({
             </div>
           )}
 
-          {/* Interactive Inspection Panel */}
+          {/* Interactive Inspection Panel - Only Shown When Explicitly Clicked / Pinned */}
           {selectedComponent && (
-            <ComponentDetailsPanel
-              componentId={selectedComponent}
-              onClose={() => setSelectedComponent(null)}
-              lang={lang}
-              currentStepData={currentStepData}
-            />
+            <div className="transition-all duration-300 ease-in-out animate-in fade-in slide-in-from-bottom-3 space-y-2">
+              <div className="flex items-center justify-between px-2 pt-2">
+                <span className="text-xs font-bold text-neutral-500 flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-sky-500" />
+                  <span>In-Depth Architecture Inspection / বিস্তারিত হার্ডওয়্যার বিশ্লেষণ</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedComponent(null)}
+                  className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  <span>Close / বন্ধ করুন</span>
+                </button>
+              </div>
+              <ComponentDetailsPanel
+                componentId={selectedComponent}
+                onClose={() => setSelectedComponent(null)}
+                lang={lang}
+                currentStepData={currentStepData}
+              />
+            </div>
           )}
         </div>
       )}

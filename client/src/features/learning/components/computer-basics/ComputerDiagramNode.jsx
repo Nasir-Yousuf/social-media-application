@@ -31,6 +31,7 @@ export const ComputerDiagramNode = ({
   isSelected = false,
   onSelect,
   onHover,
+  onLeave,
   liveData = null,
   detailedState = null,
   reducedMotion = false,
@@ -83,6 +84,7 @@ export const ComputerDiagramNode = ({
         aria-pressed={isSelected}
         onClick={() => onSelect(id)}
         onMouseEnter={() => onHover && onHover(id)}
+        onMouseLeave={() => onLeave && onLeave(id)}
         onKeyDown={handleKeyDown}
         className={`w-full h-full rounded-2xl border-2 ${borderClass} ${bgClass} ${glowClass} p-3 flex flex-col justify-between transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-sky-500 relative backdrop-blur-xs ${
           isActive && !reducedMotion ? 'scale-[1.02]' : 'hover:scale-[1.01]'
