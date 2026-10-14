@@ -36,14 +36,12 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
   const [hoveredUnit, setHoveredUnit] = useState(null);
   const [pinnedUnit, setPinnedUnit] = useState('alu'); // Default to ALU so inspector is never blank
 
-  // Debounced hover handlers to eliminate rapid strobing/thrashing
+  // Instant responsive hover handler with smooth leave grace period
   const hoverTimerRef = useRef(null);
 
   const handleUnitEnter = (unitKey) => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => {
-      setHoveredUnit(unitKey);
-    }, 35);
+    setHoveredUnit(unitKey);
   };
 
   const handleUnitLeave = () => {
@@ -419,6 +417,27 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
   const selectedData = COMPONENT_INFO[activeUnit] || COMPONENT_INFO.alu;
   const animDuration = 2 / (flowSpeed || 1);
 
+  const isCurrentActive = Boolean(hoveredUnit || pinnedUnit);
+  const currentTarget = hoveredUnit || pinnedUnit;
+
+  const getPathOpacity = (units) => {
+    if (!isCurrentActive) return 1;
+    return units.includes(currentTarget) ? 1 : 0.32;
+  };
+
+  const getPathWidth = (units, baseWidth = 2.5, activeWidth = 4) => {
+    if (!isCurrentActive) return baseWidth;
+    return units.includes(currentTarget) ? activeWidth : baseWidth;
+  };
+
+  const getPathFilter = (units, color = 'red') => {
+    if (!isCurrentActive) return 'none';
+    if (!units.includes(currentTarget)) return 'none';
+    return color === 'red'
+      ? 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.9))'
+      : 'drop-shadow(0 0 6px rgba(37, 99, 235, 0.9))';
+  };
+
   return (
     <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#0c1017] p-4 sm:p-6 shadow-sm space-y-5 select-none relative overflow-hidden font-sans">
       {/* Background ambient grid */}
@@ -504,98 +523,65 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
           100% visible, fully scalable, never cut off, zero obstruction
          ======================================================== */}
       <div className="w-full relative rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-[#fbfcfd] dark:bg-[#070b12] p-2.5 sm:p-4 shadow-inner overflow-hidden flex flex-col justify-center">
-        {/* Dynamic Map HUD: Instant Eye-Level Readout without covering any diagram component */}
+        {/* Dynamic Telemetry HUD: Eye-Level Status & Signal Telemetry Bar (Zero Overlap with Diagram) */}
         <div
-          className="mb-2 p-2.5 sm:p-3 rounded-2xl border transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 backdrop-blur-md"
+          className="mb-3 p-3 sm:p-4 rounded-2xl border transition-all duration-300 min-h-[76px] flex flex-col sm:flex-row sm:items-center justify-between gap-3 backdrop-blur-md shadow-md select-none"
           style={{
-            borderColor: hoveredUnit ? COMPONENT_INFO[hoveredUnit].accentColor : 'rgba(156,163,175,0.2)',
-            backgroundColor: hoveredUnit ? `${COMPONENT_INFO[hoveredUnit].accentColor}10` : 'rgba(255,255,255,0.03)',
+            borderColor: selectedData.accentColor,
+            backgroundColor: `${selectedData.accentColor}12`,
+            boxShadow: `0 0 24px ${selectedData.accentColor}18`,
           }}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span
-              className="w-3 h-3 rounded-full animate-ping shrink-0"
-              style={{ backgroundColor: (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).accentColor }}
-            />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h4 className="text-xs sm:text-sm font-black text-neutral-900 dark:text-neutral-100 truncate">
-                  {lang === 'bn'
-                    ? (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).bnName
-                    : (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).name}
-                </h4>
-                <span className="text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 shrink-0">
-                  {(hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).tag}
-                </span>
-              </div>
-              <p className="text-[11px] text-neutral-600 dark:text-neutral-300 truncate">
-                {lang === 'bn'
-                  ? (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).shortSummaryBn
-                  : (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).shortSummary}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0 text-[10px] font-mono font-bold">
-            <div className="px-2 py-1 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 truncate max-w-[200px]">
-              🔴 {(hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).quickSignals.inData}
-            </div>
-            <div className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 truncate max-w-[200px]">
-              🔵 {(hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).quickSignals.control}
-            </div>
-          </div>
-        </div>
-
-        {/* MAP-OF-BANGLADESH STYLE FLOATING QUICK-TOOLTIP BADGE (Safe open-space positioning) */}
-        <div
-          className={`absolute z-30 pointer-events-none hidden sm:block ${
-            hoveredUnit && COMPONENT_INFO[hoveredUnit]
-              ? 'opacity-100 scale-100 translate-y-0'
-              : 'opacity-0 scale-95 translate-y-2'
-          }`}
-          style={{
-            top: hoveredUnit && COMPONENT_INFO[hoveredUnit]?.tooltipPos.top ? COMPONENT_INFO[hoveredUnit].tooltipPos.top : '16px',
-            left: hoveredUnit && COMPONENT_INFO[hoveredUnit]?.tooltipPos.left ? COMPONENT_INFO[hoveredUnit].tooltipPos.left : undefined,
-            right: hoveredUnit && COMPONENT_INFO[hoveredUnit]?.tooltipPos.right ? COMPONENT_INFO[hoveredUnit].tooltipPos.right : undefined,
-            transition: 'all 300ms cubic-bezier(0.16, 1, 0.3, 1)',
-          }}
-        >
-          {COMPONENT_INFO[hoveredUnit || activeUnit] && (
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div
-              className="max-w-[240px] rounded-2xl border-2 bg-white/95 dark:bg-[#0f141f]/95 p-2.5 shadow-2xl backdrop-blur-md space-y-1.5 transition-all duration-200"
-              style={{ borderColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md transition-all duration-300"
+              style={{
+                backgroundColor: selectedData.accentColor,
+                boxShadow: `0 0 14px ${selectedData.accentColor}70`,
+              }}
             >
-              <div className="flex items-center justify-between gap-1.5 border-b border-neutral-100 dark:border-neutral-800/80 pb-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full animate-ping shrink-0"
-                    style={{ backgroundColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
-                  />
-                  <h5 className="text-[11px] font-black text-neutral-900 dark:text-neutral-100 truncate">
-                    {lang === 'bn'
-                      ? COMPONENT_INFO[hoveredUnit || activeUnit].bnName.split('(')[0].trim()
-                      : COMPONENT_INFO[hoveredUnit || activeUnit].name.split('(')[0].trim()}
-                  </h5>
-                </div>
-                <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 shrink-0">
-                  {COMPONENT_INFO[hoveredUnit || activeUnit].tag}
-                </span>
-              </div>
-              <p className="text-[10px] text-neutral-600 dark:text-neutral-300 leading-snug">
-                {lang === 'bn'
-                  ? COMPONENT_INFO[hoveredUnit || activeUnit].shortSummaryBn
-                  : COMPONENT_INFO[hoveredUnit || activeUnit].shortSummary}
-              </p>
-              <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800/80 text-[8.5px] font-mono font-bold text-neutral-500 space-y-0.5">
-                <div className="text-red-500 truncate">🔴 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.inData}</div>
-                <div className="text-blue-500 truncate">🔵 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.control}</div>
-              </div>
-              <div className="pt-0.5 text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                <span>Click box to lock in details panel below</span>
-              </div>
+              {selectedData.id === 'alu' && <Cpu className="w-5 h-5" />}
+              {selectedData.id === 'memory' && <HardDrive className="w-5 h-5" />}
+              {selectedData.id === 'cu' && <Layers className="w-5 h-5" />}
+              {selectedData.id === 'input' && <Keyboard className="w-5 h-5" />}
+              {selectedData.id === 'output' && <Monitor className="w-5 h-5" />}
+              {selectedData.id === 'cpu' && <Zap className="w-5 h-5" />}
+              {selectedData.id === 'operator' && <ExternalLink className="w-5 h-5" />}
             </div>
-          )}
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-xs sm:text-sm font-black text-neutral-900 dark:text-neutral-100 truncate transition-colors duration-200">
+                  {lang === 'bn' ? selectedData.bnName : selectedData.name}
+                </h4>
+                <span
+                  className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full text-white shrink-0 shadow-xs transition-colors duration-300"
+                  style={{ backgroundColor: selectedData.accentColor }}
+                >
+                  {selectedData.tag}
+                </span>
+                {hoveredUnit && (
+                  <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 animate-pulse">
+                    LIVE INSPECTION
+                  </span>
+                )}
+              </div>
+              <p className="text-[11.5px] text-neutral-600 dark:text-neutral-300 leading-snug mt-0.5 transition-all duration-200">
+                {lang === 'bn' ? selectedData.shortSummaryBn : selectedData.shortSummary}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0 text-[10px] font-mono font-bold">
+            <div className="px-2.5 py-1.5 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/25 flex items-center gap-1.5 shadow-xs transition-all duration-300 hover:scale-105">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
+              <span className="truncate max-w-[200px]">{selectedData.quickSignals.inData}</span>
+            </div>
+            <div className="px-2.5 py-1.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/25 flex items-center gap-1.5 shadow-xs transition-all duration-300 hover:scale-105">
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping shrink-0" />
+              <span className="truncate max-w-[200px]">{selectedData.quickSignals.control}</span>
+            </div>
+          </div>
         </div>
 
         {/* SVG Canvas - Full Width, Fluid Scale, Zero Clipping */}
@@ -605,600 +591,798 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
             className="w-full h-auto max-w-full drop-shadow-xs"
             aria-label="Functional block diagram of a typical computer recreation"
           >
-            {/* Marker Definitions */}
+            {/* Marker & Style Definitions */}
             <defs>
-                <marker
-                  id="tb-red-arrow"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="7"
-                  markerHeight="7"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#ef4444" />
-                </marker>
+              <style>{`
+                .cb-diagram-node {
+                  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+                  transform-box: fill-box;
+                }
+                .cb-diagram-node-active {
+                  transform: scale(1.038);
+                }
+                .cb-rect-transition {
+                  transition: fill 0.25s ease, stroke 0.25s ease, stroke-width 0.25s ease;
+                }
+                .cb-path-transition {
+                  transition: stroke-width 0.25s ease, opacity 0.25s ease, filter 0.25s ease;
+                }
+                @keyframes cb-beacon-pulse-kf {
+                  0% {
+                    r: 3px;
+                    opacity: 1;
+                    stroke-width: 1.8px;
+                  }
+                  100% {
+                    r: 10px;
+                    opacity: 0;
+                    stroke-width: 0.5px;
+                  }
+                }
+                .cb-beacon-pulse {
+                  animation: cb-beacon-pulse-kf 1.2s cubic-bezier(0.1, 0.4, 0.8, 1) infinite;
+                }
+              `}</style>
 
-                <marker
-                  id="tb-blue-arrow"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="7"
-                  markerHeight="7"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#2563eb" />
-                </marker>
+              <marker
+                id="tb-red-arrow"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#ef4444" />
+              </marker>
 
-                <pattern
-                  id="chip-dots"
-                  x="0"
-                  y="0"
-                  width="20"
-                  height="20"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <circle cx="2" cy="2" r="1" fill="currentColor" className="text-neutral-400/20" />
-                </pattern>
-              </defs>
+              <marker
+                id="tb-blue-arrow"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#2563eb" />
+              </marker>
 
-              {/* CPU Box (Background is pointer-events-none so internal ALU/Memory hover is never intercepted) */}
+              <pattern
+                id="chip-dots"
+                x="0"
+                y="0"
+                width="20"
+                height="20"
+                patternUnits="userSpaceOnUse"
+              >
+                <circle cx="2" cy="2" r="1" fill="currentColor" className="text-neutral-400/20" />
+              </pattern>
+            </defs>
+
+            {/* CPU Box (Background is pointer-events-none so internal ALU/Memory hover is never intercepted) */}
+            <rect
+              x="340"
+              y="40"
+              width="320"
+              height="455"
+              rx="16"
+              className={`transition-all duration-300 pointer-events-none ${
+                activeUnit === 'cpu'
+                  ? 'fill-indigo-500/10 stroke-indigo-500 stroke-[3.5] filter drop-shadow-[0_0_18px_rgba(99,102,241,0.35)]'
+                  : 'fill-neutral-100/90 dark:fill-neutral-900/90 stroke-neutral-900 dark:stroke-neutral-300 stroke-[3]'
+              }`}
+            />
+            <rect
+              x="340"
+              y="40"
+              width="320"
+              height="455"
+              rx="16"
+              fill="url(#chip-dots)"
+              className="pointer-events-none"
+            />
+
+            {/* Dedicated CPU Border Hitbox (Triggers CPU hover without covering internal units) */}
+            <rect
+              x="340"
+              y="40"
+              width="320"
+              height="455"
+              rx="16"
+              fill="none"
+              stroke="transparent"
+              strokeWidth="20"
+              className="cursor-pointer"
+              onMouseEnter={() => handleUnitEnter('cpu')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('cpu')}
+            />
+
+            {/* CPU Header Pill at top */}
+            <g
+              id="cpu-header-badge"
+              className="cursor-pointer group"
+              onMouseEnter={() => handleUnitEnter('cpu')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('cpu')}
+            >
               <rect
-                x="340"
-                y="40"
-                width="320"
-                height="455"
-                rx="16"
-                className={`transition-all duration-300 pointer-events-none ${
+                x="410"
+                y="45"
+                width="180"
+                height="22"
+                rx="6"
+                className={`transition-all duration-200 ${
                   activeUnit === 'cpu'
-                    ? 'fill-indigo-500/10 stroke-indigo-500 stroke-[3.5] filter drop-shadow-[0_0_15px_rgba(99,102,241,0.25)]'
-                    : 'fill-neutral-100/90 dark:fill-neutral-900/90 stroke-neutral-900 dark:stroke-neutral-300 stroke-[3]'
+                    ? 'fill-indigo-600 shadow-md'
+                    : 'fill-neutral-200 dark:fill-neutral-800 hover:fill-indigo-500/80'
                 }`}
               />
-              <rect
-                x="340"
-                y="40"
-                width="320"
-                height="455"
-                rx="16"
-                fill="url(#chip-dots)"
-                className="pointer-events-none"
-              />
-
-              {/* Dedicated CPU Border Hitbox (Triggers CPU hover without covering internal units) */}
-              <rect
-                x="340"
-                y="40"
-                width="320"
-                height="455"
-                rx="16"
-                fill="none"
-                stroke="transparent"
-                strokeWidth="20"
-                className="cursor-pointer"
-                onMouseEnter={() => handleUnitEnter('cpu')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('cpu')}
-              />
-
-              {/* CPU Header Pill at top */}
-              <g
-                id="cpu-header-badge"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('cpu')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('cpu')}
-              >
-                <rect
-                  x="410"
-                  y="45"
-                  width="180"
-                  height="22"
-                  rx="6"
-                  className={`transition-all duration-200 ${
-                    activeUnit === 'cpu'
-                      ? 'fill-indigo-600'
-                      : 'fill-neutral-200 dark:fill-neutral-800 hover:fill-indigo-500/80'
-                  }`}
-                />
-                <text
-                  x="500"
-                  y="60"
-                  textAnchor="middle"
-                  className={`font-black text-[10.5px] select-none tracking-wider uppercase transition-colors ${
-                    activeUnit === 'cpu'
-                      ? 'fill-white'
-                      : 'fill-neutral-700 dark:fill-neutral-300 group-hover:fill-white'
-                  }`}
-                >
-                  CPU Boundary Box
-                </text>
-              </g>
-
-              {/* CPU Title at bottom */}
-              <g
-                id="cpu-title-group"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('cpu')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('cpu')}
-              >
-                <text
-                  x="500"
-                  y="522"
-                  textAnchor="middle"
-                  className={`font-black text-[15px] select-none transition-colors duration-200 tracking-wide ${
-                    activeUnit === 'cpu'
-                      ? 'fill-indigo-600 dark:fill-indigo-400 font-extrabold'
-                      : 'fill-neutral-900 dark:fill-neutral-100 hover:fill-indigo-500'
-                  }`}
-                >
-                  Central Processing Unit (CPU)
-                </text>
-              </g>
-
-              {/* Red Information Flow Paths */}
-              <path
-                id="path-op-to-input"
-                d="M 65 267 L 170 267"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'input' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-input-to-mem"
-                d="M 310 267 L 370 267"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'input' || activeUnit === 'memory' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-mem-to-alu"
-                d="M 435 220 L 435 155"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'alu' || activeUnit === 'memory' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-alu-to-mem"
-                d="M 565 155 L 565 220"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'alu' || activeUnit === 'memory' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-mem-to-cu"
-                d="M 435 315 L 435 380"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'cu' || activeUnit === 'memory' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-cu-to-mem"
-                d="M 565 380 L 565 315"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'cu' || activeUnit === 'memory' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-mem-to-output"
-                d="M 630 267 L 690 267"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'output' || activeUnit === 'memory' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-output-to-op"
-                d="M 830 267 L 935 267"
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth={activeUnit === 'output' ? '3.5' : '2.5'}
-                markerEnd="url(#tb-red-arrow)"
-                className="transition-all duration-200"
-              />
-
-              {/* Blue Control Signal Paths */}
-              <path
-                id="path-cu-to-input"
-                d="M 370 440 L 240 440 L 240 315"
-                fill="none"
-                stroke="#2563eb"
-                strokeWidth={activeUnit === 'cu' || activeUnit === 'input' ? '3' : '2'}
-                strokeDasharray="5 4"
-                markerEnd="url(#tb-blue-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-cu-to-memory-loop"
-                d="M 370 410 L 345 410 L 345 275 L 370 275"
-                fill="none"
-                stroke="#2563eb"
-                strokeWidth={activeUnit === 'cu' || activeUnit === 'memory' ? '3' : '2'}
-                strokeDasharray="5 4"
-                markerEnd="url(#tb-blue-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-cu-to-alu"
-                d="M 630 420 L 655 420 L 655 112 L 630 112"
-                fill="none"
-                stroke="#2563eb"
-                strokeWidth={activeUnit === 'cu' || activeUnit === 'alu' ? '3' : '2'}
-                strokeDasharray="5 4"
-                markerEnd="url(#tb-blue-arrow)"
-                className="transition-all duration-200"
-              />
-
-              <path
-                id="path-cu-to-output"
-                d="M 630 440 L 760 440 L 760 315"
-                fill="none"
-                stroke="#2563eb"
-                strokeWidth={activeUnit === 'cu' || activeUnit === 'output' ? '3' : '2'}
-                strokeDasharray="5 4"
-                markerEnd="url(#tb-blue-arrow)"
-                className="transition-all duration-200"
-              />
-
-              {/* Animated Signals */}
-              {isFlowActive && (
-                <g className="pointer-events-none">
-                  <circle r="4" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration * 0.8}s`} repeatCount="indefinite">
-                      <mpath href="#path-op-to-input" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="4" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration * 0.7}s`} repeatCount="indefinite">
-                      <mpath href="#path-input-to-mem" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="4.5" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration}s`} repeatCount="indefinite">
-                      <mpath href="#path-mem-to-alu" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="4.5" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration}s`} repeatCount="indefinite">
-                      <mpath href="#path-alu-to-mem" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="4" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration * 1.1}s`} repeatCount="indefinite">
-                      <mpath href="#path-mem-to-cu" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="4" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration * 1.1}s`} repeatCount="indefinite">
-                      <mpath href="#path-cu-to-mem" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="4" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration * 0.7}s`} repeatCount="indefinite">
-                      <mpath href="#path-mem-to-output" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="4" fill="#ef4444" className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)]">
-                    <animateMotion dur={`${animDuration * 0.8}s`} repeatCount="indefinite">
-                      <mpath href="#path-output-to-op" />
-                    </animateMotion>
-                  </circle>
-
-                  {/* Blue Control Pulses */}
-                  <circle r="3" fill="#3b82f6" className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]">
-                    <animateMotion dur={`${animDuration * 1.5}s`} repeatCount="indefinite">
-                      <mpath href="#path-cu-to-input" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="3" fill="#3b82f6" className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]">
-                    <animateMotion dur={`${animDuration * 1.2}s`} repeatCount="indefinite">
-                      <mpath href="#path-cu-to-memory-loop" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="3" fill="#3b82f6" className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]">
-                    <animateMotion dur={`${animDuration * 1.6}s`} repeatCount="indefinite">
-                      <mpath href="#path-cu-to-alu" />
-                    </animateMotion>
-                  </circle>
-
-                  <circle r="3" fill="#3b82f6" className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)]">
-                    <animateMotion dur={`${animDuration * 1.5}s`} repeatCount="indefinite">
-                      <mpath href="#path-cu-to-output" />
-                    </animateMotion>
-                  </circle>
-                </g>
-              )}
-
-              {/* ALU */}
-              <g
-                id="unit-alu"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('alu')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('alu')}
-              >
-                <rect
-                  x="370"
-                  y="70"
-                  width="260"
-                  height="85"
-                  rx="10"
-                  className={`transition-all duration-200 ${
-                    activeUnit === 'alu'
-                      ? 'fill-amber-500/20 stroke-amber-500 stroke-[3] filter drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]'
-                      : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] hover:stroke-amber-400'
-                  }`}
-                />
-                <text
-                  x="500"
-                  y="108"
-                  textAnchor="middle"
-                  className="font-black text-[15px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none"
-                >
-                  ALU
-                </text>
-                <text
-                  x="500"
-                  y="130"
-                  textAnchor="middle"
-                  className="font-bold text-[11.5px] fill-neutral-600 dark:fill-neutral-400 select-none pointer-events-none"
-                >
-                  (Arithmetic & Logic Unit)
-                </text>
-              </g>
-
-              {/* Memory */}
-              <g
-                id="unit-memory"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('memory')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('memory')}
-              >
-                <rect
-                  x="370"
-                  y="220"
-                  width="260"
-                  height="95"
-                  rx="10"
-                  className={`transition-all duration-200 ${
-                    activeUnit === 'memory'
-                      ? 'fill-emerald-500/20 stroke-emerald-500 stroke-[3] filter drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]'
-                      : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] hover:stroke-emerald-400'
-                  }`}
-                />
-                <text
-                  x="500"
-                  y="273"
-                  textAnchor="middle"
-                  className="font-black text-[16px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none"
-                >
-                  Memory
-                </text>
-                <text
-                  x="500"
-                  y="293"
-                  textAnchor="middle"
-                  className="font-semibold text-[10.5px] fill-neutral-500 dark:fill-neutral-400 select-none pointer-events-none"
-                >
-                  (Primary Storage / RAM)
-                </text>
-              </g>
-
-              {/* Control Unit */}
-              <g
-                id="unit-cu"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('cu')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('cu')}
-              >
-                <rect
-                  x="370"
-                  y="380"
-                  width="260"
-                  height="85"
-                  rx="10"
-                  className={`transition-all duration-200 ${
-                    activeUnit === 'cu'
-                      ? 'fill-purple-500/20 stroke-purple-500 stroke-[3] filter drop-shadow-[0_0_12px_rgba(139,92,246,0.5)]'
-                      : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] hover:stroke-purple-400'
-                  }`}
-                />
-                <text
-                  x="500"
-                  y="423"
-                  textAnchor="middle"
-                  className="font-black text-[15px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none"
-                >
-                  Control Unit
-                </text>
-                <text
-                  x="500"
-                  y="445"
-                  textAnchor="middle"
-                  className="font-bold text-[11px] fill-neutral-500 dark:fill-neutral-400 select-none pointer-events-none"
-                >
-                  (Timing & Command Generator)
-                </text>
-              </g>
-
-              {/* Input Device */}
-              <g
-                id="unit-input"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('input')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('input')}
-              >
-                <rect
-                  x="170"
-                  y="220"
-                  width="140"
-                  height="95"
-                  rx="10"
-                  className={`transition-all duration-200 ${
-                    activeUnit === 'input'
-                      ? 'fill-sky-500/20 stroke-sky-500 stroke-[3] filter drop-shadow-[0_0_12px_rgba(2,132,199,0.5)]'
-                      : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] hover:stroke-sky-400'
-                  }`}
-                />
-                <text
-                  x="240"
-                  y="267"
-                  textAnchor="middle"
-                  className="font-black text-[14px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none"
-                >
-                  Input Device
-                </text>
-                <text
-                  x="240"
-                  y="288"
-                  textAnchor="middle"
-                  className="font-semibold text-[10px] fill-neutral-500 select-none pointer-events-none"
-                >
-                  Keyboard / Mouse
-                </text>
-              </g>
-
-              {/* Output Device */}
-              <g
-                id="unit-output"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('output')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('output')}
-              >
-                <rect
-                  x="690"
-                  y="220"
-                  width="140"
-                  height="95"
-                  rx="10"
-                  className={`transition-all duration-200 ${
-                    activeUnit === 'output'
-                      ? 'fill-rose-500/20 stroke-rose-500 stroke-[3] filter drop-shadow-[0_0_12px_rgba(225,29,72,0.5)]'
-                      : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] hover:stroke-rose-400'
-                  }`}
-                />
-                <text
-                  x="760"
-                  y="267"
-                  textAnchor="middle"
-                  className="font-black text-[14px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none"
-                >
-                  Output Device
-                </text>
-                <text
-                  x="760"
-                  y="288"
-                  textAnchor="middle"
-                  className="font-semibold text-[10px] fill-neutral-500 select-none pointer-events-none"
-                >
-                  Monitor / Display
-                </text>
-              </g>
-
-              {/* Labels & Operator Groups */}
-              <g
-                id="unit-operator-left"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('operator')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('operator')}
-              >
-                <text
-                  x="55"
-                  y="250"
-                  textAnchor="middle"
-                  className={`font-black text-[13px] select-none transition-all duration-200 ${
-                    activeUnit === 'operator'
-                      ? 'fill-blue-600 dark:fill-blue-400 font-extrabold'
-                      : 'fill-red-600 dark:fill-red-400'
-                  }`}
-                >
-                  From Operator
-                </text>
-                <text
-                  x="55"
-                  y="283"
-                  textAnchor="middle"
-                  className="font-bold text-[9.5px] fill-neutral-500 select-none"
-                >
-                  (Human User)
-                </text>
-              </g>
-
-              <g
-                id="unit-operator-right"
-                className="cursor-pointer group"
-                onMouseEnter={() => handleUnitEnter('operator')}
-                onMouseLeave={handleUnitLeave}
-                onClick={() => setPinnedUnit('operator')}
-              >
-                <text
-                  x="945"
-                  y="250"
-                  textAnchor="middle"
-                  className={`font-black text-[13px] select-none transition-all duration-200 ${
-                    activeUnit === 'operator'
-                      ? 'fill-blue-600 dark:fill-blue-400 font-extrabold'
-                      : 'fill-blue-600 dark:fill-blue-400'
-                  }`}
-                >
-                  To Operator
-                </text>
-                <text
-                  x="945"
-                  y="283"
-                  textAnchor="middle"
-                  className="font-bold text-[9.5px] fill-neutral-500 select-none"
-                >
-                  (Human Eyes)
-                </text>
-              </g>
-
               <text
                 x="500"
-                y="560"
+                y="60"
                 textAnchor="middle"
-                className="font-black text-[13px] fill-blue-700 dark:fill-sky-400 select-none tracking-wide"
+                className={`font-black text-[10.5px] select-none tracking-wider uppercase transition-colors ${
+                  activeUnit === 'cpu'
+                    ? 'fill-white'
+                    : 'fill-neutral-700 dark:fill-neutral-300 group-hover:fill-white'
+                }`}
               >
-                Figure: Functional block diagram of a typical computer
+                CPU Boundary Box
               </text>
+            </g>
+
+            {/* CPU Title at bottom */}
+            <g
+              id="cpu-title-group"
+              className="cursor-pointer group"
+              onMouseEnter={() => handleUnitEnter('cpu')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('cpu')}
+            >
+              <text
+                x="500"
+                y="522"
+                textAnchor="middle"
+                className={`font-black text-[15px] select-none transition-colors duration-200 tracking-wide ${
+                  activeUnit === 'cpu'
+                    ? 'fill-indigo-600 dark:fill-indigo-400 font-extrabold'
+                    : 'fill-neutral-900 dark:fill-neutral-100 hover:fill-indigo-500'
+                }`}
+              >
+                Central Processing Unit (CPU)
+              </text>
+            </g>
+
+            {/* Red Information Flow Paths (Dynamic Lighting & Transitions) */}
+            <path
+              id="path-op-to-input"
+              d="M 65 267 L 170 267"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['operator', 'input'], 2.5, 4)}
+              opacity={getPathOpacity(['operator', 'input'])}
+              filter={getPathFilter(['operator', 'input'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-input-to-mem"
+              d="M 310 267 L 370 267"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['input', 'memory'], 2.5, 4)}
+              opacity={getPathOpacity(['input', 'memory'])}
+              filter={getPathFilter(['input', 'memory'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-mem-to-alu"
+              d="M 435 220 L 435 155"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['alu', 'memory'], 2.5, 4)}
+              opacity={getPathOpacity(['alu', 'memory'])}
+              filter={getPathFilter(['alu', 'memory'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-alu-to-mem"
+              d="M 565 155 L 565 220"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['alu', 'memory'], 2.5, 4)}
+              opacity={getPathOpacity(['alu', 'memory'])}
+              filter={getPathFilter(['alu', 'memory'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-mem-to-cu"
+              d="M 435 315 L 435 380"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['cu', 'memory'], 2.5, 4)}
+              opacity={getPathOpacity(['cu', 'memory'])}
+              filter={getPathFilter(['cu', 'memory'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-cu-to-mem"
+              d="M 565 380 L 565 315"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['cu', 'memory'], 2.5, 4)}
+              opacity={getPathOpacity(['cu', 'memory'])}
+              filter={getPathFilter(['cu', 'memory'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-mem-to-output"
+              d="M 630 267 L 690 267"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['output', 'memory'], 2.5, 4)}
+              opacity={getPathOpacity(['output', 'memory'])}
+              filter={getPathFilter(['output', 'memory'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-output-to-op"
+              d="M 830 267 L 935 267"
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={getPathWidth(['output', 'operator'], 2.5, 4)}
+              opacity={getPathOpacity(['output', 'operator'])}
+              filter={getPathFilter(['output', 'operator'], 'red')}
+              markerEnd="url(#tb-red-arrow)"
+              className="cb-path-transition"
+            />
+
+            {/* Blue Control Signal Paths (Dynamic Lighting & Transitions) */}
+            <path
+              id="path-cu-to-input"
+              d="M 370 440 L 240 440 L 240 315"
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={getPathWidth(['cu', 'input'], 2, 3.5)}
+              opacity={getPathOpacity(['cu', 'input'])}
+              filter={getPathFilter(['cu', 'input'], 'blue')}
+              strokeDasharray="5 4"
+              markerEnd="url(#tb-blue-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-cu-to-memory-loop"
+              d="M 370 410 L 345 410 L 345 275 L 370 275"
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={getPathWidth(['cu', 'memory'], 2, 3.5)}
+              opacity={getPathOpacity(['cu', 'memory'])}
+              filter={getPathFilter(['cu', 'memory'], 'blue')}
+              strokeDasharray="5 4"
+              markerEnd="url(#tb-blue-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-cu-to-alu"
+              d="M 630 420 L 655 420 L 655 112 L 630 112"
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={getPathWidth(['cu', 'alu'], 2, 3.5)}
+              opacity={getPathOpacity(['cu', 'alu'])}
+              filter={getPathFilter(['cu', 'alu'], 'blue')}
+              strokeDasharray="5 4"
+              markerEnd="url(#tb-blue-arrow)"
+              className="cb-path-transition"
+            />
+
+            <path
+              id="path-cu-to-output"
+              d="M 630 440 L 760 440 L 760 315"
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth={getPathWidth(['cu', 'output'], 2, 3.5)}
+              opacity={getPathOpacity(['cu', 'output'])}
+              filter={getPathFilter(['cu', 'output'], 'blue')}
+              strokeDasharray="5 4"
+              markerEnd="url(#tb-blue-arrow)"
+              className="cb-path-transition"
+            />
+
+            {/* Animated Signal Particle Flows */}
+            {isFlowActive && (
+              <g className="pointer-events-none">
+                <circle
+                  r="4"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['operator', 'input'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 0.8}s`} repeatCount="indefinite">
+                    <mpath href="#path-op-to-input" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="4"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['input', 'memory'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 0.7}s`} repeatCount="indefinite">
+                    <mpath href="#path-input-to-mem" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="4.5"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['alu', 'memory'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration}s`} repeatCount="indefinite">
+                    <mpath href="#path-mem-to-alu" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="4.5"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['alu', 'memory'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration}s`} repeatCount="indefinite">
+                    <mpath href="#path-alu-to-mem" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="4"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['cu', 'memory'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 1.1}s`} repeatCount="indefinite">
+                    <mpath href="#path-mem-to-cu" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="4"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['cu', 'memory'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 1.1}s`} repeatCount="indefinite">
+                    <mpath href="#path-cu-to-mem" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="4"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['output', 'memory'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 0.7}s`} repeatCount="indefinite">
+                    <mpath href="#path-mem-to-output" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="4"
+                  fill="#ef4444"
+                  opacity={getPathOpacity(['output', 'operator'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(239,68,68,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 0.8}s`} repeatCount="indefinite">
+                    <mpath href="#path-output-to-op" />
+                  </animateMotion>
+                </circle>
+
+                {/* Blue Control Pulses */}
+                <circle
+                  r="3.5"
+                  fill="#3b82f6"
+                  opacity={getPathOpacity(['cu', 'input'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 1.5}s`} repeatCount="indefinite">
+                    <mpath href="#path-cu-to-input" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="3.5"
+                  fill="#3b82f6"
+                  opacity={getPathOpacity(['cu', 'memory'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 1.2}s`} repeatCount="indefinite">
+                    <mpath href="#path-cu-to-memory-loop" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="3.5"
+                  fill="#3b82f6"
+                  opacity={getPathOpacity(['cu', 'alu'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 1.6}s`} repeatCount="indefinite">
+                    <mpath href="#path-cu-to-alu" />
+                  </animateMotion>
+                </circle>
+
+                <circle
+                  r="3.5"
+                  fill="#3b82f6"
+                  opacity={getPathOpacity(['cu', 'output'])}
+                  className="filter drop-shadow-[0_0_6px_rgba(59,130,246,0.9)] cb-path-transition"
+                >
+                  <animateMotion dur={`${animDuration * 1.5}s`} repeatCount="indefinite">
+                    <mpath href="#path-cu-to-output" />
+                  </animateMotion>
+                </circle>
+              </g>
+            )}
+
+            {/* ALU (Arithmetic & Logic Unit) - Fluid Scale & Amber Glow */}
+            <g
+              id="unit-alu"
+              className={`cursor-pointer group cb-diagram-node ${
+                activeUnit === 'alu' ? 'cb-diagram-node-active' : ''
+              }`}
+              style={{
+                transformOrigin: '500px 112.5px',
+                filter:
+                  activeUnit === 'alu'
+                    ? 'drop-shadow(0 0 16px rgba(245,158,11,0.65))'
+                    : 'none',
+              }}
+              onMouseEnter={() => handleUnitEnter('alu')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('alu')}
+            >
+              <rect
+                x="370"
+                y="70"
+                width="260"
+                height="85"
+                rx="12"
+                className={`cb-rect-transition ${
+                  activeUnit === 'alu'
+                    ? 'fill-amber-500/20 dark:fill-amber-950/40 stroke-amber-400 stroke-[3]'
+                    : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] group-hover:stroke-amber-400'
+                }`}
+              />
+              <text
+                x="500"
+                y="108"
+                textAnchor="middle"
+                className="font-black text-[15px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none transition-colors duration-200"
+              >
+                ALU
+              </text>
+              <text
+                x="500"
+                y="130"
+                textAnchor="middle"
+                className="font-bold text-[11.5px] fill-neutral-600 dark:fill-neutral-400 select-none pointer-events-none transition-colors duration-200"
+              >
+                (Arithmetic & Logic Unit)
+              </text>
+              {activeUnit === 'alu' && (
+                <g className="pointer-events-none">
+                  <circle cx="612" cy="86" r="3" fill="#f59e0b" />
+                  <circle cx="612" cy="86" r="8" fill="none" stroke="#f59e0b" className="cb-beacon-pulse" />
+                </g>
+              )}
+            </g>
+
+            {/* Memory (Primary Storage / RAM) - Fluid Scale & Emerald Glow */}
+            <g
+              id="unit-memory"
+              className={`cursor-pointer group cb-diagram-node ${
+                activeUnit === 'memory' ? 'cb-diagram-node-active' : ''
+              }`}
+              style={{
+                transformOrigin: '500px 267.5px',
+                filter:
+                  activeUnit === 'memory'
+                    ? 'drop-shadow(0 0 16px rgba(16,185,129,0.65))'
+                    : 'none',
+              }}
+              onMouseEnter={() => handleUnitEnter('memory')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('memory')}
+            >
+              <rect
+                x="370"
+                y="220"
+                width="260"
+                height="95"
+                rx="12"
+                className={`cb-rect-transition ${
+                  activeUnit === 'memory'
+                    ? 'fill-emerald-500/20 dark:fill-emerald-950/40 stroke-emerald-400 stroke-[3]'
+                    : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] group-hover:stroke-emerald-400'
+                }`}
+              />
+              <text
+                x="500"
+                y="273"
+                textAnchor="middle"
+                className="font-black text-[16px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none transition-colors duration-200"
+              >
+                Memory
+              </text>
+              <text
+                x="500"
+                y="293"
+                textAnchor="middle"
+                className="font-semibold text-[10.5px] fill-neutral-500 dark:fill-neutral-400 select-none pointer-events-none transition-colors duration-200"
+              >
+                (Primary Storage / RAM)
+              </text>
+              {activeUnit === 'memory' && (
+                <g className="pointer-events-none">
+                  <circle cx="612" cy="236" r="3" fill="#10b981" />
+                  <circle cx="612" cy="236" r="8" fill="none" stroke="#10b981" className="cb-beacon-pulse" />
+                </g>
+              )}
+            </g>
+
+            {/* Control Unit - Fluid Scale & Purple Glow */}
+            <g
+              id="unit-cu"
+              className={`cursor-pointer group cb-diagram-node ${
+                activeUnit === 'cu' ? 'cb-diagram-node-active' : ''
+              }`}
+              style={{
+                transformOrigin: '500px 422.5px',
+                filter:
+                  activeUnit === 'cu'
+                    ? 'drop-shadow(0 0 16px rgba(139,92,246,0.65))'
+                    : 'none',
+              }}
+              onMouseEnter={() => handleUnitEnter('cu')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('cu')}
+            >
+              <rect
+                x="370"
+                y="380"
+                width="260"
+                height="85"
+                rx="12"
+                className={`cb-rect-transition ${
+                  activeUnit === 'cu'
+                    ? 'fill-purple-500/20 dark:fill-purple-950/40 stroke-purple-400 stroke-[3]'
+                    : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] group-hover:stroke-purple-400'
+                }`}
+              />
+              <text
+                x="500"
+                y="423"
+                textAnchor="middle"
+                className="font-black text-[15px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none transition-colors duration-200"
+              >
+                Control Unit
+              </text>
+              <text
+                x="500"
+                y="445"
+                textAnchor="middle"
+                className="font-bold text-[11px] fill-neutral-500 dark:fill-neutral-400 select-none pointer-events-none transition-colors duration-200"
+              >
+                (Timing & Command Generator)
+              </text>
+              {activeUnit === 'cu' && (
+                <g className="pointer-events-none">
+                  <circle cx="612" cy="396" r="3" fill="#8b5cf6" />
+                  <circle cx="612" cy="396" r="8" fill="none" stroke="#8b5cf6" className="cb-beacon-pulse" />
+                </g>
+              )}
+            </g>
+
+            {/* Input Device - Fluid Scale & Sky Glow */}
+            <g
+              id="unit-input"
+              className={`cursor-pointer group cb-diagram-node ${
+                activeUnit === 'input' ? 'cb-diagram-node-active' : ''
+              }`}
+              style={{
+                transformOrigin: '240px 267.5px',
+                filter:
+                  activeUnit === 'input'
+                    ? 'drop-shadow(0 0 16px rgba(14,165,233,0.65))'
+                    : 'none',
+              }}
+              onMouseEnter={() => handleUnitEnter('input')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('input')}
+            >
+              <rect
+                x="170"
+                y="220"
+                width="140"
+                height="95"
+                rx="12"
+                className={`cb-rect-transition ${
+                  activeUnit === 'input'
+                    ? 'fill-sky-500/20 dark:fill-sky-950/40 stroke-sky-400 stroke-[3]'
+                    : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] group-hover:stroke-sky-400'
+                }`}
+              />
+              <text
+                x="240"
+                y="267"
+                textAnchor="middle"
+                className="font-black text-[14px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none transition-colors duration-200"
+              >
+                Input Device
+              </text>
+              <text
+                x="240"
+                y="288"
+                textAnchor="middle"
+                className="font-semibold text-[10px] fill-neutral-500 select-none pointer-events-none transition-colors duration-200"
+              >
+                Keyboard / Mouse
+              </text>
+              {activeUnit === 'input' && (
+                <g className="pointer-events-none">
+                  <circle cx="296" cy="236" r="3" fill="#0ea5e9" />
+                  <circle cx="296" cy="236" r="8" fill="none" stroke="#0ea5e9" className="cb-beacon-pulse" />
+                </g>
+              )}
+            </g>
+
+            {/* Output Device - Fluid Scale & Rose Glow */}
+            <g
+              id="unit-output"
+              className={`cursor-pointer group cb-diagram-node ${
+                activeUnit === 'output' ? 'cb-diagram-node-active' : ''
+              }`}
+              style={{
+                transformOrigin: '760px 267.5px',
+                filter:
+                  activeUnit === 'output'
+                    ? 'drop-shadow(0 0 16px rgba(244,63,94,0.65))'
+                    : 'none',
+              }}
+              onMouseEnter={() => handleUnitEnter('output')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('output')}
+            >
+              <rect
+                x="690"
+                y="220"
+                width="140"
+                height="95"
+                rx="12"
+                className={`cb-rect-transition ${
+                  activeUnit === 'output'
+                    ? 'fill-rose-500/20 dark:fill-rose-950/40 stroke-rose-400 stroke-[3]'
+                    : 'fill-white dark:fill-[#12161f] stroke-neutral-900 dark:stroke-neutral-300 stroke-[2] group-hover:stroke-rose-400'
+                }`}
+              />
+              <text
+                x="760"
+                y="267"
+                textAnchor="middle"
+                className="font-black text-[14px] fill-neutral-900 dark:fill-neutral-100 select-none pointer-events-none transition-colors duration-200"
+              >
+                Output Device
+              </text>
+              <text
+                x="760"
+                y="288"
+                textAnchor="middle"
+                className="font-semibold text-[10px] fill-neutral-500 select-none pointer-events-none transition-colors duration-200"
+              >
+                Monitor / Display
+              </text>
+              {activeUnit === 'output' && (
+                <g className="pointer-events-none">
+                  <circle cx="816" cy="236" r="3" fill="#f43f5e" />
+                  <circle cx="816" cy="236" r="8" fill="none" stroke="#f43f5e" className="cb-beacon-pulse" />
+                </g>
+              )}
+            </g>
+
+            {/* Labels & Operator Groups */}
+            <g
+              id="unit-operator-left"
+              className="cursor-pointer group cb-diagram-node"
+              style={{
+                transformOrigin: '55px 267px',
+                transform: activeUnit === 'operator' ? 'scale(1.06)' : 'scale(1)',
+              }}
+              onMouseEnter={() => handleUnitEnter('operator')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('operator')}
+            >
+              <text
+                x="55"
+                y="250"
+                textAnchor="middle"
+                className={`font-black text-[13px] select-none transition-all duration-200 ${
+                  activeUnit === 'operator'
+                    ? 'fill-blue-600 dark:fill-blue-400 font-extrabold'
+                    : 'fill-red-600 dark:fill-red-400'
+                }`}
+              >
+                From Operator
+              </text>
+              <text
+                x="55"
+                y="283"
+                textAnchor="middle"
+                className="font-bold text-[9.5px] fill-neutral-500 select-none"
+              >
+                (Human User)
+              </text>
+            </g>
+
+            <g
+              id="unit-operator-right"
+              className="cursor-pointer group cb-diagram-node"
+              style={{
+                transformOrigin: '945px 267px',
+                transform: activeUnit === 'operator' ? 'scale(1.06)' : 'scale(1)',
+              }}
+              onMouseEnter={() => handleUnitEnter('operator')}
+              onMouseLeave={handleUnitLeave}
+              onClick={() => setPinnedUnit('operator')}
+            >
+              <text
+                x="945"
+                y="250"
+                textAnchor="middle"
+                className={`font-black text-[13px] select-none transition-all duration-200 ${
+                  activeUnit === 'operator'
+                    ? 'fill-blue-600 dark:fill-blue-400 font-extrabold'
+                    : 'fill-blue-600 dark:fill-blue-400'
+                }`}
+              >
+                To Operator
+              </text>
+              <text
+                x="945"
+                y="283"
+                textAnchor="middle"
+                className="font-bold text-[9.5px] fill-neutral-500 select-none"
+              >
+                (Human Eyes)
+              </text>
+            </g>
+
+            <text
+              x="500"
+              y="560"
+              textAnchor="middle"
+              className="font-black text-[13px] fill-blue-700 dark:fill-sky-400 select-none tracking-wide"
+            >
+              Figure: Functional block diagram of a typical computer
+            </text>
             </svg>
           </div>
         </div>
