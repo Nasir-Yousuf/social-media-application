@@ -10,6 +10,7 @@ import { TYPESCRIPT_LESSONS } from './typescriptCurriculum';
 import { NEXTJS_LESSONS } from './nextjsCurriculum';
 import { PYCHARM_LESSONS } from './pycharmCurriculum';
 import { COMPUTER_BASICS_LESSONS } from './computerBasicsCurriculum';
+import { MYSQL_LESSONS } from './mysqlCurriculum';
 
 export const TRACKS = [
   {
@@ -263,6 +264,24 @@ export const TRACKS = [
     badge: 'JSC, SSC, HSC & Admission',
     category: 'Foundations',
     totalLessons: 10,
+  },
+  {
+    id: 'mysql',
+    title: 'MySQL Mastery: Beginner to Advanced',
+    subtitle: {
+      en: 'Learn databases, write SQL queries, build relationships, and master database design through practical exercises.',
+      bn: 'ডেটাবেস ফান্ডামেন্টালস, এসকিউএল কুয়েরি, রিলেশনশিপ ও ডেটাবেস ডিজাইনে পূর্ণাঙ্গ দক্ষতা অর্জন করুন।',
+    },
+    description: {
+      en: 'A comprehensive 60-lesson curriculum from database fundamentals, tables, and CRUD operations to advanced joins, aggregations, CTEs, window functions, and enterprise e-commerce projects with an interactive SQL sandbox.',
+      bn: '৬০টি বাস্তবমুখী লেসনের সম্পূর্ণ এসকিউএল ও মাইএসকিউএল কোর্স—বেসিক টেবিল তৈরি থেকে অ্যাডভান্সড জয়েন, সাবকুয়েরি, সিটিআই এবং ই-কমার্স প্রজেক্ট পর্যন্ত।',
+    },
+    icon: 'database',
+    color: 'from-blue-600 via-cyan-600 to-teal-600',
+    accentColor: '#00758f',
+    badge: '60 Lessons • Complete Mastery',
+    category: 'Databases & SQL',
+    totalLessons: 60,
   },
 ];
 
@@ -2815,5 +2834,6 @@ export const LESSONS = [
   ...TYPESCRIPT_LESSONS,
   ...NEXTJS_LESSONS,
   ...PYCHARM_LESSONS,
+  ...MYSQL_LESSONS,
 ];
 

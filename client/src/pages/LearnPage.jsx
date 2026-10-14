@@ -7,6 +7,7 @@ import CommunityQA from '../features/learning/components/CommunityQA';
 import QuestionDetail from '../features/learning/components/QuestionDetail';
 import AskQuestionModal from '../features/learning/components/AskQuestionModal';
 import ComputerBasicsPage from '../features/learning/components/computer-basics/ComputerBasicsPage';
+import { MySqlPage } from '../features/learning/components/mysql/MySqlPage';
 import { TRACKS } from '../features/learning/data/learningCurriculum';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -181,6 +182,16 @@ export const LearnPage = () => {
         onLessonCompleted={handleLessonCompleted}
         onOpenAskQuestion={handleOpenAskQuestion}
         onProgressUpdate={fetchProgress}
+      />
+    );
+  } else if (track === 'mysql') {
+    // 4. Dedicated MySQL Course Hub, Lessons & Interactive SQL Practice Lab
+    mainContent = (
+      <MySqlPage
+        initialLessonId={lessonId}
+        completedLessonIds={progress.completedLessons || []}
+        onCompleteLesson={(id) => handleLessonCompleted(id, 'mysql')}
+        onBackToTracks={() => navigate('/learn')}
       />
     );
   } else if (track && lessonId) {

@@ -17,6 +17,7 @@ import {
   Terminal,
   Layers,
   Cpu,
+  Database,
 } from 'lucide-react';
 import { TRACKS, LESSONS } from '../data/learningCurriculum';
 import LanguageToggle from './LanguageToggle';
@@ -96,6 +97,8 @@ export const LearningDashboard = ({
         return <Sparkles className="w-5 h-5 text-amber-500" />;
       case 'ai':
         return <Brain className="w-5 h-5 text-emerald-500" />;
+      case 'mysql':
+        return <Database className="w-5 h-5 text-cyan-400" />;
       default:
         return <BookOpen className="w-5 h-5 text-sky-500" />;
     }
@@ -194,7 +197,7 @@ export const LearningDashboard = ({
 
           {/* Category Filter Pills */}
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-            {['All', 'Python & AI', 'Frontend & Web', 'Foundations'].map((cat) => (
+            {['All', 'Databases & SQL', 'Python & AI', 'Frontend & Web', 'Foundations'].map((cat) => (
               <button
                 key={cat}
                 type="button"
