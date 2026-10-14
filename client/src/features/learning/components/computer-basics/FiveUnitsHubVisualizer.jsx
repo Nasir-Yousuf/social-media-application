@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Keyboard,
   HardDrive,
@@ -32,9 +32,32 @@ import {
  * - Real-time animated electrical signals on solid red data paths & blue dashed control lines
  */
 export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
-  // Currently hovered or pinned component: 'alu' | 'memory' | 'cu' | 'input' | 'output' | 'cpu' | null
+  // Currently hovered or pinned component: 'alu' | 'memory' | 'cu' | 'input' | 'output' | 'cpu' | 'operator' | null
   const [hoveredUnit, setHoveredUnit] = useState(null);
   const [pinnedUnit, setPinnedUnit] = useState('alu'); // Default to ALU so inspector is never blank
+
+  // Debounced hover handlers to eliminate rapid strobing/thrashing
+  const hoverTimerRef = useRef(null);
+
+  const handleUnitEnter = (unitKey) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setHoveredUnit(unitKey);
+    }, 35);
+  };
+
+  const handleUnitLeave = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setHoveredUnit(null);
+    }, 60);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
 
   // Animation playback state
   const [isFlowActive, setIsFlowActive] = useState(true);
@@ -479,56 +502,66 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       {/* ========================================================
           DESKTOP EYE-LEVEL SIDE-BY-SIDE LAYOUT
           Diagram (left 8 cols / 7 cols) + Eye-Level Inspector HUD (right 4 cols / 5 cols)
-          Eliminates endless downward scrolling!
+          Eliminates endless downward scrolling & prevents any height jumping!
          ======================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
-        {/* LEFT COLUMN: THE DIAGRAM WITH MAP-STYLE HOVER (8 COLS) */}
-        <div className="md:col-span-7 lg:col-span-8 relative rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-[#fbfcfd] dark:bg-[#070b12] p-2 sm:p-4 shadow-inner overflow-hidden">
-          {/* MAP-OF-BANGLADESH STYLE FLOATING QUICK-TOOLTIP BADGE */}
-          {hoveredUnit && COMPONENT_INFO[hoveredUnit] && (
-            <div
-              className="absolute z-30 pointer-events-none transition-all duration-300 ease-out animate-in fade-in zoom-in-95"
-              style={{
-                top: COMPONENT_INFO[hoveredUnit].tooltipPos.top,
-                left: COMPONENT_INFO[hoveredUnit].tooltipPos.left,
-              }}
-            >
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
+        {/* LEFT COLUMN: THE DIAGRAM WITH MAP-STYLE HOVER */}
+        <div className="md:col-span-7 lg:col-span-8 relative rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-[#fbfcfd] dark:bg-[#070b12] p-2 sm:p-4 shadow-inner overflow-hidden flex flex-col justify-center min-h-[520px]">
+          {/* MAP-OF-BANGLADESH STYLE FLOATING QUICK-TOOLTIP BADGE (Glides smoothly without flashing) */}
+          <div
+            className={`absolute z-30 pointer-events-none hidden sm:block ${
+              hoveredUnit && COMPONENT_INFO[hoveredUnit]
+                ? 'opacity-100 scale-100 translate-y-0'
+                : 'opacity-0 scale-95 translate-y-2'
+            }`}
+            style={{
+              top: hoveredUnit && COMPONENT_INFO[hoveredUnit]
+                ? COMPONENT_INFO[hoveredUnit].tooltipPos.top
+                : '20%',
+              left: hoveredUnit && COMPONENT_INFO[hoveredUnit]
+                ? COMPONENT_INFO[hoveredUnit].tooltipPos.left
+                : '50%',
+              transition:
+                'top 300ms cubic-bezier(0.16, 1, 0.3, 1), left 300ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            {COMPONENT_INFO[hoveredUnit || activeUnit] && (
               <div
                 className="max-w-[240px] rounded-2xl border-2 bg-white/95 dark:bg-[#0f141f]/95 p-2.5 shadow-2xl backdrop-blur-md space-y-1.5 transition-all duration-200"
-                style={{ borderColor: COMPONENT_INFO[hoveredUnit].accentColor }}
+                style={{ borderColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
               >
                 <div className="flex items-center justify-between gap-1.5 border-b border-neutral-100 dark:border-neutral-800/80 pb-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span
                       className="w-2.5 h-2.5 rounded-full animate-ping shrink-0"
-                      style={{ backgroundColor: COMPONENT_INFO[hoveredUnit].accentColor }}
+                      style={{ backgroundColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
                     />
                     <h5 className="text-[11px] font-black text-neutral-900 dark:text-neutral-100 truncate">
                       {lang === 'bn'
-                        ? COMPONENT_INFO[hoveredUnit].bnName.split('(')[0].trim()
-                        : COMPONENT_INFO[hoveredUnit].name.split('(')[0].trim()}
+                        ? COMPONENT_INFO[hoveredUnit || activeUnit].bnName.split('(')[0].trim()
+                        : COMPONENT_INFO[hoveredUnit || activeUnit].name.split('(')[0].trim()}
                     </h5>
                   </div>
                   <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 shrink-0">
-                    {COMPONENT_INFO[hoveredUnit].tag}
+                    {COMPONENT_INFO[hoveredUnit || activeUnit].tag}
                   </span>
                 </div>
                 <p className="text-[10px] text-neutral-600 dark:text-neutral-300 leading-snug">
                   {lang === 'bn'
-                    ? COMPONENT_INFO[hoveredUnit].shortSummaryBn
-                    : COMPONENT_INFO[hoveredUnit].shortSummary}
+                    ? COMPONENT_INFO[hoveredUnit || activeUnit].shortSummaryBn
+                    : COMPONENT_INFO[hoveredUnit || activeUnit].shortSummary}
                 </p>
                 <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800/80 text-[8.5px] font-mono font-bold text-neutral-500 space-y-0.5">
-                  <div className="text-red-500 truncate">🔴 {COMPONENT_INFO[hoveredUnit].quickSignals.inData}</div>
-                  <div className="text-blue-500 truncate">🔵 {COMPONENT_INFO[hoveredUnit].quickSignals.control}</div>
+                  <div className="text-red-500 truncate">🔴 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.inData}</div>
+                  <div className="text-blue-500 truncate">🔵 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.control}</div>
                 </div>
                 <div className="pt-0.5 text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5 text-amber-500 shrink-0" />
                   <span>Click box to pin in side inspector</span>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* SVG Canvas */}
           <div className="relative w-full overflow-x-auto">
@@ -575,43 +608,95 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
                 </pattern>
               </defs>
 
-              {/* CPU Box */}
+              {/* CPU Box (Background is pointer-events-none so internal ALU/Memory hover is never intercepted) */}
+              <rect
+                x="340"
+                y="40"
+                width="320"
+                height="455"
+                rx="16"
+                className={`transition-all duration-300 pointer-events-none ${
+                  activeUnit === 'cpu'
+                    ? 'fill-indigo-500/10 stroke-indigo-500 stroke-[3.5] filter drop-shadow-[0_0_15px_rgba(99,102,241,0.25)]'
+                    : 'fill-neutral-100/90 dark:fill-neutral-900/90 stroke-neutral-900 dark:stroke-neutral-300 stroke-[3]'
+                }`}
+              />
+              <rect
+                x="340"
+                y="40"
+                width="320"
+                height="455"
+                rx="16"
+                fill="url(#chip-dots)"
+                className="pointer-events-none"
+              />
+
+              {/* Dedicated CPU Border Hitbox (Triggers CPU hover without covering internal units) */}
+              <rect
+                x="340"
+                y="40"
+                width="320"
+                height="455"
+                rx="16"
+                fill="none"
+                stroke="transparent"
+                strokeWidth="20"
+                className="cursor-pointer"
+                onMouseEnter={() => handleUnitEnter('cpu')}
+                onMouseLeave={handleUnitLeave}
+                onClick={() => setPinnedUnit('cpu')}
+              />
+
+              {/* CPU Header Pill at top */}
               <g
-                id="cpu-enclosure"
-                className="cursor-pointer transition-all duration-300"
-                onMouseEnter={() => setHoveredUnit('cpu')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                id="cpu-header-badge"
+                className="cursor-pointer group"
+                onMouseEnter={() => handleUnitEnter('cpu')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('cpu')}
               >
                 <rect
-                  x="340"
-                  y="40"
-                  width="320"
-                  height="455"
-                  rx="16"
-                  className={`transition-all duration-300 ${
+                  x="410"
+                  y="45"
+                  width="180"
+                  height="22"
+                  rx="6"
+                  className={`transition-all duration-200 ${
                     activeUnit === 'cpu'
-                      ? 'fill-indigo-500/10 stroke-indigo-500 stroke-[3.5] filter drop-shadow-[0_0_15px_rgba(99,102,241,0.25)]'
-                      : 'fill-neutral-100/90 dark:fill-neutral-900/90 stroke-neutral-900 dark:stroke-neutral-300 stroke-[3]'
+                      ? 'fill-indigo-600'
+                      : 'fill-neutral-200 dark:fill-neutral-800 hover:fill-indigo-500/80'
                   }`}
                 />
-                <rect
-                  x="340"
-                  y="40"
-                  width="320"
-                  height="455"
-                  rx="16"
-                  fill="url(#chip-dots)"
-                  className="pointer-events-none"
-                />
+                <text
+                  x="500"
+                  y="60"
+                  textAnchor="middle"
+                  className={`font-black text-[10.5px] select-none tracking-wider uppercase transition-colors ${
+                    activeUnit === 'cpu'
+                      ? 'fill-white'
+                      : 'fill-neutral-700 dark:fill-neutral-300 group-hover:fill-white'
+                  }`}
+                >
+                  CPU Boundary Box
+                </text>
+              </g>
+
+              {/* CPU Title at bottom */}
+              <g
+                id="cpu-title-group"
+                className="cursor-pointer group"
+                onMouseEnter={() => handleUnitEnter('cpu')}
+                onMouseLeave={handleUnitLeave}
+                onClick={() => setPinnedUnit('cpu')}
+              >
                 <text
                   x="500"
                   y="522"
                   textAnchor="middle"
                   className={`font-black text-[15px] select-none transition-colors duration-200 tracking-wide ${
                     activeUnit === 'cpu'
-                      ? 'fill-indigo-600 dark:fill-indigo-400'
-                      : 'fill-neutral-900 dark:fill-neutral-100'
+                      ? 'fill-indigo-600 dark:fill-indigo-400 font-extrabold'
+                      : 'fill-neutral-900 dark:fill-neutral-100 hover:fill-indigo-500'
                   }`}
                 >
                   Central Processing Unit (CPU)
@@ -822,13 +907,12 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
                 </g>
               )}
 
-              {/* Hardware Units */}
               {/* ALU */}
               <g
                 id="unit-alu"
                 className="cursor-pointer group"
-                onMouseEnter={() => setHoveredUnit('alu')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                onMouseEnter={() => handleUnitEnter('alu')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('alu')}
               >
                 <rect
@@ -865,8 +949,8 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
               <g
                 id="unit-memory"
                 className="cursor-pointer group"
-                onMouseEnter={() => setHoveredUnit('memory')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                onMouseEnter={() => handleUnitEnter('memory')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('memory')}
               >
                 <rect
@@ -903,8 +987,8 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
               <g
                 id="unit-cu"
                 className="cursor-pointer group"
-                onMouseEnter={() => setHoveredUnit('cu')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                onMouseEnter={() => handleUnitEnter('cu')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('cu')}
               >
                 <rect
@@ -941,8 +1025,8 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
               <g
                 id="unit-input"
                 className="cursor-pointer group"
-                onMouseEnter={() => setHoveredUnit('input')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                onMouseEnter={() => handleUnitEnter('input')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('input')}
               >
                 <rect
@@ -979,8 +1063,8 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
               <g
                 id="unit-output"
                 className="cursor-pointer group"
-                onMouseEnter={() => setHoveredUnit('output')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                onMouseEnter={() => handleUnitEnter('output')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('output')}
               >
                 <rect
@@ -1017,8 +1101,8 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
               <g
                 id="unit-operator-left"
                 className="cursor-pointer group"
-                onMouseEnter={() => setHoveredUnit('operator')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                onMouseEnter={() => handleUnitEnter('operator')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('operator')}
               >
                 <text
@@ -1046,8 +1130,8 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
               <g
                 id="unit-operator-right"
                 className="cursor-pointer group"
-                onMouseEnter={() => setHoveredUnit('operator')}
-                onMouseLeave={() => setHoveredUnit(null)}
+                onMouseEnter={() => handleUnitEnter('operator')}
+                onMouseLeave={handleUnitLeave}
                 onClick={() => setPinnedUnit('operator')}
               >
                 <text
@@ -1084,105 +1168,115 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: EYE-LEVEL INSPECTOR HUD
+        {/* RIGHT COLUMN: EYE-LEVEL INSPECTOR HUD (Stable Fixed Layout - Zero Height Jumping)
             Positioned right beside the diagram so students NEVER scroll to the bottom! */}
-        <div className="md:col-span-5 lg:col-span-4 rounded-2xl border-2 border-neutral-200 dark:border-neutral-800 bg-neutral-50/90 dark:bg-[#111622] p-4 sm:p-5 shadow-md space-y-4 transition-all duration-300 ease-in-out max-h-[580px] overflow-y-auto">
-          <div key={activeUnit} className="space-y-4 animate-in fade-in duration-200">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md transition-colors"
-                  style={{ backgroundColor: selectedData.accentColor }}
-                >
-                  {selectedData.id === 'alu' && <Cpu className="w-4 h-4" />}
-                  {selectedData.id === 'memory' && <HardDrive className="w-4 h-4" />}
-                  {selectedData.id === 'cu' && <Layers className="w-4 h-4" />}
-                  {selectedData.id === 'input' && <Keyboard className="w-4 h-4" />}
-                  {selectedData.id === 'output' && <Monitor className="w-4 h-4" />}
-                  {selectedData.id === 'cpu' && <Zap className="w-4 h-4" />}
-                  {selectedData.id === 'operator' && <ExternalLink className="w-4 h-4" />}
-                </div>
-                <div>
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400 block">
-                    {selectedData.tag}
-                  </span>
-                  <h4 className="text-sm font-black text-neutral-900 dark:text-neutral-100 leading-tight">
-                    {selectedData.name.split('(')[0].trim()}
-                  </h4>
-                </div>
+        <div className="md:col-span-5 lg:col-span-4 rounded-2xl border-2 border-neutral-200 dark:border-neutral-800 bg-neutral-50/90 dark:bg-[#111622] p-4 sm:p-5 shadow-md flex flex-col h-full min-h-[520px] max-h-[600px] transition-colors duration-300">
+          {/* Header (Stable Fixed Height) */}
+          <div className="shrink-0 flex items-center justify-between pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md shrink-0 transition-colors duration-300"
+                style={{ backgroundColor: selectedData.accentColor }}
+              >
+                {selectedData.id === 'alu' && <Cpu className="w-4 h-4" />}
+                {selectedData.id === 'memory' && <HardDrive className="w-4 h-4" />}
+                {selectedData.id === 'cu' && <Layers className="w-4 h-4" />}
+                {selectedData.id === 'input' && <Keyboard className="w-4 h-4" />}
+                {selectedData.id === 'output' && <Monitor className="w-4 h-4" />}
+                {selectedData.id === 'cpu' && <Zap className="w-4 h-4" />}
+                {selectedData.id === 'operator' && <ExternalLink className="w-4 h-4" />}
               </div>
+              <div className="min-w-0">
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400 block truncate">
+                  {selectedData.tag}
+                </span>
+                <h4 className="text-sm font-black text-neutral-900 dark:text-neutral-100 leading-tight truncate">
+                  {selectedData.name.split('(')[0].trim()}
+                </h4>
+              </div>
+            </div>
 
+            <div className="shrink-0 flex items-center gap-1.5">
+              {hoveredUnit && (
+                <span className="text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
+                  Hovering
+                </span>
+              )}
               <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-                Active Focus
+                {activeUnit === pinnedUnit && !hoveredUnit ? 'Pinned' : 'Active'}
               </span>
             </div>
+          </div>
 
-            {/* Description */}
-            <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed transition-opacity duration-200">
-              {lang === 'bn' ? selectedData.descriptionBn : selectedData.description}
-            </p>
+          {/* Scrollable Dynamic Body (Stable Height Budget - Zero Layout Shift) */}
+          <div className="flex-1 overflow-y-auto pr-1 py-3 space-y-3.5 scrollbar-thin">
+            <div key={activeUnit} className="space-y-3.5 transition-all duration-300 ease-in-out animate-in fade-in duration-200">
+              {/* Description */}
+              <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                {lang === 'bn' ? selectedData.descriptionBn : selectedData.description}
+              </p>
 
-            {/* Incoming & Outgoing Signals Breakdown */}
-            <div className="space-y-2 text-xs">
-              {/* IN */}
-              <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1">
-                <span className="text-[10px] font-black uppercase text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <ArrowRight className="w-3 h-3 rotate-45" />
-                  <span>Signals Coming IN (প্রবেশ করে):</span>
-                </span>
-                <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-300 pl-1">
-                  {selectedData.signalsIn?.map((s, idx) => (
-                    <li key={idx} className="leading-tight">
-                      • <span className="font-bold text-sky-600 dark:text-sky-400 font-mono text-[10px]">{s.direction}</span>: {s.label}
-                    </li>
-                  ))}
-                </ul>
+              {/* Incoming & Outgoing Signals Breakdown */}
+              <div className="space-y-2 text-xs">
+                {/* IN */}
+                <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1">
+                  <span className="text-[10px] font-black uppercase text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <ArrowRight className="w-3 h-3 rotate-45" />
+                    <span>Signals Coming IN (প্রবেশ করে):</span>
+                  </span>
+                  <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-300 pl-1">
+                    {selectedData.signalsIn?.map((s, idx) => (
+                      <li key={idx} className="leading-tight">
+                        • <span className="font-bold text-sky-600 dark:text-sky-400 font-mono text-[10px]">{s.direction}</span>: {s.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* OUT */}
+                <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1">
+                  <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                    <ArrowRight className="w-3 h-3 -rotate-45" />
+                    <span>Signals Going OUT (বের হয়):</span>
+                  </span>
+                  <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-300 pl-1">
+                    {selectedData.signalsOut?.map((s, idx) => (
+                      <li key={idx} className="leading-tight">
+                        • <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono text-[10px]">{s.direction}</span>: {s.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
 
-              {/* OUT */}
-              <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1">
-                <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                  <ArrowRight className="w-3 h-3 -rotate-45" />
-                  <span>Signals Going OUT (বের হয়):</span>
-                </span>
-                <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-300 pl-1">
-                  {selectedData.signalsOut?.map((s, idx) => (
-                    <li key={idx} className="leading-tight">
-                      • <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono text-[10px]">{s.direction}</span>: {s.label}
-                    </li>
-                  ))}
-                </ul>
+              {/* Crucial Teaching Rule */}
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-bold leading-relaxed flex items-start gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                <span>{lang === 'bn' ? selectedData.crucialRuleBn : selectedData.crucialRule}</span>
               </div>
             </div>
+          </div>
 
-            {/* Crucial Teaching Rule */}
-            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-bold leading-relaxed flex items-start gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-              <span>{lang === 'bn' ? selectedData.crucialRuleBn : selectedData.crucialRule}</span>
-            </div>
-
-            {/* Fast Component Selector Pills */}
-            <div className="pt-2 border-t border-neutral-200/70 dark:border-neutral-800/80">
-              <span className="text-[10px] font-bold text-neutral-400 block mb-1.5">
-                Quick Switch Component:
-              </span>
-              <div className="grid grid-cols-4 gap-1 text-[10px] font-bold">
-                {['alu', 'memory', 'cu', 'input', 'output', 'cpu', 'operator'].map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setPinnedUnit(key)}
-                    className={`py-1 px-1.5 rounded-lg border text-center transition-all cursor-pointer ${
-                      activeUnit === key
-                        ? 'border-sky-500 bg-sky-500 text-white shadow-xs'
-                        : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
-                    }`}
-                  >
-                    {key.toUpperCase()}
-                  </button>
-                ))}
-              </div>
+          {/* Fast Component Selector Pills */}
+          <div className="shrink-0 pt-2 border-t border-neutral-200/70 dark:border-neutral-800/80">
+            <span className="text-[10px] font-bold text-neutral-400 block mb-1.5">
+              Quick Switch Component:
+            </span>
+            <div className="grid grid-cols-4 gap-1 text-[10px] font-bold">
+              {['alu', 'memory', 'cu', 'input', 'output', 'cpu', 'operator'].map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setPinnedUnit(key)}
+                  className={`py-1 px-1.5 rounded-lg border text-center transition-all cursor-pointer ${
+                    activeUnit === key
+                      ? 'border-sky-500 bg-sky-500 text-white shadow-xs'
+                      : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                  }`}
+                >
+                  {key.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
         </div>
