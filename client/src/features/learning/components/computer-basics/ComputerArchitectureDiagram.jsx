@@ -432,7 +432,7 @@ export const ComputerArchitectureDiagram = ({
     virtualMonitor: { x: 660, y: 345, w: 230, h: 120 },
   };
 
-  // Map-of-Bangladesh style interactive hover summaries
+  // Map-of-Bangladesh style interactive hover summaries (safe positions that never obscure nodes)
   const NODE_MAP_DATA = {
     operator: {
       name: 'Operator (Human User)',
@@ -441,7 +441,7 @@ export const ComputerArchitectureDiagram = ({
       accentColor: '#3b82f6',
       summary: 'Initiates commands and observes calculated results. Does not interact directly with internal CPU registers.',
       summaryBn: 'কীবোর্ডে ইনপুট প্রদান করেন এবং মনিটরে ফলাফল দেখেন। সিপিইউ-এর ভেতরের মেমোরিতে সরাসরি হাত দেন না।',
-      popoverStyle: { top: '32%', left: '2%' },
+      popoverStyle: { top: '16px', right: '16px' },
     },
     input: {
       name: 'Input Device (Keyboard/Mouse)',
@@ -450,7 +450,7 @@ export const ComputerArchitectureDiagram = ({
       accentColor: '#0284c7',
       summary: 'Converts keystrokes & actions into digital binary bits (0s and 1s) and writes straight to Memory.',
       summaryBn: 'কীবোর্ড বা মাউসের ক্লিককে ডিজিটাল বাইনারি (০ ও ১) সংকেতে রূপান্তর করে সরাসরি মেমোরিতে পাঠায়।',
-      popoverStyle: { top: '3%', left: '16%' },
+      popoverStyle: { top: '16px', right: '16px' },
     },
     controlUnit: {
       name: 'Control Unit (CU)',
@@ -459,7 +459,7 @@ export const ComputerArchitectureDiagram = ({
       accentColor: '#8b5cf6',
       summary: 'Supervises all units with synchronized clock and timing signals. Directs data traffic without doing math.',
       summaryBn: 'ট্রাফিক পুলিশের মতো ক্লক পালস দিয়ে সকল ইউনিটের কাজ সমন্বয় করে। নিজে কোনো গণিত করে না।',
-      popoverStyle: { top: '22%', left: '40%' },
+      popoverStyle: { top: '16px', left: '16px' },
     },
     memory: {
       name: 'Memory Unit (Primary RAM)',
@@ -468,7 +468,7 @@ export const ComputerArchitectureDiagram = ({
       accentColor: '#10b981',
       summary: 'Central holding hub. Temporarily stores raw inputs, calculation variables, and finalized results.',
       summaryBn: 'তথ্যের কেন্দ্রীয় ভাণ্ডার। সাময়িকভাবে সকল তথ্য, মধ্যবর্তী ভ্যারিয়েবল এবং ফলাফল ধরে রাখে।',
-      popoverStyle: { top: '3%', left: '40%' },
+      popoverStyle: { top: '16px', left: '16px' },
     },
     alu: {
       name: 'ALU (Arithmetic & Logic Unit)',
@@ -477,7 +477,7 @@ export const ComputerArchitectureDiagram = ({
       accentColor: '#f59e0b',
       summary: 'Executes mathematical calculations (+, -, ×, ÷) and true/false logic. Connects strictly to Memory.',
       summaryBn: 'সব ধরনের গাণিতিক যোগ-বিয়োগ ও লজিক্যাল সত্য/মিথ্যা তুলনা সম্পন্ন করে। শুধুমাত্র মেমোরির সাথেই যুক্ত।',
-      popoverStyle: { top: '3%', left: '66%' },
+      popoverStyle: { top: '16px', left: '16px' },
     },
     output: {
       name: 'Output Device (Display Adapter)',
@@ -486,7 +486,7 @@ export const ComputerArchitectureDiagram = ({
       accentColor: '#f43f5e',
       summary: 'Reads processed results from Memory and drives pixel signals to the monitor screen for human eyes.',
       summaryBn: 'মেমোরি থেকে ফলাফল নিয়ে স্ক্রিনের পিক্সেলে ফুটিয়ে তোলে, যাতে মানুষ তা দেখতে পায়।',
-      popoverStyle: { top: '56%', left: '40%' },
+      popoverStyle: { top: '16px', left: '16px' },
     },
   };
 
@@ -652,7 +652,7 @@ export const ComputerArchitectureDiagram = ({
             <div className="relative w-full overflow-x-auto">
               <svg
                 viewBox="0 0 1020 500"
-                className="w-full min-w-[840px] h-auto drop-shadow-xs"
+                className="w-full h-auto max-w-full drop-shadow-xs"
                 aria-label="Interactive Functional Block Diagram of a Typical Computer"
               >
                 {/* SVG Marker Definitions for Directional Arrow Heads */}

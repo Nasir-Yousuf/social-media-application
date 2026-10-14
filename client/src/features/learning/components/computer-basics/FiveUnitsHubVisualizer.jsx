@@ -77,7 +77,7 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       glowClass: 'shadow-amber-500/30 border-amber-500',
       shortSummary: 'Executes all math (+, -, ×, ÷) & true/false logic decisions.',
       shortSummaryBn: 'সব ধরনের গাণিতিক হিসাব এবং সত্য/মিথ্যা যৌক্তিক সিদ্ধান্ত নেয়।',
-      tooltipPos: { top: '15%', left: '68%' },
+      tooltipPos: { top: '16px', left: '20px' },
       quickSignals: {
         inData: 'Operands from Memory (↑)',
         outData: 'Result to Memory (↓)',
@@ -125,7 +125,7 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       glowClass: 'shadow-emerald-500/30 border-emerald-500',
       shortSummary: 'Temporarily holds active data, variables, and waiting results.',
       shortSummaryBn: 'চলমান সফটওয়্যার, উপাত্ত এবং হিসাবের ফলাফল সাময়িকভাবে ধরে রাখে।',
-      tooltipPos: { top: '42%', left: '68%' },
+      tooltipPos: { top: '16px', left: '20px' },
       quickSignals: {
         inData: 'Raw from Input (→) & Answers from ALU (↓)',
         outData: 'Operands to ALU (↑) & Results to Output (→)',
@@ -185,7 +185,7 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       glowClass: 'shadow-purple-500/30 border-purple-500',
       shortSummary: 'Directs all traffic; issues clock timing pulses to all units.',
       shortSummaryBn: 'সমস্ত ডাটা চলাচলের পথ নির্দেশ করে এবং প্রতিটি ইউনিটে টাইমিং সংকেত পাঠায়।',
-      tooltipPos: { top: '68%', left: '68%' },
+      tooltipPos: { top: '16px', left: '20px' },
       quickSignals: {
         inData: 'Instruction Opcode from Memory (↓)',
         outData: 'None (does not carry user data)',
@@ -245,7 +245,7 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       glowClass: 'shadow-sky-500/30 border-sky-500',
       shortSummary: 'Converts keystrokes & physical actions into binary 0s and 1s.',
       shortSummaryBn: 'মানুষের টাইপিং ও ক্লিককে ডিজিটাল বাইনারি সংকেতে (০ ও ১) রূপান্তর করে।',
-      tooltipPos: { top: '42%', left: '5%' },
+      tooltipPos: { top: '16px', right: '20px' },
       quickSignals: {
         inData: 'Raw strokes From Operator (→)',
         outData: 'Binary Packets to Memory (→)',
@@ -293,7 +293,7 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       glowClass: 'shadow-rose-500/30 border-rose-500',
       shortSummary: 'Renders stored binary results into visible screen pixels or sound.',
       shortSummaryBn: 'মেমোরিতে সংরক্ষিত বাইনারি ফলাফল মানুষের জন্য স্ক্রিনে প্রদর্শন করে।',
-      tooltipPos: { top: '42%', left: '72%' },
+      tooltipPos: { top: '16px', left: '20px' },
       quickSignals: {
         inData: 'Finalized Result from Memory (→)',
         outData: 'Visual & Audio Presentation To Operator (→)',
@@ -341,7 +341,7 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       glowClass: 'shadow-indigo-500/30 border-indigo-500',
       shortSummary: 'The main brain enclosure uniting ALU, Memory (Registers), & Control Unit.',
       shortSummaryBn: 'মূল প্রসেসর যা ALU, মেমোরি ও কন্ট্রোল ইউনিটকে একটি চিপে যুক্ত করে।',
-      tooltipPos: { top: '4%', left: '38%' },
+      tooltipPos: { top: '16px', left: '20px' },
       quickSignals: {
         inData: 'Data enters Memory from Input',
         outData: 'Data leaves Memory to Output',
@@ -383,7 +383,7 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       glowClass: 'shadow-blue-500/30 border-blue-500',
       shortSummary: 'Enters commands to input device and perceives final screen results.',
       shortSummaryBn: 'কীবোর্ডে ইনপুট নির্দেশ দেন এবং মনিটরে ফলাফল পর্যবেক্ষণ করেন।',
-      tooltipPos: { top: '35%', left: '2%' },
+      tooltipPos: { top: '16px', right: '20px' },
       quickSignals: {
         inData: 'Visual Output from Monitor (→)',
         outData: 'Physical Keypresses to Input (→)',
@@ -500,78 +500,113 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
       </div>
 
       {/* ========================================================
-          DESKTOP EYE-LEVEL SIDE-BY-SIDE LAYOUT
-          Diagram (left 8 cols / 7 cols) + Eye-Level Inspector HUD (right 4 cols / 5 cols)
-          Eliminates endless downward scrolling & prevents any height jumping!
+          FULL-WIDTH INTERACTIVE ARCHITECTURE CANVAS
+          100% visible, fully scalable, never cut off, zero obstruction
          ======================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
-        {/* LEFT COLUMN: THE DIAGRAM WITH MAP-STYLE HOVER */}
-        <div className="md:col-span-7 lg:col-span-8 relative rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-[#fbfcfd] dark:bg-[#070b12] p-2 sm:p-4 shadow-inner overflow-hidden flex flex-col justify-center min-h-[520px]">
-          {/* MAP-OF-BANGLADESH STYLE FLOATING QUICK-TOOLTIP BADGE (Glides smoothly without flashing) */}
-          <div
-            className={`absolute z-30 pointer-events-none hidden sm:block ${
-              hoveredUnit && COMPONENT_INFO[hoveredUnit]
-                ? 'opacity-100 scale-100 translate-y-0'
-                : 'opacity-0 scale-95 translate-y-2'
-            }`}
-            style={{
-              top: hoveredUnit && COMPONENT_INFO[hoveredUnit]
-                ? COMPONENT_INFO[hoveredUnit].tooltipPos.top
-                : '20%',
-              left: hoveredUnit && COMPONENT_INFO[hoveredUnit]
-                ? COMPONENT_INFO[hoveredUnit].tooltipPos.left
-                : '50%',
-              transition:
-                'top 300ms cubic-bezier(0.16, 1, 0.3, 1), left 300ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-          >
-            {COMPONENT_INFO[hoveredUnit || activeUnit] && (
-              <div
-                className="max-w-[240px] rounded-2xl border-2 bg-white/95 dark:bg-[#0f141f]/95 p-2.5 shadow-2xl backdrop-blur-md space-y-1.5 transition-all duration-200"
-                style={{ borderColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
-              >
-                <div className="flex items-center justify-between gap-1.5 border-b border-neutral-100 dark:border-neutral-800/80 pb-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full animate-ping shrink-0"
-                      style={{ backgroundColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
-                    />
-                    <h5 className="text-[11px] font-black text-neutral-900 dark:text-neutral-100 truncate">
-                      {lang === 'bn'
-                        ? COMPONENT_INFO[hoveredUnit || activeUnit].bnName.split('(')[0].trim()
-                        : COMPONENT_INFO[hoveredUnit || activeUnit].name.split('(')[0].trim()}
-                    </h5>
-                  </div>
-                  <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 shrink-0">
-                    {COMPONENT_INFO[hoveredUnit || activeUnit].tag}
-                  </span>
-                </div>
-                <p className="text-[10px] text-neutral-600 dark:text-neutral-300 leading-snug">
+      <div className="w-full relative rounded-2xl border border-neutral-200/90 dark:border-neutral-800 bg-[#fbfcfd] dark:bg-[#070b12] p-2.5 sm:p-4 shadow-inner overflow-hidden flex flex-col justify-center">
+        {/* Dynamic Map HUD: Instant Eye-Level Readout without covering any diagram component */}
+        <div
+          className="mb-2 p-2.5 sm:p-3 rounded-2xl border transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 backdrop-blur-md"
+          style={{
+            borderColor: hoveredUnit ? COMPONENT_INFO[hoveredUnit].accentColor : 'rgba(156,163,175,0.2)',
+            backgroundColor: hoveredUnit ? `${COMPONENT_INFO[hoveredUnit].accentColor}10` : 'rgba(255,255,255,0.03)',
+          }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span
+              className="w-3 h-3 rounded-full animate-ping shrink-0"
+              style={{ backgroundColor: (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).accentColor }}
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs sm:text-sm font-black text-neutral-900 dark:text-neutral-100 truncate">
                   {lang === 'bn'
-                    ? COMPONENT_INFO[hoveredUnit || activeUnit].shortSummaryBn
-                    : COMPONENT_INFO[hoveredUnit || activeUnit].shortSummary}
-                </p>
-                <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800/80 text-[8.5px] font-mono font-bold text-neutral-500 space-y-0.5">
-                  <div className="text-red-500 truncate">🔴 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.inData}</div>
-                  <div className="text-blue-500 truncate">🔵 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.control}</div>
-                </div>
-                <div className="pt-0.5 text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                  <span>Click box to pin in side inspector</span>
-                </div>
+                    ? (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).bnName
+                    : (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).name}
+                </h4>
+                <span className="text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 shrink-0">
+                  {(hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).tag}
+                </span>
               </div>
-            )}
+              <p className="text-[11px] text-neutral-600 dark:text-neutral-300 truncate">
+                {lang === 'bn'
+                  ? (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).shortSummaryBn
+                  : (hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).shortSummary}
+              </p>
+            </div>
           </div>
 
-          {/* SVG Canvas */}
-          <div className="relative w-full overflow-x-auto">
-            <svg
-              viewBox="0 0 1000 580"
-              className="w-full min-w-[760px] h-auto drop-shadow-xs"
-              aria-label="Functional block diagram of a typical computer recreation"
+          <div className="flex items-center gap-2 shrink-0 text-[10px] font-mono font-bold">
+            <div className="px-2 py-1 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 truncate max-w-[200px]">
+              🔴 {(hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).quickSignals.inData}
+            </div>
+            <div className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 truncate max-w-[200px]">
+              🔵 {(hoveredUnit ? COMPONENT_INFO[hoveredUnit] : selectedData).quickSignals.control}
+            </div>
+          </div>
+        </div>
+
+        {/* MAP-OF-BANGLADESH STYLE FLOATING QUICK-TOOLTIP BADGE (Safe open-space positioning) */}
+        <div
+          className={`absolute z-30 pointer-events-none hidden sm:block ${
+            hoveredUnit && COMPONENT_INFO[hoveredUnit]
+              ? 'opacity-100 scale-100 translate-y-0'
+              : 'opacity-0 scale-95 translate-y-2'
+          }`}
+          style={{
+            top: hoveredUnit && COMPONENT_INFO[hoveredUnit]?.tooltipPos.top ? COMPONENT_INFO[hoveredUnit].tooltipPos.top : '16px',
+            left: hoveredUnit && COMPONENT_INFO[hoveredUnit]?.tooltipPos.left ? COMPONENT_INFO[hoveredUnit].tooltipPos.left : undefined,
+            right: hoveredUnit && COMPONENT_INFO[hoveredUnit]?.tooltipPos.right ? COMPONENT_INFO[hoveredUnit].tooltipPos.right : undefined,
+            transition: 'all 300ms cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          {COMPONENT_INFO[hoveredUnit || activeUnit] && (
+            <div
+              className="max-w-[240px] rounded-2xl border-2 bg-white/95 dark:bg-[#0f141f]/95 p-2.5 shadow-2xl backdrop-blur-md space-y-1.5 transition-all duration-200"
+              style={{ borderColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
             >
-              {/* Marker Definitions */}
-              <defs>
+              <div className="flex items-center justify-between gap-1.5 border-b border-neutral-100 dark:border-neutral-800/80 pb-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full animate-ping shrink-0"
+                    style={{ backgroundColor: COMPONENT_INFO[hoveredUnit || activeUnit].accentColor }}
+                  />
+                  <h5 className="text-[11px] font-black text-neutral-900 dark:text-neutral-100 truncate">
+                    {lang === 'bn'
+                      ? COMPONENT_INFO[hoveredUnit || activeUnit].bnName.split('(')[0].trim()
+                      : COMPONENT_INFO[hoveredUnit || activeUnit].name.split('(')[0].trim()}
+                  </h5>
+                </div>
+                <span className="text-[8.5px] font-black uppercase px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 shrink-0">
+                  {COMPONENT_INFO[hoveredUnit || activeUnit].tag}
+                </span>
+              </div>
+              <p className="text-[10px] text-neutral-600 dark:text-neutral-300 leading-snug">
+                {lang === 'bn'
+                  ? COMPONENT_INFO[hoveredUnit || activeUnit].shortSummaryBn
+                  : COMPONENT_INFO[hoveredUnit || activeUnit].shortSummary}
+              </p>
+              <div className="pt-1 border-t border-neutral-100 dark:border-neutral-800/80 text-[8.5px] font-mono font-bold text-neutral-500 space-y-0.5">
+                <div className="text-red-500 truncate">🔴 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.inData}</div>
+                <div className="text-blue-500 truncate">🔵 {COMPONENT_INFO[hoveredUnit || activeUnit].quickSignals.control}</div>
+              </div>
+              <div className="pt-0.5 text-[8.5px] font-bold text-neutral-400 dark:text-neutral-500 flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                <span>Click box to lock in details panel below</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SVG Canvas - Full Width, Fluid Scale, Zero Clipping */}
+        <div className="relative w-full flex items-center justify-center">
+          <svg
+            viewBox="0 0 1000 580"
+            className="w-full h-auto max-w-full drop-shadow-xs"
+            aria-label="Functional block diagram of a typical computer recreation"
+          >
+            {/* Marker Definitions */}
+            <defs>
                 <marker
                   id="tb-red-arrow"
                   viewBox="0 0 10 10"
@@ -1168,14 +1203,16 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: EYE-LEVEL INSPECTOR HUD (Stable Fixed Layout - Zero Height Jumping)
-            Positioned right beside the diagram so students NEVER scroll to the bottom! */}
-        <div className="md:col-span-5 lg:col-span-4 rounded-2xl border-2 border-neutral-200 dark:border-neutral-800 bg-neutral-50/90 dark:bg-[#111622] p-4 sm:p-5 shadow-md flex flex-col h-full min-h-[520px] max-h-[600px] transition-colors duration-300">
-          {/* Header (Stable Fixed Height) */}
-          <div className="shrink-0 flex items-center justify-between pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
+        {/* ========================================================
+            FAST SWITCHER PILLS & ARCHITECTURAL INSPECTOR PANEL
+            Smooth transitions, zero layout shift, fully readable!
+           ======================================================== */}
+        <div className="rounded-2xl border-2 border-neutral-200 dark:border-neutral-800 bg-neutral-50/90 dark:bg-[#111622] p-4 sm:p-5 shadow-sm space-y-4 transition-colors duration-300">
+          {/* Unit Selector Pills Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
             <div className="flex items-center gap-2.5 min-w-0">
               <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md shrink-0 transition-colors duration-300"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-md shrink-0 transition-colors duration-300"
                 style={{ backgroundColor: selectedData.accentColor }}
               >
                 {selectedData.id === 'alu' && <Cpu className="w-4 h-4" />}
@@ -1186,101 +1223,91 @@ export const FiveUnitsHubVisualizer = ({ lang = 'both' }) => {
                 {selectedData.id === 'cpu' && <Zap className="w-4 h-4" />}
                 {selectedData.id === 'operator' && <ExternalLink className="w-4 h-4" />}
               </div>
-              <div className="min-w-0">
-                <span className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400 block truncate">
+              <div>
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-neutral-400 block">
                   {selectedData.tag}
                 </span>
-                <h4 className="text-sm font-black text-neutral-900 dark:text-neutral-100 leading-tight truncate">
-                  {selectedData.name.split('(')[0].trim()}
+                <h4 className="text-sm font-black text-neutral-900 dark:text-neutral-100 leading-tight">
+                  {lang === 'bn' ? selectedData.bnName : selectedData.name}
                 </h4>
               </div>
             </div>
 
-            <div className="shrink-0 flex items-center gap-1.5">
-              {hoveredUnit && (
-                <span className="text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
-                  Hovering
-                </span>
-              )}
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-                {activeUnit === pinnedUnit && !hoveredUnit ? 'Pinned' : 'Active'}
-              </span>
-            </div>
-          </div>
-
-          {/* Scrollable Dynamic Body (Stable Height Budget - Zero Layout Shift) */}
-          <div className="flex-1 overflow-y-auto pr-1 py-3 space-y-3.5 scrollbar-thin">
-            <div key={activeUnit} className="space-y-3.5 transition-all duration-300 ease-in-out animate-in fade-in duration-200">
-              {/* Description */}
-              <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
-                {lang === 'bn' ? selectedData.descriptionBn : selectedData.description}
-              </p>
-
-              {/* Incoming & Outgoing Signals Breakdown */}
-              <div className="space-y-2 text-xs">
-                {/* IN */}
-                <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1">
-                  <span className="text-[10px] font-black uppercase text-red-600 dark:text-red-400 flex items-center gap-1">
-                    <ArrowRight className="w-3 h-3 rotate-45" />
-                    <span>Signals Coming IN (প্রবেশ করে):</span>
-                  </span>
-                  <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-300 pl-1">
-                    {selectedData.signalsIn?.map((s, idx) => (
-                      <li key={idx} className="leading-tight">
-                        • <span className="font-bold text-sky-600 dark:text-sky-400 font-mono text-[10px]">{s.direction}</span>: {s.label}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* OUT */}
-                <div className="p-2.5 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1">
-                  <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                    <ArrowRight className="w-3 h-3 -rotate-45" />
-                    <span>Signals Going OUT (বের হয়):</span>
-                  </span>
-                  <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-300 pl-1">
-                    {selectedData.signalsOut?.map((s, idx) => (
-                      <li key={idx} className="leading-tight">
-                        • <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono text-[10px]">{s.direction}</span>: {s.label}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Crucial Teaching Rule */}
-              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] font-bold leading-relaxed flex items-start gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                <span>{lang === 'bn' ? selectedData.crucialRuleBn : selectedData.crucialRule}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Fast Component Selector Pills */}
-          <div className="shrink-0 pt-2 border-t border-neutral-200/70 dark:border-neutral-800/80">
-            <span className="text-[10px] font-bold text-neutral-400 block mb-1.5">
-              Quick Switch Component:
-            </span>
-            <div className="grid grid-cols-4 gap-1 text-[10px] font-bold">
-              {['alu', 'memory', 'cu', 'input', 'output', 'cpu', 'operator'].map((key) => (
+            {/* Quick Component Selector Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
+              {[
+                { id: 'alu', label: 'ALU' },
+                { id: 'memory', label: 'Memory' },
+                { id: 'cu', label: 'Control Unit' },
+                { id: 'input', label: 'Input' },
+                { id: 'output', label: 'Output' },
+                { id: 'cpu', label: 'CPU Box' },
+                { id: 'operator', label: 'Operator' },
+              ].map(({ id, label }) => (
                 <button
-                  key={key}
+                  key={id}
                   type="button"
-                  onClick={() => setPinnedUnit(key)}
-                  className={`py-1 px-1.5 rounded-lg border text-center transition-all cursor-pointer ${
-                    activeUnit === key
-                      ? 'border-sky-500 bg-sky-500 text-white shadow-xs'
+                  onClick={() => setPinnedUnit(id)}
+                  className={`py-1.5 px-3 rounded-xl border text-xs font-black transition-all cursor-pointer ${
+                    activeUnit === id
+                      ? 'border-sky-500 bg-sky-500 text-white shadow-xs shadow-sky-500/30'
                       : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
                   }`}
                 >
-                  {key.toUpperCase()}
+                  {label}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* 2-Column Inspector Details with Smooth Transitions */}
+          <div key={activeUnit} className="grid grid-cols-1 md:grid-cols-12 gap-4 transition-all duration-300 ease-out animate-in fade-in">
+            {/* Left Column: Description & Rule */}
+            <div className="md:col-span-6 space-y-3">
+              <p className="text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                {lang === 'bn' ? selectedData.descriptionBn : selectedData.description}
+              </p>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold leading-relaxed flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <span>{lang === 'bn' ? selectedData.crucialRuleBn : selectedData.crucialRule}</span>
+              </div>
+            </div>
+
+            {/* Right Column: Wire Connections Table */}
+            <div className="md:col-span-6 space-y-2 text-xs">
+              {/* IN */}
+              <div className="p-3 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1.5">
+                <span className="text-[10.5px] font-black uppercase text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 rotate-45" />
+                  <span>Signals Coming IN (প্রবেশ করে):</span>
+                </span>
+                <ul className="space-y-1 text-xs text-neutral-600 dark:text-neutral-300 pl-1">
+                  {selectedData.signalsIn?.map((s, idx) => (
+                    <li key={idx} className="leading-snug">
+                      • <span className="font-bold text-sky-600 dark:text-sky-400 font-mono text-[11px]">{s.direction}</span>: {s.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* OUT */}
+              <div className="p-3 rounded-xl bg-white dark:bg-neutral-900/80 border border-neutral-200/80 dark:border-neutral-800 space-y-1.5">
+                <span className="text-[10.5px] font-black uppercase text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                  <ArrowRight className="w-3.5 h-3.5 -rotate-45" />
+                  <span>Signals Going OUT (বের হয়):</span>
+                </span>
+                <ul className="space-y-1 text-xs text-neutral-600 dark:text-neutral-300 pl-1">
+                  {selectedData.signalsOut?.map((s, idx) => (
+                    <li key={idx} className="leading-snug">
+                      • <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">{s.direction}</span>: {s.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
       {/* Signal Legend Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs font-bold text-neutral-500 border-t border-neutral-200/60 dark:border-neutral-800/60">
