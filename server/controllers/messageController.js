@@ -3,6 +3,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const { broadcastChatMessage } = require('../sockets/socketManager');
 
 // Get all conversations for current user
 exports.getConversations = async (req, res) => {
@@ -275,6 +276,13 @@ exports.sendMessage = async (req, res) => {
       conversation.save(),
       notification.save(),
     ]);
+
+    // Broadcast message via Socket.IO in real-time
+    try {
+      broadcastChatMessage(conversation._id, message, targetRecipientId);
+    } catch (socketErr) {
+      console.warn('Real-time socket broadcast notice:', socketErr.message);
+    }
 
     // Dispatch background push alert to recipient
     sendPushToUser(targetRecipientId, {

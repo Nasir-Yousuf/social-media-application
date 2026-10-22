@@ -11,6 +11,7 @@ import {
   Swords,
   Zap,
   LogOut,
+  Phone,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -23,6 +24,7 @@ import ChangePasswordModal from '../components/users/ChangePasswordModal';
 import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useCall } from '../context/CallContext';
 import { FacultyBadge } from '../components/common/ClearfeedIcons';
 import { getLocalTypingProfile } from '../utils/typingStorage';
 
@@ -31,6 +33,7 @@ export const ProfilePage = () => {
   const navigate = useNavigate();
   const { user: currentUser, logout } = useAuth();
   const { showToast } = useNotifications();
+  const { startCall } = useCall();
 
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -486,6 +489,15 @@ export const ProfilePage = () => {
               </div>
             ) : (
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => startCall(profile)}
+                  className="p-2 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-emerald-500 hover:border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                  title={`Voice Call @${profile.username}`}
+                >
+                  <Phone className="w-4 h-4 text-emerald-500" />
+                </button>
+
                 <NavLink
                   to={`/messages?user=${profile.username}`}
                   className="p-2 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"

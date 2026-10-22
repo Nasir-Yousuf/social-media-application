@@ -20,26 +20,39 @@ import {
   BookOpen,
   Keyboard,
   Zap,
+  Radio,
+  Phone,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useCall } from '../../context/CallContext';
 import { ClearfeedLogo } from '../common/ClearfeedIcons';
 import Avatar from '../common/Avatar';
 import Modal from '../common/Modal';
 import PostComposer from '../posts/PostComposer';
 import ChangePasswordModal from '../users/ChangePasswordModal';
+import CreateSpaceModal from '../spaces/CreateSpaceModal';
 
 export const LeftSidebar = () => {
   const { user, logout, isAdmin } = useAuth();
   const { theme, currentTheme, isDark, toggleTheme, openThemeModal } = useTheme();
   const { unreadCount, unreadMessagesCount } = useNotifications();
   const { confirm } = useConfirm();
+  const {
+    spacesList,
+    activeSpace,
+    setIsSpacesModalOpen,
+    openNewCallModal,
+    activeGroupCall,
+    setIsGroupCallModalOpen,
+  } = useCall();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
@@ -233,6 +246,41 @@ export const LeftSidebar = () => {
                   </NavLink>
                 );
               })}
+
+              {/* Audio Calls & Spaces Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeGroupCall) {
+                    setIsGroupCallModalOpen(true);
+                  } else if (activeSpace) {
+                    setIsSpacesModalOpen(true);
+                  } else {
+                    openNewCallModal('direct');
+                  }
+                }}
+                className="flex items-center gap-4 px-3.5 py-2.5 rounded-full text-base font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/50 hover:text-sky-500 dark:hover:text-sky-400 transition-all duration-150 active:scale-95 w-fit xl:w-full cursor-pointer group"
+                title="Voice Calls, Group Calls & Live Spaces"
+              >
+                <div className="relative transition-transform duration-200 group-hover:scale-110">
+                  <Phone className="w-6 h-6 stroke-[2] text-sky-500" />
+                  {(spacesList.length > 0 || activeGroupCall) && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse ring-2 ring-white dark:ring-neutral-900" />
+                  )}
+                </div>
+                <div className="hidden xl:flex items-center gap-2">
+                  <span className="text-lg tracking-tight">Audio & Calls</span>
+                  {spacesList.length > 0 ? (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20 animate-pulse">
+                      LIVE ({spacesList.length})
+                    </span>
+                  ) : activeGroupCall ? (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 animate-pulse">
+                      IN CALL
+                    </span>
+                  ) : null}
+                </div>
+              </button>
 
               {/* Display / Theme Customizer */}
               <button
@@ -460,6 +508,12 @@ export const LeftSidebar = () => {
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
+      />
+
+      {/* Twitter Spaces Create Modal */}
+      <CreateSpaceModal
+        isOpen={isCreateSpaceOpen}
+        onClose={() => setIsCreateSpaceOpen(false)}
       />
     </>
   );

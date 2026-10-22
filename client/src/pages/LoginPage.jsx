@@ -110,7 +110,7 @@ export const LoginPage = () => {
                   type="text"
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
-                  placeholder="nasir or your email"
+                  placeholder="Enter username or email"
                   required
                   className="w-full bg-neutral-50 dark:bg-black/50 text-sm text-neutral-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600 pl-10 pr-3.5 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-800 focus:outline-none focus:ring-2 focus:ring-sky-500/25 focus:border-sky-500 transition-colors"
                 />

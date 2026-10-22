@@ -18,11 +18,14 @@ import {
   Eraser,
   RotateCcw,
   Swords,
+  Phone,
+  Users,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useCall } from '../context/CallContext';
 import Avatar from '../components/common/Avatar';
 import Modal from '../components/common/Modal';
 import TwitterSpinner from '../components/common/TwitterSpinner';
@@ -56,6 +59,7 @@ export const MessagesPage = () => {
   const { user: currentUser } = useAuth();
   const { showToast } = useNotifications();
   const { confirm } = useConfirm();
+  const { startCall, openNewCallModal } = useCall();
   const [searchParams, setSearchParams] = useSearchParams();
   const userParam = searchParams.get('user');
 
@@ -729,14 +733,26 @@ export const MessagesPage = () => {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenNewChat}
-            className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:text-sky-500 active:scale-95 transition-all cursor-pointer shadow-2xs"
-            title="Start new conversation"
-          >
-            <PenSquare className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => openNewCallModal('direct')}
+              className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:text-sky-500 active:scale-95 transition-all cursor-pointer shadow-2xs"
+              title="Start voice call or group audio"
+              aria-label="Start call or group call"
+            >
+              <Phone className="w-5 h-5 text-sky-500" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenNewChat}
+              className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:text-sky-500 active:scale-95 transition-all cursor-pointer shadow-2xs"
+              title="Start new conversation"
+            >
+              <PenSquare className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Search & Filter Tabs */}
@@ -1015,6 +1031,28 @@ export const MessagesPage = () => {
 
               {/* Header Right Actions */}
               <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                {/* Voice Call Button */}
+                <button
+                  type="button"
+                  onClick={() => startCall(activeConversation.otherUser)}
+                  className="p-2 rounded-full hover:bg-emerald-500/10 text-emerald-500 active:scale-95 transition-all cursor-pointer"
+                  title={`Start voice call with @${activeConversation.otherUser?.username}`}
+                  aria-label="Start voice call"
+                >
+                  <Phone className="w-4 h-4" />
+                </button>
+
+                {/* Group Voice Call Button */}
+                <button
+                  type="button"
+                  onClick={() => openNewCallModal('group')}
+                  className="p-2 rounded-full hover:bg-sky-500/10 text-sky-500 active:scale-95 transition-all cursor-pointer"
+                  title="Start a group voice call"
+                  aria-label="Start group call"
+                >
+                  <Users className="w-4 h-4" />
+                </button>
+
                 {/* Quick 1v1 Typing Duel Challenge Button */}
                 <button
                   type="button"

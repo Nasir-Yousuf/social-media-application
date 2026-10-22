@@ -4,7 +4,7 @@ const postController = require('../controllers/postController');
 const commentController = require('../controllers/commentController');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
 
-router.get('/feed', requireAuth, postController.getFeed);
+router.get('/feed', optionalAuth, postController.getFeed);
 router.get('/explore', optionalAuth, postController.getExplorePosts);
 router.get('/code-snippets', optionalAuth, postController.getCodeFeed);
 router.get('/user/:username', optionalAuth, postController.getUserPosts);

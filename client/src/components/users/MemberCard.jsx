@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
+import { Phone, MessageSquare } from 'lucide-react';
 import Avatar from '../common/Avatar';
 import Button from '../common/Button';
 import api from '../../api/client';
 import { useNotifications } from '../../context/NotificationContext';
+import { useCall } from '../../context/CallContext';
 import { FacultyBadge } from '../common/ClearfeedIcons';
 
 export const MemberCard = ({ member }) => {
   const { showToast } = useNotifications();
+  const { startCall } = useCall();
   const [isFollowing, setIsFollowing] = useState(member.isFollowing);
   const [followersCount, setFollowersCount] = useState(member.followersCount || 0);
   const [loading, setLoading] = useState(false);
@@ -114,15 +117,36 @@ export const MemberCard = ({ member }) => {
         </NavLink>
 
         {!member.isSelf && (
-          <Button
-            variant={isFollowing ? 'outline' : 'secondary'}
-            size="xs"
-            onClick={handleFollowToggle}
-            isLoading={loading}
-            className="px-3.5 py-1 font-bold"
-          >
-            {isFollowing ? 'Following' : 'Follow'}
-          </Button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => startCall(member)}
+              className="p-1.5 rounded-full border border-neutral-200 dark:border-neutral-700/80 hover:border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-neutral-600 dark:text-neutral-400 hover:text-emerald-500 transition-colors cursor-pointer"
+              title={`Voice Call @${member.username}`}
+              aria-label={`Call @${member.username}`}
+            >
+              <Phone className="w-3.5 h-3.5 text-emerald-500" />
+            </button>
+
+            <NavLink
+              to={`/messages?user=${member.username}`}
+              className="p-1.5 rounded-full border border-neutral-200 dark:border-neutral-700/80 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-500 transition-colors"
+              title={`Message @${member.username}`}
+              aria-label={`Message @${member.username}`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+            </NavLink>
+
+            <Button
+              variant={isFollowing ? 'outline' : 'secondary'}
+              size="xs"
+              onClick={handleFollowToggle}
+              isLoading={loading}
+              className="px-3 py-1 font-bold text-xs"
+            >
+              {isFollowing ? 'Following' : 'Follow'}
+            </Button>
+          </div>
         )}
       </div>
 

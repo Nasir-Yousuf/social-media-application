@@ -6,6 +6,7 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { isRunningInExpoGo } from 'expo';
 import api from '../api/client';
+import socketService from '../services/socket';
 
 // Configure how notifications should be handled when app is in the foreground
 try {
@@ -61,6 +62,13 @@ export const NotificationProvider = ({ children }) => {
   // Fetch unread social alerts and direct messages count
   const fetchUnreadCounts = useCallback(async () => {
     try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        setUnreadCount(0);
+        setUnreadMessagesCount(0);
+        return;
+      }
+
       const [notifsRes, msgsRes] = await Promise.allSettled([
         api.get('/notifications/unread-count'),
         api.get('/messages/unread-total'),
@@ -179,14 +187,17 @@ export const NotificationProvider = ({ children }) => {
         setPushToken(token);
         await AsyncStorage.setItem('cf_push_token', token);
 
-        // Send to backend API if authenticated
-        try {
-          await api.post('/notifications/push-token', {
-            token,
-            platform: Platform.OS,
-          });
-        } catch {
-          // Token will be synced upon next login
+        // Send to backend API only if authenticated
+        const authToken = await AsyncStorage.getItem('token');
+        if (authToken) {
+          try {
+            await api.post('/notifications/push-token', {
+              token,
+              platform: Platform.OS,
+            });
+          } catch {
+            // Token will be synced upon next login
+          }
         }
 
         return { success: true, token };
@@ -263,14 +274,26 @@ export const NotificationProvider = ({ children }) => {
       console.warn('Notification listeners could not be attached:', err.message);
     }
 
+    // Real-time in-app notification when a chat message arrives
+    const unsubSocketMsg = socketService.on('chat:message', (payload) => {
+      const incoming = payload.message;
+      if (incoming) {
+        setUnreadMessagesCount((prev) => prev + 1);
+        const senderName = incoming.sender?.name || incoming.sender?.username || 'New Message';
+        const snippet = incoming.text || (incoming.codeSnippet ? 'Shared code' : 'Sent a message');
+        showToast(`💬 ${senderName}: ${snippet}`, 'info');
+      }
+    });
+
     return () => {
       clearInterval(interval);
+      unsubSocketMsg();
       try {
         notifReceivedSub?.remove();
         responseSub?.remove();
       } catch {}
     };
-  }, [fetchUnreadCounts, registerForPushNotifications, handleNotificationResponse]);
+  }, [fetchUnreadCounts, registerForPushNotifications, handleNotificationResponse, showToast]);
 
   return (
     <NotificationContext.Provider

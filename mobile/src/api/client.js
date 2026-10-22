@@ -79,7 +79,9 @@ async function request(endpoint, options = {}) {
 
     return { data, status: response.status };
   } catch (err) {
-    console.warn(`API Error [${options.method || 'GET'} ${endpoint}]:`, err.message);
+    if (err.status !== 401 && err.status !== 403) {
+      console.warn(`API Error [${options.method || 'GET'} ${endpoint}]:`, err.message);
+    }
     throw err;
   }
 }

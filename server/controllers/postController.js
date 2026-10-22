@@ -480,12 +480,23 @@ exports.getFeed = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const currentUserId = req.user._id;
+    const currentUserId = req.user ? req.user._id : null;
     const isAdmin = req.user?.role === 'admin';
     const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
 
     let baseQuery = {};
     if (tab === 'following') {
+      if (!currentUserId) {
+        return res.status(200).json({
+          posts: [],
+          pagination: {
+            page,
+            limit,
+            totalPosts: 0,
+            hasMore: false,
+          },
+        });
+      }
       const followingEdges = await Follow.find({ follower: currentUserId }).select('following');
       const followingIds = followingEdges.map((e) => e.following);
       followingIds.push(currentUserId); // include own posts in following feed
@@ -512,8 +523,8 @@ exports.getFeed = async (req, res) => {
     // Batch query likes and bookmarks for current user to avoid N+1 queries
     const postIds = posts.map((p) => p._id);
     const [userLikes, userBookmarks] = await Promise.all([
-      Like.find({ post: { $in: postIds }, user: currentUserId }).select('post'),
-      Bookmark.find({ post: { $in: postIds }, user: currentUserId }).select('post'),
+      currentUserId ? Like.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
+      currentUserId ? Bookmark.find({ post: { $in: postIds }, user: currentUserId }).select('post') : [],
     ]);
 
     const likedPostIdSet = new Set(userLikes.map((l) => l.post.toString()));
@@ -536,7 +547,7 @@ exports.getFeed = async (req, res) => {
             isLiked: likedPostIdSet.has(post._id.toString()),
             isBookmarked: bookmarkedPostIdSet.has(post._id.toString()),
             canReply,
-            isOwner: post.author && post.author._id.equals(currentUserId),
+            isOwner: Boolean(currentUserId && post.author && post.author._id && post.author._id.equals(currentUserId)),
           },
           currentUserId,
           isAdmin

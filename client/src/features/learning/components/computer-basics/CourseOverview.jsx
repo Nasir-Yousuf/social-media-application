@@ -1,5 +1,5 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React from "react";
+import { NavLink } from "react-router-dom";
 import {
   CheckCircle2,
   Award,
@@ -7,15 +7,14 @@ import {
   ArrowRight,
   Clock,
   Cpu,
-} from 'lucide-react';
-import { COMPUTER_BASICS_LESSONS } from '../../data/computerBasicsCurriculum';
+} from "lucide-react";
+import { COMPUTER_BASICS_LESSONS } from "../../data/computerBasicsCurriculum";
 
-export const CourseOverview = ({
-  progress = {},
-  lang = 'both',
-}) => {
+export const CourseOverview = ({ progress = {}, lang = "both" }) => {
   const completedSet = new Set(progress.completedLessons || []);
-  const completedCount = COMPUTER_BASICS_LESSONS.filter((l) => completedSet.has(l.id)).length;
+  const completedCount = COMPUTER_BASICS_LESSONS.filter((l) =>
+    completedSet.has(l.id),
+  ).length;
   const totalLessons = COMPUTER_BASICS_LESSONS.length;
   const percent = Math.round((completedCount / totalLessons) * 100);
 
@@ -44,17 +43,17 @@ export const CourseOverview = ({
             </h1>
 
             <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
-              {lang === 'bn'
-                ? 'কম্পিউটার কীভাবে কাজ করে, ৫টি কার্যকরী ইউনিট, সিপিইউ, এএলইউ, মেমোরি হায়ারার্কি, অপারেটিং সিস্টেম এবং ইলেকট্রিক্যাল বনাম ইলেকট্রনিক ডিভাইসের সম্পূর্ণ মৌলিক কোর্স।'
-                : lang === 'both'
-                ? 'Master the fundamentals of computer systems, the five functional units, CPU architecture, memory hierarchy, operating systems, and electrical vs electronic devices. (ইন্টারেক্টিভ সিমুলেশন ও অনুশীলনসহ সম্পূর্ণ ফান্ডামেন্টাল কোর্স)'
-                : 'Master the fundamentals of computer systems, the five functional units, CPU architecture, memory hierarchy, operating systems, and electrical vs electronic devices.'}
+              {lang === "bn"
+                ? "কম্পিউটার কীভাবে কাজ করে, ৫টি কার্যকরী ইউনিট, সিপিইউ, এএলইউ, মেমোরি হায়ারার্কি, অপারেটিং সিস্টেম এবং ইলেকট্রিক্যাল বনাম ইলেকট্রনিক ডিভাইসের সম্পূর্ণ মৌলিক কোর্স।"
+                : lang === "both"
+                  ? "Master the fundamentals of computer systems, the five functional units, CPU architecture, memory hierarchy, operating systems, and electrical vs electronic devices. (ইন্টারেক্টিভ সিমুলেশন ও অনুশীলনসহ সম্পূর্ণ ফান্ডামেন্টাল কোর্স)"
+                  : "Master the fundamentals of computer systems, the five functional units, CPU architecture, memory hierarchy, operating systems, and electrical vs electronic devices."}
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-4 text-xs font-semibold text-neutral-300">
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                8 Structured Lessons
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />8
+                Structured Lessons
               </span>
               <span className="flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-sky-400" />
@@ -87,7 +86,9 @@ export const CourseOverview = ({
               to={`/learn/computer-basics/${nextLesson.id}`}
               className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-500 text-white text-xs font-bold hover:bg-emerald-600 transition-colors shadow-xs shadow-emerald-500/20"
             >
-              <span>{percent > 0 ? 'Continue Learning' : 'Start Lesson 1'}</span>
+              <span>
+                {percent > 0 ? "Continue Learning" : "Start Lesson 1"}
+              </span>
               <ArrowRight className="w-4 h-4" />
             </NavLink>
           </div>
@@ -99,10 +100,13 @@ export const CourseOverview = ({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-black text-neutral-900 dark:text-neutral-100">
-              {lang === 'bn' ? 'কোর্সের পাঠক্রম (৮টি লেসন)' : 'Course Curriculum (8 Lessons)'}
+              {lang === "bn"
+                ? "কোর্সের পাঠক্রম (৮টি লেসন)"
+                : "Course Curriculum (8 Lessons)"}
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Click any lesson to begin reading, experimenting with diagrams, and taking quizzes.
+              Click any lesson to begin reading, experimenting with diagrams,
+              and taking quizzes.
             </p>
           </div>
 
@@ -114,7 +118,7 @@ export const CourseOverview = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {COMPUTER_BASICS_LESSONS.map((lesson) => {
             const isCompleted = completedSet.has(lesson.id);
-            const isSignatureLesson = lesson.id === 'cb-how-a-computer-works';
+            const isSignatureLesson = lesson.id === "cb-how-a-computer-works";
 
             return (
               <NavLink
@@ -122,10 +126,10 @@ export const CourseOverview = ({
                 to={`/learn/computer-basics/${lesson.id}`}
                 className={`group relative rounded-2xl border p-5 transition-all flex flex-col justify-between hover:shadow-md ${
                   isCompleted
-                    ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/20 dark:bg-emerald-950/10'
+                    ? "border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/20 dark:bg-emerald-950/10"
                     : isSignatureLesson
-                    ? 'border-sky-300 dark:border-sky-800 bg-sky-50/20 dark:bg-sky-950/10 ring-1 ring-sky-400/30'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#12161f] hover:border-neutral-300 dark:hover:border-neutral-700'
+                      ? "border-sky-300 dark:border-sky-800 bg-sky-50/20 dark:bg-sky-950/10 ring-1 ring-sky-400/30"
+                      : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#12161f] hover:border-neutral-300 dark:hover:border-neutral-700"
                 }`}
               >
                 <div>
@@ -156,26 +160,26 @@ export const CourseOverview = ({
                   </div>
 
                   <h3 className="text-base font-black text-neutral-900 dark:text-neutral-100 group-hover:text-sky-500 transition-colors">
-                    {lang === 'bn'
+                    {lang === "bn"
                       ? lesson.title.bn
-                      : lang === 'both'
-                      ? `${lesson.title.en} (${lesson.title.bn})`
-                      : lesson.title.en}
+                      : lang === "both"
+                        ? `${lesson.title.en} (${lesson.title.bn})`
+                        : lesson.title.en}
                   </h3>
 
                   <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed">
-                    {lang === 'bn'
+                    {lang === "bn"
                       ? lesson.subtitle.bn
-                      : lang === 'both'
-                      ? `${lesson.subtitle.en}`
-                      : lesson.subtitle.en}
+                      : lang === "both"
+                        ? `${lesson.subtitle.en}`
+                        : lesson.subtitle.en}
                   </p>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-xs font-bold text-neutral-500 dark:text-neutral-400">
                   <span>Level: {lesson.difficulty}</span>
                   <span className="inline-flex items-center gap-1 text-sky-500 group-hover:translate-x-0.5 transition-transform">
-                    <span>{isCompleted ? 'Review Lesson' : 'Open Lesson'}</span>
+                    <span>{isCompleted ? "Review Lesson" : "Open Lesson"}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>

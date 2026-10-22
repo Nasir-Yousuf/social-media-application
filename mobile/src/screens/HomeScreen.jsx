@@ -30,6 +30,7 @@ export const HomeScreen = ({ navigation }) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [feedError, setFeedError] = useState(null);
 
   const fetchFeed = useCallback(
     async (isRefresh = false, pageNum = 1) => {
@@ -38,12 +39,14 @@ export const HomeScreen = ({ navigation }) => {
       else setLoadingMore(true);
 
       try {
+        setFeedError(null);
         const res = await api.get(`/posts/feed?tab=${activeTab}&page=${pageNum}&limit=15`);
         const incoming = res.data.posts || [];
         setPosts((prev) => (pageNum === 1 ? incoming : [...prev, ...incoming]));
         setHasMore(Boolean(res.data.pagination?.hasMore));
         setPage(pageNum);
       } catch (err) {
+        setFeedError(err.message || 'Could not load feed');
         showToast('Could not load feed', 'error');
       } finally {
         setLoading(false);
@@ -181,15 +184,33 @@ export const HomeScreen = ({ navigation }) => {
             ) : null
           }
           ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📡</Text>
-              <Text style={styles.emptyTitle}>No posts yet</Text>
-              <Text style={styles.emptyDesc}>
-                {activeTab === 'following'
-                  ? 'Follow members to see their posts here, or check out the All Feed.'
-                  : 'Be the first to share a thought or code snippet!'}
-              </Text>
-            </View>
+            feedError ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="cloud-offline-outline" size={42} color={colors.textSecondary} style={{ marginBottom: 10 }} />
+                <Text style={styles.emptyTitle}>Could not load feed</Text>
+                <Text style={styles.emptyDesc}>
+                  Unable to reach server. Please check your network connection or server status.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => fetchFeed(true, 1)}
+                  style={styles.retryBtn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="refresh" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                  <Text style={styles.retryBtnText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>📡</Text>
+                <Text style={styles.emptyTitle}>No posts yet</Text>
+                <Text style={styles.emptyDesc}>
+                  {activeTab === 'following'
+                    ? 'Follow members to see their posts here, or check out the All Feed.'
+                    : 'Be the first to share a thought or code snippet!'}
+                </Text>
+              </View>
+            )
           }
         />
       )}
@@ -333,6 +354,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+    marginBottom: 16,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accent,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  retryBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   fab: {
     position: 'absolute',

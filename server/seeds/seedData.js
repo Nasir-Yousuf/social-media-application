@@ -46,8 +46,10 @@ const studentsData = [
 const seedDatabase = async () => {
   try {
     const userCount = await User.countDocuments();
-    if (userCount > 10) {
-      console.log(`Database already seeded with ${userCount} users.`);
+    const postCount = await Post.countDocuments();
+
+    if (userCount > 10 && postCount > 0) {
+      console.log(`Database already seeded with ${userCount} users and ${postCount} posts.`);
       
       // Check if existing posts need code snippets
       const codePostCount = await Post.countDocuments({ 'codeSnippet.code': { $exists: true, $ne: null } });
@@ -82,53 +84,65 @@ const seedDatabase = async () => {
       return;
     }
 
-    console.log('Seeding CS-518 course community data (~35 members + instructor)...');
+    console.log('Seeding CS-518 course community data (~35 members + instructor + feed posts)...');
 
-    // 1. Create Admin (Nasir)
-    const adminUser = await User.create({
-      name: 'Nasir',
-      username: 'nasir',
-      email: 'nasir@course518.edu',
-      password: 'password123',
-      bio: 'Full-stack developer & CS-518 community member.',
-      role: 'admin',
-      avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=nasir',
-      isApproved: true,
-    });
-
-    // 2. Create 35 Students
-    const studentUsers = [];
-    for (const s of studentsData) {
-      const student = await User.create({
-        ...s,
+    // 1. Create or retrieve Admin (Nasir)
+    let adminUser = await User.findOne({ username: 'nasir' });
+    if (!adminUser) {
+      adminUser = await User.create({
+        name: 'Nasir',
+        username: 'nasir',
+        email: 'nasir@course518.edu',
         password: 'password123',
-        role: 'student',
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${s.username}`,
+        bio: 'Full-stack developer & CS-518 community member.',
+        role: 'admin',
+        avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=nasir',
         isApproved: true,
       });
+    }
+
+    // 2. Create or retrieve 35 Students
+    const studentUsers = [];
+    for (const s of studentsData) {
+      let student = await User.findOne({ username: s.username });
+      if (!student) {
+        student = await User.create({
+          ...s,
+          password: 'password123',
+          role: 'student',
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${s.username}`,
+          isApproved: true,
+        });
+      }
       studentUsers.push(student);
     }
 
-    console.log(`Created 1 admin and ${studentUsers.length} student profiles.`);
+    console.log(`Verified 1 admin and ${studentUsers.length} student profiles.`);
 
-    // 3. Create Official Announcements
-    const announcement1 = await Post.create({
-      author: adminUser._id,
-      content: '📢 Welcome to the official CS-518 Community Network! Please keep all course discussions, project team formation, and sprint check-ins here. Milestone 1 review is next Friday.',
-      isAnnouncement: true,
-      isPinned: true,
-      likesCount: 28,
-      commentsCount: 4,
-    });
+    // 3. Create Official Announcements if not already present
+    let announcement1 = await Post.findOne({ content: { $regex: 'Welcome to the official CS-518 Community' } });
+    if (!announcement1) {
+      announcement1 = await Post.create({
+        author: adminUser._id,
+        content: '📢 Welcome to the official CS-518 Community Network! Please keep all course discussions, project team formation, and sprint check-ins here. Milestone 1 review is next Friday.',
+        isAnnouncement: true,
+        isPinned: true,
+        likesCount: 28,
+        commentsCount: 4,
+      });
+    }
 
-    const announcement2 = await Post.create({
-      author: adminUser._id,
-      content: '📌 Office hours today are moved to Room 402B due to the faculty seminar. Feel free to drop by with your MongoDB schema designs!',
-      isAnnouncement: true,
-      isPinned: false,
-      likesCount: 14,
-      commentsCount: 2,
-    });
+    let announcement2 = await Post.findOne({ content: { $regex: 'Office hours today are moved' } });
+    if (!announcement2) {
+      announcement2 = await Post.create({
+        author: adminUser._id,
+        content: '📌 Office hours today are moved to Room 402B due to the faculty seminar. Feel free to drop by with your MongoDB schema designs!',
+        isAnnouncement: true,
+        isPinned: false,
+        likesCount: 14,
+        commentsCount: 2,
+      });
+    }
 
     // 4. Create Student Discussion Posts
     const samplePosts = [
@@ -182,68 +196,83 @@ const seedDatabase = async () => {
       },
     ];
 
-    const createdPosts = await Post.insertMany(samplePosts);
+    let createdPosts = [];
+    const samplePostExists = await Post.findOne({ content: { $regex: 'Today I finally understood how React Context' } });
+    if (!samplePostExists) {
+      createdPosts = await Post.insertMany(samplePosts);
+    } else {
+      createdPosts = await Post.find({ author: { $in: studentUsers.map((u) => u._id) } }).limit(8);
+    }
 
     // 5. Create Sample Comments
-    await Comment.create([
-      {
-        post: announcement1._id,
-        author: studentUsers[0]._id,
-        content: 'Excited for this semester! Great platform for our class.',
-      },
-      {
-        post: announcement1._id,
-        author: studentUsers[1]._id,
-        content: 'Glad we have our own private space without external social media noise.',
-      },
-      {
-        post: createdPosts[0]._id,
-        author: studentUsers[2]._id,
-        content: 'Totally agree Nasir! Once you isolate dispatch from data, rerenders drop dramatically.',
-      },
-      {
-        post: createdPosts[0]._id,
-        author: studentUsers[3]._id,
-        content: 'Could you share the code snippet during tomorrow’s lab session?',
-      },
-      {
-        post: createdPosts[1]._id,
-        author: studentUsers[4]._id,
-        content: 'I would love to team up Sarah! Sent you a message.',
-      },
-      {
-        post: createdPosts[3]._id,
-        author: studentUsers[6]._id,
-        content: 'I will be there at 4:30 with study notes!',
-      },
-    ]);
+    const commentCount = await Comment.countDocuments();
+    if (commentCount === 0 && createdPosts.length > 3) {
+      await Comment.create([
+        {
+          post: announcement1._id,
+          author: studentUsers[0]._id,
+          content: 'Excited for this semester! Great platform for our class.',
+        },
+        {
+          post: announcement1._id,
+          author: studentUsers[1]._id,
+          content: 'Glad we have our own private space without external social media noise.',
+        },
+        {
+          post: createdPosts[0]._id,
+          author: studentUsers[2]._id,
+          content: 'Totally agree Nasir! Once you isolate dispatch from data, rerenders drop dramatically.',
+        },
+        {
+          post: createdPosts[0]._id,
+          author: studentUsers[3]._id,
+          content: 'Could you share the code snippet during tomorrow’s lab session?',
+        },
+        {
+          post: createdPosts[1]._id,
+          author: studentUsers[4]._id,
+          content: 'I would love to team up Sarah! Sent you a message.',
+        },
+        {
+          post: createdPosts[3]._id,
+          author: studentUsers[6]._id,
+          content: 'I will be there at 4:30 with study notes!',
+        },
+      ]);
+    }
 
     // 6. Create Mutual Follows among students to seed the social graph
-    const followPairs = [
-      [studentUsers[0]._id, studentUsers[1]._id],
-      [studentUsers[0]._id, studentUsers[2]._id],
-      [studentUsers[0]._id, studentUsers[3]._id],
-      [studentUsers[0]._id, adminUser._id],
-      [studentUsers[1]._id, studentUsers[0]._id],
-      [studentUsers[1]._id, studentUsers[2]._id],
-      [studentUsers[2]._id, studentUsers[0]._id],
-      [studentUsers[3]._id, studentUsers[0]._id],
-      [studentUsers[4]._id, studentUsers[0]._id],
-      [studentUsers[5]._id, studentUsers[0]._id],
-      [studentUsers[6]._id, studentUsers[1]._id],
-      [studentUsers[7]._id, studentUsers[2]._id],
-    ];
+    const followCount = await Follow.countDocuments();
+    if (followCount === 0) {
+      const followPairs = [
+        [studentUsers[0]._id, studentUsers[1]._id],
+        [studentUsers[0]._id, studentUsers[2]._id],
+        [studentUsers[0]._id, studentUsers[3]._id],
+        [studentUsers[0]._id, adminUser._id],
+        [studentUsers[1]._id, studentUsers[0]._id],
+        [studentUsers[1]._id, studentUsers[2]._id],
+        [studentUsers[2]._id, studentUsers[0]._id],
+        [studentUsers[3]._id, studentUsers[0]._id],
+        [studentUsers[4]._id, studentUsers[0]._id],
+        [studentUsers[5]._id, studentUsers[0]._id],
+        [studentUsers[6]._id, studentUsers[1]._id],
+        [studentUsers[7]._id, studentUsers[2]._id],
+      ];
 
-    for (const [follower, following] of followPairs) {
-      await Follow.create({ follower, following });
+      for (const [follower, following] of followPairs) {
+        await Follow.create({ follower, following });
+      }
     }
 
     // 7. Seed sample likes
-    for (let i = 0; i < 5; i++) {
-      await Like.create({
-        post: createdPosts[0]._id,
-        user: studentUsers[i]._id,
-      });
+    const likeCount = await Like.countDocuments();
+    if (likeCount === 0 && createdPosts.length > 0) {
+      for (let i = 0; i < Math.min(5, studentUsers.length); i++) {
+        await Like.create({
+          post: createdPosts[0]._id,
+          user: studentUsers[i]._id,
+        });
+      }
     }
 
     console.log('✅ CS-518 Community Seed completed successfully!');

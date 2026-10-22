@@ -21,16 +21,20 @@ import { VerifiedBadge } from '../components/TwitterIcons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useCall } from '../context/CallContext';
+import socketService from '../services/socket';
 
 export const MessagesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { user: currentUser } = useAuth();
   const { showToast, setUnreadMessagesCount } = useNotifications();
+  const { startAudioCall, startGroupAudioCall } = useCall();
 
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
 
   // New Chat Modal state
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
@@ -81,14 +85,46 @@ export const MessagesScreen = ({ navigation }) => {
     isMountedRef.current = true;
     fetchConversations(false);
 
-    // Live background polling every 5 seconds for new conversation activity
+    // 1. Socket.IO Real-time Message Listener -> Auto-refresh conversations
+    const unsubMsg = socketService.on('chat:message', () => {
+      fetchConversations(true);
+    });
+
+    // 2. Presence Tracking Listeners
+    const unsubOnlineList = socketService.on('presence:online_users', (list) => {
+      if (Array.isArray(list)) {
+        setOnlineUserIds(new Set(list.map((item) => item.userId)));
+      }
+    });
+
+    const unsubUserOnline = socketService.on('presence:user_online', ({ userId }) => {
+      if (userId) {
+        setOnlineUserIds((prev) => new Set([...prev, userId]));
+      }
+    });
+
+    const unsubUserOffline = socketService.on('presence:user_offline', ({ userId }) => {
+      if (userId) {
+        setOnlineUserIds((prev) => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
+      }
+    });
+
+    // 3. Fallback sync interval (20s instead of 5s)
     const pollInterval = setInterval(() => {
       fetchConversations(true);
-    }, 5000);
+    }, 20000);
 
     return () => {
       isMountedRef.current = false;
       clearInterval(pollInterval);
+      unsubMsg();
+      unsubOnlineList();
+      unsubUserOnline();
+      unsubUserOffline();
     };
   }, [fetchConversations]);
 
@@ -191,6 +227,8 @@ export const MessagesScreen = ({ navigation }) => {
     const lastMsg = item.lastMessage || {};
     const isCodeSnippet = lastMsg.hasCode || (lastMsg.text && lastMsg.text.includes('code snippet'));
 
+    const isUserOnline = other._id && onlineUserIds.has(other._id);
+
     return (
       <TouchableOpacity
         style={[styles.convItem, unread > 0 && styles.convItemUnread]}
@@ -203,13 +241,16 @@ export const MessagesScreen = ({ navigation }) => {
         }}
         onLongPress={() => handleDeleteConversation(item)}
       >
-        <Avatar
-          src={other.avatarUrl}
-          name={other.name}
-          role={other.role}
-          size="md"
-          showRoleBadge={true}
-        />
+        <View style={styles.avatarWrapper}>
+          <Avatar
+            src={other.avatarUrl}
+            name={other.name}
+            role={other.role}
+            size="md"
+            showRoleBadge={true}
+          />
+          {isUserOnline && <View style={styles.avatarOnlineDot} />}
+        </View>
 
         <View style={styles.convContent}>
           <View style={styles.convHeaderRow}>
@@ -256,6 +297,16 @@ export const MessagesScreen = ({ navigation }) => {
             )}
           </View>
         </View>
+
+        {/* Quick Call Button */}
+        <TouchableOpacity
+          style={styles.convCallBtn}
+          onPress={() => startAudioCall(other)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="call-outline" size={18} color={colors.accent || '#1d9bf0'} />
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -266,14 +317,32 @@ export const MessagesScreen = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <Text style={styles.headerTitle}>Messages</Text>
-          <TouchableOpacity
-            style={styles.newChatBtn}
-            onPress={handleOpenNewChat}
-            activeOpacity={0.8}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="create-outline" size={22} color={colors.accent} />
-          </TouchableOpacity>
+          <View style={styles.headerActionRow}>
+            {/* Quick Group Audio Room Button */}
+            <TouchableOpacity
+              style={styles.groupCallHeaderBtn}
+              onPress={() =>
+                startGroupAudioCall(
+                  `lounge_${Date.now().toString(36)}`,
+                  'Public Study Lounge'
+                )
+              }
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="people" size={17} color={colors.accent || '#1d9bf0'} />
+              <Text style={styles.groupCallBtnText}>Audio Room</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.newChatBtn}
+              onPress={handleOpenNewChat}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="create-outline" size={22} color={colors.accent} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search Bar */}
@@ -644,6 +713,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.accent,
     marginTop: 2,
+  },
+  headerActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  groupCallHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(29, 155, 240, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(29, 155, 240, 0.25)',
+  },
+  groupCallBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.accent || '#1d9bf0',
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  avatarOnlineDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10b981',
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  convCallBtn: {
+    padding: 8,
+    borderRadius: 18,
+    backgroundColor: 'rgba(29, 155, 240, 0.08)',
+    marginLeft: 8,
   },
 });
 

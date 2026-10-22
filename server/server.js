@@ -1,9 +1,11 @@
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const { connectDB } = require('./config/db');
 const seedDatabase = require('./seeds/seedData');
+const { initSocket } = require('./sockets/socketManager');
 
 // Load environment variables
 const path = require('path');
@@ -11,6 +13,8 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+initSocket(server);
 const PORT = process.env.PORT || 5180;
 
 // Trust reverse proxies (Railway, Cloudflare, Vercel) for accurate client IP resolution
@@ -48,6 +52,8 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/search', require('./routes/searchRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
+app.use('/api/spaces', require('./routes/spaceRoutes'));
+app.use('/spaces', require('./routes/spaceRoutes'));
 app.use('/api/learning', require('./routes/learningRoutes'));
 app.use('/learning', require('./routes/learningRoutes'));
 app.use('/api/typing', require('./routes/typingRoutes'));
@@ -103,16 +109,21 @@ const startServer = async () => {
   try {
     await connectDB();
 
-    // Check for startup purge trigger
+    // Check for startup purge trigger or auto-seed if database is empty
+    const User = require('./models/User');
+    const Post = require('./models/Post');
+    const existingUserCount = await User.countDocuments();
+    const existingPostCount = await Post.countDocuments();
+
     if (process.env.PURGE_DATABASE === 'true') {
       console.log('⚠️ PURGE_DATABASE=true detected. Purging all database collections...');
       const { cleanAllData } = require('./scripts/cleanData');
       await cleanAllData({ exitOnComplete: false });
-    } else if (process.env.SEED_DATABASE === 'true') {
-      console.log('🌱 SEED_DATABASE=true detected. Running seed script...');
+    } else if (existingUserCount === 0 || existingPostCount === 0 || process.env.SEED_DATABASE === 'true') {
+      console.log(`🌱 Empty database or no posts detected (${existingUserCount} users, ${existingPostCount} posts). Running seed script...`);
       await seedDatabase();
     } else {
-      console.log(' Live database ready (auto-seeding disabled).');
+      console.log(` Live database ready (${existingUserCount} users, ${existingPostCount} posts present).`);
     }
 
     // Automatically remove dr_vance and guarantee platform maintainers have admin role
@@ -213,8 +224,9 @@ const startServer = async () => {
       console.warn('Startup views sync note:', viewSyncErr.message);
     }
 
-    app.listen(PORT, '0.0.0.0', () => {
+    server.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Clearfeed Server active on http://0.0.0.0:${PORT} (LAN: http://192.168.0.246:${PORT})`);
+      console.log(`⚡ Real-time Socket.IO and WebRTC Call Signaling initialized.`);
     });
   } catch (err) {
     console.error('Failed to start server:', err);
@@ -224,4 +236,4 @@ const startServer = async () => {
 
 startServer();
 
-module.exports = app;
+module.exports = { app, server };

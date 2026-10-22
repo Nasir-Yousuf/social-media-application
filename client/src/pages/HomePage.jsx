@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import PostComposer from '../components/posts/PostComposer';
 import PostList from '../components/posts/PostList';
+import LiveSpacesBar from '../components/spaces/LiveSpacesBar';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
 
@@ -125,6 +126,11 @@ export const HomePage = () => {
       {/* Post Composer right at top of feed */}
       <div className="border-b border-neutral-200/80 dark:border-neutral-800/80 p-3 sm:p-4 bg-white dark:bg-black">
         <PostComposer onPostCreated={handlePostCreated} compact={true} />
+      </div>
+
+      {/* Live Audio Spaces Bar */}
+      <div className="px-3 pt-3 bg-neutral-50/50 dark:bg-neutral-950/50 border-b border-neutral-200/80 dark:border-neutral-800/80">
+        <LiveSpacesBar />
       </div>
 
       {/* Chronological Posts Stream */}

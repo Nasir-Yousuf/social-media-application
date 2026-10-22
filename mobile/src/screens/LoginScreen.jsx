@@ -31,6 +31,8 @@ export const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [guestLoading, setGuestLoading] = useState(false);
+
   // Configurable backend URL state
   const [showConfig, setShowConfig] = useState(false);
   const [serverUrl, setServerUrl] = useState('');
@@ -46,15 +48,19 @@ export const LoginScreen = ({ navigation }) => {
     setShowConfig(false);
   };
 
+  const handleSelectPreset = async (url) => {
+    setServerUrl(url);
+    await setBaseUrl(url);
+    showToast(`Connected to: ${url.includes('railway') ? 'Cloud (Vercel/Railway)' : 'Local PC'}`, 'success');
   const handleGuestLogin = async () => {
-    setLoading(true);
+    setGuestLoading(true);
     try {
       await loginGuest();
       showToast('Welcome! Browsing as Guest.', 'success');
     } catch (err) {
-      showToast(err.message || 'Guest login failed.', 'error');
+      showToast(err.data?.message || err.message || 'Guest login failed.', 'error');
     } finally {
-      setLoading(false);
+      setGuestLoading(false);
     }
   };
 
@@ -179,6 +185,35 @@ export const LoginScreen = ({ navigation }) => {
             {isRegister ? 'Sign Up' : 'Log In'}
           </Button>
 
+          {/* Elegant Divider */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Continue as Guest Button (Modern Pill with Compass Icon) */}
+          <TouchableOpacity
+            onPress={handleGuestLogin}
+            disabled={guestLoading || loading}
+            activeOpacity={0.8}
+            style={[
+              styles.guestBtn,
+              (guestLoading || loading) && styles.guestBtnDisabled,
+            ]}
+          >
+            {guestLoading ? (
+              <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 8 }} />
+            ) : (
+              <Ionicons name="compass" size={19} color={colors.accent} style={{ marginRight: 8 }} />
+            )}
+            <Text style={styles.guestBtnText}>
+              {guestLoading ? 'Entering as Guest...' : 'Continue as Guest'}
+            </Text>
+          </TouchableOpacity>
+
+
+
           {/* Toggle Login / Register */}
           <TouchableOpacity
             onPress={() => {
@@ -193,21 +228,10 @@ export const LoginScreen = ({ navigation }) => {
             <Text style={styles.switchAuthText}>
               {isRegister
                 ? 'Already have an account? Sign in'
-                : "Don't have an account? Create one with photo & bio"}
+                : "Don't have an account? "}
+              {!isRegister && <Text style={styles.switchAuthHighlight}>Create one</Text>}
             </Text>
           </TouchableOpacity>
-
-          {/* Guest Explorer Login */}
-          <View style={styles.demoSection}>
-            <TouchableOpacity
-              onPress={handleGuestLogin}
-              style={[styles.demoBtn, { width: '100%', alignItems: 'center', justifyContent: 'center', paddingVertical: 12 }]}
-              disabled={loading}
-            >
-              <Text style={[styles.demoBtnName, { color: colors.primary, fontSize: 14 }]}>Continue as Guest</Text>
-              <Text style={[styles.demoBtnRole, { marginTop: 2 }]}>Explore without an account</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Backend Host Configurator */}
@@ -216,23 +240,48 @@ export const LoginScreen = ({ navigation }) => {
           style={styles.configToggle}
         >
           <Ionicons name="settings-outline" size={15} color={colors.textSecondary} style={{ marginRight: 6 }} />
-          <Text style={styles.configToggleText}>Server Connection</Text>
+          <Text style={styles.configToggleText}>
+            Server Connection ({serverUrl.includes('railway') ? '☁️ Cloud' : '💻 Local'})
+          </Text>
           <Ionicons name={showConfig ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
 
         {showConfig && (
           <View style={styles.configCard}>
-            <Text style={styles.configLabel}>Backend API Base URL:</Text>
+            <Text style={styles.configLabel}>Select Target Server:</Text>
+            <View style={styles.presetButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.presetBtn,
+                  serverUrl.includes('railway') && styles.presetBtnActive,
+                ]}
+                onPress={() => handleSelectPreset('https://clearfeed518.up.railway.app/api')}
+              >
+                <Text style={styles.presetBtnText}>☁️ Cloud (Vercel/Railway)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.presetBtn,
+                  !serverUrl.includes('railway') && styles.presetBtnActive,
+                ]}
+                onPress={() => handleSelectPreset('http://192.168.0.246:5180/api')}
+              >
+                <Text style={styles.presetBtnText}>💻 Local PC (Wi-Fi)</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.configLabel, { marginTop: 8 }]}>Custom API Base URL:</Text>
             <TextInput
               value={serverUrl}
               onChangeText={setServerUrl}
-              placeholder="http://192.168.1.X:5180/api"
+              placeholder="https://..."
               placeholderTextColor={colors.textSecondary}
               autoCapitalize="none"
               style={styles.configInput}
             />
             <Button variant="secondary" size="sm" onPress={handleSaveUrl}>
-              Save Server URL
+              Save Custom URL
             </Button>
           </View>
         )}
@@ -309,52 +358,61 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingVertical: 12,
   },
-  switchAuthBtn: {
-    marginTop: 16,
+  dividerContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginVertical: 14,
   },
-  switchAuthText: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '600',
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
   },
-  demoSection: {
-    marginTop: 24,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  demoTitle: {
+  dividerText: {
     color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    marginBottom: 10,
+    letterSpacing: 1,
+    paddingHorizontal: 12,
   },
-  demoRow: {
+  guestBtn: {
     flexDirection: 'row',
-    gap: 10,
-  },
-  demoBtn: {
-    flex: 1,
-    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.elevated,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  guestBtnDisabled: {
+    opacity: 0.6,
+  },
+  guestBtnText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+  },
+  switchAuthBtn: {
+    marginTop: 18,
     alignItems: 'center',
   },
-  demoBtnName: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  demoBtnRole: {
+  switchAuthText: {
     color: colors.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  switchAuthHighlight: {
+    color: colors.accent,
+    fontWeight: '700',
   },
   configToggle: {
     marginTop: 20,
@@ -389,6 +447,31 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 13,
     marginBottom: 10,
+  },
+
+  presetButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 8,
+  },
+  presetBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  presetBtnActive: {
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(29, 155, 240, 0.15)',
+  },
+  presetBtnText: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
 

@@ -27,6 +27,8 @@ import { VerifiedBadge } from '../components/TwitterIcons';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useCall } from '../context/CallContext';
+import socketService from '../services/socket';
 
 const QUICK_EMOJIS = ['❤️', '👍', '😂', '🔥', '🚀', '💡', '😮', '👏'];
 
@@ -48,12 +50,15 @@ export const ConversationScreen = ({ route, navigation }) => {
   const { conversationId, otherUser: initialOtherUser } = route.params;
   const { user: currentUser } = useAuth();
   const { showToast, fetchUnreadCount } = useNotifications();
+  const { startAudioCall, startGroupAudioCall } = useCall();
 
   const [otherUser, setOtherUser] = useState(initialOtherUser || null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
+  const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
 
   // Code composer drawer state
   const [showCodeEditor, setShowCodeEditor] = useState(false);
@@ -66,6 +71,7 @@ export const ConversationScreen = ({ route, navigation }) => {
   const flatListRef = useRef(null);
   const isNearBottomRef = useRef(true);
   const isMountedRef = useRef(true);
+  const typingTimerRef = useRef(null);
 
   // Format message time
   const formatMsgTime = (dateStr) => {
@@ -144,19 +150,125 @@ export const ConversationScreen = ({ route, navigation }) => {
   useEffect(() => {
     isMountedRef.current = true;
     fetchMessages(false);
-    fetchUnreadCount();
+    if (fetchUnreadCount) fetchUnreadCount();
 
-    // Auto-polling interval every 2.8s for real-time live chat
-    const pollInterval = setInterval(() => {
+    // 1. Join Conversation Room & Mark Read via Socket
+    socketService.joinConversation(conversationId);
+    socketService.markMessagesAsRead(conversationId);
+
+    // 2. Real-time Incoming Message Listener
+    const unsubMsg = socketService.on('chat:message', (payload) => {
+      const msgConvId = payload.conversationId;
+      const incomingMsg = payload.message;
+
+      if (!incomingMsg) return;
+
+      if (
+        msgConvId === conversationId ||
+        incomingMsg.conversation === conversationId ||
+        incomingMsg.sender?._id === otherUser?._id ||
+        incomingMsg.sender === otherUser?._id
+      ) {
+        if (isMountedRef.current) {
+          setMessages((prev) => {
+            const exists = prev.some(
+              (m) =>
+                m._id === incomingMsg._id ||
+                (m.status === 'sending' && m.text === incomingMsg.text)
+            );
+            if (exists) {
+              return prev.map((m) =>
+                m._id === incomingMsg._id || (m.status === 'sending' && m.text === incomingMsg.text)
+                  ? incomingMsg
+                  : m
+              );
+            }
+            return [...prev, incomingMsg];
+          });
+
+          // Acknowledge read if message is from the other person
+          if (
+            incomingMsg.sender?._id === otherUser?._id ||
+            incomingMsg.sender === otherUser?._id
+          ) {
+            socketService.markMessagesAsRead(conversationId, [incomingMsg._id]);
+          }
+
+          setTimeout(() => scrollToBottom(true), 60);
+        }
+      }
+    });
+
+    // 3. Real-time Typing Status Listener
+    const unsubTyping = socketService.on('chat:typing', (data) => {
+      if (
+        data.conversationId === conversationId &&
+        data.userId !== currentUser?._id
+      ) {
+        if (isMountedRef.current) {
+          setIsOtherUserTyping(data.isTyping);
+        }
+      }
+    });
+
+    // 4. Real-time Double-Blue-Check Read Receipt Listener
+    const unsubRead = socketService.on('chat:messages_read', (data) => {
+      if (data.conversationId === conversationId) {
+        if (isMountedRef.current) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              (m.sender?._id || m.sender) === currentUser?._id
+                ? { ...m, isRead: true }
+                : m
+            )
+          );
+        }
+      }
+    });
+
+    // 5. Real-time Presence Listener
+    const unsubOnline = socketService.on('presence:user_online', (data) => {
+      if (data.userId === otherUser?._id) {
+        if (isMountedRef.current) setIsOtherUserOnline(true);
+      }
+    });
+
+    const unsubOffline = socketService.on('presence:user_offline', (data) => {
+      if (data.userId === otherUser?._id) {
+        if (isMountedRef.current) setIsOtherUserOnline(false);
+      }
+    });
+
+    // Passive fallback interval (18s instead of heavy 2.8s polling)
+    const fallbackSync = setInterval(() => {
       fetchMessages(true);
-    }, 2800);
+    }, 18000);
 
     return () => {
       isMountedRef.current = false;
-      clearInterval(pollInterval);
-      fetchUnreadCount();
+      clearInterval(fallbackSync);
+      socketService.leaveConversation(conversationId);
+      socketService.sendTypingStatus(conversationId, otherUser?._id, false);
+      unsubMsg();
+      unsubTyping();
+      unsubRead();
+      unsubOnline();
+      unsubOffline();
+      if (fetchUnreadCount) fetchUnreadCount();
     };
-  }, [fetchMessages, fetchUnreadCount]);
+  }, [conversationId, otherUser, currentUser, fetchMessages, fetchUnreadCount]);
+
+  // Handle typing input
+  const handleTypingChange = (text) => {
+    setInputText(text);
+    if (conversationId && otherUser?._id) {
+      socketService.sendTypingStatus(conversationId, otherUser._id, true);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        socketService.sendTypingStatus(conversationId, otherUser._id, false);
+      }, 1800);
+    }
+  };
 
   // Handle message sending (with optimistic local preview)
   const handleSendMessage = async () => {
@@ -522,10 +634,46 @@ export const ConversationScreen = ({ route, navigation }) => {
                 <VerifiedBadge size={13} style={{ marginLeft: 4 }} />
               )}
             </View>
-            <Text style={styles.headerStatusText} numberOfLines={1}>
-              {otherUser?.status || `@${otherUser?.username || 'member'}`}
-            </Text>
+            <View style={styles.headerStatusRow}>
+              {isOtherUserOnline && <View style={styles.onlineDotGreen} />}
+              <Text
+                style={[
+                  styles.headerStatusText,
+                  isOtherUserTyping && styles.headerStatusTyping,
+                ]}
+                numberOfLines={1}
+              >
+                {isOtherUserTyping
+                  ? 'typing...'
+                  : isOtherUserOnline
+                  ? 'Online'
+                  : otherUser?.status || `@${otherUser?.username || 'member'}`}
+              </Text>
+            </View>
           </View>
+        </TouchableOpacity>
+
+        {/* 100% Free Audio Call Button */}
+        <TouchableOpacity
+          onPress={() => startAudioCall(otherUser)}
+          style={styles.headerCallBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="call" size={20} color={colors.accent || '#1d9bf0'} />
+        </TouchableOpacity>
+
+        {/* Group Audio Call Button */}
+        <TouchableOpacity
+          onPress={() =>
+            startGroupAudioCall(
+              `conv_${conversationId}`,
+              `Call with ${otherUser?.name || 'Class'}`
+            )
+          }
+          style={styles.headerCallBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="people" size={20} color={colors.accent || '#1d9bf0'} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -631,6 +779,16 @@ export const ConversationScreen = ({ route, navigation }) => {
         </View>
       )}
 
+      {/* Typing Indicator Bar */}
+      {isOtherUserTyping && (
+        <View style={styles.typingIndicatorRow}>
+          <View style={styles.typingDotPulse} />
+          <Text style={styles.typingIndicatorText}>
+            {otherUser?.name || 'Classmate'} is typing...
+          </Text>
+        </View>
+      )}
+
       {/* Composer Bar */}
       <View style={[styles.composerContainer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
         <TouchableOpacity
@@ -650,7 +808,7 @@ export const ConversationScreen = ({ route, navigation }) => {
           placeholder="Send a message..."
           placeholderTextColor={colors.textSecondary}
           value={inputText}
-          onChangeText={setInputText}
+          onChangeText={handleTypingChange}
           multiline={true}
           maxHeight={100}
         />
@@ -1046,6 +1204,46 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  headerCallBtn: {
+    padding: 8,
+    marginRight: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(29, 155, 240, 0.1)',
+  },
+  headerStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  onlineDotGreen: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10b981',
+  },
+  headerStatusTyping: {
+    color: '#10b981',
+    fontWeight: '700',
+  },
+  typingIndicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  typingDotPulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  typingIndicatorText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontStyle: 'italic',
   },
 });
 
