@@ -2,6 +2,7 @@
 export const colors = {
   // Pure Black & Dark Surfaces
   bg: '#000000',
+  background: '#000000',
   surface: '#16181c',
   elevated: '#202327',
   border: '#2f3336',

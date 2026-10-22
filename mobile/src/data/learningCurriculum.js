@@ -2181,3 +2181,35 @@ export const LESSONS = [
     },
   },
 ];
+
+// Export track metadata dictionary keyed by trackId
+export const TRACK_METADATA = (TRACKS || []).reduce((acc, t) => {
+  acc[t.id] = t;
+  return acc;
+}, {});
+
+// Export curriculum structure with modules and lessons keyed by trackId
+export const CURRICULUM_DATA = (TRACKS || []).reduce((acc, t) => {
+  const trackLessons = (LESSONS || []).filter((l) => l.track === t.id);
+  acc[t.id] = {
+    ...t,
+    modules: [
+      {
+        id: `${t.id}-core`,
+        title: `${t.title} Core Curriculum`,
+        titleBn: `${t.title} মূল পাঠ্যক্রম`,
+        description: t.subtitle?.en || '',
+        descriptionBn: t.subtitle?.bn || '',
+        lessons: trackLessons.map((l) => ({
+          ...l,
+          title: typeof l.title === 'object' ? l.title?.en || '' : l.title || '',
+          titleBn: typeof l.title === 'object' ? l.title?.bn || '' : l.titleBn || '',
+          summary: typeof l.subtitle === 'object' ? l.subtitle?.en || '' : l.subtitle || '',
+          summaryBn: typeof l.subtitle === 'object' ? l.subtitle?.bn || '' : l.subtitleBn || '',
+        })),
+      },
+    ],
+  };
+  return acc;
+}, {});
+

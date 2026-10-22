@@ -6,6 +6,7 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
+    this.currentToken = null;
     this.listeners = new Map();
   }
 
@@ -19,31 +20,48 @@ class SocketService {
     }
   }
 
-  async connect() {
-    if (this.socket && this.isConnected) {
+  async connect(explicitToken = null) {
+    const token = explicitToken || (await AsyncStorage.getItem('token'));
+
+    // If already connected with the exact same token, reuse current socket
+    if (this.socket && this.isConnected && this.currentToken === token) {
       return this.socket;
     }
 
-    const serverUrl = await this.getSocketServerUrl();
-    const token = await AsyncStorage.getItem('token');
-
     if (this.socket) {
-      this.socket.disconnect();
+      try {
+        this.socket.disconnect();
+      } catch {}
+      this.socket = null;
+      this.isConnected = false;
     }
+
+    this.currentToken = token;
+    const serverUrl = await this.getSocketServerUrl();
 
     this.socket = io(serverUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 20,
+      reconnectionAttempts: 25,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 15000,
     });
 
+    // Re-bind all persistent listeners to the new socket instance
+    for (const [event, callbacks] of this.listeners.entries()) {
+      for (const cb of callbacks) {
+        this.socket.on(event, cb);
+      }
+    }
+
     this.socket.on('connect', () => {
       this.isConnected = true;
-      console.log('⚡ Socket.IO connected successfully to:', serverUrl);
+      console.log('⚡ Socket.IO connected to:', serverUrl);
+      if (this.currentToken) {
+        this.socket.emit('auth:identify', { token: this.currentToken });
+      }
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -58,30 +76,44 @@ class SocketService {
     return this.socket;
   }
 
+  async reconnect(token = null) {
+    this.disconnect();
+    return this.connect(token);
+  }
+
   disconnect() {
     if (this.socket) {
-      this.socket.disconnect();
+      try {
+        this.socket.disconnect();
+      } catch {}
       this.socket = null;
       this.isConnected = false;
+      this.currentToken = null;
     }
   }
 
-  // Event listener with unsubscription callback
+  // Event listener with unsubscription callback and persistent registration
   on(event, callback) {
-    if (!this.socket) {
-      this.connect().then((sock) => sock && sock.on(event, callback));
-    } else {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event).add(callback);
+
+    if (this.socket) {
       this.socket.on(event, callback);
+    } else {
+      this.connect().catch(() => {});
     }
 
     return () => {
-      if (this.socket) {
-        this.socket.off(event, callback);
-      }
+      this.off(event, callback);
     };
   }
 
   off(event, callback) {
+    if (this.listeners.has(event)) {
+      this.listeners.get(event).delete(callback);
+    }
     if (this.socket) {
       this.socket.off(event, callback);
     }

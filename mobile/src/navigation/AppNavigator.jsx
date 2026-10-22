@@ -15,8 +15,9 @@ import { useNotifications } from '../context/NotificationContext';
 import HomeScreen from '../screens/HomeScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import LearnScreen from '../screens/LearnScreen';
-import PracticeScreen from '../screens/PracticeScreen';
 import ExploreScreen from '../screens/ExploreScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import PracticeScreen from '../screens/PracticeScreen';
 
 // Stack Screens
 import ConversationScreen from '../screens/ConversationScreen';
@@ -31,29 +32,31 @@ import ComposeScreen from '../screens/ComposeScreen';
 import PostDetailScreen from '../screens/PostDetailScreen';
 import BookmarksScreen from '../screens/BookmarksScreen';
 import CodeHubScreen from '../screens/CodeHubScreen';
+import { useTheme } from '../context/ThemeContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Bottom Tab Navigator (5 ergonomic tabs)
+// Bottom Tab Navigator (5 ergonomic tabs: Feed, Messages, Learn, Discover, Settings)
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const { unreadMessagesCount } = useNotifications();
+  const { colors: currentColors } = useTheme();
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: currentColors.surface,
+          borderTopColor: currentColors.border,
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 56 + insets.bottom : 62,
           paddingBottom: Platform.OS === 'ios' ? insets.bottom : 8,
           paddingTop: 6,
         },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarActiveTintColor: currentColors.accent,
+        tabBarInactiveTintColor: currentColors.textSecondary,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '700',
@@ -78,7 +81,7 @@ function MainTabs() {
           tabBarLabel: 'Messages',
           tabBarBadge: unreadMessagesCount > 0 ? (unreadMessagesCount > 9 ? '9+' : unreadMessagesCount) : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: colors.accent,
+            backgroundColor: currentColors.accent,
             color: '#ffffff',
             fontSize: 10,
             fontWeight: '900',
@@ -102,23 +105,23 @@ function MainTabs() {
       />
 
       <Tab.Screen
-        name="Practice"
-        component={PracticeScreen}
-        options={{
-          tabBarLabel: 'Practice',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'terminal' : 'terminal-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
         name="Discover"
         component={ExploreScreen}
         options={{
           tabBarLabel: 'Discover',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarLabel: 'Settings',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -130,6 +133,7 @@ function MainTabs() {
 export const AppNavigator = () => {
   const { isAuthenticated, loading } = useAuth();
   const { setNavigationRef } = useNotifications();
+  const { currentColors, isDark } = useTheme();
   const navRef = useNavigationContainerRef();
 
   useEffect(() => {
@@ -140,15 +144,27 @@ export const AppNavigator = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: currentColors?.bg || '#000000' }]}>
         <ClearfeedLogo size={52} style={{ marginBottom: 16 }} />
-        <Text style={styles.loadingLogo}>Clear<Text style={{ color: colors.accent }}>feed</Text></Text>
+        <Text style={styles.loadingLogo}>Clear<Text style={{ color: currentColors?.accent || '#1d9bf0' }}>feed</Text></Text>
       </View>
     );
   }
 
+  const navTheme = {
+    dark: isDark,
+    colors: {
+      primary: currentColors?.accent || '#1d9bf0',
+      background: currentColors?.bg || '#000000',
+      card: currentColors?.surface || '#16181c',
+      text: currentColors?.text || '#e7e9ea',
+      border: currentColors?.border || '#2f3336',
+      notification: currentColors?.accent || '#1d9bf0',
+    },
+  };
+
   return (
-    <NavigationContainer ref={navRef}>
+    <NavigationContainer ref={navRef} theme={navTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <>
@@ -158,6 +174,7 @@ export const AppNavigator = () => {
         ) : (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="Practice" component={PracticeScreen} />
             <Stack.Screen
               name="Compose"
               component={ComposeScreen}

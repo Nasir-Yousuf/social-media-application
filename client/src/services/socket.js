@@ -4,6 +4,7 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
+    this.currentToken = null;
     this.listeners = new Map();
   }
 
@@ -12,23 +13,41 @@ class SocketService {
     if (rawUrl) {
       return rawUrl.replace(/\/api\/?$/, '');
     }
-    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      // Local development hosts (localhost, loopback, or local Wi-Fi / LAN IP)
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.') ||
+        hostname.endsWith('.local')
+      ) {
+        return `http://${hostname}:5180`;
+      }
       return 'https://clearfeed518.up.railway.app';
     }
     return 'http://localhost:5180';
   }
 
-  connect() {
-    if (this.socket && this.isConnected) {
+  connect(explicitToken = null) {
+    const token = explicitToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('pulse518_token') : null);
+
+    if (this.socket && this.isConnected && this.currentToken === token) {
       return this.socket;
     }
 
-    const serverUrl = this.getSocketServerUrl();
-    const token = localStorage.getItem('pulse518_token');
-
     if (this.socket) {
-      this.socket.disconnect();
+      try {
+        this.socket.disconnect();
+      } catch {}
+      this.socket = null;
+      this.isConnected = false;
     }
+
+    this.currentToken = token;
+    const serverUrl = this.getSocketServerUrl();
 
     this.socket = io(serverUrl, {
       auth: { token },
@@ -40,9 +59,19 @@ class SocketService {
       timeout: 15000,
     });
 
+    // Re-bind all persistent listeners to the new socket instance
+    for (const [event, callbacks] of this.listeners.entries()) {
+      for (const cb of callbacks) {
+        this.socket.on(event, cb);
+      }
+    }
+
     this.socket.on('connect', () => {
       this.isConnected = true;
       console.log('⚡ Socket connected to:', serverUrl);
+      if (this.currentToken) {
+        this.socket.emit('auth:identify', { token: this.currentToken });
+      }
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -57,30 +86,50 @@ class SocketService {
     return this.socket;
   }
 
+  reconnect(token = null) {
+    this.disconnect();
+    return this.connect(token);
+  }
+
   disconnect() {
     if (this.socket) {
-      this.socket.disconnect();
+      try {
+        this.socket.disconnect();
+      } catch {}
       this.socket = null;
       this.isConnected = false;
+      this.currentToken = null;
     }
   }
 
   on(event, callback) {
-    if (!this.socket) {
-      this.connect();
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
     }
+    this.listeners.get(event).add(callback);
+
     if (this.socket) {
       this.socket.on(event, callback);
+    } else {
+      this.connect();
     }
+
     return () => {
-      if (this.socket) {
-        this.socket.off(event, callback);
-      }
+      this.off(event, callback);
     };
   }
 
+  off(event, callback) {
+    if (this.listeners.has(event)) {
+      this.listeners.get(event).delete(callback);
+    }
+    if (this.socket) {
+      this.socket.off(event, callback);
+    }
+  }
+
   emit(event, data, callback) {
-    if (!this.socket) {
+    if (!this.socket || !this.socket.connected) {
       this.connect();
     }
     if (this.socket) {

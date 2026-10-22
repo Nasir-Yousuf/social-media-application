@@ -7,8 +7,19 @@ const getBaseUrl = () => {
   if (rawUrl) {
     return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
   }
-  // When deployed on Vercel or remote hosts, target Railway production API directly if VITE_API_URL is missing
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  // When running locally on localhost or LAN IP, use local /api
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.') ||
+      hostname.endsWith('.local')
+    ) {
+      return '/api';
+    }
     return PRODUCTION_BACKEND_URL;
   }
   return '/api';

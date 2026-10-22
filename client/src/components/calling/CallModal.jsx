@@ -91,7 +91,7 @@ export const CallModal = () => {
 
   // 2. Full Call Dialog Modal
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
       <div className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl p-7 flex flex-col items-center text-center overflow-hidden">
         {/* Background Ambient Glow */}
         <div className="absolute -top-24 -left-24 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />

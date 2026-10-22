@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
+import socketService from '../services/socket';
 
 const AuthContext = createContext(null);
 
@@ -27,12 +28,14 @@ export const AuthProvider = ({ children }) => {
       const res = await api.get('/auth/me');
       setUser(res.data.user);
       localStorage.setItem('pulse518_user', JSON.stringify(res.data.user));
+      socketService.connect(savedToken);
     } catch (err) {
       console.warn('Failed to refresh user profile:', err.response?.data?.message || err.message);
       setUser(null);
       setToken(null);
       localStorage.removeItem('pulse518_token');
       localStorage.removeItem('pulse518_user');
+      socketService.disconnect();
     } finally {
       setLoading(false);
     }
@@ -50,6 +53,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('pulse518_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    socketService.reconnect(newToken);
     return res.data;
   };
 
@@ -61,6 +65,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('pulse518_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    socketService.reconnect(newToken);
     return res.data;
   };
 
@@ -72,6 +77,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('pulse518_user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    socketService.reconnect(newToken);
     return res.data;
   };
 
@@ -79,6 +85,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('pulse518_token');
     localStorage.removeItem('pulse518_user');
+    socketService.disconnect();
     setToken(null);
     setUser(null);
   };

@@ -46,17 +46,30 @@ export const ProfileScreen = ({ route, navigation }) => {
   const [savingProfile, setSavingProfile] = useState(false);
 
   const fetchProfile = useCallback(async () => {
+    if (!targetUsername) {
+      if (currentUser) setProfile(currentUser);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get(`/users/${targetUsername}`);
-      setProfile(res.data.user);
-      setPosts(res.data.posts || []);
+      if (res?.data?.user) {
+        setProfile(res.data.user);
+        setPosts(res.data.posts || []);
+      } else if (currentUser && (!targetUsername || targetUsername === currentUser.username)) {
+        setProfile(currentUser);
+      }
     } catch (err) {
-      showToast('Could not load profile', 'error');
+      if (currentUser && (!targetUsername || targetUsername === currentUser.username)) {
+        setProfile(currentUser);
+      } else {
+        showToast('Could not load profile', 'error');
+      }
     } finally {
       setLoading(false);
     }
-  }, [targetUsername, showToast]);
+  }, [targetUsername, currentUser, showToast]);
 
   useEffect(() => {
     fetchProfile();
@@ -220,7 +233,20 @@ export const ProfileScreen = ({ route, navigation }) => {
   if (!profile) {
     return (
       <View style={[styles.container, styles.centerLoading, { paddingTop: insets.top }]}>
-        <Text style={styles.notFoundText}>Member not found</Text>
+        <Ionicons name="person-outline" size={44} color={colors.textSecondary} style={{ marginBottom: 12 }} />
+        <Text style={styles.notFoundText}>Member profile unavailable</Text>
+        <TouchableOpacity
+          style={{
+            marginTop: 16,
+            paddingVertical: 8,
+            paddingHorizontal: 20,
+            borderRadius: 20,
+            backgroundColor: colors.accent,
+          }}
+          onPress={fetchProfile}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }

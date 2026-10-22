@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api/client';
+import socketService from '../services/socket';
 
 const AuthContext = createContext(null);
 
@@ -29,6 +30,7 @@ export const AuthProvider = ({ children }) => {
           }
           if (res?.data?.user) {
             setUser(res.data.user);
+            socketService.connect(storedToken).catch(() => {});
           }
         }
       } catch (err) {
@@ -37,6 +39,7 @@ export const AuthProvider = ({ children }) => {
           await AsyncStorage.removeItem('token');
           setToken(null);
           setUser(null);
+          socketService.disconnect();
         } else {
           console.warn('Network or server error during auth init:', err.message);
         }
@@ -73,6 +76,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.setItem('token', receivedToken);
     setToken(receivedToken);
     setUser(receivedUser);
+    socketService.reconnect(receivedToken).catch(() => {});
     await syncPushToken();
     return receivedUser;
   };
@@ -83,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.setItem('token', receivedToken);
     setToken(receivedToken);
     setUser(receivedUser);
+    socketService.reconnect(receivedToken).catch(() => {});
     await syncPushToken();
     return receivedUser;
   };
@@ -93,6 +98,7 @@ export const AuthProvider = ({ children }) => {
     await AsyncStorage.setItem('token', receivedToken);
     setToken(receivedToken);
     setUser(receivedUser);
+    socketService.reconnect(receivedToken).catch(() => {});
     return receivedUser;
   };
 
@@ -108,6 +114,7 @@ export const AuthProvider = ({ children }) => {
       // Ignored
     }
     await AsyncStorage.removeItem('token');
+    socketService.disconnect();
     setToken(null);
     setUser(null);
   };

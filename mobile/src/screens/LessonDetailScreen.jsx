@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,15 @@ import Button from '../components/Button';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useTheme } from '../context/ThemeContext';
 import { LESSONS } from '../data/learningCurriculum';
 import { LESSON_QUIZZES } from '../data/lessonQuizzes';
 
 export const LessonDetailScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
-  const { trackId, lessonId, lang: initialLang = 'both', onCompleted } = route.params;
+  const { colors: themeColors } = useTheme();
+  const styles = useMemo(() => getStyles(themeColors), [themeColors]);
+  const { trackId, lessonId, lang: initialLang = 'both' } = route.params || {};
   const { user } = useAuth();
   const { showToast } = useNotifications();
 
@@ -66,7 +69,6 @@ export const LessonDetailScreen = ({ route, navigation }) => {
       }
       setIsCompleted(true);
       showToast('🎉 Lesson completed! +25 XP awarded', 'success');
-      if (onCompleted) onCompleted();
     } catch (err) {
       // Local fallback
       setIsCompleted(true);
@@ -85,7 +87,6 @@ export const LessonDetailScreen = ({ route, navigation }) => {
         lessonId: next.id,
         lessonTitle: next.title,
         lang,
-        onCompleted,
       });
     } else {
       showToast('You completed all curriculum lessons in this track!', 'success');
@@ -112,7 +113,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
           style={styles.backBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleCol}>
@@ -156,7 +157,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
           <Ionicons
             name="book-outline"
             size={16}
-            color={activeTab === 'theory' ? colors.accent : colors.textSecondary}
+            color={activeTab === 'theory' ? themeColors.accent : themeColors.textSecondary}
             style={{ marginRight: 6 }}
           />
           <Text style={[styles.tabItemText, activeTab === 'theory' && styles.tabItemTextActive]}>
@@ -171,7 +172,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
           <Ionicons
             name="code-slash"
             size={16}
-            color={activeTab === 'playground' ? colors.accent : colors.textSecondary}
+            color={activeTab === 'playground' ? themeColors.accent : themeColors.textSecondary}
             style={{ marginRight: 6 }}
           />
           <Text style={[styles.tabItemText, activeTab === 'playground' && styles.tabItemTextActive]}>
@@ -187,7 +188,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
             <Ionicons
               name="help-circle-outline"
               size={16}
-              color={activeTab === 'quiz' ? colors.accent : colors.textSecondary}
+              color={activeTab === 'quiz' ? themeColors.accent : themeColors.textSecondary}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.tabItemText, activeTab === 'quiz' && styles.tabItemTextActive]}>
@@ -216,7 +217,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
             {lesson?.explanation?.whatIsIt && (
               <View style={styles.conceptCard}>
                 <View style={styles.conceptCardHeader}>
-                  <Ionicons name="information-circle" size={18} color={colors.accent} style={{ marginRight: 6 }} />
+                  <Ionicons name="information-circle" size={18} color={themeColors.accent} style={{ marginRight: 6 }} />
                   <Text style={styles.conceptCardTitle}>What is it? / এটি কী?</Text>
                 </View>
 
@@ -324,7 +325,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
                   setPlaygroundCode(lesson?.starterCode?.html || lesson?.exampleCode?.html || '')
                 }
               >
-                <Ionicons name="refresh" size={14} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                <Ionicons name="refresh" size={14} color={themeColors.textSecondary} style={{ marginRight: 4 }} />
                 <Text style={styles.resetBtnText}>Reset</Text>
               </TouchableOpacity>
             </View>
@@ -337,7 +338,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
               autoCapitalize="none"
               autoCorrect={false}
               placeholder="<!-- Write code here -->"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={themeColors.textSecondary}
             />
 
             {lesson?.exercise && (
@@ -485,10 +486,10 @@ export const LessonDetailScreen = ({ route, navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg || colors.background || '#000000',
   },
   header: {
     flexDirection: 'row',
@@ -497,7 +498,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg || colors.background || '#000000',
   },
   backBtn: {
     paddingRight: 12,
@@ -545,7 +546,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg || colors.background || '#000000',
   },
   tabItem: {
     flex: 1,
@@ -601,8 +602,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   analogyCard: {
-    borderColor: '#113524',
-    backgroundColor: '#07150e',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   conceptCardHeader: {
     flexDirection: 'row',
@@ -621,16 +622,16 @@ const styles = StyleSheet.create({
   },
   conceptBodyTextBn: {
     fontSize: 14,
-    color: '#c4c8cc',
+    color: colors.textSecondary,
     lineHeight: 21,
   },
   codeSnippetCard: {
-    backgroundColor: '#0a0d14',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#1e2638',
+    borderColor: colors.border,
   },
   codeSnippetHeader: {
     flexDirection: 'row',
@@ -639,7 +640,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e2638',
+    borderBottomColor: colors.border,
   },
   codeSnippetTitle: {
     fontSize: 12,
@@ -649,7 +650,7 @@ const styles = StyleSheet.create({
   copyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1f293d',
+    backgroundColor: colors.elevated || '#1f293d',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -662,14 +663,14 @@ const styles = StyleSheet.create({
   codeSnippetText: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 12,
-    color: '#00e5ff',
+    color: colors.accent,
     lineHeight: 18,
   },
   codeExplBox: {
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#1e2638',
+    borderTopColor: colors.border,
   },
   codeExplText: {
     fontSize: 12,
@@ -678,7 +679,7 @@ const styles = StyleSheet.create({
   },
   codeExplTextBn: {
     fontSize: 12,
-    color: '#a0a6b0',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   playgroundContainer: {},
@@ -702,14 +703,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   playgroundInput: {
-    backgroundColor: '#0d1117',
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     padding: 14,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 13,
-    color: '#58a6ff',
+    color: colors.text,
     minHeight: 180,
     textAlignVertical: 'top',
     marginBottom: 14,
@@ -738,11 +739,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   hintBox: {
-    backgroundColor: '#1f1b0a',
+    backgroundColor: colors.surface,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#423714',
+    borderColor: colors.border,
   },
   hintLabel: {
     fontSize: 12,
@@ -752,7 +753,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontSize: 12,
-    color: '#d6cfb8',
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   quizContainer: {},
@@ -790,7 +791,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   quizOption: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.bg || colors.background || '#000000',
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
@@ -799,7 +800,7 @@ const styles = StyleSheet.create({
   },
   quizOptionSelected: {
     borderColor: colors.accent,
-    backgroundColor: '#0e2336',
+    backgroundColor: colors.surface,
   },
   quizOptionCorrect: {
     borderColor: '#00ba7c',
@@ -817,7 +818,7 @@ const styles = StyleSheet.create({
   quizExplBox: {
     marginTop: 6,
     padding: 10,
-    backgroundColor: '#0b1622',
+    backgroundColor: colors.surface,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,

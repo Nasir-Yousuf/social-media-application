@@ -74,7 +74,10 @@ export const CallProvider = ({ children }) => {
     const unsubIncoming = socketService.on('call:incoming', ({ callId, caller, callType }) => {
       if (callState !== 'idle') {
         // Already on another call: auto-busy reject
-        socketService.rejectCall({ callId, targetUserId: caller._id, reason: 'busy' });
+        const callerId = caller?._id || caller?.id;
+        if (callerId) {
+          socketService.rejectCall({ callId, targetUserId: callerId, reason: 'busy' });
+        }
         return;
       }
 
@@ -199,7 +202,11 @@ export const CallProvider = ({ children }) => {
   // Actions: Initiate 1-on-1 Audio Call
   const startAudioCall = useCallback(
     (targetUser) => {
-      if (!targetUser?._id) return;
+      const targetId = targetUser?._id || targetUser?.id;
+      if (!targetId) {
+        showToast('Unable to start call: Invalid user', 'error');
+        return;
+      }
       if (!currentUser) {
         showToast('Please sign in to make calls', 'error');
         return;
@@ -219,7 +226,7 @@ export const CallProvider = ({ children }) => {
 
       socketService.initiateCall({
         callId,
-        targetUserId: targetUser._id,
+        targetUserId: targetId,
         callerInfo: {
           _id: currentUser._id,
           name: currentUser.name,
@@ -239,21 +246,27 @@ export const CallProvider = ({ children }) => {
     setCallState('connected');
     startTimer();
 
-    socketService.acceptCall({
-      callId: activeCall.callId,
-      targetUserId: activeCall.otherUser._id,
-    });
+    const targetId = activeCall.otherUser?._id || activeCall.otherUser?.id;
+    if (targetId) {
+      socketService.acceptCall({
+        callId: activeCall.callId,
+        targetUserId: targetId,
+      });
+    }
   }, [activeCall, stopRingingVibration, startTimer]);
 
   // Decline Incoming Call
   const declineIncomingCall = useCallback(() => {
     if (!activeCall) return;
     stopRingingVibration();
-    socketService.rejectCall({
-      callId: activeCall.callId,
-      targetUserId: activeCall.otherUser._id,
-      reason: 'declined',
-    });
+    const targetId = activeCall.otherUser?._id || activeCall.otherUser?.id;
+    if (targetId) {
+      socketService.rejectCall({
+        callId: activeCall.callId,
+        targetUserId: targetId,
+        reason: 'declined',
+      });
+    }
     setCallState('idle');
     setActiveCall(null);
   }, [activeCall, stopRingingVibration]);
@@ -263,10 +276,13 @@ export const CallProvider = ({ children }) => {
     stopRingingVibration();
     stopTimer();
     if (activeCall) {
-      socketService.endCall({
-        callId: activeCall.callId,
-        targetUserId: activeCall.otherUser?._id,
-      });
+      const targetId = activeCall.otherUser?._id || activeCall.otherUser?.id;
+      if (targetId) {
+        socketService.endCall({
+          callId: activeCall.callId,
+          targetUserId: targetId,
+        });
+      }
     }
     setCallState('idle');
     setActiveCall(null);

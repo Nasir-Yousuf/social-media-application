@@ -59,6 +59,12 @@ export const CallProvider = ({ children }) => {
   const groupDurationTimerRef = useRef(null);
   const vadIntervalRef = useRef(null);
   const isSpeakingLocallyRef = useRef(false);
+  const activeCallRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
+
+  useEffect(() => {
+    activeCallRef.current = activeCall;
+  }, [activeCall]);
 
   // Ensure remote audio element exists in DOM
   useEffect(() => {
@@ -288,14 +294,34 @@ export const CallProvider = ({ children }) => {
           return;
         }
 
-        setActiveCall({
+        const callPayload = {
           callId,
           otherUser: caller,
           isOutgoing: false,
           callType: callType || "audio",
-        });
+        };
+        activeCallRef.current = callPayload;
+        setActiveCall(callPayload);
         setCallState("incoming");
+
+        // Trigger phone ringtone + vibration
         sounds.startIncomingRing();
+
+        // Browser Native Notification (if supported)
+        if (typeof Notification !== 'undefined') {
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification(`📞 Incoming Call from ${caller.name || caller.username}`, {
+                body: 'Tap to answer on Clearfeed',
+                icon: caller.avatarUrl || '/favicon.png',
+                tag: 'incoming-call',
+                renotify: true,
+              });
+            } catch {}
+          } else if (Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+          }
+        }
       },
     );
 
@@ -308,11 +334,13 @@ export const CallProvider = ({ children }) => {
     // 3. Call Accepted
     const unsubAccepted = socketService.on(
       "call:accepted",
-      async ({ callId }) => {
+      async ({ callId, responder }) => {
         sounds.playConnectedTone();
         setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : prev));
         setCallState("connected");
         startTimer();
+
+        const targetPeerId = responder?._id || activeCallRef.current?.otherUser?._id;
 
         try {
           const stream = await getLocalAudioStream();
@@ -321,10 +349,10 @@ export const CallProvider = ({ children }) => {
 
           const pc = createPeerConnection({
             onIceCandidate: (candidate) => {
-              if (activeCall?.otherUser?._id) {
+              if (targetPeerId) {
                 socketService.sendSignal({
                   callId,
-                  targetUserId: activeCall.otherUser._id,
+                  targetUserId: targetPeerId,
                   signal: { type: "candidate", candidate },
                 });
               }
@@ -343,10 +371,10 @@ export const CallProvider = ({ children }) => {
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
 
-          if (activeCall?.otherUser?._id) {
+          if (targetPeerId) {
             socketService.sendSignal({
               callId,
-              targetUserId: activeCall.otherUser._id,
+              targetUserId: targetPeerId,
               signal: { type: "offer", sdp: offer },
             });
           }
@@ -392,6 +420,15 @@ export const CallProvider = ({ children }) => {
             await pc.setRemoteDescription(
               new RTCSessionDescription(signal.sdp),
             );
+
+            // Flush any buffered candidates
+            if (pendingCandidatesRef.current.length > 0) {
+              for (const cand of pendingCandidatesRef.current) {
+                await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+              }
+              pendingCandidatesRef.current = [];
+            }
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
@@ -404,8 +441,20 @@ export const CallProvider = ({ children }) => {
             await pc.setRemoteDescription(
               new RTCSessionDescription(signal.sdp),
             );
+
+            // Flush any buffered candidates
+            if (pendingCandidatesRef.current.length > 0) {
+              for (const cand of pendingCandidatesRef.current) {
+                await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+              }
+              pendingCandidatesRef.current = [];
+            }
           } else if (signal.type === "candidate" && signal.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            if (pc.remoteDescription && pc.remoteDescription.type) {
+              await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {});
+            } else {
+              pendingCandidatesRef.current.push(signal.candidate);
+            }
           }
         } catch (err) {
           console.warn("Signal handling error:", err.message);
@@ -608,12 +657,13 @@ export const CallProvider = ({ children }) => {
 
   const startCall = useCallback(
     async (targetUser) => {
-      if (!targetUser || !targetUser._id) {
+      const targetId = targetUser?._id || targetUser?.id;
+      if (!targetUser || !targetId) {
         showToast("Invalid user profile for calling", "error");
         return;
       }
 
-      if (targetUser._id === currentUser?._id) {
+      if (targetId === currentUser?._id) {
         showToast("You cannot call yourself", "info");
         return;
       }
@@ -644,7 +694,7 @@ export const CallProvider = ({ children }) => {
 
       socketService.initiateCall({
         callId,
-        targetUserId: targetUser._id,
+        targetUserId: targetId,
         callerInfo,
         callType: "audio",
       });
@@ -655,7 +705,13 @@ export const CallProvider = ({ children }) => {
   const acceptCall = useCallback(async () => {
     if (!activeCall) return;
     sounds.stopRingtone();
+    sounds.unlock();
     sounds.playConnectedTone();
+
+    if (remoteAudioElemRef.current) {
+      remoteAudioElemRef.current.play().catch(() => {});
+    }
+
     setCallState("connected");
     startTimer();
 
@@ -663,32 +719,43 @@ export const CallProvider = ({ children }) => {
       const stream = await getLocalAudioStream();
       localStreamRef.current = stream;
       setLocalAudioStream(stream);
-    } catch {}
+    } catch (err) {
+      console.warn("Microphone access notice:", err.message);
+    }
 
-    socketService.acceptCall({
-      callId: activeCall.callId,
-      targetUserId: activeCall.otherUser._id,
-    });
+    const targetId = activeCall.otherUser?._id || activeCall.otherUser?.id;
+    if (targetId) {
+      socketService.acceptCall({
+        callId: activeCall.callId,
+        targetUserId: targetId,
+      });
+    }
   }, [activeCall, startTimer]);
 
   const rejectCall = useCallback(() => {
     if (!activeCall) return;
     sounds.playEndTone();
-    socketService.rejectCall({
-      callId: activeCall.callId,
-      targetUserId: activeCall.otherUser._id,
-      reason: "declined",
-    });
+    const targetId = activeCall.otherUser?._id || activeCall.otherUser?.id;
+    if (targetId) {
+      socketService.rejectCall({
+        callId: activeCall.callId,
+        targetUserId: targetId,
+        reason: "declined",
+      });
+    }
     cleanupCallResources();
   }, [activeCall, cleanupCallResources]);
 
   const endCall = useCallback(() => {
     if (!activeCall) return;
     sounds.playEndTone();
-    socketService.endCall({
-      callId: activeCall.callId,
-      targetUserId: activeCall.otherUser._id,
-    });
+    const targetId = activeCall.otherUser?._id || activeCall.otherUser?.id;
+    if (targetId) {
+      socketService.endCall({
+        callId: activeCall.callId,
+        targetUserId: targetId,
+      });
+    }
     cleanupCallResources();
   }, [activeCall, cleanupCallResources]);
 

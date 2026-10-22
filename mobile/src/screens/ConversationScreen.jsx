@@ -550,14 +550,14 @@ export const ConversationScreen = ({ route, navigation }) => {
             </View>
 
             {/* Reaction Pill Badge below bubble */}
-            {Object.keys(reactionCounts).length > 0 && (
+            {Object.keys(reactionCounts || {}).length > 0 && (
               <View
                 style={[
                   styles.reactionBadgeRow,
                   isMine ? styles.reactionBadgeMine : styles.reactionBadgeOther,
                 ]}
               >
-                {Object.entries(reactionCounts).map(([emoji, count]) => (
+                {Object.entries(reactionCounts || {}).map(([emoji, count]) => (
                   <View key={emoji} style={styles.reactionPill}>
                     <Text style={styles.reactionEmoji}>{emoji}</Text>
                     {count > 1 && (

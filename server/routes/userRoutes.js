@@ -8,6 +8,8 @@ const { requireAuth, optionalAuth } = require('../middleware/auth');
 router.get('/me', requireAuth, authController.getMe);
 router.patch('/me/avatar', requireAuth, userController.updateProfile);
 
+// Directory endpoints
+router.get('/', optionalAuth, userController.getCourseDirectory);
 router.get('/directory', optionalAuth, userController.getCourseDirectory);
 
 router.get('/suggestions', optionalAuth, userController.getSuggestions);
@@ -21,5 +23,8 @@ router.post('/:id/follow', requireAuth, userController.followUser);
 router.delete('/:id/follow', requireAuth, userController.unfollowUser);
 router.get('/:id/followers', requireAuth, userController.getFollowers);
 router.get('/:id/following', requireAuth, userController.getFollowing);
+
+// Fallback direct username resolution (e.g. /api/users/sarah_c)
+router.get('/:username', optionalAuth, userController.getProfileByUsername);
 
 module.exports = router;

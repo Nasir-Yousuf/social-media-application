@@ -244,7 +244,7 @@ export const LoginScreen = ({ navigation }) => {
         >
           <Ionicons name="settings-outline" size={15} color={colors.textSecondary} style={{ marginRight: 6 }} />
           <Text style={styles.configToggleText}>
-            Server Connection ({serverUrl.includes('railway') ? '☁️ Cloud' : '💻 Local'})
+            Server Connection ({serverUrl.includes('railway') ? '☁️ Cloud' : serverUrl.includes('10.0.2.2') ? '📱 Emulator' : '💻 Local'})
           </Text>
           <Ionicons name={showConfig ? "chevron-up" : "chevron-down"} size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
@@ -260,17 +260,27 @@ export const LoginScreen = ({ navigation }) => {
                 ]}
                 onPress={() => handleSelectPreset('https://clearfeed518.up.railway.app/api')}
               >
-                <Text style={styles.presetBtnText}>☁️ Cloud (Vercel/Railway)</Text>
+                <Text style={styles.presetBtnText}>☁️ Cloud</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.presetBtn,
-                  !serverUrl.includes('railway') && styles.presetBtnActive,
+                  serverUrl.includes('192.168.') && styles.presetBtnActive,
                 ]}
                 onPress={() => handleSelectPreset('http://192.168.0.246:5180/api')}
               >
-                <Text style={styles.presetBtnText}>💻 Local PC (Wi-Fi)</Text>
+                <Text style={styles.presetBtnText}>💻 Phone Wi-Fi</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.presetBtn,
+                  serverUrl.includes('10.0.2.2') && styles.presetBtnActive,
+                ]}
+                onPress={() => handleSelectPreset('http://10.0.2.2:5180/api')}
+              >
+                <Text style={styles.presetBtnText}>📱 Emulator</Text>
               </TouchableOpacity>
             </View>
 

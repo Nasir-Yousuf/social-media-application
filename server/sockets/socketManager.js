@@ -57,58 +57,83 @@ function initSocket(server) {
     }
   });
 
-  io.on('connection', (socket) => {
-    const userId = socket.userId;
+  const registerUser = (socket, user) => {
+    if (!user || !user._id) return;
+    const uId = user._id.toString();
+    socket.userId = uId;
+    socket.user = user;
 
-    if (userId && socket.user) {
-      // Join personal room for direct routing
-      socket.join(`user:${userId}`);
+    // Join personal room for direct routing
+    socket.join(`user:${uId}`);
 
-      // Track online presence
-      if (!onlineUsers.has(userId)) {
-        onlineUsers.set(userId, {
-          user: {
-            _id: socket.user._id,
-            name: socket.user.name,
-            username: socket.user.username,
-            avatarUrl: socket.user.avatarUrl,
-          },
-          socketIds: new Set(),
-        });
-        // Broadcast user online status
-        io.emit('presence:user_online', {
-          userId,
-          user: onlineUsers.get(userId).user,
-        });
-      }
-
-      onlineUsers.get(userId).socketIds.add(socket.id);
-
-      // Send initial online users list to connecting client
-      const onlineList = Array.from(onlineUsers.entries()).map(([uId, data]) => ({
+    // Track online presence
+    if (!onlineUsers.has(uId)) {
+      onlineUsers.set(uId, {
+        user: {
+          _id: user._id,
+          name: user.name,
+          username: user.username,
+          avatarUrl: user.avatarUrl,
+        },
+        socketIds: new Set(),
+      });
+      // Broadcast user online status
+      ioInstance?.emit('presence:user_online', {
         userId: uId,
-        user: data.user,
-      }));
-      socket.emit('presence:online_users', onlineList);
+        user: onlineUsers.get(uId).user,
+      });
+    }
 
-      // Check for any pending incoming calls waiting for this user ('calling' state -> transition to 'ringing')
-      for (const [callId, call] of activeCalls.entries()) {
-        if (call.targetUserId === userId && call.status === 'calling') {
-          call.status = 'ringing';
-          // Notify caller that call is now ringing
-          io.to(`user:${call.caller._id}`).emit('call:ringing', {
-            callId: call.callId,
-            targetUserId: userId,
-          });
-          // Ring recipient who just came online
-          socket.emit('call:incoming', {
-            callId: call.callId,
-            caller: call.caller,
-            callType: call.callType,
-          });
-        }
+    onlineUsers.get(uId).socketIds.add(socket.id);
+
+    // Send initial online users list to connecting client
+    const onlineList = Array.from(onlineUsers.entries()).map(([entryUid, data]) => ({
+      userId: entryUid,
+      user: data.user,
+    }));
+    socket.emit('presence:online_users', onlineList);
+
+    // Check for any pending incoming calls waiting for this user ('calling' state -> transition to 'ringing')
+    for (const [callId, call] of activeCalls.entries()) {
+      if (call.targetUserId === uId && call.status === 'calling') {
+        call.status = 'ringing';
+        // Notify caller that call is now ringing
+        ioInstance?.to(`user:${call.caller._id}`).emit('call:ringing', {
+          callId: call.callId,
+          targetUserId: uId,
+        });
+        // Ring recipient who just came online
+        socket.emit('call:incoming', {
+          callId: call.callId,
+          caller: call.caller,
+          callType: call.callType,
+        });
       }
     }
+  };
+
+  io.on('connection', (socket) => {
+    if (socket.userId && socket.user) {
+      registerUser(socket, socket.user);
+    }
+
+    // Client can explicitly identify after login or token acquisition
+    socket.on('auth:identify', async ({ token } = {}) => {
+      try {
+        if (!token) return;
+        const secret = process.env.JWT_SECRET || 'pulse518_super_secret_course_key_2026';
+        const decoded = jwt.verify(token, secret);
+        const uId = decoded.userId || decoded.id || decoded._id;
+        if (uId) {
+          const user = await User.findById(uId).select('name username avatarUrl role status');
+          if (user) {
+            registerUser(socket, user);
+          }
+        }
+      } catch (err) {
+        console.warn('Socket auth:identify error:', err.message);
+      }
+    });
 
     // ==========================================
     // 1. MESSAGING & CHAT EVENTS
@@ -285,32 +310,40 @@ function initSocket(server) {
     // ==========================================
 
     // Initiate Call
-    // Initiate Call (WhatsApp style: starts as 'calling', transitions to 'ringing' when recipient is reachable)
-    socket.on('call:initiate', ({ callId, targetUserId, callerInfo, callType = 'audio' }) => {
-      if (!userId || !targetUserId) return;
+    socket.on('call:initiate', async ({ callId, targetUserId, callerInfo, callType = 'audio' }) => {
+      const effectiveCallerId = (socket.userId || callerInfo?._id || callerInfo?.id || '').toString();
+      const normTargetUserId = (targetUserId || '').toString().trim();
 
-      const normTargetUserId = targetUserId.toString();
+      if (!effectiveCallerId || !normTargetUserId) {
+        console.warn('⚠️ call:initiate ignored: missing caller or target id', { effectiveCallerId, normTargetUserId });
+        return;
+      }
+
+      // Ensure caller is in personal room
+      socket.join(`user:${effectiveCallerId}`);
+
+      const callerPayload = callerInfo || {
+        _id: effectiveCallerId,
+        name: socket.user?.name || 'Classmate',
+        username: socket.user?.username || 'user',
+        avatarUrl: socket.user?.avatarUrl,
+      };
 
       const callData = {
         callId,
-        caller: callerInfo || {
-          _id: userId,
-          name: socket.user?.name || 'User',
-          username: socket.user?.username || 'user',
-          avatarUrl: socket.user?.avatarUrl,
-        },
+        caller: callerPayload,
         targetUserId: normTargetUserId,
         callType,
         status: 'calling',
         createdAt: new Date(),
       };
 
-      // Set timeout for unanswered call (45 seconds, phone/WhatsApp standard timeout)
+      // Set timeout for unanswered call (45 seconds)
       const timeoutTimer = setTimeout(() => {
         const pendingCall = activeCalls.get(callId);
         if (pendingCall && pendingCall.status !== 'connected') {
           activeCalls.delete(callId);
-          io.to(`user:${userId}`).emit('call:ended', {
+          io.to(`user:${effectiveCallerId}`).emit('call:ended', {
             callId,
             reason: 'no_answer',
             message: 'No answer',
@@ -325,24 +358,38 @@ function initSocket(server) {
       callData.timeoutTimer = timeoutTimer;
       activeCalls.set(callId, callData);
 
-      // Check if target user is currently online
-      const targetIsOnline = onlineUsers.has(normTargetUserId);
+      // Check if target user has active sockets in room or in online presence
+      const targetRoom = io.sockets.adapter.rooms.get(`user:${normTargetUserId}`);
+      const hasActiveSockets = Boolean(targetRoom && targetRoom.size > 0);
+      const isOnline = onlineUsers.has(normTargetUserId) || hasActiveSockets;
 
-      if (targetIsOnline) {
-        // Target is online: call transitions to ringing immediately
+      if (isOnline) {
         callData.status = 'ringing';
         socket.emit('call:ringing', { callId, targetUserId: normTargetUserId });
-
-        // Notify target recipient of incoming call
-        io.to(`user:${normTargetUserId}`).emit('call:incoming', {
-          callId,
-          caller: callData.caller,
-          callType,
-        });
       }
-      // If target is offline:
-      // Keep call in 'calling' state (WhatsApp behavior). Do NOT emit offline error.
-      // If recipient comes online within 45s, connection listener transitions it to ringing.
+
+      // ALWAYS emit call:incoming to recipient room so connected devices receive it immediately
+      io.to(`user:${normTargetUserId}`).emit('call:incoming', {
+        callId,
+        caller: callerPayload,
+        callType,
+      });
+      console.log(`📞 [Call Started] from ${effectiveCallerId} to ${normTargetUserId} (callId: ${callId}, online: ${isOnline})`);
+
+      // Wake mobile device via push notification if backgrounded
+      try {
+        const { sendPushToUser } = require('../services/pushNotificationService');
+        sendPushToUser(normTargetUserId, {
+          title: `📞 Incoming Call from ${callerPayload.name || callerPayload.username}`,
+          body: `Tap to answer incoming ${callType} call`,
+          data: {
+            type: 'incoming_call',
+            callId,
+            caller: callerPayload,
+            callType,
+          },
+        }).catch(() => {});
+      } catch {}
     });
 
     // Accept Call
@@ -357,15 +404,17 @@ function initSocket(server) {
         call.connectedAt = new Date();
       }
 
+      const responderId = (socket.userId || '').toString();
       io.to(`user:${targetUserId}`).emit('call:accepted', {
         callId,
         responder: {
-          _id: userId,
+          _id: responderId,
           name: socket.user?.name,
           username: socket.user?.username,
           avatarUrl: socket.user?.avatarUrl,
         },
       });
+      console.log(`📞 [Call Accepted] ${callId} by ${responderId}`);
     });
 
     // Reject / Decline Call
@@ -375,10 +424,13 @@ function initSocket(server) {
         clearTimeout(call.timeoutTimer);
       }
       activeCalls.delete(callId);
-      io.to(`user:${targetUserId}`).emit('call:rejected', {
-        callId,
-        reason,
-      });
+      if (targetUserId) {
+        io.to(`user:${targetUserId}`).emit('call:rejected', {
+          callId,
+          reason,
+        });
+      }
+      console.log(`📞 [Call Rejected] ${callId} reason: ${reason}`);
     });
 
     // End / Hangup Call
@@ -388,20 +440,23 @@ function initSocket(server) {
         clearTimeout(call.timeoutTimer);
       }
       activeCalls.delete(callId);
+      const endedById = (socket.userId || '').toString();
       if (targetUserId) {
         io.to(`user:${targetUserId}`).emit('call:ended', {
           callId,
-          endedBy: userId,
+          endedBy: endedById,
         });
       }
+      console.log(`📞 [Call Ended] ${callId} endedBy: ${endedById}`);
     });
 
     // WebRTC Signaling Relay (SDP Offer, SDP Answer, ICE Candidates)
     socket.on('call:signal', ({ callId, targetUserId, signal }) => {
       if (!targetUserId || !signal) return;
+      const fromId = (socket.userId || '').toString();
       io.to(`user:${targetUserId}`).emit('call:signal', {
         callId,
-        fromUserId: userId,
+        fromUserId: fromId,
         signal,
       });
     });

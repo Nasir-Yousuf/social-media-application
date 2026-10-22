@@ -1,9 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 
-// Automatically detect host computer's LAN IP when running on Expo Go:
+// Automatically detect host computer's LAN IP or Android Emulator when running on Expo Go:
 const getDevHostIp = () => {
+  // If running inside an Android Emulator, 10.0.2.2 routes directly to host PC localhost
+  if (Platform.OS === 'android' && !Device.isDevice) {
+    return '10.0.2.2';
+  }
+
   // hostUri in Expo Go contains "192.168.0.246:8081"
   const hostUri =
     Constants.expoConfig?.hostUri ||
@@ -25,6 +31,11 @@ const DEFAULT_URL = `http://${DEV_IP}:5180/api`;
 
 let customBaseUrl = null;
 
+// Eagerly hydrate customBaseUrl from storage if present
+AsyncStorage.getItem('cf_api_base_url').then((saved) => {
+  if (saved) customBaseUrl = saved;
+}).catch(() => {});
+
 export const setBaseUrl = async (url) => {
   customBaseUrl = url;
   if (url) {
@@ -42,6 +53,39 @@ export const getBaseUrl = async () => {
     return saved;
   }
   return DEFAULT_URL;
+};
+
+export const getServerOrigin = () => {
+  if (customBaseUrl) {
+    return customBaseUrl.replace(/\/api\/?$/, '');
+  }
+  return `http://${DEV_IP}:5180`;
+};
+
+export const resolveAvatarUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // Convert DiceBear SVGs to PNG for native React Native Image support
+  if (trimmed.includes('api.dicebear.com') && trimmed.includes('/svg')) {
+    return trimmed.replace('/svg', '/png');
+  }
+
+  // Base64 data URLs
+  if (trimmed.startsWith('data:image')) {
+    return trimmed;
+  }
+
+  // Absolute URLs
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  // Relative URLs like /api/users/:id/avatar or /uploads/...
+  const origin = getServerOrigin();
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${origin}${path}`;
 };
 
 // Generic request helper

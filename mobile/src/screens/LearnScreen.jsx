@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, Feather, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import colors from '../theme/colors';
 import api from '../api/client';
@@ -47,8 +48,14 @@ export const LearnScreen = ({ navigation }) => {
 
     try {
       const res = await api.get('/learning/progress');
-      if (res.data?.progress) {
-        setProgress(res.data.progress);
+      if (res?.data?.progress) {
+        setProgress((prev) => ({
+          ...prev,
+          ...res.data.progress,
+          completedLessons: Array.isArray(res.data.progress.completedLessons)
+            ? res.data.progress.completedLessons
+            : prev.completedLessons || [],
+        }));
       }
     } catch {
       // Ignored if offline or fallback
@@ -58,19 +65,28 @@ export const LearnScreen = ({ navigation }) => {
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchProgress(false);
-  }, [fetchProgress]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchProgress(false);
+    }, [fetchProgress])
+  );
 
-  // Current track curriculum data
-  const currentTrackData = CURRICULUM_DATA[selectedTrack] || CURRICULUM_DATA.html;
-  const trackMeta = TRACK_METADATA[selectedTrack] || TRACK_METADATA.html;
+  // Current track curriculum data safely guarded against undefined
+  const currentTrackData =
+    (CURRICULUM_DATA && CURRICULUM_DATA[selectedTrack]) ||
+    (CURRICULUM_DATA && CURRICULUM_DATA.html) ||
+    { modules: [] };
+  const trackMeta =
+    (TRACK_METADATA && TRACK_METADATA[selectedTrack]) ||
+    (TRACK_METADATA && TRACK_METADATA.html) ||
+    {};
 
   // Calculate completion percentage for this track
-  const allTrackLessons = (currentTrackData.modules || []).flatMap((m) => m.lessons || []);
+  const allTrackLessons = (currentTrackData?.modules || []).flatMap((m) => m?.lessons || []);
   const totalLessonsCount = allTrackLessons.length;
+  const completedLessonsList = progress?.completedLessons || [];
   const completedTrackLessons = allTrackLessons.filter((l) =>
-    (progress.completedLessons || []).includes(l.id)
+    completedLessonsList.includes(l?.id)
   );
   const completionPercent =
     totalLessonsCount > 0
@@ -78,36 +94,39 @@ export const LearnScreen = ({ navigation }) => {
       : 0;
 
   const handleLessonPress = (lesson) => {
+    if (!lesson) return;
     navigation.navigate('LessonDetail', {
       trackId: selectedTrack,
       lessonId: lesson.id,
       lessonTitle: lesson.title,
       lang,
-      onCompleted: () => {
-        fetchProgress(true);
-      },
     });
   };
 
-  const renderModule = ({ item: moduleItem, index: moduleIdx }) => (
-    <View style={styles.moduleSection}>
-      <View style={styles.moduleHeader}>
-        <View style={styles.moduleBadge}>
-          <Text style={styles.moduleBadgeText}>MODULE {moduleIdx + 1}</Text>
-        </View>
-        <Text style={styles.moduleTitle}>
-          {lang === 'bn' ? moduleItem.titleBn || moduleItem.title : moduleItem.title}
-        </Text>
-        {moduleItem.description && (
-          <Text style={styles.moduleDesc}>
-            {lang === 'bn' ? moduleItem.descriptionBn || moduleItem.description : moduleItem.description}
-          </Text>
-        )}
-      </View>
+  const renderModule = ({ item: moduleItem, index: moduleIdx }) => {
+    if (!moduleItem) return null;
+    const lessonsList = Array.isArray(moduleItem.lessons) ? moduleItem.lessons : [];
 
-      {/* Lessons List inside this module */}
-      {(moduleItem.lessons || []).map((lesson, lessonIdx) => {
-        const isDone = (progress.completedLessons || []).includes(lesson.id);
+    return (
+      <View style={styles.moduleSection}>
+        <View style={styles.moduleHeader}>
+          <View style={styles.moduleBadge}>
+            <Text style={styles.moduleBadgeText}>MODULE {moduleIdx + 1}</Text>
+          </View>
+          <Text style={styles.moduleTitle}>
+            {lang === 'bn' ? moduleItem.titleBn || moduleItem.title : moduleItem.title}
+          </Text>
+          {moduleItem.description && (
+            <Text style={styles.moduleDesc}>
+              {lang === 'bn' ? moduleItem.descriptionBn || moduleItem.description : moduleItem.description}
+            </Text>
+          )}
+        </View>
+
+        {/* Lessons List inside this module */}
+        {lessonsList.map((lesson, lessonIdx) => {
+          if (!lesson) return null;
+          const isDone = completedLessonsList.includes(lesson.id);
 
         return (
           <TouchableOpacity
@@ -160,6 +179,7 @@ export const LearnScreen = ({ navigation }) => {
       })}
     </View>
   );
+};
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

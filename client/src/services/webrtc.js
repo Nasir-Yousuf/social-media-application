@@ -21,48 +21,78 @@ class SoundEffectsEngine {
       }
     }
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(() => {});
     }
     return this.audioCtx;
   }
 
-  // Play pleasant incoming ring tone
+  // Pre-unlock audio context on user interaction (tap, click, keydown)
+  unlock() {
+    try {
+      const ctx = this.getAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    } catch {}
+  }
+
+  // Play pleasant incoming ring tone + phone vibration
   startIncomingRing() {
     this.stopRingtone();
+    this.unlock();
+
+    const vibratePhone = () => {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([800, 400, 800, 400]);
+        }
+      } catch {}
+    };
+
+    vibratePhone();
+
     const playChime = () => {
+      vibratePhone();
       try {
         const ctx = this.getAudioContext();
         if (!ctx) return;
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.35); // A5
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+        osc.frequency.setValueAtTime(520, ctx.currentTime); // C5
+        osc.frequency.exponentialRampToValueAtTime(780, ctx.currentTime + 0.35); // G5
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.85);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start();
-        osc.stop(ctx.currentTime + 0.85);
+        osc.stop(ctx.currentTime + 0.9);
       } catch {}
     };
 
     playChime();
-    this.ringInterval = setInterval(playChime, 2000);
+    this.ringInterval = setInterval(playChime, 2200);
   }
 
   // Play outgoing ringback tone (soft dual beep)
   startOutgoingRing() {
     this.stopRingtone();
+    this.unlock();
     const playBeep = () => {
       try {
         const ctx = this.getAudioContext();
         if (!ctx) return;
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(425, ctx.currentTime);
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -80,6 +110,11 @@ class SoundEffectsEngine {
       clearInterval(this.ringInterval);
       this.ringInterval = null;
     }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(0);
+      }
+    } catch {}
   }
 
   // Play call connected tone
@@ -159,3 +194,13 @@ export const createPeerConnection = ({ onIceCandidate, onTrack }) => {
 
   return pc;
 };
+
+// Automatically unlock audio context on user's first gesture
+if (typeof window !== 'undefined') {
+  const handleUserGesture = () => {
+    sounds.unlock();
+  };
+  window.addEventListener('click', handleUserGesture, { passive: true });
+  window.addEventListener('touchstart', handleUserGesture, { passive: true });
+  window.addEventListener('keydown', handleUserGesture, { passive: true });
+}

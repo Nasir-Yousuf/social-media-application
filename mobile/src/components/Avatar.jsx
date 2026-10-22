@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import colors from '../theme/colors';
 import { VerifiedBadge } from './TwitterIcons';
+import { resolveAvatarUrl } from '../api/client';
 
 const TWITTER_PALETTE = [
   '#1d9bf0', // Blue
@@ -30,6 +31,8 @@ const getColor = (name) => {
 
 export const Avatar = ({
   src,
+  uri,
+  avatarUrl,
   name = 'User',
   size = 'md',
   role = 'user',
@@ -42,20 +45,33 @@ export const Avatar = ({
     md: 42,
     lg: 56,
     xl: 72,
+    '2xl': 96,
   };
 
-  const dimension = sizeMap[size] || 42;
+  const dimension = typeof size === 'number' ? size : sizeMap[size] || 42;
   const fontSize = Math.max(10, Math.floor(dimension * 0.4));
   const initials = getInitials(name);
   const bgColor = getColor(name);
 
+  const [hasError, setHasError] = useState(false);
+  const rawTarget = src || uri || avatarUrl;
+  const resolvedUri = useMemo(() => resolveAvatarUrl(rawTarget), [rawTarget]);
+
+  // Reset error flag if target url changes
+  useEffect(() => {
+    setHasError(false);
+  }, [resolvedUri]);
+
+  const shouldShowImage = Boolean(resolvedUri) && !hasError;
+
   return (
     <View style={[{ width: dimension, height: dimension }, styles.wrapper, style]}>
-      {src ? (
+      {shouldShowImage ? (
         <Image
-          source={{ uri: src }}
+          source={{ uri: resolvedUri }}
           style={[styles.image, { width: dimension, height: dimension, borderRadius: dimension / 2 }]}
           resizeMode="cover"
+          onError={() => setHasError(true)}
         />
       ) : (
         <View
