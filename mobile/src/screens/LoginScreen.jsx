@@ -52,6 +52,8 @@ export const LoginScreen = ({ navigation }) => {
     setServerUrl(url);
     await setBaseUrl(url);
     showToast(`Connected to: ${url.includes('railway') ? 'Cloud (Vercel/Railway)' : 'Local PC'}`, 'success');
+  };
+
   const handleGuestLogin = async () => {
     setGuestLoading(true);
     try {
