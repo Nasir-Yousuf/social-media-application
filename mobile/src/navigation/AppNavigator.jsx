@@ -34,6 +34,12 @@ import BookmarksScreen from '../screens/BookmarksScreen';
 import CodeHubScreen from '../screens/CodeHubScreen';
 import { useTheme } from '../context/ThemeContext';
 
+// Clearfeed Mesh Screens (Offline-First Subsystem)
+import MeshHomeScreen from '../screens/mesh/MeshHomeScreen';
+import MeshConversationScreen from '../screens/mesh/MeshConversationScreen';
+import MeshPeersScreen from '../screens/mesh/MeshPeersScreen';
+import MeshSettingsScreen from '../screens/mesh/MeshSettingsScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -170,6 +176,10 @@ export const AppNavigator = () => {
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="MeshHome" component={MeshHomeScreen} />
+            <Stack.Screen name="MeshConversation" component={MeshConversationScreen} />
+            <Stack.Screen name="MeshPeers" component={MeshPeersScreen} />
+            <Stack.Screen name="MeshSettings" component={MeshSettingsScreen} />
           </>
         ) : (
           <>
@@ -189,6 +199,10 @@ export const AppNavigator = () => {
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Members" component={MembersScreen} />
             <Stack.Screen name="CodeHub" component={CodeHubScreen} />
+            <Stack.Screen name="MeshHome" component={MeshHomeScreen} />
+            <Stack.Screen name="MeshConversation" component={MeshConversationScreen} />
+            <Stack.Screen name="MeshPeers" component={MeshPeersScreen} />
+            <Stack.Screen name="MeshSettings" component={MeshSettingsScreen} />
           </>
         )}
       </Stack.Navigator>

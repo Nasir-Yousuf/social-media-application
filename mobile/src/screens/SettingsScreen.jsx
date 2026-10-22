@@ -284,6 +284,59 @@ export const SettingsScreen = ({ navigation }) => {
           })}
         </View>
 
+        {/* Clearfeed Mesh Section */}
+        <View style={styles.sectionHeader}>
+          <MaterialCommunityIcons
+            name="transit-connection-variant"
+            size={18}
+            color="#00ba7c"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>
+            Clearfeed Mesh
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.sectionSubtitle,
+            { color: currentColors.textSecondary },
+          ]}
+        >
+          Connect nearby. Communicate offline.
+        </Text>
+
+        <TouchableOpacity
+          style={[
+            styles.meshCard,
+            {
+              backgroundColor: currentColors.surface,
+              borderColor: 'rgba(0, 186, 124, 0.35)',
+            },
+          ]}
+          onPress={() => navigation.navigate('MeshHome')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.meshCardLeft}>
+            <View style={styles.meshIconCircle}>
+              <Ionicons name="radio" size={20} color="#00ba7c" />
+            </View>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={[styles.meshCardTitle, { color: currentColors.text }]}>
+                Mesh Chat (Offline)
+              </Text>
+              <Text
+                style={[
+                  styles.meshCardSubtitle,
+                  { color: currentColors.textSecondary },
+                ]}
+              >
+                Local peer discovery & end-to-end encrypted messaging without internet
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#00ba7c" />
+        </TouchableOpacity>
+
         {/* App Info & Logout Section */}
         <View
           style={[
@@ -465,6 +518,38 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
+  },
+  meshCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  meshCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 10,
+  },
+  meshIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(0, 186, 124, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  meshCardTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  meshCardSubtitle: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
   },
   footerSection: {
     borderTopWidth: 1,

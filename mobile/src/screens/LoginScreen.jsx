@@ -215,6 +215,19 @@ export const LoginScreen = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
 
+          {/* Standalone Offline Mesh Chat Entry (No server or login needed) */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MeshHome')}
+            activeOpacity={0.8}
+            style={styles.meshBtn}
+          >
+            <Ionicons name="radio" size={18} color="#00ba7c" style={{ marginRight: 8 }} />
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.meshBtnText}>Open Mesh Chat (Offline)</Text>
+              <Text style={styles.meshBtnSubtext}>Connect nearby without internet or account</Text>
+            </View>
+          </TouchableOpacity>
+
 
 
           {/* Toggle Login / Register */}
@@ -413,6 +426,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.1,
+  },
+  meshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 186, 124, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 186, 124, 0.35)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  meshBtnText: {
+    color: '#00ba7c',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.1,
+  },
+  meshBtnSubtext: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
   },
   switchAuthBtn: {
     marginTop: 18,

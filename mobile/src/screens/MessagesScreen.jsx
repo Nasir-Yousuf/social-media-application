@@ -335,6 +335,17 @@ export const MessagesScreen = ({ navigation }) => {
               <Text style={styles.groupCallBtnText}>Audio Room</Text>
             </TouchableOpacity>
 
+            {/* Quick Switch to Offline Mesh Chat */}
+            <TouchableOpacity
+              style={styles.meshHeaderBtn}
+              onPress={() => navigation.navigate('MeshHome')}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="radio" size={15} color="#00ba7c" />
+              <Text style={styles.meshHeaderBtnText}>Mesh</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.newChatBtn}
               onPress={handleOpenNewChat}
@@ -735,6 +746,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.accent || '#1d9bf0',
+  },
+  meshHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 186, 124, 0.12)',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 186, 124, 0.3)',
+  },
+  meshHeaderBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#00ba7c',
   },
   avatarWrapper: {
     position: 'relative',

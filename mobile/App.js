@@ -5,6 +5,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { NotificationProvider } from './src/context/NotificationContext';
 import { CallProvider } from './src/context/CallContext';
+import { MeshProvider } from './src/mesh/context/MeshContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import Toast from './src/components/Toast';
 import CallModal from './src/components/CallModal';
@@ -29,7 +30,9 @@ export default function App() {
         <AuthProvider>
           <NotificationProvider>
             <CallProvider>
-              <AppContent />
+              <MeshProvider>
+                <AppContent />
+              </MeshProvider>
             </CallProvider>
           </NotificationProvider>
         </AuthProvider>
