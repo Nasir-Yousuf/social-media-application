@@ -332,8 +332,11 @@ function initSocket(server) {
         return;
       }
 
-      // Ensure caller is in personal room
+      // Ensure caller is in personal room and dedicated call room
       socket.join(`user:${effectiveCallerId}`);
+      if (callId) {
+        socket.join(`call:${callId}`);
+      }
 
       const callerPayload = callerInfo || {
         _id: effectiveCallerId,
@@ -437,19 +440,29 @@ function initSocket(server) {
         call.connectedAt = new Date();
       }
 
-      const responderId = (socket.userId || '').toString();
+      // Join the responder to the call room
+      if (callId) {
+        socket.join(`call:${callId}`);
+      }
+
+      const responderId = (socket.userId || socket.user?._id || '').toString();
       const callerId = call?.caller?._id?.toString() || targetUserId;
 
+      const acceptPayload = {
+        callId,
+        responder: {
+          _id: responderId,
+          name: socket.user?.name,
+          username: socket.user?.username,
+          avatarUrl: socket.user?.avatarUrl,
+        },
+      };
+
       if (callerId) {
-        io.to(`user:${callerId}`).emit('call:accepted', {
-          callId,
-          responder: {
-            _id: responderId,
-            name: socket.user?.name,
-            username: socket.user?.username,
-            avatarUrl: socket.user?.avatarUrl,
-          },
-        });
+        io.to(`user:${callerId}`).emit('call:accepted', acceptPayload);
+      }
+      if (callId) {
+        socket.to(`call:${callId}`).emit('call:accepted', acceptPayload);
       }
       console.log(`📞 [Call Accepted] ${callId} by ${responderId} -> caller ${callerId}`);
     });
@@ -461,6 +474,9 @@ function initSocket(server) {
         clearTimeout(call.timeoutTimer);
       }
       activeCalls.delete(callId);
+      if (callId) {
+        socket.leave(`call:${callId}`);
+      }
       const callerId = call?.caller?._id?.toString() || targetUserId;
       if (callerId) {
         io.to(`user:${callerId}`).emit('call:rejected', {
@@ -478,10 +494,19 @@ function initSocket(server) {
         clearTimeout(call.timeoutTimer);
       }
       activeCalls.delete(callId);
-      const endedById = (socket.userId || '').toString();
+      if (callId) {
+        socket.leave(`call:${callId}`);
+      }
+      const endedById = (socket.userId || socket.user?._id || '').toString();
       const otherId = targetUserId || (call?.caller?._id?.toString() === endedById ? call?.targetUserId : call?.caller?._id?.toString());
       if (otherId) {
         io.to(`user:${otherId}`).emit('call:ended', {
+          callId,
+          endedBy: endedById,
+        });
+      }
+      if (callId) {
+        socket.to(`call:${callId}`).emit('call:ended', {
           callId,
           endedBy: endedById,
         });
@@ -490,14 +515,29 @@ function initSocket(server) {
     });
 
     // WebRTC Signaling Relay (SDP Offer, SDP Answer, ICE Candidates)
-    socket.on('call:signal', ({ callId, targetUserId, signal }) => {
-      if (!targetUserId || !signal) return;
-      const fromId = (socket.userId || '').toString();
-      io.to(`user:${targetUserId}`).emit('call:signal', {
-        callId,
-        fromUserId: fromId,
-        signal,
-      });
+    socket.on('call:signal', ({ callId, targetUserId, fromUserId, signal }) => {
+      if (!signal) return;
+      const fromId = (fromUserId || socket.userId || socket.user?._id || '').toString();
+
+      console.log(`📡 [WebRTC Signal] callId: ${callId}, from: ${fromId}, to: ${targetUserId}, type: ${signal?.type}`);
+
+      // 1. Relay through the dedicated call room (excluding sender)
+      if (callId) {
+        socket.to(`call:${callId}`).emit('call:signal', {
+          callId,
+          fromUserId: fromId,
+          signal,
+        });
+      }
+
+      // 2. Also relay directly to user's personal room for redundancy
+      if (targetUserId) {
+        io.to(`user:${targetUserId}`).emit('call:signal', {
+          callId,
+          fromUserId: fromId,
+          signal,
+        });
+      }
     });
 
     // ==========================================

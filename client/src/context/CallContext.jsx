@@ -66,20 +66,32 @@ export const CallProvider = ({ children }) => {
     activeCallRef.current = activeCall;
   }, [activeCall]);
 
-  // Ensure remote audio element exists in DOM
+  // Ensure remote audio element exists in DOM with proper audio policies
   useEffect(() => {
     if (!remoteAudioElemRef.current && typeof document !== "undefined") {
       const audio = document.createElement("audio");
       audio.autoplay = true;
       audio.playsInline = true;
-      audio.style.display = "none";
+      audio.muted = false;
+      audio.volume = 1.0;
+      // Do NOT use display: none as some mobile browsers suspend audio rendering for hidden elements
+      audio.style.position = "fixed";
+      audio.style.top = "-9999px";
+      audio.style.left = "-9999px";
+      audio.style.width = "1px";
+      audio.style.height = "1px";
+      audio.style.opacity = "0.01";
+      audio.style.pointerEvents = "none";
       document.body.appendChild(audio);
       remoteAudioElemRef.current = audio;
     }
 
     return () => {
       if (remoteAudioElemRef.current) {
-        remoteAudioElemRef.current.remove();
+        try {
+          remoteAudioElemRef.current.srcObject = null;
+          remoteAudioElemRef.current.remove();
+        } catch {}
         remoteAudioElemRef.current = null;
       }
     };
@@ -340,27 +352,67 @@ export const CallProvider = ({ children }) => {
         setCallState("connected");
         startTimer();
 
-        const targetPeerId = responder?._id || activeCallRef.current?.otherUser?._id;
+        // Unlock remote audio element for playback
+        if (remoteAudioElemRef.current) {
+          remoteAudioElemRef.current.play().catch(() => {});
+        }
+
+        const targetPeerId =
+          responder?._id ||
+          responder?.id ||
+          activeCallRef.current?.otherUser?._id ||
+          activeCallRef.current?.otherUser?.id;
 
         try {
-          const stream = await getLocalAudioStream();
-          localStreamRef.current = stream;
-          setLocalAudioStream(stream);
+          // Re-use live local audio stream if available, otherwise acquire mic
+          let stream = localStreamRef.current;
+          const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
+          if (!hasLiveTracks) {
+            stream = await getLocalAudioStream();
+            localStreamRef.current = stream;
+            setLocalAudioStream(stream);
+          }
+          stream.getAudioTracks().forEach((track) => {
+            track.enabled = true;
+          });
+
+          if (peerConnectionRef.current) {
+            try {
+              peerConnectionRef.current.close();
+            } catch {}
+            peerConnectionRef.current = null;
+          }
 
           const pc = createPeerConnection({
             onIceCandidate: (candidate) => {
-              if (targetPeerId) {
+              if (candidate) {
                 socketService.sendSignal({
                   callId,
                   targetUserId: targetPeerId,
+                  fromUserId: currentUser?._id,
                   signal: { type: "candidate", candidate },
                 });
               }
             },
             onTrack: (remoteStream) => {
+              console.log("🔊 Setting remote stream to audio element:", remoteStream);
               if (remoteAudioElemRef.current) {
                 remoteAudioElemRef.current.srcObject = remoteStream;
-                remoteAudioElemRef.current.play().catch(() => {});
+                remoteAudioElemRef.current.muted = false;
+                remoteAudioElemRef.current.volume = 1.0;
+                const p = remoteAudioElemRef.current.play();
+                if (p !== undefined) {
+                  p.catch((err) => {
+                    console.warn("Autoplay notice, unlocking on gesture:", err);
+                    const unlock = () => {
+                      remoteAudioElemRef.current?.play().catch(() => {});
+                      document.removeEventListener("click", unlock);
+                      document.removeEventListener("touchstart", unlock);
+                    };
+                    document.addEventListener("click", unlock, { once: true, passive: true });
+                    document.addEventListener("touchstart", unlock, { once: true, passive: true });
+                  });
+                }
               }
             },
           });
@@ -368,18 +420,20 @@ export const CallProvider = ({ children }) => {
           stream.getTracks().forEach((track) => pc.addTrack(track, stream));
           peerConnectionRef.current = pc;
 
-          const offer = await pc.createOffer();
+          const offer = await pc.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: false,
+          });
           await pc.setLocalDescription(offer);
 
-          if (targetPeerId) {
-            socketService.sendSignal({
-              callId,
-              targetUserId: targetPeerId,
-              signal: { type: "offer", sdp: offer },
-            });
-          }
+          socketService.sendSignal({
+            callId,
+            targetUserId: targetPeerId,
+            fromUserId: currentUser?._id,
+            signal: { type: "offer", sdp: offer },
+          });
         } catch (err) {
-          console.warn("WebRTC offer error:", err.message);
+          console.warn("WebRTC offer error:", err);
         }
       },
     );
@@ -389,34 +443,67 @@ export const CallProvider = ({ children }) => {
       "call:signal",
       async ({ callId, fromUserId, signal }) => {
         try {
-          if (!peerConnectionRef.current) {
-            const stream = await getLocalAudioStream();
-            localStreamRef.current = stream;
-            setLocalAudioStream(stream);
+          if (!signal) return;
+          const otherUserId =
+            fromUserId ||
+            activeCallRef.current?.otherUser?._id ||
+            activeCallRef.current?.otherUser?.id;
+
+          const ensurePeerConnection = async () => {
+            if (peerConnectionRef.current) return peerConnectionRef.current;
+
+            let stream = localStreamRef.current;
+            const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
+            if (!hasLiveTracks) {
+              stream = await getLocalAudioStream();
+              localStreamRef.current = stream;
+              setLocalAudioStream(stream);
+            }
+            stream.getAudioTracks().forEach((track) => {
+              track.enabled = true;
+            });
 
             const pc = createPeerConnection({
               onIceCandidate: (candidate) => {
-                socketService.sendSignal({
-                  callId,
-                  targetUserId: fromUserId,
-                  signal: { type: "candidate", candidate },
-                });
+                if (candidate) {
+                  socketService.sendSignal({
+                    callId,
+                    targetUserId: otherUserId,
+                    fromUserId: currentUser?._id,
+                    signal: { type: "candidate", candidate },
+                  });
+                }
               },
               onTrack: (remoteStream) => {
+                console.log("🔊 Setting remote stream to audio element:", remoteStream);
                 if (remoteAudioElemRef.current) {
                   remoteAudioElemRef.current.srcObject = remoteStream;
-                  remoteAudioElemRef.current.play().catch(() => {});
+                  remoteAudioElemRef.current.muted = false;
+                  remoteAudioElemRef.current.volume = 1.0;
+                  const p = remoteAudioElemRef.current.play();
+                  if (p !== undefined) {
+                    p.catch((err) => {
+                      console.warn("Autoplay notice, unlocking on gesture:", err);
+                      const unlock = () => {
+                        remoteAudioElemRef.current?.play().catch(() => {});
+                        document.removeEventListener("click", unlock);
+                        document.removeEventListener("touchstart", unlock);
+                      };
+                      document.addEventListener("click", unlock, { once: true, passive: true });
+                      document.addEventListener("touchstart", unlock, { once: true, passive: true });
+                    });
+                  }
                 }
               },
             });
 
             stream.getTracks().forEach((track) => pc.addTrack(track, stream));
             peerConnectionRef.current = pc;
-          }
-
-          const pc = peerConnectionRef.current;
+            return pc;
+          };
 
           if (signal.type === "offer") {
+            const pc = await ensurePeerConnection();
             await pc.setRemoteDescription(
               new RTCSessionDescription(signal.sdp),
             );
@@ -429,35 +516,43 @@ export const CallProvider = ({ children }) => {
               pendingCandidatesRef.current = [];
             }
 
-            const answer = await pc.createAnswer();
+            const answer = await pc.createAnswer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: false,
+            });
             await pc.setLocalDescription(answer);
 
             socketService.sendSignal({
               callId,
-              targetUserId: fromUserId,
+              targetUserId: otherUserId,
+              fromUserId: currentUser?._id,
               signal: { type: "answer", sdp: answer },
             });
           } else if (signal.type === "answer") {
-            await pc.setRemoteDescription(
-              new RTCSessionDescription(signal.sdp),
-            );
+            if (peerConnectionRef.current) {
+              const pc = peerConnectionRef.current;
+              await pc.setRemoteDescription(
+                new RTCSessionDescription(signal.sdp),
+              );
 
-            // Flush any buffered candidates
-            if (pendingCandidatesRef.current.length > 0) {
-              for (const cand of pendingCandidatesRef.current) {
-                await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+              // Flush any buffered candidates
+              if (pendingCandidatesRef.current.length > 0) {
+                for (const cand of pendingCandidatesRef.current) {
+                  await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+                }
+                pendingCandidatesRef.current = [];
               }
-              pendingCandidatesRef.current = [];
             }
           } else if (signal.type === "candidate" && signal.candidate) {
-            if (pc.remoteDescription && pc.remoteDescription.type) {
+            const pc = peerConnectionRef.current;
+            if (pc && pc.remoteDescription && pc.remoteDescription.type) {
               await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {});
             } else {
               pendingCandidatesRef.current.push(signal.candidate);
             }
           }
         } catch (err) {
-          console.warn("Signal handling error:", err.message);
+          console.warn("Signal handling error:", err);
         }
       },
     );
@@ -676,11 +771,25 @@ export const CallProvider = ({ children }) => {
         avatarUrl: currentUser.avatarUrl,
       };
 
+      sounds.unlock();
+      if (remoteAudioElemRef.current) {
+        remoteAudioElemRef.current.play().catch(() => {});
+      }
+
       try {
-        const stream = await getLocalAudioStream();
-        localStreamRef.current = stream;
-        setLocalAudioStream(stream);
-      } catch {}
+        let stream = localStreamRef.current;
+        const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
+        if (!hasLiveTracks) {
+          stream = await getLocalAudioStream();
+          localStreamRef.current = stream;
+          setLocalAudioStream(stream);
+        }
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
+        });
+      } catch (err) {
+        console.warn("Microphone access notice:", err.message);
+      }
 
       setActiveCall({
         callId,
@@ -716,9 +825,16 @@ export const CallProvider = ({ children }) => {
     startTimer();
 
     try {
-      const stream = await getLocalAudioStream();
-      localStreamRef.current = stream;
-      setLocalAudioStream(stream);
+      let stream = localStreamRef.current;
+      const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
+      if (!hasLiveTracks) {
+        stream = await getLocalAudioStream();
+        localStreamRef.current = stream;
+        setLocalAudioStream(stream);
+      }
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
     } catch (err) {
       console.warn("Microphone access notice:", err.message);
     }

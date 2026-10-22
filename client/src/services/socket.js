@@ -168,8 +168,8 @@ class SocketService {
     this.emit('call:end', { callId, targetUserId });
   }
 
-  sendSignal({ callId, targetUserId, signal }) {
-    this.emit('call:signal', { callId, targetUserId, signal });
+  sendSignal({ callId, targetUserId, fromUserId, signal }) {
+    this.emit('call:signal', { callId, targetUserId, fromUserId, signal });
   }
 
   // Audio Spaces

@@ -4,7 +4,12 @@ const ICE_SERVERS = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stun:stun.services.mozilla.com' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 class SoundEffectsEngine {
@@ -177,7 +182,7 @@ export const getLocalAudioStream = async () => {
 };
 
 // Create RTCPeerConnection for WebRTC mesh audio
-export const createPeerConnection = ({ onIceCandidate, onTrack }) => {
+export const createPeerConnection = ({ onIceCandidate, onTrack, onConnectionStateChange }) => {
   const pc = new RTCPeerConnection(ICE_SERVERS);
 
   pc.onicecandidate = (event) => {
@@ -187,9 +192,25 @@ export const createPeerConnection = ({ onIceCandidate, onTrack }) => {
   };
 
   pc.ontrack = (event) => {
-    if (event.streams && event.streams[0] && typeof onTrack === 'function') {
-      onTrack(event.streams[0]);
+    console.log('🔊 [WebRTC] ontrack received:', event);
+    let stream = event.streams && event.streams[0] ? event.streams[0] : null;
+    if (!stream && event.track) {
+      stream = new MediaStream([event.track]);
     }
+    if (stream && typeof onTrack === 'function') {
+      onTrack(stream, event.track);
+    }
+  };
+
+  pc.oniceconnectionstatechange = () => {
+    console.log('🧊 [WebRTC ICE State]:', pc.iceConnectionState);
+    if (typeof onConnectionStateChange === 'function') {
+      onConnectionStateChange(pc.iceConnectionState);
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    console.log('🔗 [WebRTC Connection State]:', pc.connectionState);
   };
 
   return pc;
