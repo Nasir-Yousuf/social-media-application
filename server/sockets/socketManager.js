@@ -113,6 +113,8 @@ function initSocket(server) {
   };
 
   io.on('connection', (socket) => {
+    let userId = socket.userId;
+
     if (socket.userId && socket.user) {
       registerUser(socket, socket.user);
     }
@@ -128,6 +130,7 @@ function initSocket(server) {
           const user = await User.findById(uId).select('name username avatarUrl role status');
           if (user) {
             registerUser(socket, user);
+            userId = uId;
           }
         }
       } catch (err) {
@@ -740,25 +743,27 @@ function initSocket(server) {
     // 5. DISCONNECTION & CLEANUP
     // ==========================================
     socket.on('disconnect', () => {
-      if (userId && onlineUsers.has(userId)) {
-        const userEntry = onlineUsers.get(userId);
+      const currentUserId = socket.userId || userId;
+
+      if (currentUserId && onlineUsers.has(currentUserId)) {
+        const userEntry = onlineUsers.get(currentUserId);
         userEntry.socketIds.delete(socket.id);
 
         if (userEntry.socketIds.size === 0) {
-          onlineUsers.delete(userId);
+          onlineUsers.delete(currentUserId);
           // Broadcast offline status
-          io.emit('presence:user_offline', { userId });
+          io.emit('presence:user_offline', { userId: currentUserId });
         }
       }
 
       // Cleanup any active calls this socket was engaged in
       for (const [callId, call] of activeCalls.entries()) {
-        if (call.caller?._id?.toString() === userId || call.targetUserId === userId) {
+        if (call.caller?._id?.toString() === currentUserId || call.targetUserId === currentUserId) {
           if (call.timeoutTimer) {
             clearTimeout(call.timeoutTimer);
           }
           const otherUserId =
-            call.caller?._id?.toString() === userId ? call.targetUserId : call.caller?._id?.toString();
+            call.caller?._id?.toString() === currentUserId ? call.targetUserId : call.caller?._id?.toString();
           if (otherUserId) {
             io.to(`user:${otherUserId}`).emit('call:ended', {
               callId,
@@ -771,11 +776,11 @@ function initSocket(server) {
 
       // Cleanup group calls
       for (const [roomId, room] of groupCallRooms.entries()) {
-        if (room.has(userId)) {
-          room.delete(userId);
+        if (currentUserId && room.has(currentUserId)) {
+          room.delete(currentUserId);
           io.to(`group-call:${roomId}`).emit('group-call:user_left', {
             roomId,
-            userId,
+            userId: currentUserId,
           });
           if (room.size === 0) {
             groupCallRooms.delete(roomId);
@@ -787,14 +792,14 @@ function initSocket(server) {
       try {
         const { activeSpacesMap, formatSpace } = require('../controllers/spaceController');
         for (const [spaceId, space] of activeSpacesMap.entries()) {
-          if (space.host._id === userId) {
+          if (space.host._id === currentUserId) {
             activeSpacesMap.delete(spaceId);
             io.to(`space:${spaceId}`).emit('space:ended', { spaceId });
             io.emit('spaces:updated', { spaces: Array.from(activeSpacesMap.values()).map(formatSpace) });
-          } else if (space.speakers.has(userId) || space.listeners.has(userId)) {
-            space.speakers.delete(userId);
-            space.listeners.delete(userId);
-            space.handRaised.delete(userId);
+          } else if (space.speakers.has(currentUserId) || space.listeners.has(currentUserId)) {
+            space.speakers.delete(currentUserId);
+            space.listeners.delete(currentUserId);
+            space.handRaised.delete(currentUserId);
             io.to(`space:${spaceId}`).emit('space:state_change', { space: formatSpace(space) });
             io.emit('spaces:updated', { spaces: Array.from(activeSpacesMap.values()).map(formatSpace) });
           }
