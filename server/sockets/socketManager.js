@@ -19,10 +19,15 @@ const groupCallRooms = new Map();
 function initSocket(server) {
   const io = new Server(server, {
     cors: {
-      origin: '*',
+      origin: (origin, callback) => {
+        // Reflect requesting origin to allow cross-origin socket connections from Vercel deployments
+        callback(null, true);
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
     pingTimeout: 30000,
     pingInterval: 25000,
   });
