@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import socketService from '../services/socket';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
@@ -347,17 +348,37 @@ export const NotificationProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    fetchUnreadCount();
-    // Fast 2.5s polling so duel invitations and notifications arrive immediately
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 2500);
+    if (!isAuthenticated) return;
 
-    const handleWindowFocus = () => {
-      fetchUnreadCount();
+    fetchUnreadCount();
+
+    // Credit-saving smart polling: only poll every 60s while the tab is active/visible
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchUnreadCount();
+      }
+    }, 60000);
+
+    // Refresh immediately when user returns or focuses the window
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchUnreadCount();
+      }
     };
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('visibilitychange', handleWindowFocus);
+    window.addEventListener('focus', handleVisibilityChange);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Instant real-time update via WebSocket with 0 HTTP polling overhead
+    const unsubSocketMsg = socketService.on('chat:message', (payload) => {
+      const incoming = payload?.message;
+      if (incoming) {
+        setUnreadMessagesCount((prev) => prev + 1);
+        playTwitterNotificationSound();
+        const senderName = incoming.sender?.name || incoming.sender?.username || 'Classmate';
+        const snippet = incoming.text || (incoming.codeSnippet ? 'Shared code' : 'New message');
+        showToast(`💬 ${senderName}: ${snippet}`, 'info');
+      }
+    });
 
     // Cross-tab and cross-window real-time challenge synchronization
     let bc = null;
@@ -381,12 +402,13 @@ export const NotificationProvider = ({ children }) => {
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('visibilitychange', handleWindowFocus);
+      unsubSocketMsg();
+      window.removeEventListener('focus', handleVisibilityChange);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('storage', handleStorage);
       if (bc) bc.close();
     };
-  }, [fetchUnreadCount]);
+  }, [isAuthenticated, fetchUnreadCount, showToast]);
 
 
   return (

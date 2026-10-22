@@ -256,7 +256,7 @@ export const NotificationProvider = ({ children }) => {
   // Setup listeners
   useEffect(() => {
     fetchUnreadCounts();
-    const interval = setInterval(fetchUnreadCounts, 20000);
+    const interval = setInterval(fetchUnreadCounts, 60000);
 
     // Initial background channel setup & quiet token registration check
     registerForPushNotifications(false);
