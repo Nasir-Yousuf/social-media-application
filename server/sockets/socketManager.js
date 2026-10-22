@@ -60,11 +60,17 @@ function initSocket(server) {
   const registerUser = (socket, user) => {
     if (!user || !user._id) return;
     const uId = user._id.toString();
+    const uname = (user.username || '').toLowerCase();
     socket.userId = uId;
     socket.user = user;
 
-    // Join personal room for direct routing
+    // Join personal rooms for direct routing (both by MongoDB _id and username)
     socket.join(`user:${uId}`);
+    if (uname) {
+      socket.join(`user:${uname}`);
+    }
+
+    console.log(`⚡ [User Online] @${user.username || 'unknown'} (${uId}) connected via socket ${socket.id}`);
 
     // Track online presence
     if (!onlineUsers.has(uId)) {
@@ -95,13 +101,16 @@ function initSocket(server) {
 
     // Check for any pending incoming calls waiting for this user ('calling' state -> transition to 'ringing')
     for (const [callId, call] of activeCalls.entries()) {
-      if (call.targetUserId === uId && call.status === 'calling') {
+      if ((call.targetUserId === uId || (uname && call.targetUserId === uname)) && call.status === 'calling') {
         call.status = 'ringing';
         // Notify caller that call is now ringing
-        ioInstance?.to(`user:${call.caller._id}`).emit('call:ringing', {
-          callId: call.callId,
-          targetUserId: uId,
-        });
+        const callerId = call.caller?._id || call.caller;
+        if (callerId) {
+          ioInstance?.to(`user:${callerId}`).emit('call:ringing', {
+            callId: call.callId,
+            targetUserId: uId,
+          });
+        }
         // Ring recipient who just came online
         socket.emit('call:incoming', {
           callId: call.callId,
@@ -114,6 +123,7 @@ function initSocket(server) {
 
   io.on('connection', (socket) => {
     let userId = socket.userId;
+    console.log(`🔌 [Socket Connect] ${socket.id} (user: ${userId || 'guest'})`);
 
     if (socket.userId && socket.user) {
       registerUser(socket, socket.user);
@@ -361,23 +371,43 @@ function initSocket(server) {
       callData.timeoutTimer = timeoutTimer;
       activeCalls.set(callId, callData);
 
+      // Resolve target user by ObjectId or by username
+      let targetUserDoc = null;
+      try {
+        if (mongoose.Types.ObjectId.isValid(normTargetUserId)) {
+          targetUserDoc = await User.findById(normTargetUserId).select('_id username name avatarUrl');
+        } else {
+          targetUserDoc = await User.findOne({ username: normTargetUserId.toLowerCase() }).select('_id username name avatarUrl');
+        }
+      } catch {}
+
+      const targetId = targetUserDoc ? targetUserDoc._id.toString() : normTargetUserId;
+      const targetUsername = targetUserDoc ? (targetUserDoc.username || '').toLowerCase() : normTargetUserId.toLowerCase();
+
       // Check if target user has active sockets in room or in online presence
-      const targetRoom = io.sockets.adapter.rooms.get(`user:${normTargetUserId}`);
-      const hasActiveSockets = Boolean(targetRoom && targetRoom.size > 0);
-      const isOnline = onlineUsers.has(normTargetUserId) || hasActiveSockets;
+      const targetIdRoom = io.sockets.adapter.rooms.get(`user:${targetId}`);
+      const targetUserRoom = targetUsername ? io.sockets.adapter.rooms.get(`user:${targetUsername}`) : null;
+      const idSockets = targetIdRoom ? targetIdRoom.size : 0;
+      const userSockets = targetUserRoom ? targetUserRoom.size : 0;
+      const hasActiveSockets = idSockets > 0 || userSockets > 0;
+      const isOnline = onlineUsers.has(targetId) || (targetUsername && onlineUsers.has(targetUsername)) || hasActiveSockets;
 
       if (isOnline) {
         callData.status = 'ringing';
-        socket.emit('call:ringing', { callId, targetUserId: normTargetUserId });
+        socket.emit('call:ringing', { callId, targetUserId: targetId });
       }
 
-      // ALWAYS emit call:incoming to recipient room so connected devices receive it immediately
-      io.to(`user:${normTargetUserId}`).emit('call:incoming', {
+      // ALWAYS emit call:incoming to recipient room(s) so connected devices receive it immediately
+      const recipientChannel = io.to(`user:${targetId}`);
+      if (targetUsername) {
+        recipientChannel.to(`user:${targetUsername}`);
+      }
+      recipientChannel.emit('call:incoming', {
         callId,
         caller: callerPayload,
         callType,
       });
-      console.log(`📞 [Call Started] from ${effectiveCallerId} to ${normTargetUserId} (callId: ${callId}, online: ${isOnline})`);
+      console.log(`📞 [Call Started] from ${effectiveCallerId} to ${targetId} (@${targetUsername}) (callId: ${callId}, online: ${isOnline}, sockets: ${idSockets}/${userSockets})`);
 
       // Wake mobile device via push notification if backgrounded
       try {
@@ -408,16 +438,20 @@ function initSocket(server) {
       }
 
       const responderId = (socket.userId || '').toString();
-      io.to(`user:${targetUserId}`).emit('call:accepted', {
-        callId,
-        responder: {
-          _id: responderId,
-          name: socket.user?.name,
-          username: socket.user?.username,
-          avatarUrl: socket.user?.avatarUrl,
-        },
-      });
-      console.log(`📞 [Call Accepted] ${callId} by ${responderId}`);
+      const callerId = call?.caller?._id?.toString() || targetUserId;
+
+      if (callerId) {
+        io.to(`user:${callerId}`).emit('call:accepted', {
+          callId,
+          responder: {
+            _id: responderId,
+            name: socket.user?.name,
+            username: socket.user?.username,
+            avatarUrl: socket.user?.avatarUrl,
+          },
+        });
+      }
+      console.log(`📞 [Call Accepted] ${callId} by ${responderId} -> caller ${callerId}`);
     });
 
     // Reject / Decline Call
@@ -427,13 +461,14 @@ function initSocket(server) {
         clearTimeout(call.timeoutTimer);
       }
       activeCalls.delete(callId);
-      if (targetUserId) {
-        io.to(`user:${targetUserId}`).emit('call:rejected', {
+      const callerId = call?.caller?._id?.toString() || targetUserId;
+      if (callerId) {
+        io.to(`user:${callerId}`).emit('call:rejected', {
           callId,
           reason,
         });
       }
-      console.log(`📞 [Call Rejected] ${callId} reason: ${reason}`);
+      console.log(`📞 [Call Rejected] ${callId} reason: ${reason} -> caller ${callerId}`);
     });
 
     // End / Hangup Call
@@ -444,13 +479,14 @@ function initSocket(server) {
       }
       activeCalls.delete(callId);
       const endedById = (socket.userId || '').toString();
-      if (targetUserId) {
-        io.to(`user:${targetUserId}`).emit('call:ended', {
+      const otherId = targetUserId || (call?.caller?._id?.toString() === endedById ? call?.targetUserId : call?.caller?._id?.toString());
+      if (otherId) {
+        io.to(`user:${otherId}`).emit('call:ended', {
           callId,
           endedBy: endedById,
         });
       }
-      console.log(`📞 [Call Ended] ${callId} endedBy: ${endedById}`);
+      console.log(`📞 [Call Ended] ${callId} endedBy: ${endedById} -> other ${otherId}`);
     });
 
     // WebRTC Signaling Relay (SDP Offer, SDP Answer, ICE Candidates)

@@ -14,6 +14,12 @@ class SocketService {
       return rawUrl.replace(/\/api\/?$/, '');
     }
     if (typeof window !== 'undefined') {
+      // When accessed on Vite dev server (port 5173), proxy /socket.io through same origin!
+      // This guarantees seamless connectivity on mobile browsers without cross-port firewall issues
+      if (window.location.port === '5173') {
+        return window.location.origin;
+      }
+
       const hostname = window.location.hostname;
       // Local development hosts (localhost, loopback, or local Wi-Fi / LAN IP)
       if (
@@ -29,6 +35,14 @@ class SocketService {
       return 'https://clearfeed518.up.railway.app';
     }
     return 'http://localhost:5180';
+  }
+
+  identify(token = null) {
+    const t = token || this.currentToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('pulse518_token') : null);
+    this.currentToken = t;
+    if (this.socket && this.socket.connected && t) {
+      this.socket.emit('auth:identify', { token: t });
+    }
   }
 
   connect(explicitToken = null) {
