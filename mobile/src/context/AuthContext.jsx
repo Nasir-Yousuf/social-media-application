@@ -16,15 +16,30 @@ export const AuthProvider = ({ children }) => {
         const storedToken = await AsyncStorage.getItem('token');
         if (storedToken) {
           setToken(storedToken);
-          // Fetch current profile
-          const res = await api.get('/users/me');
-          setUser(res.data.user);
+          // Fetch current profile from /auth/me (fallback to /users/me)
+          let res;
+          try {
+            res = await api.get('/auth/me');
+          } catch (e) {
+            if (e.response?.status === 404) {
+              res = await api.get('/users/me');
+            } else {
+              throw e;
+            }
+          }
+          if (res?.data?.user) {
+            setUser(res.data.user);
+          }
         }
       } catch (err) {
-        console.log('Session expired or invalid, clearing storage');
-        await AsyncStorage.removeItem('token');
-        setToken(null);
-        setUser(null);
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          console.log('Session expired or invalid, clearing storage');
+          await AsyncStorage.removeItem('token');
+          setToken(null);
+          setUser(null);
+        } else {
+          console.warn('Network or server error during auth init:', err.message);
+        }
       } finally {
         setLoading(false);
       }

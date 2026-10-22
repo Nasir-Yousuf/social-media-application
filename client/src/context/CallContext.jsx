@@ -299,8 +299,9 @@ export const CallProvider = ({ children }) => {
       },
     );
 
-    // 2. Call Ringing
+    // 2. Call Ringing (Target user is online and receiving call)
     const unsubRinging = socketService.on("call:ringing", () => {
+      setActiveCall((prev) => (prev ? { ...prev, status: "ringing" } : prev));
       sounds.startOutgoingRing();
     });
 
@@ -309,6 +310,7 @@ export const CallProvider = ({ children }) => {
       "call:accepted",
       async ({ callId }) => {
         sounds.playConnectedTone();
+        setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : prev));
         setCallState("connected");
         startTimer();
 
@@ -423,13 +425,19 @@ export const CallProvider = ({ children }) => {
 
     const unsubOffline = socketService.on("call:user_offline", () => {
       sounds.playEndTone();
-      showToast("User is currently offline", "error");
+      showToast("User is currently offline", "info");
       cleanupCallResources();
     });
 
-    const unsubEnded = socketService.on("call:ended", () => {
+    const unsubEnded = socketService.on("call:ended", (data) => {
       sounds.playEndTone();
-      showToast("Call ended", "info");
+      const reasonMsg =
+        data?.reason === "no_answer"
+          ? "No answer"
+          : data?.reason === "disconnected"
+          ? "Call disconnected"
+          : "Call ended";
+      showToast(reasonMsg, "info");
       cleanupCallResources();
     });
 
@@ -629,6 +637,7 @@ export const CallProvider = ({ children }) => {
         otherUser: targetUser,
         isOutgoing: true,
         callType: "audio",
+        status: "calling",
       });
       setCallState("calling");
       sounds.startOutgoingRing();

@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Camera,
   KeyRound,
-  Swords,
   Zap,
   LogOut,
   Phone,
@@ -21,7 +20,6 @@ import Modal from '../components/common/Modal';
 import PostList from '../components/posts/PostList';
 import EditProfileModal from '../components/users/EditProfileModal';
 import ChangePasswordModal from '../components/users/ChangePasswordModal';
-import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useCall } from '../context/CallContext';
@@ -42,7 +40,6 @@ export const ProfilePage = () => {
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
 
   // Followers / Following Modal
   const [connectionsModal, setConnectionsModal] = useState({ isOpen: false, title: '', users: [] });
@@ -506,15 +503,6 @@ export const ProfilePage = () => {
                   <MessageSquare className="w-4 h-4" />
                 </NavLink>
 
-                <button
-                  type="button"
-                  onClick={() => setIsChallengeModalOpen(true)}
-                  className="px-3 py-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
-                  title={`Challenge @${profile.username} to a Typing Duel`}
-                >
-                  <Swords className="w-3.5 h-3.5" />
-                  <span>Duel</span>
-                </button>
 
                 <Button
                   variant={profile.isFollowing ? 'outline' : 'secondary'}
@@ -753,12 +741,6 @@ export const ProfilePage = () => {
         onClose={() => setIsChangePasswordOpen(false)}
       />
 
-      {/* Typing Challenge Duel Modal */}
-      <TypingChallengeModal
-        isOpen={isChallengeModalOpen}
-        onClose={() => setIsChallengeModalOpen(false)}
-        targetUser={profile}
-      />
 
       {/* Connections Modal */}
       <Modal

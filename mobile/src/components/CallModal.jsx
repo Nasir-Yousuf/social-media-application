@@ -168,8 +168,17 @@ export const CallModal = () => {
           <View style={styles.screenContent}>
             <View style={styles.headerInfo}>
               <View style={styles.badgeRow}>
-                <Ionicons name="radio" size={14} color="#1d9bf0" />
-                <Text style={[styles.badgeText, { color: '#1d9bf0' }]}>
+                <Ionicons
+                  name={activeCall?.status === 'ringing' ? 'notifications' : 'radio'}
+                  size={14}
+                  color={activeCall?.status === 'ringing' ? '#10b981' : '#1d9bf0'}
+                />
+                <Text
+                  style={[
+                    styles.badgeText,
+                    { color: activeCall?.status === 'ringing' ? '#10b981' : '#1d9bf0' },
+                  ]}
+                >
                   {activeCall?.status === 'ringing' ? 'RINGING...' : 'CALLING...'}
                 </Text>
               </View>
@@ -182,7 +191,9 @@ export const CallModal = () => {
               <Avatar uri={otherUser?.avatarUrl} name={otherUser?.name} size={110} />
             </View>
 
-            <Text style={styles.incomingSubtext}>Connecting 100% Free Peer-to-Peer Audio...</Text>
+            <Text style={styles.incomingSubtext}>
+              {activeCall?.status === 'ringing' ? 'Waiting for answer...' : 'Calling...'}
+            </Text>
 
             <View style={styles.singleActionRow}>
               <TouchableOpacity

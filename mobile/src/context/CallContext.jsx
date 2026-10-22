@@ -112,21 +112,27 @@ export const CallProvider = ({ children }) => {
     });
 
     // 5. Call Ended Event
-    const unsubEnded = socketService.on('call:ended', () => {
+    const unsubEnded = socketService.on('call:ended', (data) => {
       stopRingingVibration();
       stopTimer();
       setCallState('idle');
       setActiveCall(null);
-      showToast('Call ended', 'info');
+      const reasonMsg =
+        data?.reason === 'no_answer'
+          ? 'No answer'
+          : data?.reason === 'disconnected'
+          ? 'Call disconnected'
+          : 'Call ended';
+      showToast(reasonMsg, 'info');
     });
 
-    // 6. User Offline Event
+    // 6. User Offline Event (Fallback)
     const unsubOffline = socketService.on('call:user_offline', () => {
       stopRingingVibration();
       stopTimer();
       setCallState('idle');
       setActiveCall(null);
-      showToast('User is currently offline', 'error');
+      showToast('User is currently offline', 'info');
     });
 
     // 7. Group Call Events
@@ -205,7 +211,7 @@ export const CallProvider = ({ children }) => {
         otherUser: targetUser,
         isOutgoing: true,
         callType: 'audio',
-        status: 'initiating',
+        status: 'calling',
       });
       setCallState('calling');
       setIsMuted(false);

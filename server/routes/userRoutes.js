@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
+const authController = require('../controllers/authController');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
+
+// Direct profile /me and avatar aliases for full mobile and client compatibility
+router.get('/me', requireAuth, authController.getMe);
+router.patch('/me/avatar', requireAuth, userController.updateProfile);
 
 router.get('/directory', optionalAuth, userController.getCourseDirectory);
 

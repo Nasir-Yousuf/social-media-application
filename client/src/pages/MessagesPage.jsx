@@ -17,7 +17,6 @@ import {
   Trash2,
   Eraser,
   RotateCcw,
-  Swords,
   Phone,
   Users,
 } from 'lucide-react';
@@ -29,7 +28,6 @@ import { useCall } from '../context/CallContext';
 import Avatar from '../components/common/Avatar';
 import Modal from '../components/common/Modal';
 import TwitterSpinner from '../components/common/TwitterSpinner';
-import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 import api from '../api/client';
 import {
   WhatsAppReactionPicker,
@@ -91,7 +89,6 @@ export const MessagesPage = () => {
   const [directoryMembers, setDirectoryMembers] = useState([]);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(null);
 
   const messagesEndRef = useRef(null);
@@ -1053,16 +1050,6 @@ export const MessagesPage = () => {
                   <Users className="w-4 h-4" />
                 </button>
 
-                {/* Quick 1v1 Typing Duel Challenge Button */}
-                <button
-                  type="button"
-                  onClick={() => setIsChallengeModalOpen(true)}
-                  className="p-2 rounded-full hover:bg-amber-500/10 text-amber-500 active:scale-95 transition-all cursor-pointer"
-                  title={`Challenge @${activeConversation.otherUser?.username} to a 1v1 Typing Duel`}
-                  aria-label="Challenge to typing duel"
-                >
-                  <Swords className="w-4 h-4" />
-                </button>
 
                 <NavLink
                   to={`/profile/${activeConversation.otherUser?.username}`}
@@ -1182,21 +1169,6 @@ export const MessagesPage = () => {
                               <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                             )}
 
-                            {/* Direct Race Challenge Action in Chat */}
-                            {msg.text && (msg.text.includes('Highway Supercar Race Challenge') || msg.text.includes('Typing Duel Challenge')) && (
-                              <div className="mt-2 pt-2 border-t border-current/10 flex items-center gap-2">
-                                <a
-                                  href={
-                                    msg.text.includes('Highway Supercar Race Challenge')
-                                      ? `/typing?theme=race&duelWith=${activeConversation?.otherUser?.username || 'rival'}${msg.typingChallenge ? `&challengeId=${msg.typingChallenge}` : ''}`
-                                      : `/typing?${msg.typingChallenge ? `challengeId=${msg.typingChallenge}` : `rival=${activeConversation?.otherUser?.username || 'rival'}`}`
-                                  }
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-500 via-amber-500 to-cyan-400 hover:from-red-400 hover:to-cyan-300 text-slate-950 font-black text-xs shadow-md transition-all active:scale-95 cursor-pointer no-underline"
-                                >
-                                  <span>🏎️ Enter Race Now &rarr;</span>
-                                </a>
-                              </div>
-                            )}
 
                             {/* Code Snippet Box */}
                             {hasSnippet && (
@@ -1633,21 +1605,6 @@ export const MessagesPage = () => {
         }}
       />
 
-      {/* 1v1 Typing Duel Challenge Modal */}
-      {isChallengeModalOpen && activeConversation?.otherUser && (
-        <TypingChallengeModal
-          isOpen={isChallengeModalOpen}
-          onClose={() => setIsChallengeModalOpen(false)}
-          targetUser={activeConversation.otherUser}
-          currentUser={currentUser}
-          onChallengeCreated={() => {
-            showToast(`Challenged @${activeConversation.otherUser.username} to a 1v1 Typing Duel! ⚔️`, 'success');
-            if (activeConversation._id) {
-              fetchMessages(activeConversation._id, true);
-            }
-          }}
-        />
-      )}
     </div>
   );
 };

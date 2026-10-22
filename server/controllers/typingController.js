@@ -641,48 +641,7 @@ exports.createChallenge = async (req, res) => {
       typingChallenge: challenge._id,
     });
 
-    // 2. Drop duel invitation message into their direct conversation
-    try {
-      let conversation = await Conversation.findOne({
-        participants: { $all: [challengerId, targetUser._id] },
-      });
-
-      const duelTitle = isHighwayRace
-        ? `🏎️ Highway Supercar Race Challenge: Can you beat my ${parsedWpm} WPM on the track in my ${carName}?`
-        : `⚔️ Typing Duel Challenge: Can you beat my ${parsedWpm} WPM in ${parsedDur}s?`;
-
-      if (!conversation) {
-        conversation = await Conversation.create({
-          participants: [challengerId, targetUser._id],
-          unreadCounts: new Map([[targetUser._id.toString(), 1]]),
-          lastMessage: {
-            text: duelTitle,
-            sender: challengerId,
-            createdAt: new Date(),
-          },
-        });
-      } else {
-        const currentUnread = conversation.unreadCounts?.get(targetUser._id.toString()) || 0;
-        if (!conversation.unreadCounts) conversation.unreadCounts = new Map();
-        conversation.unreadCounts.set(targetUser._id.toString(), currentUnread + 1);
-        conversation.lastMessage = {
-          text: duelTitle,
-          sender: challengerId,
-          createdAt: new Date(),
-        };
-        await conversation.save();
-      }
-
-      await Message.create({
-        conversation: conversation._id,
-        sender: challengerId,
-        recipient: targetUser._id,
-        text: `${duelTitle}\n"${challenge.customMessage}"`,
-        typingChallenge: challenge._id,
-      });
-    } catch (msgErr) {
-      console.warn('Could not post duel message to conversation:', msgErr);
-    }
+    // Challenges are delivered exclusively via Notifications and Typing Arena
 
     return res.status(201).json({
       message: `Challenge sent to @${targetUser.username}!`,

@@ -90,6 +90,24 @@ function initSocket(server) {
         user: data.user,
       }));
       socket.emit('presence:online_users', onlineList);
+
+      // Check for any pending incoming calls waiting for this user ('calling' state -> transition to 'ringing')
+      for (const [callId, call] of activeCalls.entries()) {
+        if (call.targetUserId === userId && call.status === 'calling') {
+          call.status = 'ringing';
+          // Notify caller that call is now ringing
+          io.to(`user:${call.caller._id}`).emit('call:ringing', {
+            callId: call.callId,
+            targetUserId: userId,
+          });
+          // Ring recipient who just came online
+          socket.emit('call:incoming', {
+            callId: call.callId,
+            caller: call.caller,
+            callType: call.callType,
+          });
+        }
+      }
     }
 
     // ==========================================
@@ -267,8 +285,11 @@ function initSocket(server) {
     // ==========================================
 
     // Initiate Call
+    // Initiate Call (WhatsApp style: starts as 'calling', transitions to 'ringing' when recipient is reachable)
     socket.on('call:initiate', ({ callId, targetUserId, callerInfo, callType = 'audio' }) => {
       if (!userId || !targetUserId) return;
+
+      const normTargetUserId = targetUserId.toString();
 
       const callData = {
         callId,
@@ -278,38 +299,60 @@ function initSocket(server) {
           username: socket.user?.username || 'user',
           avatarUrl: socket.user?.avatarUrl,
         },
-        targetUserId,
+        targetUserId: normTargetUserId,
         callType,
         status: 'calling',
         createdAt: new Date(),
       };
 
+      // Set timeout for unanswered call (45 seconds, phone/WhatsApp standard timeout)
+      const timeoutTimer = setTimeout(() => {
+        const pendingCall = activeCalls.get(callId);
+        if (pendingCall && pendingCall.status !== 'connected') {
+          activeCalls.delete(callId);
+          io.to(`user:${userId}`).emit('call:ended', {
+            callId,
+            reason: 'no_answer',
+            message: 'No answer',
+          });
+          io.to(`user:${normTargetUserId}`).emit('call:ended', {
+            callId,
+            reason: 'no_answer',
+          });
+        }
+      }, 45000);
+
+      callData.timeoutTimer = timeoutTimer;
       activeCalls.set(callId, callData);
 
-      // Check if target user has active sockets
-      const targetIsOnline = onlineUsers.has(targetUserId);
+      // Check if target user is currently online
+      const targetIsOnline = onlineUsers.has(normTargetUserId);
 
-      if (!targetIsOnline) {
-        socket.emit('call:user_offline', { callId, targetUserId });
-        activeCalls.delete(callId);
-        return;
+      if (targetIsOnline) {
+        // Target is online: call transitions to ringing immediately
+        callData.status = 'ringing';
+        socket.emit('call:ringing', { callId, targetUserId: normTargetUserId });
+
+        // Notify target recipient of incoming call
+        io.to(`user:${normTargetUserId}`).emit('call:incoming', {
+          callId,
+          caller: callData.caller,
+          callType,
+        });
       }
-
-      // Notify caller that call is ringing
-      socket.emit('call:ringing', { callId, targetUserId });
-
-      // Notify target recipient of incoming call
-      io.to(`user:${targetUserId}`).emit('call:incoming', {
-        callId,
-        caller: callData.caller,
-        callType,
-      });
+      // If target is offline:
+      // Keep call in 'calling' state (WhatsApp behavior). Do NOT emit offline error.
+      // If recipient comes online within 45s, connection listener transitions it to ringing.
     });
 
     // Accept Call
     socket.on('call:accept', ({ callId, targetUserId }) => {
       const call = activeCalls.get(callId);
       if (call) {
+        if (call.timeoutTimer) {
+          clearTimeout(call.timeoutTimer);
+          call.timeoutTimer = null;
+        }
         call.status = 'connected';
         call.connectedAt = new Date();
       }
@@ -327,6 +370,10 @@ function initSocket(server) {
 
     // Reject / Decline Call
     socket.on('call:reject', ({ callId, targetUserId, reason = 'declined' }) => {
+      const call = activeCalls.get(callId);
+      if (call && call.timeoutTimer) {
+        clearTimeout(call.timeoutTimer);
+      }
       activeCalls.delete(callId);
       io.to(`user:${targetUserId}`).emit('call:rejected', {
         callId,
@@ -336,6 +383,10 @@ function initSocket(server) {
 
     // End / Hangup Call
     socket.on('call:end', ({ callId, targetUserId }) => {
+      const call = activeCalls.get(callId);
+      if (call && call.timeoutTimer) {
+        clearTimeout(call.timeoutTimer);
+      }
       activeCalls.delete(callId);
       if (targetUserId) {
         io.to(`user:${targetUserId}`).emit('call:ended', {
@@ -648,6 +699,9 @@ function initSocket(server) {
       // Cleanup any active calls this socket was engaged in
       for (const [callId, call] of activeCalls.entries()) {
         if (call.caller?._id?.toString() === userId || call.targetUserId === userId) {
+          if (call.timeoutTimer) {
+            clearTimeout(call.timeoutTimer);
+          }
           const otherUserId =
             call.caller?._id?.toString() === userId ? call.targetUserId : call.caller?._id?.toString();
           if (otherUserId) {
