@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   View,
   Text,
@@ -6,26 +6,26 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Ionicons,
   Feather,
   MaterialCommunityIcons,
   FontAwesome5,
-} from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { useNotifications } from '../context/NotificationContext';
-import Avatar from '../components/Avatar';
+} from "@expo/vector-icons";
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationContext";
+import Avatar from "../components/Avatar";
 
 const THEME_ICONS = {
-  dark: { name: 'moon', library: Ionicons },
-  dim: { name: 'cloudy-night', library: Ionicons },
-  light: { name: 'sunny', library: Ionicons },
-  emerald: { name: 'code-working', library: Ionicons },
-  sunset: { name: 'partly-sunny', library: Ionicons },
-  hacker: { name: 'terminal', library: Ionicons },
+  dark: { name: "moon", library: Ionicons },
+  dim: { name: "cloudy-night", library: Ionicons },
+  light: { name: "sunny", library: Ionicons },
+  emerald: { name: "code-working", library: Ionicons },
+  sunset: { name: "partly-sunny", library: Ionicons },
+  hacker: { name: "terminal", library: Ionicons },
 };
 
 export const SettingsScreen = ({ navigation }) => {
@@ -35,30 +35,57 @@ export const SettingsScreen = ({ navigation }) => {
   const { showToast } = useNotifications();
 
   const handleLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out of Clearfeed?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert("Log out", "Are you sure you want to log out of Clearfeed?", [
+      { text: "Cancel", style: "cancel" },
       {
-        text: 'Log out',
-        style: 'destructive',
+        text: "Log out",
+        style: "destructive",
         onPress: () => logout(),
       },
     ]);
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: currentColors.bg }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, backgroundColor: currentColors.bg },
+      ]}
+    >
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: currentColors.border, backgroundColor: currentColors.bg }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            borderBottomColor: currentColors.border,
+            backgroundColor: currentColors.bg,
+          },
+        ]}
+      >
         <View>
-          <Text style={[styles.headerTitle, { color: currentColors.text }]}>Settings</Text>
-          <Text style={[styles.headerSubtitle, { color: currentColors.textSecondary }]}>
+          <Text style={[styles.headerTitle, { color: currentColors.text }]}>
+            Settings
+          </Text>
+          <Text
+            style={[
+              styles.headerSubtitle,
+              { color: currentColors.textSecondary },
+            ]}
+          >
             Display & theme preferences
           </Text>
         </View>
-        <Ionicons name="settings-sharp" size={24} color={currentColors.accent} />
+        <Ionicons
+          name="settings-sharp"
+          size={24}
+          color={currentColors.accent}
+        />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Account Info Pill */}
         {user && (
           <View
@@ -72,27 +99,53 @@ export const SettingsScreen = ({ navigation }) => {
           >
             <Avatar src={user.avatarUrl} name={user.name} size="md" />
             <View style={styles.userInfo}>
-              <Text style={[styles.userName, { color: currentColors.text }]}>{user.name}</Text>
-              <Text style={[styles.userHandle, { color: currentColors.textSecondary }]}>
+              <Text style={[styles.userName, { color: currentColors.text }]}>
+                {user.name}
+              </Text>
+              <Text
+                style={[
+                  styles.userHandle,
+                  { color: currentColors.textSecondary },
+                ]}
+              >
                 @{user.username}
               </Text>
             </View>
             <TouchableOpacity
               style={[styles.profileBtn, { borderColor: currentColors.border }]}
-              onPress={() => navigation.navigate('Profile', { userId: user._id })}
+              onPress={() =>
+                navigation.navigate("Profile", { userId: user._id })
+              }
             >
-              <Text style={[styles.profileBtnText, { color: currentColors.accent }]}>Profile</Text>
+              <Text
+                style={[styles.profileBtnText, { color: currentColors.accent }]}
+              >
+                Profile
+              </Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Section Title */}
         <View style={styles.sectionHeader}>
-          <Ionicons name="color-palette-outline" size={18} color={currentColors.accent} style={{ marginRight: 6 }} />
-          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Display & Themes</Text>
+          <Ionicons
+            name="color-palette-outline"
+            size={18}
+            color={currentColors.accent}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>
+            Display & Themes
+          </Text>
         </View>
-        <Text style={[styles.sectionSubtitle, { color: currentColors.textSecondary }]}>
-          Personalize your Clearfeed appearance. Saved automatically across devices.
+        <Text
+          style={[
+            styles.sectionSubtitle,
+            { color: currentColors.textSecondary },
+          ]}
+        >
+          Personalize your Clearfeed appearance. Saved automatically across
+          devices.
         </Text>
 
         {/* Live Preview Post Box */}
@@ -108,16 +161,29 @@ export const SettingsScreen = ({ navigation }) => {
           <View style={styles.previewHeader}>
             <Avatar name="Clearfeed" size="sm" showRoleBadge={false} />
             <View style={{ marginLeft: 10, flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.previewAuthor, { color: currentColors.text }]}>Clearfeed</Text>
-                <Text style={[styles.previewHandle, { color: currentColors.textSecondary }]}>
-                  {' '}· preview
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text
+                  style={[styles.previewAuthor, { color: currentColors.text }]}
+                >
+                  Clearfeed
+                </Text>
+                <Text
+                  style={[
+                    styles.previewHandle,
+                    { color: currentColors.textSecondary },
+                  ]}
+                >
+                  {" "}
+                  · preview
                 </Text>
               </View>
               <Text style={[styles.previewBody, { color: currentColors.text }]}>
-                A modern chronological platform for developers and learners. Selected theme updates instantly!
+                A modern chronological platform for developers and learners.
+                Selected theme updates instantly!
               </Text>
-              <Text style={[styles.previewTag, { color: currentColors.accent }]}>
+              <Text
+                style={[styles.previewTag, { color: currentColors.accent }]}
+              >
                 #cleanarchitecture #pulse518
               </Text>
             </View>
@@ -128,7 +194,10 @@ export const SettingsScreen = ({ navigation }) => {
         <View style={styles.themesList}>
           {themes.map((t) => {
             const isSelected = theme === t.id;
-            const iconConfig = THEME_ICONS[t.id] || { name: 'color-palette', library: Ionicons };
+            const iconConfig = THEME_ICONS[t.id] || {
+              name: "color-palette",
+              library: Ionicons,
+            };
             const IconComp = iconConfig.library;
 
             return (
@@ -144,7 +213,7 @@ export const SettingsScreen = ({ navigation }) => {
                 ]}
                 onPress={() => {
                   setTheme(t.id);
-                  showToast(`Theme switched to ${t.name}`, 'success');
+                  showToast(`Theme switched to ${t.name}`, "success");
                 }}
                 activeOpacity={0.85}
               >
@@ -158,12 +227,20 @@ export const SettingsScreen = ({ navigation }) => {
                       },
                     ]}
                   >
-                    <IconComp name={iconConfig.name} size={18} color={t.accent} />
+                    <IconComp
+                      name={iconConfig.name}
+                      size={18}
+                      color={t.accent}
+                    />
                   </View>
 
                   <View style={styles.themeMeta}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={[styles.themeName, { color: t.text }]}>{t.name}</Text>
+                    <View
+                      style={{ flexDirection: "row", alignItems: "center" }}
+                    >
+                      <Text style={[styles.themeName, { color: t.text }]}>
+                        {t.name}
+                      </Text>
                       <View
                         style={[
                           styles.themeBadge,
@@ -173,10 +250,16 @@ export const SettingsScreen = ({ navigation }) => {
                           },
                         ]}
                       >
-                        <Text style={[styles.themeBadgeText, { color: t.accent }]}>{t.badge}</Text>
+                        <Text
+                          style={[styles.themeBadgeText, { color: t.accent }]}
+                        >
+                          {t.badge}
+                        </Text>
                       </View>
                     </View>
-                    <Text style={[styles.themeSubtitle, { color: t.textSecondary }]}>
+                    <Text
+                      style={[styles.themeSubtitle, { color: t.textSecondary }]}
+                    >
                       {t.subtitle}
                     </Text>
                   </View>
@@ -188,11 +271,13 @@ export const SettingsScreen = ({ navigation }) => {
                     styles.radioCircle,
                     {
                       borderColor: isSelected ? t.accent : t.border,
-                      backgroundColor: isSelected ? t.accent : 'transparent',
+                      backgroundColor: isSelected ? t.accent : "transparent",
                     },
                   ]}
                 >
-                  {isSelected && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={13} color="#ffffff" />
+                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -200,17 +285,29 @@ export const SettingsScreen = ({ navigation }) => {
         </View>
 
         {/* App Info & Logout Section */}
-        <View style={[styles.footerSection, { borderTopColor: currentColors.border }]}>
-          <Text style={[styles.footerText, { color: currentColors.textSecondary }]}>
+        <View
+          style={[
+            styles.footerSection,
+            { borderTopColor: currentColors.border },
+          ]}
+        >
+          <Text
+            style={[styles.footerText, { color: currentColors.textSecondary }]}
+          >
             Clearfeed v2.4 · Pulse CS518 Architecture
           </Text>
 
           <TouchableOpacity
-            style={[styles.logoutBtn, { borderColor: '#f4212e' }]}
+            style={[styles.logoutBtn, { borderColor: "#f4212e" }]}
             onPress={handleLogout}
             activeOpacity={0.8}
           >
-            <Ionicons name="log-out-outline" size={16} color="#f4212e" style={{ marginRight: 6 }} />
+            <Ionicons
+              name="log-out-outline"
+              size={16}
+              color="#f4212e"
+              style={{ marginRight: 6 }}
+            />
             <Text style={styles.logoutBtnText}>Log out of Clearfeed</Text>
           </TouchableOpacity>
         </View>
@@ -224,16 +321,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: -0.4,
   },
   headerSubtitle: {
@@ -245,8 +342,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 12,
     borderRadius: 14,
     borderWidth: 1,
@@ -258,7 +355,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   userHandle: {
     fontSize: 12,
@@ -272,16 +369,16 @@ const styles = StyleSheet.create({
   },
   profileBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   sectionSubtitle: {
     fontSize: 12,
@@ -294,11 +391,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   previewHeader: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   previewAuthor: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   previewHandle: {
     fontSize: 12,
@@ -310,23 +407,23 @@ const styles = StyleSheet.create({
   },
   previewTag: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 5,
   },
   themesList: {
     marginBottom: 16,
   },
   themeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 14,
     borderRadius: 14,
     marginBottom: 10,
   },
   themeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
     marginRight: 10,
   },
@@ -335,8 +432,8 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   themeMeta: {
     marginLeft: 12,
@@ -344,7 +441,7 @@ const styles = StyleSheet.create({
   },
   themeName: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   themeBadge: {
     marginLeft: 6,
@@ -355,7 +452,7 @@ const styles = StyleSheet.create({
   },
   themeBadgeText: {
     fontSize: 9,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   themeSubtitle: {
     fontSize: 11,
@@ -366,33 +463,33 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   footerSection: {
     borderTopWidth: 1,
     paddingTop: 16,
     marginTop: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   footerText: {
     fontSize: 11,
     marginBottom: 12,
   },
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
     borderWidth: 1,
-    width: '100%',
+    width: "100%",
   },
   logoutBtnText: {
-    color: '#f4212e',
+    color: "#f4212e",
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });
 
