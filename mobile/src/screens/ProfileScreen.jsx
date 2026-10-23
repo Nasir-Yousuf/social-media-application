@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   FlatList,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -28,15 +29,45 @@ export const ProfileScreen = ({ route, navigation }) => {
   const { user: currentUser, logout, updateUser } = useAuth();
   const { showToast } = useNotifications();
 
-  // If no username passed, default to current user's username
-  const targetUsername = route?.params?.username || currentUser?.username;
+  const rawParamUsername = route?.params?.username;
+  const rawParamId = route?.params?.userId || route?.params?.id;
 
-  const [profile, setProfile] = useState(null);
+  // Resolve target username robustly
+  const targetUsername = useMemo(() => {
+    if (typeof rawParamUsername === 'string' && rawParamUsername.trim()) {
+      return rawParamUsername.replace(/^@/, '').trim();
+    }
+    if (rawParamId && currentUser && String(rawParamId) === String(currentUser._id)) {
+      return currentUser.username || '';
+    }
+    return currentUser?.username || '';
+  }, [rawParamUsername, rawParamId, currentUser]);
+
+  const isSelf = useMemo(() => {
+    if (!targetUsername && !!currentUser) return true;
+    if (
+      currentUser?.username &&
+      targetUsername.toLowerCase() === currentUser.username.toLowerCase()
+    ) {
+      return true;
+    }
+    return false;
+  }, [targetUsername, currentUser]);
+
+  const [profile, setProfile] = useState(() => (isSelf && currentUser ? currentUser : null));
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'code'
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!profile);
+  const [refreshing, setRefreshing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Keep local user profile updated if viewing self
+  useEffect(() => {
+    if (isSelf && currentUser) {
+      setProfile((prev) => (prev ? { ...prev, ...currentUser } : currentUser));
+    }
+  }, [isSelf, currentUser]);
 
   // Edit Profile modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -45,37 +76,61 @@ export const ProfileScreen = ({ route, navigation }) => {
   const [editStatus, setEditStatus] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
-  const fetchProfile = useCallback(async () => {
-    if (!targetUsername) {
-      if (currentUser) setProfile(currentUser);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api.get(`/users/${targetUsername}`);
-      if (res?.data?.user) {
-        setProfile(res.data.user);
-        setPosts(res.data.posts || []);
-      } else if (currentUser && (!targetUsername || targetUsername === currentUser.username)) {
-        setProfile(currentUser);
+  const fetchProfile = useCallback(
+    async (isPullToRefresh = false) => {
+      if (!targetUsername) {
+        if (currentUser) setProfile(currentUser);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      if (currentUser && (!targetUsername || targetUsername === currentUser.username)) {
-        setProfile(currentUser);
-      } else {
-        showToast('Could not load profile', 'error');
+
+      if (!isPullToRefresh && !profile) {
+        setLoading(true);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [targetUsername, currentUser, showToast]);
+
+      try {
+        // Use verified production endpoints:
+        // 1. /users/profile/:username for user info
+        // 2. /posts/user/:username for posts list
+        const [profileRes, postsRes] = await Promise.all([
+          api
+            .get(`/users/profile/${encodeURIComponent(targetUsername)}`, { silent: true })
+            .catch(() => null),
+          api
+            .get(`/posts/user/${encodeURIComponent(targetUsername)}`, { silent: true })
+            .catch(() => null),
+        ]);
+
+        if (profileRes?.data?.user) {
+          setProfile(profileRes.data.user);
+        } else if (isSelf && currentUser) {
+          setProfile(currentUser);
+        } else if (!profile) {
+          showToast('Could not load profile', 'error');
+        }
+
+        if (postsRes?.data?.posts && Array.isArray(postsRes.data.posts)) {
+          setPosts(postsRes.data.posts);
+        } else if (profileRes?.data?.posts && Array.isArray(profileRes.data.posts)) {
+          setPosts(profileRes.data.posts);
+        }
+      } catch (err) {
+        if (isSelf && currentUser) {
+          setProfile(currentUser);
+        } else if (!profile) {
+          showToast('Could not load profile', 'error');
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [targetUsername, currentUser, isSelf, profile, showToast]
+  );
 
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
-
-  const isSelf = profile?.isSelf || currentUser?._id === profile?._id;
 
   // Follow / Unfollow
   const handleFollowToggle = async () => {
@@ -275,6 +330,17 @@ export const ProfileScreen = ({ route, navigation }) => {
       <FlatList
         data={displayedPosts}
         keyExtractor={(item) => item._id}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              fetchProfile(true);
+            }}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
         renderItem={({ item }) => (
           <PostCard
             post={item}

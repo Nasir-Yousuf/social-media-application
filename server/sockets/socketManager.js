@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
@@ -48,11 +49,13 @@ function initSocket(server) {
         const userId = decoded.userId || decoded.id || decoded._id;
 
         if (userId) {
-          const user = await User.findById(userId).select('name username avatarUrl role status');
-          if (user) {
-            socket.user = user;
-            socket.userId = user._id.toString();
-          }
+          socket.userId = userId.toString();
+          try {
+            const user = await User.findById(userId).select('name username avatarUrl role status');
+            if (user) {
+              socket.user = user;
+            }
+          } catch {}
         }
       }
       next();
@@ -106,7 +109,13 @@ function initSocket(server) {
 
     // Check for any pending incoming calls waiting for this user ('calling' state -> transition to 'ringing')
     for (const [callId, call] of activeCalls.entries()) {
-      if ((call.targetUserId === uId || (uname && call.targetUserId === uname)) && call.status === 'calling') {
+      const isTarget =
+        call.targetUserId === uId ||
+        (uname && call.targetUserId === uname) ||
+        call.targetId === uId ||
+        (uname && call.targetUsername === uname);
+
+      if (isTarget && call.status === 'calling') {
         call.status = 'ringing';
         // Notify caller that call is now ringing
         const callerId = call.caller?._id || call.caller;
@@ -130,22 +139,40 @@ function initSocket(server) {
     let userId = socket.userId;
     console.log(`🔌 [Socket Connect] ${socket.id} (user: ${userId || 'guest'})`);
 
-    if (socket.userId && socket.user) {
-      registerUser(socket, socket.user);
+    if (socket.userId) {
+      socket.join(`user:${socket.userId}`);
+      if (socket.user) {
+        registerUser(socket, socket.user);
+      }
     }
 
     // Client can explicitly identify after login or token acquisition
-    socket.on('auth:identify', async ({ token } = {}) => {
+    socket.on('auth:identify', async ({ token, userId: clientUserId, username: clientUsername } = {}) => {
       try {
-        if (!token) return;
-        const secret = process.env.JWT_SECRET || 'pulse518_super_secret_course_key_2026';
-        const decoded = jwt.verify(token, secret);
-        const uId = decoded.userId || decoded.id || decoded._id;
+        let uId = clientUserId;
+        let uname = clientUsername;
+
+        if (token) {
+          const secret = process.env.JWT_SECRET || 'pulse518_super_secret_course_key_2026';
+          const decoded = jwt.verify(token, secret);
+          uId = (decoded.userId || decoded.id || decoded._id || uId)?.toString();
+        }
+
         if (uId) {
-          const user = await User.findById(uId).select('name username avatarUrl role status');
-          if (user) {
-            registerUser(socket, user);
-            userId = uId;
+          socket.userId = uId.toString();
+          socket.join(`user:${socket.userId}`);
+          userId = socket.userId;
+
+          try {
+            const user = await User.findById(socket.userId).select('name username avatarUrl role status');
+            if (user) {
+              registerUser(socket, user);
+              return;
+            }
+          } catch {}
+
+          if (uname) {
+            socket.join(`user:${uname.toLowerCase()}`);
           }
         }
       } catch (err) {
@@ -384,20 +411,27 @@ function initSocket(server) {
       try {
         if (mongoose.Types.ObjectId.isValid(normTargetUserId)) {
           targetUserDoc = await User.findById(normTargetUserId).select('_id username name avatarUrl');
-        } else {
+        }
+        if (!targetUserDoc) {
           targetUserDoc = await User.findOne({ username: normTargetUserId.toLowerCase() }).select('_id username name avatarUrl');
         }
-      } catch {}
+      } catch (err) {
+        console.warn('⚠️ targetUserDoc resolve error:', err.message);
+      }
 
       const targetId = targetUserDoc ? targetUserDoc._id.toString() : normTargetUserId;
-      const targetUsername = targetUserDoc ? (targetUserDoc.username || '').toLowerCase() : normTargetUserId.toLowerCase();
+      const targetUsername = targetUserDoc ? (targetUserDoc.username || '').toLowerCase() : '';
+      callData.targetId = targetId;
+      callData.targetUsername = targetUsername;
 
       // Check if target user has active sockets in room or in online presence
       const targetIdRoom = io.sockets.adapter.rooms.get(`user:${targetId}`);
       const targetUserRoom = targetUsername ? io.sockets.adapter.rooms.get(`user:${targetUsername}`) : null;
+      const rawTargetRoom = normTargetUserId !== targetId ? io.sockets.adapter.rooms.get(`user:${normTargetUserId}`) : null;
       const idSockets = targetIdRoom ? targetIdRoom.size : 0;
       const userSockets = targetUserRoom ? targetUserRoom.size : 0;
-      const hasActiveSockets = idSockets > 0 || userSockets > 0;
+      const rawSockets = rawTargetRoom ? rawTargetRoom.size : 0;
+      const hasActiveSockets = idSockets > 0 || userSockets > 0 || rawSockets > 0;
       const isOnline = onlineUsers.has(targetId) || (targetUsername && onlineUsers.has(targetUsername)) || hasActiveSockets;
 
       if (isOnline) {
@@ -405,22 +439,27 @@ function initSocket(server) {
         socket.emit('call:ringing', { callId, targetUserId: targetId });
       }
 
-      // ALWAYS emit call:incoming to recipient room(s) so connected devices receive it immediately
-      const recipientChannel = io.to(`user:${targetId}`);
-      if (targetUsername) {
-        recipientChannel.to(`user:${targetUsername}`);
-      }
-      recipientChannel.emit('call:incoming', {
+      // ALWAYS emit call:incoming to all valid candidate rooms for this recipient
+      const incomingPayload = {
         callId,
         caller: callerPayload,
         callType,
-      });
-      console.log(`📞 [Call Started] from ${effectiveCallerId} to ${targetId} (@${targetUsername}) (callId: ${callId}, online: ${isOnline}, sockets: ${idSockets}/${userSockets})`);
+      };
+
+      const recipientRooms = new Set([`user:${targetId}`]);
+      if (targetUsername) recipientRooms.add(`user:${targetUsername}`);
+      if (normTargetUserId) recipientRooms.add(`user:${normTargetUserId}`);
+
+      for (const room of recipientRooms) {
+        io.to(room).emit('call:incoming', incomingPayload);
+      }
+
+      console.log(`📞 [Call Started] from ${effectiveCallerId} to ${targetId} (@${targetUsername || 'unknown'}) (callId: ${callId}, online: ${isOnline}, sockets: ${idSockets}/${userSockets})`);
 
       // Wake mobile device via push notification if backgrounded
       try {
         const { sendPushToUser } = require('../services/pushNotificationService');
-        sendPushToUser(normTargetUserId, {
+        sendPushToUser(targetId, {
           title: `📞 Incoming Call from ${callerPayload.name || callerPayload.username}`,
           body: `Tap to answer incoming ${callType} call`,
           data: {
@@ -837,21 +876,24 @@ function initSocket(server) {
         }
       }
 
-      // Cleanup any active calls this socket was engaged in
-      for (const [callId, call] of activeCalls.entries()) {
-        if (call.caller?._id?.toString() === currentUserId || call.targetUserId === currentUserId) {
-          if (call.timeoutTimer) {
-            clearTimeout(call.timeoutTimer);
+      // Cleanup any active calls this socket was engaged in ONLY if user has no remaining sockets online
+      const hasRemainingSockets = currentUserId && onlineUsers.has(currentUserId) && onlineUsers.get(currentUserId).socketIds.size > 0;
+      if (!hasRemainingSockets) {
+        for (const [callId, call] of activeCalls.entries()) {
+          if (call.caller?._id?.toString() === currentUserId || call.targetUserId === currentUserId || call.targetId === currentUserId) {
+            if (call.timeoutTimer) {
+              clearTimeout(call.timeoutTimer);
+            }
+            const otherUserId =
+              call.caller?._id?.toString() === currentUserId ? (call.targetId || call.targetUserId) : call.caller?._id?.toString();
+            if (otherUserId) {
+              io.to(`user:${otherUserId}`).emit('call:ended', {
+                callId,
+                reason: 'disconnected',
+              });
+            }
+            activeCalls.delete(callId);
           }
-          const otherUserId =
-            call.caller?._id?.toString() === currentUserId ? call.targetUserId : call.caller?._id?.toString();
-          if (otherUserId) {
-            io.to(`user:${otherUserId}`).emit('call:ended', {
-              callId,
-              reason: 'disconnected',
-            });
-          }
-          activeCalls.delete(callId);
         }
       }
 
@@ -897,18 +939,45 @@ function getIO() {
 }
 
 // Helper to broadcast a message from HTTP controllers
-function broadcastChatMessage(conversationId, message, recipientId) {
+async function broadcastChatMessage(conversationId, message, recipientId, senderId) {
   if (!ioInstance) return;
-  if (recipientId) {
-    ioInstance.to(`user:${recipientId}`).emit('chat:message', {
-      conversationId: conversationId.toString(),
-      message,
-    });
+
+  let messageData = message;
+  try {
+    if (message && message._id) {
+      const populated = await Message.findById(message._id)
+        .populate('sender', 'name username avatarUrl')
+        .populate('recipient', 'name username avatarUrl');
+      if (populated) messageData = populated.toObject();
+    }
+  } catch (err) {
+    console.warn('⚠️ broadcastChatMessage populate notice:', err.message);
   }
-  ioInstance.to(`conv:${conversationId}`).emit('chat:message', {
-    conversationId: conversationId.toString(),
-    message,
-  });
+
+  const convIdStr = (conversationId || messageData?.conversation)?._id?.toString() || (conversationId || messageData?.conversation)?.toString();
+
+  const payload = {
+    conversationId: convIdStr,
+    message: messageData,
+  };
+
+  // 1. Emit to recipient personal room
+  if (recipientId) {
+    const recIdStr = recipientId.toString();
+    ioInstance.to(`user:${recIdStr}`).emit('chat:message', payload);
+  }
+
+  // 2. Emit to sender personal room (for multi-device / other active client tabs)
+  const sndId = senderId || messageData?.sender?._id || messageData?.sender;
+  if (sndId) {
+    const sndIdStr = sndId.toString();
+    ioInstance.to(`user:${sndIdStr}`).emit('chat:message', payload);
+  }
+
+  // 3. Emit to conversation room
+  if (convIdStr) {
+    ioInstance.to(`conv:${convIdStr}`).emit('chat:message', payload);
+  }
 }
 
 module.exports = {

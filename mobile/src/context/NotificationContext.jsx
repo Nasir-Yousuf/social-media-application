@@ -100,7 +100,7 @@ export const NotificationProvider = ({ children }) => {
           name: 'General Alerts',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#1d9bf0',
+          lightColor: '#00A6F4',
           showBadge: true,
         });
 
@@ -108,7 +108,7 @@ export const NotificationProvider = ({ children }) => {
           name: 'Direct Messages',
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#1d9bf0',
+          lightColor: '#00A6F4',
           sound: 'default',
           showBadge: true,
         });
@@ -117,7 +117,7 @@ export const NotificationProvider = ({ children }) => {
           name: 'Social Interactions',
           importance: Notifications.AndroidImportance.DEFAULT,
           vibrationPattern: [0, 200, 200],
-          lightColor: '#1d9bf0',
+          lightColor: '#00A6F4',
           showBadge: true,
         });
       } catch (err) {

@@ -279,7 +279,7 @@ exports.sendMessage = async (req, res) => {
 
     // Broadcast message via Socket.IO in real-time
     try {
-      broadcastChatMessage(conversation._id, message, targetRecipientId);
+      broadcastChatMessage(conversation._id, message, targetRecipientId, currentUserId);
     } catch (socketErr) {
       console.warn('Real-time socket broadcast notice:', socketErr.message);
     }

@@ -19,8 +19,28 @@ import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useTheme } from '../context/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LESSONS } from '../data/learningCurriculum';
 import { LESSON_QUIZZES } from '../data/lessonQuizzes';
+
+const getLessonCode = (les) => {
+  if (!les) return '';
+  const ec = les.exampleCode;
+  if (typeof ec === 'string' && ec.trim()) return ec;
+  if (ec?.python) return ec.python;
+  if (ec?.sql) return ec.sql;
+  if (ec?.javascript) return ec.javascript;
+  if (ec?.html) return ec.html;
+  if (ec?.css) return ec.css;
+  const sc = les.starterCode;
+  if (typeof sc === 'string' && sc.trim()) return sc;
+  if (sc?.python) return sc.python;
+  if (sc?.sql) return sc.sql;
+  if (sc?.javascript) return sc.javascript;
+  if (sc?.html) return sc.html;
+  if (sc?.css) return sc.css;
+  return '';
+};
 
 export const LessonDetailScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
@@ -46,9 +66,35 @@ export const LessonDetailScreen = ({ route, navigation }) => {
   const lesson = LESSONS.find((l) => l.id === lessonId) || LESSONS[0];
   const quiz = LESSON_QUIZZES[lessonId] || null;
 
+  const trackLessons = useMemo(
+    () => LESSONS.filter((l) => l.track === (trackId || lesson?.track)),
+    [trackId, lesson?.track]
+  );
+
+  // Check completion from local storage
   useEffect(() => {
-    if (lesson?.starterCode?.html || lesson?.exampleCode?.html) {
-      setPlaygroundCode(lesson.starterCode?.html || lesson.exampleCode?.html || '');
+    if (!lesson?.id) return;
+    AsyncStorage.getItem('clearfeed_learning_progress')
+      .then((raw) => {
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (
+              Array.isArray(parsed?.completedLessons) &&
+              parsed.completedLessons.includes(lesson.id)
+            ) {
+              setIsCompleted(true);
+            }
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, [lesson?.id]);
+
+  useEffect(() => {
+    const code = getLessonCode(lesson);
+    if (code) {
+      setPlaygroundCode(code);
     }
   }, [lesson]);
 
@@ -60,17 +106,56 @@ export const LessonDetailScreen = ({ route, navigation }) => {
 
   const handleCompleteLesson = async () => {
     setCompleting(true);
+    const targetLessonId = lesson.id;
+    const targetTrack = trackId || lesson.track;
+
     try {
-      if (user) {
-        await api.post('/learning/progress/complete', {
-          lessonId: lesson.id,
-          track: trackId || lesson.track,
-        });
+      // 1. Persist locally first
+      const raw = await AsyncStorage.getItem('clearfeed_learning_progress').catch(() => null);
+      let cur = {};
+      try {
+        cur = raw ? JSON.parse(raw) : {};
+      } catch {}
+
+      const completed = Array.isArray(cur.completedLessons) ? [...cur.completedLessons] : [];
+      const already = completed.includes(targetLessonId);
+      if (!already) {
+        completed.push(targetLessonId);
       }
+      const nextXP = already ? (cur.xp || 0) : (cur.xp || 0) + 25;
+
+      const lastByTrack = { ...(cur.lastLessonByTrack || {}) };
+      if (targetTrack) {
+        lastByTrack[targetTrack] = targetLessonId;
+      }
+
+      const updated = {
+        ...cur,
+        completedLessons: completed,
+        xp: nextXP,
+        currentTrack: targetTrack || cur.currentTrack,
+        currentLessonId: targetLessonId,
+        lastLessonByTrack: lastByTrack,
+      };
+      await AsyncStorage.setItem('clearfeed_learning_progress', JSON.stringify(updated)).catch(() => {});
+
+      // 2. Sync to API silently
+      if (user) {
+        await api
+          .post(
+            '/learning/progress/complete',
+            {
+              lessonId: targetLessonId,
+              track: targetTrack,
+            },
+            { silent: true }
+          )
+          .catch(() => {});
+      }
+
       setIsCompleted(true);
       showToast('🎉 Lesson completed! +25 XP awarded', 'success');
-    } catch (err) {
-      // Local fallback
+    } catch {
       setIsCompleted(true);
       showToast('Lesson marked as completed! (+25 XP)', 'success');
     } finally {
@@ -79,13 +164,13 @@ export const LessonDetailScreen = ({ route, navigation }) => {
   };
 
   const handleNextLesson = () => {
-    const currentIndex = LESSONS.findIndex((l) => l.id === lessonId);
-    if (currentIndex >= 0 && currentIndex < LESSONS.length - 1) {
-      const next = LESSONS[currentIndex + 1];
+    const currentIndex = trackLessons.findIndex((l) => l.id === lessonId);
+    if (currentIndex >= 0 && currentIndex < trackLessons.length - 1) {
+      const next = trackLessons[currentIndex + 1];
       navigation.replace('LessonDetail', {
         trackId: next.track,
         lessonId: next.id,
-        lessonTitle: next.title,
+        lessonTitle: typeof next.title === 'object' ? next.title.en : next.title,
         lang,
       });
     } else {
@@ -213,47 +298,51 @@ export const LessonDetailScreen = ({ route, navigation }) => {
               ) : null}
             </View>
 
-            {/* What is it card */}
-            {lesson?.explanation?.whatIsIt && (
+            {/* 1. What is it / Simple Explanation */}
+            {(lesson?.explanation?.simple || lesson?.explanation?.whatIsIt) && (
               <View style={styles.conceptCard}>
                 <View style={styles.conceptCardHeader}>
                   <Ionicons name="information-circle" size={18} color={themeColors.accent} style={{ marginRight: 6 }} />
                   <Text style={styles.conceptCardTitle}>What is it? / এটি কী?</Text>
                 </View>
 
-                {(lang === 'en' || lang === 'both') && lesson.explanation.whatIsIt.en && (
-                  <Text style={styles.conceptBodyText}>{lesson.explanation.whatIsIt.en}</Text>
+                {(lang === 'en' || lang === 'both') && (lesson.explanation?.simple?.en || lesson.explanation?.whatIsIt?.en) && (
+                  <Text style={styles.conceptBodyText}>{lesson.explanation?.simple?.en || lesson.explanation?.whatIsIt?.en}</Text>
                 )}
 
-                {(lang === 'bn' || lang === 'both') && lesson.explanation.whatIsIt.bn && (
+                {(lang === 'bn' || lang === 'both') && (lesson.explanation?.simple?.bn || lesson.explanation?.whatIsIt?.bn) && (
                   <Text style={[styles.conceptBodyTextBn, lang === 'both' && { marginTop: 8 }]}>
-                    {lesson.explanation.whatIsIt.bn}
+                    {lesson.explanation?.simple?.bn || lesson.explanation?.whatIsIt?.bn}
                   </Text>
                 )}
               </View>
             )}
 
-            {/* Why need it card */}
-            {lesson?.explanation?.whyNeedIt && (
+            {/* 2. Behind The Scenes / Why do we need it? */}
+            {(lesson?.explanation?.technical || lesson?.explanation?.whyNeedIt) && (
               <View style={styles.conceptCard}>
                 <View style={styles.conceptCardHeader}>
                   <Ionicons name="bulb-outline" size={18} color="#ffc107" style={{ marginRight: 6 }} />
-                  <Text style={styles.conceptCardTitle}>Why do we need it? / কেন প্রয়োজন?</Text>
+                  <Text style={styles.conceptCardTitle}>
+                    {lesson.explanation?.technical
+                      ? 'Behind The Scenes / মেকানিজম'
+                      : 'Why do we need it? / কেন প্রয়োজন?'}
+                  </Text>
                 </View>
 
-                {(lang === 'en' || lang === 'both') && lesson.explanation.whyNeedIt.en && (
-                  <Text style={styles.conceptBodyText}>{lesson.explanation.whyNeedIt.en}</Text>
+                {(lang === 'en' || lang === 'both') && (lesson.explanation?.technical?.en || lesson.explanation?.whyNeedIt?.en) && (
+                  <Text style={styles.conceptBodyText}>{lesson.explanation?.technical?.en || lesson.explanation?.whyNeedIt?.en}</Text>
                 )}
 
-                {(lang === 'bn' || lang === 'both') && lesson.explanation.whyNeedIt.bn && (
+                {(lang === 'bn' || lang === 'both') && (lesson.explanation?.technical?.bn || lesson.explanation?.whyNeedIt?.bn) && (
                   <Text style={[styles.conceptBodyTextBn, lang === 'both' && { marginTop: 8 }]}>
-                    {lesson.explanation.whyNeedIt.bn}
+                    {lesson.explanation?.technical?.bn || lesson.explanation?.whyNeedIt?.bn}
                   </Text>
                 )}
               </View>
             )}
 
-            {/* Real World Analogy Card */}
+            {/* 3. Real World Analogy Card */}
             {lesson?.explanation?.analogy && (
               <View style={[styles.conceptCard, styles.analogyCard]}>
                 <View style={styles.conceptCardHeader}>
@@ -275,27 +364,65 @@ export const LessonDetailScreen = ({ route, navigation }) => {
               </View>
             )}
 
-            {/* Example Code Snippet Box */}
-            {lesson?.exampleCode && (lesson.exampleCode.html || lesson.exampleCode.css || lesson.exampleCode.javascript) && (
+            {/* 4. Key Takeaways Card */}
+            {Array.isArray(lesson?.keyTakeaways) && lesson.keyTakeaways.length > 0 && (
+              <View style={styles.conceptCard}>
+                <View style={styles.conceptCardHeader}>
+                  <Ionicons name="checkmark-done-circle" size={18} color="#10b981" style={{ marginRight: 6 }} />
+                  <Text style={[styles.conceptCardTitle, { color: '#10b981' }]}>
+                    Key Takeaways / মূল বিষয়সমূহ
+                  </Text>
+                </View>
+                {lesson.keyTakeaways.map((item, idx) => (
+                  <View key={idx} style={{ flexDirection: 'row', marginTop: 6, alignItems: 'flex-start' }}>
+                    <Text style={{ color: themeColors.accent, marginRight: 8, fontSize: 13 }}>•</Text>
+                    <Text style={[styles.conceptBodyText, { flex: 1 }]}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* 5. Rich Content Sections (e.g. Computer Basics) */}
+            {Array.isArray(lesson?.contentSections) && lesson.contentSections.map((sec, sIdx) => (
+              <View key={sIdx} style={styles.conceptCard}>
+                <View style={styles.conceptCardHeader}>
+                  <Ionicons name="book-outline" size={18} color={themeColors.accent} style={{ marginRight: 6 }} />
+                  <Text style={styles.conceptCardTitle}>
+                    {lang === 'bn' ? sec.headingBn || sec.heading : sec.heading}
+                  </Text>
+                </View>
+
+                {(lang === 'en' || lang === 'both') && sec.bodyEn && (
+                  <Text style={styles.conceptBodyText}>{sec.bodyEn}</Text>
+                )}
+
+                {(lang === 'bn' || lang === 'both') && sec.bodyBn && (
+                  <Text style={[styles.conceptBodyTextBn, lang === 'both' && { marginTop: 8 }]}>
+                    {sec.bodyBn}
+                  </Text>
+                )}
+              </View>
+            ))}
+
+            {/* 6. Example Code Snippet Box */}
+            {getLessonCode(lesson) ? (
               <View style={styles.codeSnippetCard}>
                 <View style={styles.codeSnippetHeader}>
                   <Text style={styles.codeSnippetTitle}>Code Syntax Example</Text>
                   <TouchableOpacity
                     style={styles.copyBtn}
-                    onPress={() =>
-                      handleCopyCode(
-                        lesson.exampleCode.html || lesson.exampleCode.css || lesson.exampleCode.javascript
-                      )
-                    }
+                    onPress={() => handleCopyCode(getLessonCode(lesson))}
                   >
                     <Feather name="copy" size={13} color="#ffffff" style={{ marginRight: 4 }} />
                     <Text style={styles.copyBtnText}>Copy</Text>
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.codeSnippetText}>
-                  {lesson.exampleCode.html || lesson.exampleCode.css || lesson.exampleCode.javascript}
-                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <Text style={styles.codeSnippetText}>
+                    {getLessonCode(lesson)}
+                  </Text>
+                </ScrollView>
 
                 {lesson.exampleExplanation && (
                   <View style={styles.codeExplBox}>
@@ -310,7 +437,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
                   </View>
                 )}
               </View>
-            )}
+            ) : null}
           </View>
         )}
 

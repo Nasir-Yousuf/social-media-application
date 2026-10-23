@@ -193,7 +193,7 @@ export const MeshHomeScreen = ({ navigation }) => {
             <MaterialCommunityIcons
               name="account-multiple-outline"
               size={24}
-              color="#1d9bf0"
+              color="#00A6F4"
             />
             <Text
               style={[styles.actionBtnText, { color: currentColors.text }]}

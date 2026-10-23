@@ -11,6 +11,9 @@
     "dev:client": "npm --prefix client run dev",
     "dev:mobile": "npm --prefix mobile run start",
     "mobile": "npm --prefix mobile run start",
+    "dev:desktop": "npm --prefix desktop run dev",
+    "desktop": "npm --prefix desktop run tauri dev",
+    "build:desktop": "npm --prefix desktop run build",
     "clean": "npm --prefix server run clean",
     "install:all": "npm --prefix server install && npm --prefix client install",
     "dev": "npx -y concurrently \"npm run dev:server\" \"npm run dev:client\""

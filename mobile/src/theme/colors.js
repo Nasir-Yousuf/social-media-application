@@ -9,9 +9,9 @@ export const colors = {
   borderLight: '#1f2226',
 
   // Accent Colors
-  accent: '#1d9bf0',       // Twitter Blue
-  accentHover: '#1a8cd8',
-  accentSoft: 'rgba(29, 155, 240, 0.15)',
+  accent: '#00A6F4',       // Clearfeed Bright Blue / Twitter Blue
+  accentHover: '#0095dc',
+  accentSoft: 'rgba(0, 166, 244, 0.15)',
 
   // Interactive Action Colors
   like: '#f91880',         // Twitter Pink Heart

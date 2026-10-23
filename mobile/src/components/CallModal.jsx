@@ -171,12 +171,12 @@ export const CallModal = () => {
                 <Ionicons
                   name={activeCall?.status === 'ringing' ? 'notifications' : 'radio'}
                   size={14}
-                  color={activeCall?.status === 'ringing' ? '#10b981' : '#1d9bf0'}
+                  color={activeCall?.status === 'ringing' ? '#10b981' : '#00A6F4'}
                 />
                 <Text
                   style={[
                     styles.badgeText,
-                    { color: activeCall?.status === 'ringing' ? '#10b981' : '#1d9bf0' },
+                    { color: activeCall?.status === 'ringing' ? '#10b981' : '#00A6F4' },
                   ]}
                 >
                   {activeCall?.status === 'ringing' ? 'RINGING...' : 'CALLING...'}
@@ -274,7 +274,7 @@ export const CallModal = () => {
                 <Ionicons
                   name={isSpeaker ? 'volume-high' : 'volume-medium'}
                   size={24}
-                  color={isSpeaker ? '#1d9bf0' : '#ffffff'}
+                  color={isSpeaker ? '#00A6F4' : '#ffffff'}
                 />
                 <Text style={styles.controlLabel}>{isSpeaker ? 'Speaker' : 'Ear'}</Text>
               </TouchableOpacity>
@@ -299,7 +299,7 @@ export const CallModal = () => {
               </View>
 
               <TouchableOpacity style={styles.copyCodeBtn} onPress={copyRoomLink} activeOpacity={0.7}>
-                <Feather name="copy" size={15} color="#1d9bf0" />
+                <Feather name="copy" size={15} color="#00A6F4" />
                 <Text style={styles.copyCodeText}>Code</Text>
               </TouchableOpacity>
             </View>
@@ -365,7 +365,7 @@ export const CallModal = () => {
                 <Ionicons
                   name={isSpeaker ? 'volume-high' : 'volume-medium'}
                   size={24}
-                  color={isSpeaker ? '#1d9bf0' : '#ffffff'}
+                  color={isSpeaker ? '#00A6F4' : '#ffffff'}
                 />
                 <Text style={styles.controlLabel}>Speaker</Text>
               </TouchableOpacity>
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   waveBar: {
     width: 4,
     borderRadius: 2,
-    backgroundColor: '#1d9bf0',
+    backgroundColor: '#00A6F4',
   },
   connectedStatus: {
     color: '#94a3b8',
@@ -583,13 +583,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(29, 155, 240, 0.12)',
+    backgroundColor: 'rgba(0, 166, 244, 0.15)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   copyCodeText: {
-    color: '#1d9bf0',
+    color: '#00A6F4',
     fontSize: 12,
     fontWeight: '700',
   },

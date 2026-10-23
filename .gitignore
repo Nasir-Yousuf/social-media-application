@@ -3,7 +3,14 @@ node_modules/
 client/node_modules/
 server/node_modules/
 mobile/node_modules/
+desktop/node_modules/
 mobile/.expo/
+
+# Build outputs
+dist/
+client/dist/
+desktop/dist/
+desktop/src-tauri/target/
 
 # Environment variables
 .env

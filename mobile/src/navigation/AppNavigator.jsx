@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -152,20 +152,29 @@ export const AppNavigator = () => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: currentColors?.bg || '#000000' }]}>
         <ClearfeedLogo size={52} style={{ marginBottom: 16 }} />
-        <Text style={styles.loadingLogo}>Clear<Text style={{ color: currentColors?.accent || '#1d9bf0' }}>feed</Text></Text>
+        <Text style={styles.loadingLogo}>Clear<Text style={{ color: currentColors?.accent || '#00A6F4' }}>feed</Text></Text>
       </View>
     );
   }
 
+  const baseTheme = isDark ? DarkTheme : DefaultTheme;
   const navTheme = {
+    ...baseTheme,
     dark: isDark,
     colors: {
-      primary: currentColors?.accent || '#1d9bf0',
+      ...baseTheme.colors,
+      primary: currentColors?.accent || '#00A6F4',
       background: currentColors?.bg || '#000000',
       card: currentColors?.surface || '#16181c',
       text: currentColors?.text || '#e7e9ea',
       border: currentColors?.border || '#2f3336',
-      notification: currentColors?.accent || '#1d9bf0',
+      notification: currentColors?.accent || '#00A6F4',
+    },
+    fonts: baseTheme.fonts || {
+      regular: { fontFamily: 'System', fontWeight: '400' },
+      medium: { fontFamily: 'System', fontWeight: '500' },
+      bold: { fontFamily: 'System', fontWeight: '700' },
+      heavy: { fontFamily: 'System', fontWeight: '900' },
     },
   };
 

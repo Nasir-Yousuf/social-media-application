@@ -3,6 +3,10 @@ import axios from 'axios';
 const PRODUCTION_BACKEND_URL = 'https://clearfeed518.up.railway.app/api';
 
 const getBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('pulse518_api_url');
+    if (custom) return custom.endsWith('/api') ? custom : `${custom}/api`;
+  }
   const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   if (rawUrl) {
     return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;

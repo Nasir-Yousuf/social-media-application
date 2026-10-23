@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   StyleSheet,
   Alert,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -18,6 +20,8 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
 import Avatar from "../components/Avatar";
+import { getBaseUrl, setBaseUrl } from "../api/client";
+import socketService from "../services/socket";
 
 const THEME_ICONS = {
   dark: { name: "moon", library: Ionicons },
@@ -33,6 +37,52 @@ export const SettingsScreen = ({ navigation }) => {
   const { theme, themes, setTheme, colors: currentColors } = useTheme();
   const { user, logout } = useAuth();
   const { showToast } = useNotifications();
+
+  const [serverUrl, setServerUrl] = useState('');
+  const [customInput, setCustomInput] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(socketService.isConnected);
+
+  useEffect(() => {
+    getBaseUrl().then((url) => {
+      setServerUrl(url);
+      setCustomInput(url);
+    });
+
+    const interval = setInterval(() => {
+      setSocketConnected(socketService.isConnected);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSelectServer = async (targetUrl) => {
+    try {
+      await setBaseUrl(targetUrl);
+      setServerUrl(targetUrl);
+      setCustomInput(targetUrl);
+      setShowCustomInput(false);
+      showToast(
+        targetUrl.includes('railway')
+          ? '☁️ Switched to Cloud (Railway)'
+          : '💻 Switched to Local server',
+        'success'
+      );
+    } catch {
+      showToast('Failed to switch server', 'error');
+    }
+  };
+
+  const handleSaveCustom = async () => {
+    if (!customInput.trim()) return;
+    try {
+      await setBaseUrl(customInput.trim());
+      setServerUrl(customInput.trim());
+      setShowCustomInput(false);
+      showToast('Custom server saved & connected', 'success');
+    } catch {
+      showToast('Failed to save server', 'error');
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert("Log out", "Are you sure you want to log out of Clearfeed?", [
@@ -98,7 +148,16 @@ export const SettingsScreen = ({ navigation }) => {
             ]}
           >
             <Avatar src={user.avatarUrl} name={user.name} size="md" />
-            <View style={styles.userInfo}>
+            <TouchableOpacity
+              style={styles.userInfo}
+              activeOpacity={0.8}
+              onPress={() =>
+                navigation.navigate("Profile", {
+                  username: user.username,
+                  userId: user._id,
+                })
+              }
+            >
               <Text style={[styles.userName, { color: currentColors.text }]}>
                 {user.name}
               </Text>
@@ -110,11 +169,14 @@ export const SettingsScreen = ({ navigation }) => {
               >
                 @{user.username}
               </Text>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.profileBtn, { borderColor: currentColors.border }]}
               onPress={() =>
-                navigation.navigate("Profile", { userId: user._id })
+                navigation.navigate("Profile", {
+                  username: user.username,
+                  userId: user._id,
+                })
               }
             >
               <Text
@@ -336,6 +398,203 @@ export const SettingsScreen = ({ navigation }) => {
           </View>
           <Ionicons name="chevron-forward" size={18} color="#00ba7c" />
         </TouchableOpacity>
+
+        {/* Server & Network Connectivity Card */}
+        <View
+          style={[
+            styles.serverCard,
+            {
+              backgroundColor: currentColors.surface,
+              borderColor: currentColors.border,
+            },
+          ]}
+        >
+          <View style={styles.serverCardHeader}>
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1, marginRight: 8 }}>
+              <Ionicons
+                name="cloud-outline"
+                size={18}
+                color={currentColors.accent}
+                style={{ marginRight: 8 }}
+              />
+              <Text
+                style={[styles.serverCardTitle, { color: currentColors.text }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Backend Server & Calling
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.socketBadge,
+                {
+                  backgroundColor: socketConnected ? "rgba(0,186,124,0.15)" : "rgba(239,68,68,0.15)",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.socketDot,
+                  { backgroundColor: socketConnected ? "#00ba7c" : "#ef4444" },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.socketBadgeText,
+                  { color: socketConnected ? "#00ba7c" : "#ef4444" },
+                ]}
+              >
+                {socketConnected ? "Online" : "Connecting..."}
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={[
+              styles.serverCardSubtitle,
+              { color: currentColors.textSecondary },
+            ]}
+          >
+            Connected to:{" "}
+            <Text style={{ fontWeight: "700", color: currentColors.text }}>
+              {serverUrl.includes("railway") ? "☁️ Railway Cloud" : "💻 Local LAN"}
+            </Text>
+          </Text>
+          <View
+            style={[
+              styles.serverUrlBox,
+              {
+                backgroundColor: currentColors.bg,
+                borderColor: currentColors.borderLight || currentColors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.serverUrlText, { color: currentColors.textSecondary }]}
+              numberOfLines={2}
+            >
+              {serverUrl}
+            </Text>
+          </View>
+
+          {/* Quick Preset Buttons */}
+          <View style={styles.presetRow}>
+            <TouchableOpacity
+              style={[
+                styles.presetChip,
+                {
+                  backgroundColor: serverUrl.includes("railway")
+                    ? currentColors.accent
+                    : currentColors.elevated,
+                  borderColor: serverUrl.includes("railway")
+                    ? currentColors.accent
+                    : currentColors.border,
+                },
+              ]}
+              onPress={() =>
+                handleSelectServer("https://clearfeed518.up.railway.app/api")
+              }
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.presetChipText,
+                  {
+                    color: serverUrl.includes("railway") ? "#ffffff" : currentColors.text,
+                    fontWeight: serverUrl.includes("railway") ? "800" : "600",
+                  },
+                ]}
+              >
+                ☁️ Railway Cloud
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.presetChip,
+                {
+                  backgroundColor: serverUrl.includes("192.168.")
+                    ? currentColors.accent
+                    : currentColors.elevated,
+                  borderColor: serverUrl.includes("192.168.")
+                    ? currentColors.accent
+                    : currentColors.border,
+                },
+              ]}
+              onPress={() =>
+                handleSelectServer("http://192.168.0.246:5180/api")
+              }
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.presetChipText,
+                  {
+                    color: serverUrl.includes("192.168.") ? "#ffffff" : currentColors.text,
+                    fontWeight: serverUrl.includes("192.168.") ? "800" : "600",
+                  },
+                ]}
+              >
+                💻 Local Wi-Fi
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.presetChip,
+                {
+                  backgroundColor: showCustomInput
+                    ? currentColors.accent
+                    : currentColors.elevated,
+                  borderColor: showCustomInput
+                    ? currentColors.accent
+                    : currentColors.border,
+                },
+              ]}
+              onPress={() => setShowCustomInput(!showCustomInput)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.presetChipText,
+                  {
+                    color: showCustomInput ? "#ffffff" : currentColors.text,
+                    fontWeight: showCustomInput ? "800" : "600",
+                  },
+                ]}
+              >
+                ✏️ Custom
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {showCustomInput && (
+            <View style={{ marginTop: 10 }}>
+              <TextInput
+                value={customInput}
+                onChangeText={setCustomInput}
+                placeholder="https://your-api.up.railway.app/api"
+                placeholderTextColor={currentColors.textSecondary}
+                style={[
+                  styles.customInput,
+                  {
+                    color: currentColors.text,
+                    borderColor: currentColors.border,
+                    backgroundColor: currentColors.bg,
+                  },
+                ]}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={[styles.customSaveBtn, { backgroundColor: currentColors.accent }]}
+                onPress={handleSaveCustom}
+              >
+                <Text style={styles.customSaveBtnText}>Save & Connect</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* App Info & Logout Section */}
         <View
@@ -574,6 +833,96 @@ const styles = StyleSheet.create({
   logoutBtnText: {
     color: "#f4212e",
     fontSize: 13,
+    fontWeight: "700",
+  },
+  serverCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  serverCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  serverCardTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    flexShrink: 1,
+  },
+  serverCardSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  serverUrlBox: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  serverUrlText: {
+    fontSize: 11,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+  socketBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    flexShrink: 0,
+  },
+  socketDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+  socketBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  presetRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  presetChip: {
+    flexGrow: 1,
+    flexBasis: "28%",
+    minWidth: 95,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  presetChipText: {
+    fontSize: 11,
+    textAlign: "center",
+  },
+  customInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  customSaveBtn: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  customSaveBtnText: {
+    color: "#ffffff",
+    fontSize: 12,
     fontWeight: "700",
   },
 });

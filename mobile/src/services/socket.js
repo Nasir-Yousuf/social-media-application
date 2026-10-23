@@ -6,7 +6,10 @@ class SocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
+    this.isConnecting = false;
+    this.connectPromise = null;
     this.currentToken = null;
+    this.currentServerUrl = null;
     this.listeners = new Map();
   }
 
@@ -16,64 +19,83 @@ class SocketService {
       // Remove trailing /api or /api/
       return apiUrl.replace(/\/api\/?$/, '');
     } catch {
-      return 'http://192.168.0.246:5180';
+      return 'https://clearfeed518.up.railway.app';
     }
   }
 
   async connect(explicitToken = null) {
-    const token = explicitToken || (await AsyncStorage.getItem('token'));
+    const token = explicitToken !== null ? explicitToken : (await AsyncStorage.getItem('token'));
+    const serverUrl = await this.getSocketServerUrl();
 
-    // If already connected with the exact same token, reuse current socket
-    if (this.socket && this.isConnected && this.currentToken === token) {
+    // If already connected with the exact same token and to the same server URL, reuse current socket
+    if (this.socket && this.isConnected && this.currentToken === token && this.currentServerUrl === serverUrl) {
       return this.socket;
     }
 
-    if (this.socket) {
-      try {
-        this.socket.disconnect();
-      } catch {}
-      this.socket = null;
-      this.isConnected = false;
+    // If currently in the process of connecting with the same parameters, return the ongoing promise
+    if (this.isConnecting && this.currentToken === token && this.currentServerUrl === serverUrl && this.connectPromise) {
+      return this.connectPromise;
     }
 
+    this.isConnecting = true;
     this.currentToken = token;
-    const serverUrl = await this.getSocketServerUrl();
+    this.currentServerUrl = serverUrl;
 
-    this.socket = io(serverUrl, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 25,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 15000,
-    });
-
-    // Re-bind all persistent listeners to the new socket instance
-    for (const [event, callbacks] of this.listeners.entries()) {
-      for (const cb of callbacks) {
-        this.socket.on(event, cb);
+    this.connectPromise = (async () => {
+      if (this.socket) {
+        try {
+          this.socket.disconnect();
+        } catch {}
+        this.socket = null;
+        this.isConnected = false;
       }
-    }
 
-    this.socket.on('connect', () => {
-      this.isConnected = true;
-      console.log('⚡ Socket.IO connected to:', serverUrl);
-      if (this.currentToken) {
-        this.socket.emit('auth:identify', { token: this.currentToken });
+      const socket = io(serverUrl, {
+        auth: { token },
+        transports: ['polling', 'websocket'],
+        reconnection: true,
+        reconnectionAttempts: 30,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
+
+      this.socket = socket;
+
+      // Re-bind all persistent listeners to the new socket instance
+      for (const [event, callbacks] of this.listeners.entries()) {
+        for (const cb of callbacks) {
+          socket.on(event, cb);
+        }
       }
-    });
 
-    this.socket.on('disconnect', (reason) => {
-      this.isConnected = false;
-      console.log('🔌 Socket.IO disconnected:', reason);
-    });
+      socket.on('connect', () => {
+        this.isConnected = true;
+        this.isConnecting = false;
+        console.log('⚡ Socket.IO connected to:', serverUrl, `(id: ${socket.id})`);
+        if (this.currentToken) {
+          socket.emit('auth:identify', { token: this.currentToken });
+        }
+        if (this.currentConversationId) {
+          socket.emit('chat:join', { conversationId: this.currentConversationId });
+        }
+      });
 
-    this.socket.on('connect_error', (error) => {
-      console.log('🔌 Socket.IO connection status:', error.message);
-    });
+      socket.on('disconnect', (reason) => {
+        this.isConnected = false;
+        this.isConnecting = false;
+        console.log('🔌 Socket.IO disconnected:', reason);
+      });
 
-    return this.socket;
+      socket.on('connect_error', (error) => {
+        this.isConnecting = false;
+        console.log('🔌 Socket.IO connection notice:', error.message);
+      });
+
+      return socket;
+    })();
+
+    return this.connectPromise;
   }
 
   async reconnect(token = null) {
@@ -135,10 +157,14 @@ class SocketService {
   // Chat Room & Messaging Helpers
   // ------------------------------------------
   joinConversation(conversationId) {
+    this.currentConversationId = conversationId;
     this.emit('chat:join', { conversationId });
   }
 
   leaveConversation(conversationId) {
+    if (this.currentConversationId === conversationId) {
+      this.currentConversationId = null;
+    }
     this.emit('chat:leave', { conversationId });
   }
 

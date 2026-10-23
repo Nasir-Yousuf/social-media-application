@@ -72,6 +72,11 @@ export const ConversationScreen = ({ route, navigation }) => {
   const isNearBottomRef = useRef(true);
   const isMountedRef = useRef(true);
   const typingTimerRef = useRef(null);
+  const otherUserRef = useRef(otherUser);
+
+  useEffect(() => {
+    otherUserRef.current = otherUser;
+  }, [otherUser]);
 
   // Format message time
   const formatMsgTime = (dateStr) => {
@@ -97,10 +102,12 @@ export const ConversationScreen = ({ route, navigation }) => {
     }
   };
 
-  // Scroll to bottom helper
+  // Scroll to bottom helper with immediate and delayed safety passes
   const scrollToBottom = (animated = true) => {
-    if (flatListRef.current && messages.length > 0) {
-      flatListRef.current.scrollToEnd({ animated });
+    if (flatListRef.current) {
+      try {
+        flatListRef.current.scrollToEnd({ animated });
+      } catch {}
     }
   };
 
@@ -131,8 +138,9 @@ export const ConversationScreen = ({ route, navigation }) => {
             return [...serverMessages, ...stillPending];
           });
 
-          // Scroll to bottom if user is already near the bottom
-          if (isNearBottomRef.current && !silent) {
+          // Scroll to bottom on initial load
+          if (!silent) {
+            requestAnimationFrame(() => scrollToBottom(false));
             setTimeout(() => scrollToBottom(false), 80);
           }
         }
@@ -158,43 +166,44 @@ export const ConversationScreen = ({ route, navigation }) => {
 
     // 2. Real-time Incoming Message Listener
     const unsubMsg = socketService.on('chat:message', (payload) => {
-      const msgConvId = payload.conversationId;
-      const incomingMsg = payload.message;
-
+      const incomingMsg = payload?.message;
       if (!incomingMsg) return;
 
-      if (
-        msgConvId === conversationId ||
-        incomingMsg.conversation === conversationId ||
-        incomingMsg.sender?._id === otherUser?._id ||
-        incomingMsg.sender === otherUser?._id
-      ) {
-        if (isMountedRef.current) {
-          setMessages((prev) => {
-            const exists = prev.some(
-              (m) =>
-                m._id === incomingMsg._id ||
-                (m.status === 'sending' && m.text === incomingMsg.text)
+      const currentConvIdStr = conversationId ? conversationId.toString() : '';
+      const payloadConvIdStr = (payload.conversationId || incomingMsg.conversation?._id || incomingMsg.conversation)?.toString() || '';
+      const otherIdStr = (otherUserRef.current?._id || otherUserRef.current?.id || otherUserRef.current)?.toString() || '';
+      const senderIdStr = (incomingMsg.sender?._id || incomingMsg.sender)?.toString() || '';
+      const recipientIdStr = (incomingMsg.recipient?._id || incomingMsg.recipient)?.toString() || '';
+
+      const belongsToThisChat =
+        (payloadConvIdStr && currentConvIdStr && payloadConvIdStr === currentConvIdStr) ||
+        (otherIdStr && (senderIdStr === otherIdStr || recipientIdStr === otherIdStr));
+
+      if (belongsToThisChat && isMountedRef.current) {
+        setMessages((prev) => {
+          const exists = prev.some(
+            (m) =>
+              m._id === incomingMsg._id ||
+              (m.status === 'sending' && m.text === incomingMsg.text)
+          );
+          if (exists) {
+            return prev.map((m) =>
+              m._id === incomingMsg._id || (m.status === 'sending' && m.text === incomingMsg.text)
+                ? incomingMsg
+                : m
             );
-            if (exists) {
-              return prev.map((m) =>
-                m._id === incomingMsg._id || (m.status === 'sending' && m.text === incomingMsg.text)
-                  ? incomingMsg
-                  : m
-              );
-            }
-            return [...prev, incomingMsg];
-          });
-
-          // Acknowledge read if message is from the other person
-          if (
-            incomingMsg.sender?._id === otherUser?._id ||
-            incomingMsg.sender === otherUser?._id
-          ) {
-            socketService.markMessagesAsRead(conversationId, [incomingMsg._id]);
           }
+          return [...prev, incomingMsg];
+        });
 
-          setTimeout(() => scrollToBottom(true), 60);
+        // Always auto-scroll down to the new message
+        isNearBottomRef.current = true;
+        requestAnimationFrame(() => scrollToBottom(true));
+        setTimeout(() => scrollToBottom(true), 80);
+
+        // Acknowledge read if message is from the other person
+        if (otherIdStr && senderIdStr === otherIdStr) {
+          socketService.markMessagesAsRead(conversationId, [incomingMsg._id]);
         }
       }
     });
@@ -202,8 +211,8 @@ export const ConversationScreen = ({ route, navigation }) => {
     // 3. Real-time Typing Status Listener
     const unsubTyping = socketService.on('chat:typing', (data) => {
       if (
-        data.conversationId === conversationId &&
-        data.userId !== currentUser?._id
+        data.conversationId?.toString() === conversationId?.toString() &&
+        data.userId?.toString() !== currentUser?._id?.toString()
       ) {
         if (isMountedRef.current) {
           setIsOtherUserTyping(data.isTyping);
@@ -213,11 +222,11 @@ export const ConversationScreen = ({ route, navigation }) => {
 
     // 4. Real-time Double-Blue-Check Read Receipt Listener
     const unsubRead = socketService.on('chat:messages_read', (data) => {
-      if (data.conversationId === conversationId) {
+      if (data.conversationId?.toString() === conversationId?.toString()) {
         if (isMountedRef.current) {
           setMessages((prev) =>
             prev.map((m) =>
-              (m.sender?._id || m.sender) === currentUser?._id
+              (m.sender?._id || m.sender)?.toString() === currentUser?._id?.toString()
                 ? { ...m, isRead: true }
                 : m
             )
@@ -228,18 +237,20 @@ export const ConversationScreen = ({ route, navigation }) => {
 
     // 5. Real-time Presence Listener
     const unsubOnline = socketService.on('presence:user_online', (data) => {
-      if (data.userId === otherUser?._id) {
+      const otherId = (otherUserRef.current?._id || otherUserRef.current?.id)?.toString();
+      if (data.userId?.toString() === otherId) {
         if (isMountedRef.current) setIsOtherUserOnline(true);
       }
     });
 
     const unsubOffline = socketService.on('presence:user_offline', (data) => {
-      if (data.userId === otherUser?._id) {
+      const otherId = (otherUserRef.current?._id || otherUserRef.current?.id)?.toString();
+      if (data.userId?.toString() === otherId) {
         if (isMountedRef.current) setIsOtherUserOnline(false);
       }
     });
 
-    // Passive fallback interval (18s instead of heavy 2.8s polling)
+    // Passive fallback interval (18s background safety sync)
     const fallbackSync = setInterval(() => {
       fetchMessages(true);
     }, 18000);
@@ -248,7 +259,7 @@ export const ConversationScreen = ({ route, navigation }) => {
       isMountedRef.current = false;
       clearInterval(fallbackSync);
       socketService.leaveConversation(conversationId);
-      socketService.sendTypingStatus(conversationId, otherUser?._id, false);
+      socketService.sendTypingStatus(conversationId, otherUserRef.current?._id, false);
       unsubMsg();
       unsubTyping();
       unsubRead();
@@ -256,7 +267,7 @@ export const ConversationScreen = ({ route, navigation }) => {
       unsubOffline();
       if (fetchUnreadCount) fetchUnreadCount();
     };
-  }, [conversationId, otherUser, currentUser, fetchMessages, fetchUnreadCount]);
+  }, [conversationId, currentUser?._id, fetchMessages, fetchUnreadCount]);
 
   // Handle typing input
   const handleTypingChange = (text) => {
@@ -296,7 +307,9 @@ export const ConversationScreen = ({ route, navigation }) => {
     setShowCodeEditor(false);
     setSending(true);
 
-    setTimeout(() => scrollToBottom(true), 40);
+    isNearBottomRef.current = true;
+    requestAnimationFrame(() => scrollToBottom(true));
+    setTimeout(() => scrollToBottom(true), 60);
 
     try {
       const payload = {
@@ -697,6 +710,14 @@ export const ConversationScreen = ({ route, navigation }) => {
           keyExtractor={(item) => item._id}
           renderItem={renderMessageItem}
           contentContainerStyle={styles.listContent}
+          onContentSizeChange={() => {
+            if (isNearBottomRef.current) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          onLayout={() => {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }}
           onScroll={(e) => {
             const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
             const distance = contentSize.height - layoutMeasurement.height - contentOffset.y;

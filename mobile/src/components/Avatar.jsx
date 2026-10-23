@@ -5,7 +5,7 @@ import { VerifiedBadge } from './TwitterIcons';
 import { resolveAvatarUrl } from '../api/client';
 
 const TWITTER_PALETTE = [
-  '#1d9bf0', // Blue
+  '#00A6F4', // Blue
   '#00ba7c', // Green
   '#f91880', // Pink
   '#ffd700', // Gold

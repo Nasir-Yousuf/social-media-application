@@ -84,8 +84,8 @@ export const MeshConversationScreen = ({ route, navigation }) => {
       case DeliveryState.SENT_NEIGHBOR:
         return (
           <View style={styles.deliveryRow}>
-            <Ionicons name="radio-outline" size={13} color="#1d9bf0" />
-            <Text style={[styles.deliveryText, { color: '#1d9bf0' }]}>Sent to Neighbor</Text>
+            <Ionicons name="radio-outline" size={13} color="#00A6F4" />
+            <Text style={[styles.deliveryText, { color: '#00A6F4' }]}>Sent to Neighbor</Text>
           </View>
         );
       case DeliveryState.RELAYED:

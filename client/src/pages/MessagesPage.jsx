@@ -29,6 +29,7 @@ import Avatar from '../components/common/Avatar';
 import Modal from '../components/common/Modal';
 import TwitterSpinner from '../components/common/TwitterSpinner';
 import api from '../api/client';
+import socketService from '../services/socket';
 import {
   WhatsAppReactionPicker,
   WhatsAppReactionsBadge,
@@ -301,6 +302,45 @@ export const MessagesPage = () => {
 
     return () => clearInterval(pollInterval);
   }, [activeConversation?._id, fetchMessages, fetchConversations]);
+
+  // Instant real-time message stream listener & auto-scroll
+  useEffect(() => {
+    const unsubMsg = socketService.on('chat:message', (payload) => {
+      const incoming = payload?.message;
+      if (!incoming) return;
+
+      const currentActiveId = activeConvIdRef.current;
+      const msgConvId = (payload.conversationId || incoming.conversation?._id || incoming.conversation)?.toString();
+
+      if (currentActiveId && msgConvId === currentActiveId.toString()) {
+        setMessages((prev) => {
+          const exists = prev.some(
+            (m) =>
+              m._id === incoming._id ||
+              (m.status === 'sending' && m.text === incoming.text)
+          );
+          if (exists) {
+            return prev.map((m) =>
+              m._id === incoming._id || (m.status === 'sending' && m.text === incoming.text)
+                ? incoming
+                : m
+            );
+          }
+          return [...prev, incoming];
+        });
+
+        requestAnimationFrame(() => scrollToBottom(true));
+        setTimeout(() => scrollToBottom(true), 60);
+      }
+
+      // Automatically refresh sidebar conversation list with new lastMessage
+      fetchConversations(true);
+    });
+
+    return () => {
+      unsubMsg();
+    };
+  }, [fetchConversations]);
 
   // Select a conversation from list
   const handleSelectConversation = (conv) => {

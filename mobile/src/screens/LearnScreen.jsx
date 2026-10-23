@@ -16,14 +16,46 @@ import colors from '../theme/colors';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { CURRICULUM_DATA, TRACK_METADATA } from '../data/learningCurriculum';
+import { useTheme } from '../context/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TRACKS, CURRICULUM_DATA, TRACK_METADATA } from '../data/learningCurriculum';
 
-const TRACKS = [
-  { id: 'html', title: 'HTML5', icon: 'html5', library: FontAwesome5, color: '#e34f26' },
-  { id: 'css', title: 'CSS3', icon: 'css3-alt', library: FontAwesome5, color: '#264de4' },
-  { id: 'javascript', title: 'JavaScript', icon: 'js', library: FontAwesome5, color: '#f7df1e' },
-  { id: 'bootstrap', title: 'Bootstrap', icon: 'bootstrap', library: FontAwesome5, color: '#7952b3' },
-];
+const getTrackIconInfo = (t) => {
+  switch (t.id) {
+    case 'computer-basics':
+      return { lib: MaterialCommunityIcons, icon: 'cpu-64-bit', color: '#10b981' };
+    case 'html':
+      return { lib: FontAwesome5, icon: 'html5', color: '#e34f26' };
+    case 'css':
+      return { lib: FontAwesome5, icon: 'css3-alt', color: '#264de4' };
+    case 'bootstrap':
+      return { lib: FontAwesome5, icon: 'bootstrap', color: '#9333ea' };
+    case 'javascript':
+      return { lib: FontAwesome5, icon: 'js', color: '#f7df1e' };
+    case 'react':
+      return { lib: FontAwesome5, icon: 'react', color: '#38bdf8' };
+    case 'typescript':
+      return { lib: MaterialCommunityIcons, icon: 'language-typescript', color: '#3178c6' };
+    case 'tailwind':
+      return { lib: MaterialCommunityIcons, icon: 'tailwind', color: '#0ea5e9' };
+    case 'nextjs':
+      return { lib: MaterialCommunityIcons, icon: 'triangle', color: '#e7e9ea' };
+    case 'python':
+      return { lib: FontAwesome5, icon: 'python', color: '#3776ab' };
+    case 'pycharm':
+      return { lib: MaterialCommunityIcons, icon: 'application-edit-outline', color: '#10b981' };
+    case 'python-ai':
+      return { lib: MaterialCommunityIcons, icon: 'robot-outline', color: '#06b6d4' };
+    case 'ai':
+      return { lib: FontAwesome5, icon: 'brain', color: '#10b981' };
+    case 'english':
+      return { lib: Ionicons, icon: 'book-outline', color: '#00A6F4' };
+    case 'mysql':
+      return { lib: FontAwesome5, icon: 'database', color: '#00758f' };
+    default:
+      return { lib: Ionicons, icon: 'code-slash', color: t.accentColor || '#00A6F4' };
+  }
+};
 
 export const LearnScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -40,6 +72,28 @@ export const LearnScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Hydrate initial progress from local storage
+  useEffect(() => {
+    AsyncStorage.getItem('clearfeed_learning_progress')
+      .then((raw) => {
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              setProgress((prev) => ({
+                ...prev,
+                ...parsed,
+                completedLessons: Array.isArray(parsed.completedLessons)
+                  ? parsed.completedLessons
+                  : prev.completedLessons,
+              }));
+            }
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Fetch student learning progress from server
   const fetchProgress = useCallback(async (isRefresh = false) => {
     if (!user) return;
@@ -47,18 +101,33 @@ export const LearnScreen = ({ navigation }) => {
     else setLoading(true);
 
     try {
-      const res = await api.get('/learning/progress');
+      const res = await api.get('/learning/progress', { silent: true });
       if (res?.data?.progress) {
-        setProgress((prev) => ({
-          ...prev,
-          ...res.data.progress,
+        const next = {
           completedLessons: Array.isArray(res.data.progress.completedLessons)
             ? res.data.progress.completedLessons
-            : prev.completedLessons || [],
-        }));
+            : [],
+          xp: res.data.progress.xp || 0,
+          streak: res.data.progress.streak || 1,
+          ...res.data.progress,
+        };
+        setProgress((prev) => {
+          const merged = {
+            ...prev,
+            ...next,
+            completedLessons: Array.from(
+              new Set([
+                ...(prev.completedLessons || []),
+                ...(next.completedLessons || []),
+              ])
+            ),
+          };
+          AsyncStorage.setItem('clearfeed_learning_progress', JSON.stringify(merged)).catch(() => {});
+          return merged;
+        });
       }
     } catch {
-      // Ignored if offline or fallback
+      // Ignored if offline or fallback route
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -186,9 +255,9 @@ export const LearnScreen = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          <View>
-            <Text style={styles.headerTitle}>Learn Studio</Text>
-            <Text style={styles.headerSubtitle}>Interactive web architecture curriculum</Text>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.headerTitle} numberOfLines={1}>Learn Studio</Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>All 15 Web, AI & Foundations Tracks</Text>
           </View>
 
           {/* Bilingual Selector (EN / BN / Both) */}
@@ -196,18 +265,21 @@ export const LearnScreen = ({ navigation }) => {
             <TouchableOpacity
               style={[styles.langBtn, lang === 'en' && styles.langBtnActive]}
               onPress={() => setLang('en')}
+              activeOpacity={0.8}
             >
               <Text style={[styles.langBtnText, lang === 'en' && styles.langBtnTextActive]}>EN</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.langBtn, lang === 'bn' && styles.langBtnActive]}
               onPress={() => setLang('bn')}
+              activeOpacity={0.8}
             >
               <Text style={[styles.langBtnText, lang === 'bn' && styles.langBtnTextActive]}>বাং</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.langBtn, lang === 'both' && styles.langBtnActive]}
               onPress={() => setLang('both')}
+              activeOpacity={0.8}
             >
               <Text style={[styles.langBtnText, lang === 'both' && styles.langBtnTextActive]}>ALL</Text>
             </TouchableOpacity>
@@ -223,27 +295,51 @@ export const LearnScreen = ({ navigation }) => {
         >
           {TRACKS.map((t) => {
             const isSelected = selectedTrack === t.id;
-            const IconLib = t.library;
+            const iconInfo = getTrackIconInfo(t);
+            const IconLib = iconInfo.lib;
+            const trackColor = iconInfo.color;
 
             return (
               <TouchableOpacity
                 key={t.id}
                 style={[
                   styles.trackPill,
-                  isSelected && { backgroundColor: t.color, borderColor: t.color },
+                  isSelected && { backgroundColor: trackColor, borderColor: trackColor },
                 ]}
                 onPress={() => setSelectedTrack(t.id)}
                 activeOpacity={0.8}
               >
                 <IconLib
-                  name={t.icon}
-                  size={15}
-                  color={isSelected ? '#ffffff' : t.color}
+                  name={iconInfo.icon}
+                  size={14}
+                  color={isSelected ? '#ffffff' : trackColor}
                   style={{ marginRight: 6 }}
                 />
-                <Text style={[styles.trackPillText, isSelected && { color: '#ffffff' }]}>
+                <Text
+                  style={[
+                    styles.trackPillText,
+                    isSelected && { color: '#ffffff', fontWeight: '800' },
+                  ]}
+                >
                   {t.title}
                 </Text>
+                {t.totalLessons ? (
+                  <View
+                    style={[
+                      styles.trackCountBadge,
+                      isSelected && { backgroundColor: 'rgba(255,255,255,0.25)' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.trackCountBadgeText,
+                        isSelected && { color: '#ffffff' },
+                      ]}
+                    >
+                      {t.totalLessons}
+                    </Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -312,6 +408,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  headerTitleCol: {
+    flex: 1,
+    marginRight: 10,
+    minWidth: 0,
+  },
   headerTitle: {
     fontSize: 22,
     fontWeight: '900',
@@ -330,6 +431,7 @@ const styles = StyleSheet.create({
     padding: 2,
     borderWidth: 1,
     borderColor: colors.border,
+    flexShrink: 0,
   },
   langBtn: {
     paddingHorizontal: 8,
@@ -359,7 +461,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 20,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     marginRight: 8,
     borderWidth: 1,
@@ -369,6 +471,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: colors.text,
+  },
+  trackCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 6,
+  },
+  trackCountBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   statsBanner: {
     flexDirection: 'row',

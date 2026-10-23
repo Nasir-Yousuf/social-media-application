@@ -250,20 +250,19 @@ exports.getMe = async (req, res) => {
 // Guest Login (allows exploring Clearfeed without registering or entering credentials)
 exports.guestLogin = async (req, res) => {
   try {
-    let guestUser = await User.findOne({ username: 'guest' });
-
-    if (!guestUser) {
-      guestUser = new User({
-        name: 'Guest Explorer',
-        username: 'guest',
-        email: 'guest@clearfeed.local',
-        password: 'GuestPassword#2026',
-        bio: 'Exploring Clearfeed as a guest community visitor.',
-        avatarUrl: 'https://api.dicebear.com/7.x/initials/svg?seed=Guest&backgroundColor=0284c7&textColor=ffffff',
-        role: 'student',
-        isApproved: true,
-      });
-    }
+    // Generate distinct guest user so multiple testers/browsers don't collide on calls/chat
+    const guestNum = Math.floor(1000 + Math.random() * 9000);
+    const guestUsername = `guest_${guestNum}`;
+    const guestUser = new User({
+      name: `Guest Explorer #${guestNum}`,
+      username: guestUsername,
+      email: `guest_${guestNum}@clearfeed.local`,
+      password: `GuestPass#${guestNum}#2026`,
+      bio: 'Exploring Clearfeed as a guest community visitor.',
+      avatarUrl: `https://api.dicebear.com/7.x/bottts/png?seed=${guestUsername}`,
+      role: 'student',
+      isApproved: true,
+    });
 
     const clientIp = getClientIp(req);
     const userAgent = req.headers ? req.headers['user-agent'] || '' : '';

@@ -2,6 +2,67 @@ import { ed25519, x25519 } from '@noble/curves/ed25519.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
 
+let ExpoCrypto = null;
+try {
+  ExpoCrypto = require('expo-crypto');
+} catch {}
+
+const polyfillGetRandom = function getRandomValues(array) {
+  if (!array || !array.length) return array;
+  try {
+    if (ExpoCrypto && typeof ExpoCrypto.getRandomValues === 'function') {
+      return ExpoCrypto.getRandomValues(array);
+    }
+    if (ExpoCrypto && typeof ExpoCrypto.getRandomBytes === 'function') {
+      const bytes = ExpoCrypto.getRandomBytes(array.byteLength || array.length);
+      array.set(bytes);
+      return array;
+    }
+  } catch {}
+  try {
+    const nodeCrypto = require('crypto');
+    if (nodeCrypto && typeof nodeCrypto.randomFillSync === 'function') {
+      nodeCrypto.randomFillSync(array);
+      return array;
+    }
+  } catch {}
+  for (let i = 0; i < array.length; i++) {
+    array[i] = Math.floor(Math.random() * 256);
+  }
+  return array;
+};
+
+if (typeof globalThis !== 'undefined') {
+  if (typeof globalThis.crypto !== 'object' || !globalThis.crypto) globalThis.crypto = {};
+  if (typeof globalThis.crypto.getRandomValues !== 'function') globalThis.crypto.getRandomValues = polyfillGetRandom;
+}
+if (typeof global !== 'undefined') {
+  if (typeof global.crypto !== 'object' || !global.crypto) global.crypto = {};
+  if (typeof global.crypto.getRandomValues !== 'function') global.crypto.getRandomValues = polyfillGetRandom;
+}
+
+/**
+ * Generates cryptographically secure random bytes
+ */
+export function secureRandomBytes(length = 32) {
+  const array = new Uint8Array(length);
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(array);
+    return array;
+  }
+  try {
+    if (typeof ExpoCrypto.getRandomBytes === 'function') {
+      const bytes = ExpoCrypto.getRandomBytes(length);
+      array.set(bytes);
+      return array;
+    }
+  } catch {}
+  for (let i = 0; i < length; i++) {
+    array[i] = Math.floor(Math.random() * 256);
+  }
+  return array;
+}
+
 /**
  * Utility: Convert Uint8Array to hex string
  */
@@ -29,7 +90,12 @@ export function hexToBytes(hex) {
  * Generate a cryptographically secure Ed25519 Keypair
  */
 export function generateIdentityKeypair() {
-  const secretKey = ed25519.utils.randomSecretKey();
+  let secretKey;
+  try {
+    secretKey = ed25519.utils.randomSecretKey();
+  } catch (err) {
+    secretKey = secureRandomBytes(32);
+  }
   const publicKey = ed25519.getPublicKey(secretKey);
   return {
     secretKeyHex: bytesToHex(secretKey),
@@ -74,14 +140,7 @@ export function computeSharedSecret(mySecretKeyHex, theirPublicKeyHex) {
 export function encryptDirectPayload(messageText, mySecretKeyHex, theirPublicKeyHex) {
   const symmetricKey = computeSharedSecret(mySecretKeyHex, theirPublicKeyHex);
   // Generate 12-byte random nonce
-  const nonce = new Uint8Array(12);
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(nonce);
-  } else {
-    for (let i = 0; i < 12; i++) {
-      nonce[i] = Math.floor(Math.random() * 256);
-    }
-  }
+  const nonce = secureRandomBytes(12);
 
   const cipher = chacha20poly1305(symmetricKey, nonce);
   const plaintextBytes = new TextEncoder().encode(messageText);

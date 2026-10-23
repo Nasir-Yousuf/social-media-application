@@ -34,7 +34,12 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } catch (err) {
-        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        const isAuthError =
+          (err && (err.status === 401 || err.status === 403)) ||
+          (err.response && (err.response.status === 401 || err.response.status === 403)) ||
+          (err.message && err.message.toLowerCase().includes('token'));
+
+        if (isAuthError) {
           console.log('Session expired or invalid, clearing storage');
           await AsyncStorage.removeItem('token');
           setToken(null);

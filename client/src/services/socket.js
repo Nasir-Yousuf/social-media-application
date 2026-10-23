@@ -9,6 +9,10 @@ class SocketService {
   }
 
   getSocketServerUrl() {
+    if (typeof window !== 'undefined') {
+      const custom = localStorage.getItem('pulse518_api_url');
+      if (custom) return custom.replace(/\/api\/?$/, '');
+    }
     const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
     if (rawUrl) {
       return rawUrl.replace(/\/api\/?$/, '');
@@ -65,7 +69,7 @@ class SocketService {
 
     this.socket = io(serverUrl, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 25,
       reconnectionDelay: 1000,

@@ -24,7 +24,14 @@ A high-performance full-stack social network and developer code studio engineere
 - [System Architecture](#-system-architecture)
 - [Key Engineering Highlights](#-key-engineering-highlights)
 - [Core Features](#-core-features)
+  - [1. The Chronological Feed](#1--the-chronological-feed--calm-reading-experience)
+  - [2. Multi-File CodeHub Studio](#2--multi-file-codehub-studio)
+  - [3. Clearfeed Learn & Academy (15 Tracks & 446 Lessons)](#3--clearfeed-learn--academy-15-tracks--446-lessons)
+  - [4. Administrative Governance & Security Dashboard](#4-️-administrative-governance--security-dashboard)
+  - [5. Personal Knowledge Base & Bookmarks](#5--personal-knowledge-base--bookmarks)
+  - [6. Community Directory & Member Profiles](#6--community-directory--member-profiles)
 - [Clearfeed Mesh: Standalone Offline P2P Subsystem](#-clearfeed-mesh-standalone-offline-p2p-subsystem)
+- [Desktop Application (Tauri 2 + Rust + React 19)](#-desktop-application-tauri-2--rust--react-19)
 - [Tech Stack](#-tech-stack)
 - [API Architecture](#-api-architecture)
 - [Zero-Cloud-Cost Storage Engine](#-zero-cloud-cost-storage-engine)
@@ -44,7 +51,9 @@ Modern social networks are architected around algorithmic feedback loops, outrag
 **Clearfeed** re-engineers social interaction from first principles:
 
 - **Strictly Chronological Timeline**: Posts appear in the exact order they are created. No shadow-boosting, no engagement downranking.
+- **Universal Interactive Learn & Academy**: 15 complete learning tracks with 446 distinct bilingual lessons (English + বাংলা), interactive code sandboxes, challenges, quizzes, and certificates across Web, Desktop, and Mobile.
 - **Developer First**: Native **VS Code-styled Multi-File CodeHub Studio** for sharing, inspecting, and 1-click remixing real codebases alongside technical discussions.
+- **Cross-Platform Native & Offline**: Web (React 19), Mobile (React Native + Expo), and Desktop (Tauri 2 + Rust) with an autonomous offline peer-to-peer mesh.
 - **Zero-Cloud-Cost Scalability**: Engineered with custom client-side HTML5 canvas compression and MongoDB binary stream avatars, eliminating AWS S3/Cloudinary monthly billing.
 - **Enterprise-Grade Governance**: Multi-tenant role-based access control (RBAC), multi-maintainer protection, reverse-proxy-aware client IP telemetry, and active audit logging.
 
@@ -54,8 +63,9 @@ Modern social networks are architected around algorithmic feedback loops, outrag
 
 ```mermaid
 graph TD
-    subgraph Clients ["Client Applications"]
+    subgraph Clients ["Client Applications (Universal Ecosystem)"]
         WEB["React 19 Web App (Vite + Tailwind CSS v4)"]
+        DESKTOP["Clearfeed Desktop (Tauri 2 + Rust Core + React 19)"]
         MOBILE["React Native Mobile App (Expo SDK 57)"]
     end
 
@@ -66,21 +76,35 @@ graph TD
     subgraph Backend ["Application Layer (Railway)"]
         EXPRESS["Express 5 REST API Engine"]
         AUTH["JWT & bcrypt Authentication Service"]
+        LEARN["Learning & Curriculum Progress Engine"]
         IP["Client IP Telemetry & Proxy Resolver"]
         RBAC["Role-Based Access Control Middleware"]
     end
 
+    subgraph OfflineSubsystem ["Offline Subsystem (Zero Cloud)"]
+        MESH["Clearfeed Mesh P2P Engine\n(Ed25519 + X25519 + ChaCha20-Poly1305)"]
+        OFFLINE_DATA["Local Storage Curricula (446 Lessons Offline)"]
+    end
+
     subgraph DataLayer ["Persistence Layer (MongoDB Atlas)"]
         MONGO_DOCS[("User, Post, Comment Collections")]
+        MONGO_LEARN[("Learning Progress & Certifications")]
         MONGO_BIN[("Binary Avatar Storage (BSON Buffer)")]
     end
 
     WEB --> VERCEL --> EXPRESS
+    DESKTOP --> EXPRESS
     MOBILE --> EXPRESS
+    DESKTOP -.-> MESH
+    MOBILE -.-> MESH
+    DESKTOP -.-> OFFLINE_DATA
+    MOBILE -.-> OFFLINE_DATA
     EXPRESS --> AUTH
+    EXPRESS --> LEARN
     EXPRESS --> IP
     EXPRESS --> RBAC
     AUTH --> MONGO_DOCS
+    LEARN --> MONGO_LEARN
     RBAC --> MONGO_DOCS
     EXPRESS --> MONGO_BIN
 ```
@@ -89,13 +113,15 @@ graph TD
 
 ## ⚡ Key Engineering Highlights
 
-| Highlight                            | Description                                                                                                                                       |
-| :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Full-Stack Reactive Architecture** | Built with **React 19**, **Express 5**, and **Mongoose 8** with full end-to-end type safety, modern async middleware, and optimistic UI updates.  |
-| **Client-Side Image Pre-Processing** | Canvas-based downscaling resizes profile photos to 128×128 JPEG at ≤100KB before transmission, reducing network payload by ~95%.                  |
-| **Reverse-Proxy-Aware IP Telemetry** | Extracts and normalizes genuine client IP addresses through Cloudflare, Vercel, and Railway headers (`CF-Connecting-IP`, `X-Forwarded-For`).      |
-| **Maintainer Governance Safeguards** | Designated site maintainers are cryptographically shielded from unauthorized role changes, suspension, or deletion. |
-| **Mobile Parity**                    | Standalone iOS & Android application built with React Native and Expo featuring Twitter's "Lights Out" design system and native gesture handling. |
+| Highlight                            | Description                                                                                                                                                     |
+| :----------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Full-Stack Reactive Architecture** | Built with **React 19**, **Express 5**, and **Mongoose 8** with full end-to-end type safety, modern async middleware, and optimistic UI updates.                |
+| **Universal Learn & Academy**        | **15 Complete Tracks & 446 distinct bilingual lessons** with live sandboxes, unit tests, quizzes, and certificates across Web, Desktop, and Mobile.            |
+| **Native Desktop App (Tauri 2)**     | Ultra-lightweight native desktop binary built with Rust and React 19, supporting offline learning, mesh communication, and global keyboard shortcuts.          |
+| **Client-Side Image Pre-Processing** | Canvas-based downscaling resizes profile photos to 128×128 JPEG at ≤100KB before transmission, reducing network payload by ~95%.                                |
+| **Reverse-Proxy-Aware IP Telemetry** | Extracts and normalizes genuine client IP addresses through Cloudflare, Vercel, and Railway headers (`CF-Connecting-IP`, `X-Forwarded-For`).                    |
+| **Maintainer Governance Safeguards** | Designated site maintainers are cryptographically shielded from unauthorized role changes, suspension, or deletion.                                             |
+| **Mobile Parity**                    | Standalone iOS & Android application built with React Native and Expo featuring Twitter's "Lights Out" design system and native gesture handling.               |
 | **Clearfeed Mesh (Offline P2P)**     | Autonomous multi-hop peer-to-peer communication engine using **Ed25519**, **X25519**, and **ChaCha20-Poly1305** for zero-cloud, account-free offline messaging. |
 
 ---
@@ -115,19 +141,34 @@ graph TD
 - **Multi-File Projects**: Share HTML, CSS, JavaScript, TypeScript, Python, SQL, and React components in a single post.
 - **1-Click Remix & Fork**: Clone any shared code snippet directly into your composer with automatic author attribution.
 
-### 3. 🛡️ Administrative Governance & Security Dashboard
+### 3. 🎓 Clearfeed Learn & Academy (15 Tracks & 446 Lessons)
+
+Clearfeed includes a complete, production-grade interactive learning academy integrated natively into **Web**, **Desktop**, and **Mobile**:
+
+- **15 Structured Curricula**:
+  - **Foundations**: Computer Basics (8 lessons), HTML (12 lessons), CSS (15 lessons), Bootstrap 5 (6 lessons), JavaScript (8 lessons), English Grammar Master (10 lessons).
+  - **Frontend & Modern Web**: React (40 lessons), TypeScript (30 lessons), Tailwind CSS (30 lessons), Next.js App Router (35 lessons).
+  - **Python & Artificial Intelligence**: Python from A to Z (50 lessons), PyCharm IDE (12 lessons), Python for AI & ML (30 lessons), AI Academy (100 lessons).
+  - **Databases & Systems**: MySQL Mastery (60 lessons).
+- **Zero Placeholder Repetition**: Every single one of the 446 lessons is completely distinct, containing topic-specific real-world analogies, deep technical architecture notes, and runnable code examples.
+- **Bilingual English + বাংলা**: Complete bilingual translations with quick toggles (EN / বাংলা / Both) for conceptual clarity.
+- **Interactive In-Browser & In-App Sandboxes**: Live code editors with instant simulated execution consoles across Web and Desktop.
+- **Formative Quizzes & Official Certificates**: End-of-lesson multiple choice questions with instant explanations, plus printable verified track completion certificates.
+- **Offline Resilience**: Mobile and Desktop clients run all 446 lessons 100% offline via local storage without requiring internet or account logins.
+
+### 4. 🛡️ Administrative Governance & Security Dashboard
 
 - **Role-Based Access Control**: Instant permission toggles (`admin` vs. `student`/member).
 - **Live Traffic & IP Audit Logs**: Real-time inspection of IP addresses attached to registrations, logins, posts, and comments.
 - **Platform Integrity**: Post deletion across the network, user suspension controls, and site-wide announcement broadcasts.
 - **Maintainer Safeguards**: Primary platform maintainers hold non-demotable administrative status to protect application infrastructure.
 
-### 4. 🔖 Personal Knowledge Base & Bookmarks
+### 5. 🔖 Personal Knowledge Base & Bookmarks
 
 - Privately bookmark posts, technical guides, and code snippets to `/bookmarks`.
 - Instant search and filtering across saved entries.
 
-### 5. 👥 Community Directory & Member Profiles
+### 6. 👥 Community Directory & Member Profiles
 
 - Public profiles displaying user bio, technical interests, role badges, and custom status lines (e.g. `🔨 Building a compiler`).
 - Community directory with real-time search and role filtering.
@@ -158,6 +199,7 @@ graph LR
 ### 1. Architectural Independence & Decoupling
 
 Clearfeed Mesh is engineered with an uncompromising architectural boundary:
+
 - **Zero Cloud Coupling**: Mesh operates completely independent of the online MongoDB database, Express API, Socket.io server, and JWT authentication service.
 - **Account-Free Onboarding**: Users can launch Clearfeed Mesh in basements, hostels, remote rural locations, or emergency blackout zones and communicate immediately without registering or signing into a central account.
 - **Strict Privacy Isolation**: Local Mesh messages and cryptographic private keys are never automatically synchronized to or stored on the Clearfeed cloud backend.
@@ -167,13 +209,13 @@ Clearfeed Mesh is engineered with an uncompromising architectural boundary:
 
 Clearfeed Mesh implements an audited, zero-dependency cryptographic foundation using modern primitives with zero custom algorithms:
 
-| Layer | Primitive | Purpose | Implementation |
-| :--- | :--- | :--- | :--- |
-| **Identity & Signing** | **Ed25519** (256-bit) | Local public key identities and digital packet signing | `@noble/curves/ed25519` |
-| **Key Agreement** | **X25519** (Montgomery) | Ephemeral / Static Diffie-Hellman key exchange via curve conversion | `@noble/curves/ed25519` |
-| **Payload Encryption** | **ChaCha20-Poly1305** | Authenticated symmetric encryption (AEAD) with 12-byte random nonces | `@noble/ciphers/chacha` |
-| **Key Derivation** | **SHA-256** | Shared DH point hashing and safety fingerprint generation | `@noble/hashes/sha2` |
-| **Safety Fingerprints** | `XXXX : XXXX : XXXX : XXXX` | Human-verifiable key verification to prevent Man-in-the-Middle (MitM) attacks | Formatted hex blocks |
+| Layer                   | Primitive                   | Purpose                                                                       | Implementation          |
+| :---------------------- | :-------------------------- | :---------------------------------------------------------------------------- | :---------------------- |
+| **Identity & Signing**  | **Ed25519** (256-bit)       | Local public key identities and digital packet signing                        | `@noble/curves/ed25519` |
+| **Key Agreement**       | **X25519** (Montgomery)     | Ephemeral / Static Diffie-Hellman key exchange via curve conversion           | `@noble/curves/ed25519` |
+| **Payload Encryption**  | **ChaCha20-Poly1305**       | Authenticated symmetric encryption (AEAD) with 12-byte random nonces          | `@noble/ciphers/chacha` |
+| **Key Derivation**      | **SHA-256**                 | Shared DH point hashing and safety fingerprint generation                     | `@noble/hashes/sha2`    |
+| **Safety Fingerprints** | `XXXX : XXXX : XXXX : XXXX` | Human-verifiable key verification to prevent Man-in-the-Middle (MitM) attacks | Formatted hex blocks    |
 
 - **Zero-Knowledge Relays**: Because payloads are encrypted with the recipient's derived symmetric key, intermediate nodes forwarding packets have **zero access** to message plaintext or private keys.
 - **Integrity Enforcement**: Any packet with altered ciphertext is cryptographically rejected by the Poly1305 authenticator before reaching the recipient application layer.
@@ -219,18 +261,19 @@ The language-neutral, versioned wire protocol is defined for cross-platform inte
 
 Clearfeed Mesh refuses to fabricate delivery status. A successful radio write is not proof that the recipient received the message. The interface reflects genuine delivery phases:
 
-| Status | Badge | Description |
-| :--- | :--- | :--- |
-| **Saved Locally** | 💾 `Saved Locally` | Encrypted and written to local device storage. |
-| **Queued** | ⏳ `Queued for Route` | In device outbox awaiting compatible peer connectivity. |
-| **Sent to Neighbor** | 📡 `Sent to Neighbor` | Transmitted over local wireless to an adjacent node. |
-| **Relayed** | 🔀 `Relayed` | Forwarded across one or more intermediate mesh hops. |
-| **Acknowledged** | ✔️✔️ `Acknowledged` | **Recipient verified ciphertext and returned a signed `END_TO_END_ACK`.** |
-| **Failed / Expired** | ⚠️ `Failed / Expired` | Packet reached its TTL limit without route discovery. |
+| Status               | Badge                 | Description                                                               |
+| :------------------- | :-------------------- | :------------------------------------------------------------------------ |
+| **Saved Locally**    | 💾 `Saved Locally`    | Encrypted and written to local device storage.                            |
+| **Queued**           | ⏳ `Queued for Route` | In device outbox awaiting compatible peer connectivity.                   |
+| **Sent to Neighbor** | 📡 `Sent to Neighbor` | Transmitted over local wireless to an adjacent node.                      |
+| **Relayed**          | 🔀 `Relayed`          | Forwarded across one or more intermediate mesh hops.                      |
+| **Acknowledged**     | ✔️✔️ `Acknowledged`   | **Recipient verified ciphertext and returned a signed `END_TO_END_ACK`.** |
+| **Failed / Expired** | ⚠️ `Failed / Expired` | Packet reached its TTL limit without route discovery.                     |
 
 ### 6. Standalone Mobile Interface & Navigation
 
 Clearfeed Mesh is accessible from multiple ergonomic entry points:
+
 - **Offline Direct Launch**: Users can tap **"Open Mesh Chat (Offline)"** on the Login screen (`LoginScreen.jsx`) to enter Mesh directly without an account or internet.
 - **Dedicated Navigation**: Four dedicated screens in `mobile/src/screens/mesh/`:
   - `MeshHomeScreen`: Status cards, local identity pill, nearby peer counts, and recent encrypted threads.
@@ -249,6 +292,7 @@ npm run test:mesh
 ```
 
 **Verified Test Invariants (16/16 Passed)**:
+
 - [x] Keypair generation (32-byte Ed25519 secret/public keys).
 - [x] Fingerprint formatting and collision avoidance.
 - [x] CFM1 envelope creation, magic byte validation, and field checking.
@@ -260,10 +304,11 @@ npm run test:mesh
 - [x] Multi-hop store-and-forward relay simulation (TTL decremented, hop count incremented).
 - [x] Cryptographic end-to-end receipt verification (`END_TO_END_ACK` signed by destination).
 
-### 8. Desktop Interoperability Roadmap (Tauri + Rust)
+### 8. Desktop Interoperability (Tauri + Rust)
 
-Clearfeed Mesh is designed for cross-platform desktop interoperability:
-- **Architecture**: [Tauri](https://tauri.app/) with React frontend and Rust native core.
+Clearfeed Mesh and Learn & Academy are designed for full cross-platform desktop interoperability:
+
+- **Architecture**: [Tauri 2](https://tauri.app/) with React 19 frontend and native Rust shell.
 - **Rust Parity**: The CFM1 wire protocol and `@noble` cryptography map 1:1 with standard Rust crates:
   - `ed25519-dalek` for Ed25519 signing and verification.
   - `x25519-dalek` for Diffie-Hellman key agreement.
@@ -272,9 +317,39 @@ Clearfeed Mesh is designed for cross-platform desktop interoperability:
 
 ---
 
+## 🖥️ Desktop Application (Tauri 2 + Rust + React 19)
+
+Clearfeed includes a native-feel desktop application located in the [`desktop/`](./desktop) directory.
+
+### Key Desktop Features:
+
+- **Full Offline Academy**: All 15 Tracks & 446 Lessons operate offline with zero network latency.
+- **Interactive Code Playground**: Embedded code editor with live simulated execution supporting JavaScript, HTML/CSS, Python, and SQL sandboxes.
+- **Quizzes & Certification**: Interactive formative quizzes with immediate feedback and printable track completion certificates.
+- **Collapsible Workspace Sidebar**: Keyboard shortcut `Ctrl+B` (or `Cmd+B`) toggles between an expanded and icon-only compact sidebar.
+- **Global Desktop Shortcuts**:
+  - `Ctrl+B` / `Cmd+B`: Toggle sidebar
+  - `Ctrl+L` / `Cmd+L`: Open Learn & Academy
+  - `Ctrl+M` / `Cmd+M`: Open Clearfeed Mesh
+  - `Ctrl+,` / `Cmd+,`: Open Settings
+- **Native Tauri 2 Core**: Minimal memory footprint, fast startup, and native Windows/macOS/Linux window controls.
+
+```bash
+# Start desktop frontend in browser dev mode:
+npm run dev:desktop
+
+# Launch native desktop application in development:
+npm run desktop
+
+# Build desktop production distribution:
+npm run build:desktop
+```
+
+---
+
 ## 🛠️ Tech Stack
 
-### Web Frontend
+### Web Frontend (`client/`)
 
 - **Framework**: [React 19](https://react.dev/) + [Vite 8](https://vitejs.dev/)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + Custom CSS Design System Tokens
@@ -283,7 +358,15 @@ Clearfeed Mesh is designed for cross-platform desktop interoperability:
 - **Routing**: [React Router DOM v7](https://reactrouter.com/)
 - **Deployment**: [Vercel](https://vercel.com/) Edge Network
 
-### Backend API
+### Desktop Application (`desktop/`)
+
+- **Native Shell**: [Tauri 2](https://tauri.app/) (Rust 2021)
+- **Frontend**: [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) + [Vite 6](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **State & Storage**: Offline LocalStorage with online sync to Railway API + P2P Mesh Engine
+- **Curriculum**: Embedded 15 tracks & 446 lessons for zero-latency offline learning
+
+### Backend API (`server/`)
 
 - **Runtime**: [Node.js](https://nodejs.org/) (ES Modules & CommonJS compatibility)
 - **Web Framework**: [Express 5](https://expressjs.com/)
@@ -305,26 +388,31 @@ Clearfeed Mesh is designed for cross-platform desktop interoperability:
 - **Offline Mesh Cryptography**: [@noble/curves](https://github.com/paulmillr/noble-curves) (Ed25519, X25519) + [@noble/ciphers](https://github.com/paulmillr/noble-ciphers) (ChaCha20-Poly1305) + [@noble/hashes](https://github.com/paulmillr/noble-hashes) (SHA-256)
 - **Mesh Wire Protocol**: Clearfeed Mesh v1 (CFM1) Multi-Hop Router with Zero-Knowledge Forwarding
 - **Storage**: AsyncStorage with isolated `@cfm_*` partitions for local cryptographic identity, offline conversations, outbox queues, and relay cache
+- **Curriculum**: All 15 Tracks & 446 lessons with animated progress tracking and bilingual support
 
 ---
 
 ## 🔌 API Architecture
 
-| Endpoint                      |  Method  |     Access     | Description                                       |
-| :---------------------------- | :------: | :------------: | :------------------------------------------------ |
-| `/api/auth/register`          |  `POST`  |     Public     | Register new member with client IP tracking       |
-| `/api/auth/login`             |  `POST`  |     Public     | Authenticate user, update session IP, return JWT  |
-| `/api/auth/me`                |  `GET`   |    Private     | Retrieve authenticated profile and refresh roles  |
-| `/api/posts`                  |  `GET`   |     Public     | Fetch chronological posts with pagination         |
-| `/api/posts`                  |  `POST`  |    Private     | Create text/code post with IP attribution         |
-| `/api/posts/:id`              | `DELETE` | Author / Admin | Remove post and cascade delete comments           |
-| `/api/posts/:id/comments`     |  `POST`  |    Private     | Add comment with IP tracking                      |
-| `/api/users/:id/avatar`       |  `GET`   |     Public     | Stream binary avatar buffer with HTTP caching     |
-| `/api/users/:id/avatar`       |  `PUT`   |    Private     | Upload compressed JPEG avatar buffer              |
-| `/api/admin/users`            |  `GET`   |     Admin      | Fetch user directory with IP audit data           |
-| `/api/admin/traffic`          |  `GET`   |     Admin      | Stream live IP traffic and security events        |
-| `/api/admin/users/:id/role`   | `PATCH`  |     Admin      | Toggle admin status (protected against co-admins) |
-| `/api/admin/users/:id/status` | `PATCH`  |     Admin      | Toggle account suspension                         |
+| Endpoint                           |  Method  |     Access     | Description                                       |
+| :--------------------------------- | :------: | :------------: | :------------------------------------------------ |
+| `/api/auth/register`               |  `POST`  |     Public     | Register new member with client IP tracking       |
+| `/api/auth/login`                  |  `POST`  |     Public     | Authenticate user, update session IP, return JWT  |
+| `/api/auth/me`                     |  `GET`   |    Private     | Retrieve authenticated profile and refresh roles  |
+| `/api/posts`                       |  `GET`   |     Public     | Fetch chronological posts with pagination         |
+| `/api/posts`                       |  `POST`  |    Private     | Create text/code post with IP attribution         |
+| `/api/posts/:id`                   | `DELETE` | Author / Admin | Remove post and cascade delete comments           |
+| `/api/posts/:id/comments`          |  `POST`  |    Private     | Add comment with IP tracking                      |
+| `/api/learning/progress`           |  `GET`   | Optional Auth  | Fetch user learning progress, XP, and streak      |
+| `/api/learning/progress/complete`  |  `POST`  |    Private     | Mark lesson completed and award XP                |
+| `/api/learning/quiz/submit`        |  `POST`  |    Private     | Submit formative quiz and evaluate score          |
+| `/api/learning/exam/submit`        |  `POST`  |    Private     | Submit final exam and issue completion certificate|
+| `/api/users/:id/avatar`            |  `GET`   |     Public     | Stream binary avatar buffer with HTTP caching     |
+| `/api/users/:id/avatar`            |  `PUT`   |    Private     | Upload compressed JPEG avatar buffer              |
+| `/api/admin/users`                 |  `GET`   |     Admin      | Fetch user directory with IP audit data           |
+| `/api/admin/traffic`               |  `GET`   |     Admin      | Stream live IP traffic and security events        |
+| `/api/admin/users/:id/role`        | `PATCH`  |     Admin      | Toggle admin status (protected against co-admins) |
+| `/api/admin/users/:id/status`      | `PATCH`  |     Admin      | Toggle account suspension                         |
 
 ---
 

@@ -212,7 +212,7 @@ export const MeshPeersScreen = ({ navigation }) => {
               <Ionicons
                 name={item.status === 'verified' ? 'shield-checkmark' : 'person'}
                 size={22}
-                color={item.status === 'verified' ? '#00ba7c' : '#1d9bf0'}
+                color={item.status === 'verified' ? '#00ba7c' : '#00A6F4'}
               />
             </View>
 
@@ -239,7 +239,7 @@ export const MeshPeersScreen = ({ navigation }) => {
                       styles.reachabilityText,
                       {
                         color:
-                          item.reachability === 'direct' ? '#00ba7c' : '#1d9bf0',
+                          item.reachability === 'direct' ? '#00ba7c' : '#00A6F4',
                       },
                     ]}
                   >
