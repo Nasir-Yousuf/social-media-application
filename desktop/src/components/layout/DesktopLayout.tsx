@@ -14,17 +14,19 @@ import {
   Search,
   Bell,
   LogOut,
-  Shield,
   GraduationCap,
   Keyboard,
   Play,
   Trophy,
   Bookmark,
   User as UserIcon,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useMesh } from '../../mesh/context/MeshContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { ClearfeedLogo } from '../common/ClearfeedIcons';
+import Avatar from '../common/Avatar';
 
 interface DesktopLayoutProps {
   currentSection: string;
@@ -37,9 +39,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   onNavigate,
   children,
 }) => {
-  const { user, backendConnected, logout } = useAuth();
-  const { transportState, conversations: meshConvs } = useMesh();
-  const { unreadCount } = useNotifications();
+  const { user, backendConnected, logout, isAdmin } = useAuth();
+  const { transportState } = useMesh();
+  const { unreadCount, unreadMessagesCount } = useNotifications();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('pulse518_desktop_sidebar_collapsed') === 'true';
@@ -91,7 +93,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
     { id: 'code-practice', label: 'Code Sandbox & Practice', icon: Play, offline: true },
     { id: 'code', label: 'Code Hub', icon: Code2 },
     { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-    { id: 'messages', label: 'Messages', icon: MessageSquare },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: unreadMessagesCount },
     { id: 'mesh', label: 'Clearfeed Mesh (P2P)', icon: Radio, highlight: true },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount },
     { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
@@ -99,6 +101,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
     { id: 'explore', label: 'Explore Topics', icon: Compass },
     { id: 'search', label: 'Search', icon: Search },
     { id: 'profile', label: 'My Profile', icon: UserIcon },
+    ...(isAdmin
+      ? [{ id: 'admin', label: 'Administration', icon: ShieldAlert, highlight: true }]
+      : []),
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -156,43 +161,88 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
         {/* Left Navigation Sidebar */}
         <aside
           className={`${
-            sidebarCollapsed ? 'w-16' : 'w-60'
-          } bg-neutral-900/60 border-r border-neutral-800/80 flex flex-col justify-between transition-all duration-200 shrink-0 select-none`}
+            sidebarCollapsed ? 'w-20' : 'w-68'
+          } bg-neutral-950/80 border-r border-neutral-800/80 flex flex-col justify-between transition-all duration-200 shrink-0 select-none`}
         >
+          {/* Top Brand Logo */}
+          <div className={`p-3.5 pb-2 flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} border-b border-neutral-800/50 shrink-0`}>
+            <button
+              type="button"
+              onClick={() => onNavigate('home')}
+              className={`flex items-center gap-3 p-1.5 rounded-2xl hover:bg-neutral-800/60 transition-colors group cursor-pointer ${
+                sidebarCollapsed ? 'mx-auto' : ''
+              }`}
+              title="Clearfeed Home"
+            >
+              <div className="transition-transform group-hover:scale-105 duration-200 shrink-0">
+                <ClearfeedLogo className="w-8 h-8 text-sky-500" />
+              </div>
+              {!sidebarCollapsed && (
+                <span className="font-sans font-black text-xl tracking-tight text-white">
+                  Clear<span className="text-sky-500">feed</span>
+                </span>
+              )}
+            </button>
+          </div>
+
           {/* Top Nav List */}
-          <div className="p-2 space-y-0.5 overflow-y-auto flex-1 select-none">
+          <div className="p-2.5 space-y-1 overflow-y-auto flex-1 select-none">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentSection === item.id;
+              const hasBadge = typeof item.badge === 'number' && item.badge > 0;
+
               return (
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
                   title={sidebarCollapsed ? item.label : undefined}
-                  className={`w-full flex items-center justify-between ${
-                    sidebarCollapsed ? 'justify-center px-0' : 'px-3'
-                  } py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  className={`group w-full flex items-center ${
+                    sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-3.5'
+                  } py-2.5 rounded-2xl text-[15px] font-medium transition-all duration-150 active:scale-[0.98] cursor-pointer ${
                     isActive
                       ? item.highlight
-                        ? 'bg-emerald-500 text-white shadow-sm'
-                        : 'bg-sky-500 text-white shadow-sm'
+                        ? 'bg-emerald-500/15 text-emerald-300 font-bold ring-1 ring-emerald-500/30'
+                        : 'bg-neutral-800/90 text-white font-bold ring-1 ring-white/10 shadow-sm'
                       : item.highlight
-                      ? 'text-emerald-400 hover:bg-emerald-500/10'
-                      : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
+                      ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10'
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/50'
                   }`}
                 >
                   <div className="flex items-center min-w-0">
-                    <Icon className="w-4 h-4 shrink-0" />
-                    {!sidebarCollapsed && <span className="ml-2.5 truncate">{item.label}</span>}
+                    <div className="relative shrink-0">
+                      <Icon
+                        className={`w-5.5 h-5.5 transition-transform duration-150 group-hover:scale-105 ${
+                          isActive
+                            ? item.highlight
+                              ? 'text-emerald-400 stroke-[2.3]'
+                              : 'text-sky-400 stroke-[2.3]'
+                            : item.highlight
+                            ? 'text-emerald-400 stroke-[1.8]'
+                            : 'text-neutral-400 group-hover:text-neutral-200 stroke-[1.8]'
+                        }`}
+                      />
+                      {sidebarCollapsed && hasBadge && (
+                        <span className="absolute -top-1.5 -right-2 min-w-4.5 h-4.5 px-1 text-[10px] font-black rounded-full bg-sky-500 text-white flex items-center justify-center animate-pulse shadow-sm">
+                          {item.badge! > 9 ? '9+' : item.badge}
+                        </span>
+                      )}
+                    </div>
+                    {!sidebarCollapsed && (
+                      <span className="ml-3.5 tracking-tight truncate">
+                        {item.label}
+                      </span>
+                    )}
                   </div>
+
                   {!sidebarCollapsed && item.offline && (
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                       OFFLINE
                     </span>
                   )}
-                  {!sidebarCollapsed && typeof item.badge === 'number' && item.badge > 0 && (
-                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
-                      {item.badge}
+                  {!sidebarCollapsed && hasBadge && (
+                    <span className="ml-auto min-w-5 h-5 px-1.5 text-[11px] font-bold rounded-full bg-sky-500 text-white flex items-center justify-center shadow-sm">
+                      {item.badge! > 99 ? '99+' : item.badge}
                     </span>
                   )}
                 </button>
@@ -206,21 +256,27 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
             {user ? (
               <div
                 className={`flex items-center justify-between ${
-                  sidebarCollapsed ? 'justify-center p-1' : 'p-2'
-                } rounded-xl bg-neutral-950/60 border border-neutral-800/80`}
+                  sidebarCollapsed ? 'justify-center p-1.5' : 'p-2.5'
+                } rounded-2xl bg-neutral-900/60 border border-neutral-800/80 hover:border-neutral-700/80 transition`}
               >
                 <div
                   onClick={() => onNavigate('profile')}
-                  className="flex items-center min-w-0 cursor-pointer flex-1 hover:opacity-90"
-                  title="View Profile"
+                  className="flex items-center min-w-0 cursor-pointer flex-1 hover:opacity-90 group"
+                  title={`View Profile (@${user.username})`}
                 >
-                  <div className="w-7 h-7 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs shrink-0">
-                    {user.name?.[0]?.toUpperCase() || 'U'}
-                  </div>
+                  <Avatar
+                    user={user}
+                    src={user.avatarUrl}
+                    name={user.name}
+                    size={sidebarCollapsed ? 'sm' : 'md'}
+                    showRoleBadge={false}
+                  />
                   {!sidebarCollapsed && (
-                    <div className="ml-2.5 min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-neutral-200 truncate">{user.name}</p>
-                      <p className="text-[10px] text-neutral-500 truncate">@{user.username}</p>
+                    <div className="ml-3 min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-neutral-100 truncate group-hover:text-sky-400 transition-colors">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-neutral-400 truncate">@{user.username}</p>
                     </div>
                   )}
                 </div>
@@ -228,9 +284,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   <button
                     onClick={logout}
                     title="Sign Out"
-                    className="p-1 hover:text-rose-400 text-neutral-500 rounded transition cursor-pointer"
+                    className="p-1.5 hover:text-rose-400 text-neutral-400 hover:bg-rose-500/10 rounded-xl transition cursor-pointer"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -238,25 +294,30 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               <div
                 onClick={() => onNavigate('auth')}
                 className={`flex items-center justify-center ${
-                  sidebarCollapsed ? 'p-1' : 'px-3 py-2'
-                } rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold cursor-pointer hover:bg-sky-500/20 transition`}
+                  sidebarCollapsed ? 'p-2' : 'px-4 py-2.5'
+                } rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-sm font-semibold cursor-pointer hover:bg-sky-500/20 transition`}
               >
-                <span>{sidebarCollapsed ? 'In' : 'Sign In / Guest'}</span>
+                <span>{sidebarCollapsed ? 'In' : 'Sign In / Register'}</span>
               </div>
             )}
 
             {/* Collapse toggle */}
             <button
               onClick={toggleSidebar}
-              className="w-full flex items-center justify-center py-1.5 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/40 rounded-lg text-xs transition cursor-pointer"
+              className="w-full flex items-center justify-center py-2 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/40 rounded-xl text-xs transition cursor-pointer"
               title={sidebarCollapsed ? 'Expand Sidebar (Ctrl+B)' : 'Collapse Sidebar (Ctrl+B)'}
             >
               {sidebarCollapsed ? (
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-4.5 h-4.5" />
               ) : (
-                <div className="flex items-center gap-1">
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span className="text-[11px]">Collapse Sidebar</span>
+                <div className="w-full flex items-center justify-between px-2">
+                  <div className="flex items-center gap-1.5">
+                    <ChevronLeft className="w-4 h-4" />
+                    <span className="text-xs font-medium">Collapse</span>
+                  </div>
+                  <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700/50">
+                    Ctrl+B
+                  </kbd>
                 </div>
               )}
             </button>

@@ -25,6 +25,7 @@ import SearchView from './views/SearchView';
 import ProfileView from './views/ProfileView';
 import PostDetailView from './views/PostDetailView';
 import SettingsView from './views/SettingsView';
+import AdminView from './views/AdminView';
 import AuthView from './views/AuthView';
 import { User } from './types';
 
@@ -47,6 +48,7 @@ const DesktopContent: React.FC = () => {
     if (path.startsWith('/explore')) return 'explore';
     if (path.startsWith('/search')) return 'search';
     if (path.startsWith('/profile')) return 'profile';
+    if (path.startsWith('/admin')) return 'admin';
     if (path.startsWith('/posts/') || path.startsWith('/post/')) return 'home';
     if (path.startsWith('/settings')) return 'settings';
     if (path.startsWith('/auth') || path.startsWith('/login') || path.startsWith('/register')) return 'auth';
@@ -71,6 +73,7 @@ const DesktopContent: React.FC = () => {
       explore: '/explore',
       search: '/search',
       profile: '/profile/me',
+      admin: '/admin',
       settings: '/settings',
       auth: '/auth',
     };
@@ -129,6 +132,16 @@ const DesktopContent: React.FC = () => {
           <Route path="/search" element={<SearchView />} />
           <Route path="/profile/:username" element={<ProfileView />} />
           <Route path="/profile" element={<ProfileView />} />
+          <Route
+            path="/admin"
+            element={
+              isAuthenticated ? (
+                <AdminView />
+              ) : (
+                <AuthView onContinueOffline={() => navigate('/mesh')} />
+              )
+            }
+          />
           <Route path="/posts/:id" element={<PostDetailView />} />
           <Route path="/post/:id" element={<PostDetailView />} />
           <Route path="/settings" element={<SettingsView />} />

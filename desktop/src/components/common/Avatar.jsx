@@ -1,5 +1,6 @@
 import React from 'react';
 import { FacultyBadge } from './ClearfeedIcons';
+import { getBaseUrl } from '../../api/client';
 
 const sizeMap = {
   xs: 'w-6 h-6 text-[10px]',
@@ -51,16 +52,15 @@ export const resolveAvatarUrl = (url) => {
     return url;
   }
   const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-  const apiBase = rawBase.replace(/\/api$/, '');
-  if (url.startsWith('/api') || url.startsWith('/')) {
-    return `${apiBase}${url}`;
-  }
-  return url;
+  const base = rawBase || (typeof getBaseUrl === 'function' ? getBaseUrl() : '') || '';
+  const apiBase = base.replace(/\/api\/?$/, '');
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+  return `${apiBase}${cleanUrl}`;
 };
 
 export const Avatar = ({
-  src,
-  user,
+  src = '',
+  user = null,
   alt = 'Avatar',
   name = '',
   size = 'md',

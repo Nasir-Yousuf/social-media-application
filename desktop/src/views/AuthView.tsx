@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { Lock, User as UserIcon, Mail, Key, Shield, Radio, ArrowRight, Compass } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,7 +8,8 @@ interface AuthViewProps {
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
-  const { login, register, loginGuest } = useAuth();
+  const navigate = useNavigate();
+  const { login, register, loginGuest, isAuthenticated } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [usernameOrEmail, setUsernameOrEmail] = useState<string>('');
@@ -24,6 +26,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [guestLoading, setGuestLoading] = useState<boolean>(false);
 
+  // If already authenticated, redirect straight to the feed
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -32,7 +39,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
     try {
       if (mode === 'login') {
         const res = await login({ usernameOrEmail, password });
-        if (!res.success) {
+        if (res.success) {
+          navigate('/', { replace: true });
+        } else {
           setError(res.message || 'Login failed.');
         }
       } else {
@@ -44,7 +53,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
           studentId: studentId.trim() || undefined,
           coursePasscode: coursePasscode.trim(),
         });
-        if (!res.success) {
+        if (res.success) {
+          navigate('/', { replace: true });
+        } else {
           setError(res.message || 'Registration failed.');
         }
       }
@@ -58,7 +69,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
     setGuestLoading(true);
     try {
       const res = await loginGuest();
-      if (!res.success) {
+      if (res.success) {
+        navigate('/', { replace: true });
+      } else {
         setError(res.message || 'Failed to enter as guest.');
       }
     } finally {

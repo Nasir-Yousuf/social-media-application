@@ -7,6 +7,7 @@ interface AuthContextValue {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   loading: boolean;
   backendConnected: boolean;
   login: (credentials: { usernameOrEmail: string; password: string }) => Promise<{ success: boolean; message?: string }>;
@@ -173,6 +174,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         token,
         isAuthenticated: !!token,
+        isAdmin: user?.role === 'admin',
         loading,
         backendConnected,
         login,
