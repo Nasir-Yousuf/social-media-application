@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getBaseUrl } from '../api/client';
+import { getBaseUrl, LOCAL_DEV_ORIGIN } from '../api/client';
 
 class SocketService {
   constructor() {
@@ -16,11 +16,14 @@ class SocketService {
   async getSocketServerUrl() {
     try {
       const apiUrl = await getBaseUrl();
-      // Remove trailing /api or /api/
-      return apiUrl.replace(/\/api\/?$/, '');
-    } catch {
-      return 'https://clearfeed518.up.railway.app';
+      if (apiUrl) {
+        return apiUrl.replace(/\/api\/?$/, '');
+      }
+    } catch {}
+    if (__DEV__) {
+      return LOCAL_DEV_ORIGIN;
     }
+    return 'https://clearfeed518.up.railway.app';
   }
 
   async connect(explicitToken = null) {

@@ -185,6 +185,7 @@ function initSocket(server) {
     // ==========================================
     socket.on('mesh:packet', (envelope) => {
       if (envelope && envelope.magic === 'CFM1') {
+        console.log(`📡 [Mesh Relay] Relayed CFM1 packet ${envelope.packetId?.slice(0, 8)} (${envelope.type}) from ${envelope.senderPubkey?.slice(0, 8)} to ${envelope.recipientPubkey?.slice(0, 8)}`);
         // Broadcast the encrypted envelope to all other connected devices on the local network
         socket.broadcast.emit('mesh:packet', envelope);
       }

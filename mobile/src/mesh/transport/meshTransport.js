@@ -28,6 +28,10 @@ class MeshTransportManager {
     try {
       if (!this.isSocketBound) {
         this.isSocketBound = true;
+        // Connect socket immediately so all devices on Wi-Fi link together for mesh
+        socketService.connect().catch((err) => {
+          console.warn('[MeshTransport] Socket connection notice:', err?.message);
+        });
         socketService.on('mesh:packet', (envelope) => {
           if (envelope && envelope.magic === 'CFM1') {
             this.emitIncomingPacket(envelope);

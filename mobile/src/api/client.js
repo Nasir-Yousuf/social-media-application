@@ -62,12 +62,19 @@ export const getBaseUrl = async () => {
     customBaseUrl = saved;
     return saved;
   }
+  // In development / Expo Go on local Wi-Fi, connect to host laptop's local LAN server
+  if (__DEV__) {
+    return LOCAL_DEV_URL;
+  }
   return DEFAULT_URL;
 };
 
 export const getServerOrigin = () => {
   if (customBaseUrl) {
     return customBaseUrl.replace(/\/api\/?$/, '');
+  }
+  if (__DEV__) {
+    return LOCAL_DEV_ORIGIN;
   }
   return CLOUD_ORIGIN;
 };
