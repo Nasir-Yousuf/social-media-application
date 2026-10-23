@@ -27,10 +27,13 @@ class MeshRouter {
   constructor() {
     this.messageListeners = new Set();
     this.deliveryListeners = new Set();
+    this.peerListeners = new Set();
+    this.beaconTimer = null;
   }
 
   initialize() {
     meshTransport.onPacket((envelope) => this.handleIncomingEnvelope(envelope));
+    this.startBeaconing(8);
   }
 
   onMessageReceived(cb) {
@@ -41,6 +44,83 @@ class MeshRouter {
   onDeliveryUpdated(cb) {
     this.deliveryListeners.add(cb);
     return () => this.deliveryListeners.delete(cb);
+  }
+
+  onPeersUpdated(cb) {
+    this.peerListeners.add(cb);
+    return () => this.peerListeners.delete(cb);
+  }
+
+  notifyPeersUpdated() {
+    for (const cb of this.peerListeners) {
+      try {
+        cb();
+      } catch (e) {}
+    }
+  }
+
+  /**
+   * Broadcast an unencrypted peer presence beacon on the local transport
+   */
+  async broadcastBeacon() {
+    try {
+      const identity = await meshIdentityService.getOrCreateIdentity();
+      if (!identity) return;
+
+      const envelope = createEnvelope({
+        type: PacketType.BEACON,
+        senderPubkey: identity.publicKeyHex,
+        recipientPubkey: BROADCAST_PUBKEY,
+        hopsRemaining: 1,
+        hopCount: 0,
+        payload: {
+          nickname: identity.nickname,
+          timestamp: Date.now(),
+        },
+      });
+
+      envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
+      await meshTransport.broadcastPacket(envelope);
+    } catch (err) {
+      console.warn('[MeshRouter] Beacon broadcast error:', err?.message);
+    }
+  }
+
+  startBeaconing(intervalSec = 8) {
+    this.stopBeaconing();
+    this.broadcastBeacon();
+    this.beaconTimer = setInterval(() => {
+      this.broadcastBeacon();
+    }, intervalSec * 1000);
+  }
+
+  stopBeaconing() {
+    if (this.beaconTimer) {
+      clearInterval(this.beaconTimer);
+      this.beaconTimer = null;
+    }
+  }
+
+  async sendAnnounce(targetPubkey) {
+    try {
+      const identity = await meshIdentityService.getOrCreateIdentity();
+      if (!identity) return;
+
+      const envelope = createEnvelope({
+        type: PacketType.ANNOUNCE,
+        senderPubkey: identity.publicKeyHex,
+        recipientPubkey: targetPubkey,
+        hopsRemaining: 1,
+        hopCount: 0,
+        payload: {
+          nickname: identity.nickname,
+          timestamp: Date.now(),
+        },
+      });
+
+      envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
+      await meshTransport.sendDirect(targetPubkey, envelope);
+    } catch {}
   }
 
   /**
@@ -154,6 +234,37 @@ class MeshRouter {
 
     const myPub = identity.publicKeyHex.toLowerCase();
     const recipientPub = envelope.recipientPubkey.toLowerCase();
+    const senderPub = envelope.senderPubkey.toLowerCase();
+
+    // CASE 0: Peer Discovery Beacons and Announcements
+    if (envelope.type === PacketType.BEACON || envelope.type === PacketType.ANNOUNCE) {
+      if (senderPub !== myPub) {
+        const senderNick = envelope.payload?.nickname || `Peer_${senderPub.substring(0, 6)}`;
+        const peers = await meshStorage.loadPeers();
+        const idx = peers.findIndex((p) => p.publicKeyHex.toLowerCase() === senderPub);
+        const updatedPeer = {
+          publicKeyHex: senderPub,
+          nickname: senderNick,
+          status: 'discovered',
+          lastSeen: Date.now(),
+          hopDistance: envelope.hopCount || 0,
+          reachability: envelope.hopCount === 0 ? 'direct' : 'relayed',
+        };
+        if (idx >= 0) {
+          peers[idx] = { ...peers[idx], ...updatedPeer };
+        } else {
+          peers.unshift(updatedPeer);
+        }
+        await meshStorage.savePeers(peers);
+        this.notifyPeersUpdated();
+
+        // Immediate announce back so pairing completes in < 1 sec
+        if (envelope.type === PacketType.BEACON) {
+          this.sendAnnounce(senderPub);
+        }
+      }
+      return;
+    }
 
     // CASE A: Packet is for ME
     if (recipientPub === myPub) {

@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useMesh } from '../../mesh/context/MeshContext';
+import { MeshPairingModal } from '../../components/mesh/MeshPairingModal';
 
 export const MeshHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -22,8 +23,10 @@ export const MeshHomeScreen = ({ navigation }) => {
     peers,
     conversations,
     settings,
+    addPeer,
   } = useMesh();
 
+  const [showPairModal, setShowPairModal] = useState(false);
   const activePeerCount = peers.filter((p) => p.status !== 'blocked').length;
 
   return (
@@ -74,17 +77,31 @@ export const MeshHomeScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('MeshSettings')}
-          style={styles.iconBtn}
-          accessibilityLabel="Mesh Settings"
-        >
-          <Ionicons
-            name="settings-outline"
-            size={22}
-            color={currentColors.text}
-          />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <TouchableOpacity
+            onPress={() => setShowPairModal(true)}
+            style={styles.iconBtn}
+            accessibilityLabel="Scan & Connect QR"
+          >
+            <Ionicons
+              name="qr-code-outline"
+              size={21}
+              color="#00ba7c"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MeshSettings')}
+            style={styles.iconBtn}
+            accessibilityLabel="Mesh Settings"
+          >
+            <Ionicons
+              name="settings-outline"
+              size={21}
+              color={currentColors.text}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -121,6 +138,25 @@ export const MeshHomeScreen = ({ navigation }) => {
             {transportExplanation}
           </Text>
         </View>
+
+        {/* Quick QR Connect Banner */}
+        <TouchableOpacity
+          onPress={() => setShowPairModal(true)}
+          style={styles.qrHomeBanner}
+        >
+          <View style={styles.qrIconCircle}>
+            <Ionicons name="qr-code" size={18} color="#00ba7c" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.qrBannerTitle}>
+              Scan & Connect Nearby | কুইক পেয়ার
+            </Text>
+            <Text style={styles.qrBannerSubtitle}>
+              Tap to show QR code or paste peer public key
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#ffffff" />
+        </TouchableOpacity>
 
         {/* Local Cryptographic Identity Card */}
         {identity && (
@@ -336,6 +372,20 @@ export const MeshHomeScreen = ({ navigation }) => {
           ))
         )}
       </ScrollView>
+
+      {/* Offline QR Code Pairing & Scanner Modal */}
+      <MeshPairingModal
+        visible={showPairModal}
+        onClose={() => setShowPairModal(false)}
+        onConnect={(peer) => {
+          addPeer(peer);
+          navigation.navigate('MeshConversation', {
+            recipientPubkey: peer.publicKeyHex,
+            recipientNickname: peer.nickname,
+          });
+        }}
+        identity={identity}
+      />
     </View>
   );
 };
@@ -343,6 +393,38 @@ export const MeshHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  qrHomeBanner: {
+    backgroundColor: '#00ba7c',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    shadowColor: '#00ba7c',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  qrIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qrBannerTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  qrBannerSubtitle: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 2,
   },
   header: {
     flexDirection: 'row',

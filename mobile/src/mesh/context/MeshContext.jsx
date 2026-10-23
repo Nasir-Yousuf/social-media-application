@@ -55,10 +55,15 @@ export const MeshProvider = ({ children }) => {
       refreshMeshState();
     });
 
+    const unsubPeers = meshRouter.onPeersUpdated(() => {
+      refreshMeshState();
+    });
+
     return () => {
       unsubTransport();
       unsubMessages();
       unsubDelivery();
+      unsubPeers();
     };
   }, [refreshMeshState]);
 
@@ -141,6 +146,17 @@ export const MeshProvider = ({ children }) => {
     return meshStorage.loadMessages(recipientPubkey.toLowerCase());
   };
 
+  const addPeer = async (peer) => {
+    await addDiscoveredPeer(peer);
+    await meshRouter.sendAnnounce(peer.publicKeyHex);
+    await refreshMeshState();
+  };
+
+  const broadcastBeacon = async () => {
+    await meshRouter.broadcastBeacon();
+    await refreshMeshState();
+  };
+
   const clearAllData = async () => {
     await meshStorage.clearAllMeshStorage();
     await refreshMeshState();
@@ -162,6 +178,8 @@ export const MeshProvider = ({ children }) => {
         verifyPeer,
         blockPeer,
         addDiscoveredPeer,
+        addPeer,
+        broadcastBeacon,
         sendMessage,
         loadMessages,
         clearAllData,

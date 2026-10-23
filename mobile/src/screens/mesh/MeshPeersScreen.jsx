@@ -14,16 +14,41 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useMesh } from '../../mesh/context/MeshContext';
 import { computeFingerprint, generateIdentityKeypair } from '../../mesh/crypto/meshCrypto';
+import { MeshPairingModal } from '../../components/mesh/MeshPairingModal';
 
 export const MeshPeersScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors: currentColors } = useTheme();
-  const { peers, addDiscoveredPeer, verifyPeer, blockPeer } = useMesh();
+  const {
+    identity,
+    peers,
+    addDiscoveredPeer,
+    addPeer,
+    broadcastBeacon,
+    verifyPeer,
+    blockPeer,
+  } = useMesh();
 
   const [search, setSearch] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [showPairingModal, setShowPairingModal] = useState(false);
+  const [isPinging, setIsPinging] = useState(false);
   const [newNick, setNewNick] = useState('');
   const [newPub, setNewPub] = useState('');
+
+  const handleManualPing = async () => {
+    setIsPinging(true);
+    await broadcastBeacon();
+    setTimeout(() => setIsPinging(false), 1200);
+  };
+
+  const handlePairConnect = (peer) => {
+    addPeer(peer);
+    navigation.navigate('MeshConversation', {
+      recipientPubkey: peer.publicKeyHex,
+      recipientNickname: peer.nickname,
+    });
+  };
 
   const filteredPeers = peers.filter(
     (p) =>
@@ -121,13 +146,22 @@ export const MeshPeersScreen = ({ navigation }) => {
             Discovered over Bluetooth & local wireless
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => setModalVisible(true)}
-          style={styles.addBtn}
-          accessibilityLabel="Add contact manually"
-        >
-          <Ionicons name="person-add-outline" size={20} color="#00ba7c" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setShowPairingModal(true)}
+            style={styles.qrHeaderBtn}
+            accessibilityLabel="Scan & Connect QR"
+          >
+            <Ionicons name="qr-code-outline" size={20} color="#00ba7c" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setModalVisible(true)}
+            style={styles.addBtn}
+            accessibilityLabel="Add contact manually"
+          >
+            <Ionicons name="person-add-outline" size={20} color="#00ba7c" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Input */}
@@ -161,6 +195,73 @@ export const MeshPeersScreen = ({ navigation }) => {
         data={filteredPeers}
         keyExtractor={(item) => item.publicKeyHex}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View
+            style={[
+              styles.radarCard,
+              {
+                backgroundColor: currentColors.surface,
+                borderColor: 'rgba(0,186,124,0.3)',
+              },
+            ]}
+          >
+            <View style={styles.radarTopRow}>
+              <View style={styles.radarPulseContainer}>
+                <MaterialCommunityIcons name="radar" size={22} color="#00ba7c" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text
+                  style={[styles.radarTitle, { color: currentColors.text }]}
+                >
+                  Nearby Peer Radar Active
+                </Text>
+                <Text
+                  style={[
+                    styles.radarSubtitle,
+                    { color: currentColors.textSecondary },
+                  ]}
+                >
+                  Auto-beaconing local Wi-Fi & radio
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleManualPing}
+                disabled={isPinging}
+                style={[
+                  styles.pingBtn,
+                  {
+                    backgroundColor: currentColors.bg,
+                    borderColor: currentColors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="flash"
+                  size={14}
+                  color={isPinging ? '#ffd700' : '#00ba7c'}
+                />
+                <Text
+                  style={[
+                    styles.pingBtnText,
+                    { color: currentColors.text },
+                  ]}
+                >
+                  {isPinging ? 'Pinging...' : 'Ping'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setShowPairingModal(true)}
+              style={styles.qrBannerBtn}
+            >
+              <Ionicons name="qr-code" size={16} color="#ffffff" />
+              <Text style={styles.qrBannerBtnText}>
+                Scan & Connect QR | কুইক পেয়ার
+              </Text>
+            </TouchableOpacity>
+          </View>
+        }
         ListEmptyComponent={
           <View
             style={[
@@ -388,6 +489,14 @@ export const MeshPeersScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Offline QR Code Pairing & Scanner Modal */}
+      <MeshPairingModal
+        visible={showPairingModal}
+        onClose={() => setShowPairingModal(false)}
+        onConnect={handlePairConnect}
+        identity={identity}
+      />
     </View>
   );
 };
@@ -404,7 +513,81 @@ const styles = StyleSheet.create({
   backBtn: { padding: 6, marginRight: 8 },
   headerTitle: { fontSize: 17, fontWeight: '800' },
   headerSubtitle: { fontSize: 11, marginTop: 2 },
-  addBtn: { padding: 6 },
+  qrHeaderBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,186,124,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,186,124,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radarCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  radarTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  radarPulseContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,186,124,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radarTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  radarSubtitle: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  pingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  pingBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  qrBannerBtn: {
+    backgroundColor: '#00ba7c',
+    paddingVertical: 10,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#00ba7c',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  qrBannerBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
   searchContainer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
   searchBar: {
     flexDirection: 'row',
