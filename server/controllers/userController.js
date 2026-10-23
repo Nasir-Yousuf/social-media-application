@@ -335,7 +335,7 @@ exports.getCourseDirectory = async (req, res) => {
     );
 
 
-    return res.status(200).json({ members: enriched });
+    return res.status(200).json({ members: enriched, users: enriched });
   } catch (err) {
     console.error('getCourseDirectory error:', err);
     return res.status(500).json({ message: 'Error fetching course directory.' });

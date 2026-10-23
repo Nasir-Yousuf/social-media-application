@@ -1,21 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Compass, Sparkles, RefreshCw, MessageSquare, Heart } from 'lucide-react';
+import { Compass, RefreshCw, Tag, X } from 'lucide-react';
+import PostList from '../components/posts/PostList';
 import api from '../api/client';
-import { Post } from '../types';
 
 export const ExploreView: React.FC = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  const topics = [
+    'Architecture',
+    'React',
+    'Python',
+    'JavaScript',
+    'Databases',
+    'Design',
+    'Compilers',
+    'DevOps',
+  ];
 
   const fetchExplore = async () => {
     setLoading(true);
     try {
       const res = await api.get('/posts/explore');
-      if (res.data?.posts) {
-        setPosts(res.data.posts);
-      }
-    } catch {
-      // Graceful error fallback
+      setPosts(res.data?.posts || []);
+    } catch (err) {
+      console.warn('Failed to load explore posts:', err);
     } finally {
       setLoading(false);
     }
@@ -25,77 +35,84 @@ export const ExploreView: React.FC = () => {
     fetchExplore();
   }, []);
 
+  const handlePostDeleted = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p._id !== postId));
+  };
+
+  const handlePostUpdated = (updatedPost: any) => {
+    setPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+  };
+
+  const filteredPosts = selectedTag
+    ? posts.filter((p) => (p.content || '').toLowerCase().includes(selectedTag.toLowerCase()))
+    : posts;
+
   return (
-    <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-neutral-100 flex items-center gap-2">
-            <Compass className="w-5 h-5 text-sky-400" />
-            Explore Course Discussions
-          </h2>
-          <p className="text-xs text-neutral-400">
-            Popular questions, study topics, and discussions across your cohort.
-          </p>
+    <div className="h-full flex flex-col p-4 sm:p-6 space-y-6 overflow-y-auto max-w-4xl mx-auto font-sans">
+      <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <Compass className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-neutral-100">
+              Discover & Explore
+            </h2>
+            <p className="text-xs text-neutral-400">
+              Trending questions, study topics, and discussions across your cohort.
+            </p>
+          </div>
         </div>
         <button
           onClick={fetchExplore}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-xl text-xs font-medium transition cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold transition cursor-pointer border border-neutral-800"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Refresh
         </button>
       </div>
 
-      {loading ? (
-        <div className="p-12 text-center text-xs text-neutral-500">
-          Loading trending discussions...
-        </div>
-      ) : posts.length === 0 ? (
-        <div className="p-12 text-center text-xs text-neutral-500 bg-neutral-900/40 rounded-2xl border border-neutral-800">
-          No trending posts yet.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {posts.map((post) => (
-            <div
-              key={post._id}
-              className="bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700 rounded-2xl p-4 transition space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-xs">
-                    {post.author?.name?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-neutral-200">
-                      {post.author?.name || 'Classmate'}
-                    </h4>
-                    <p className="text-[11px] text-neutral-500">@{post.author?.username}</p>
-                  </div>
-                </div>
-                <span className="text-[11px] text-neutral-500 font-mono">
-                  {new Date(post.createdAt).toLocaleDateString()}
-                </span>
-              </div>
+      {/* Topic Filter Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <span className="text-xs font-bold text-neutral-400 flex items-center gap-1 shrink-0">
+          <Tag className="w-3.5 h-3.5" /> Topics:
+        </span>
+        {selectedTag && (
+          <button
+            onClick={() => setSelectedTag(null)}
+            className="flex items-center gap-1 px-3 py-1 bg-sky-500 text-white rounded-full text-xs font-bold transition cursor-pointer shrink-0"
+          >
+            <span>#{selectedTag}</span>
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        {topics.map((tag) => (
+          <button
+            key={tag}
+            onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition cursor-pointer shrink-0 ${
+              selectedTag === tag
+                ? 'bg-sky-500 text-white font-bold'
+                : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800 hover:bg-neutral-800'
+            }`}
+          >
+            #{tag}
+          </button>
+        ))}
+      </div>
 
-              <p className="text-sm text-neutral-300 whitespace-pre-wrap pl-10">
-                {post.content}
-              </p>
-
-              <div className="flex items-center gap-4 pl-10 pt-1 text-xs text-neutral-500">
-                <span className="flex items-center gap-1">
-                  <Heart className="w-3.5 h-3.5 text-rose-400" />
-                  {post.likesCount || 0}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
-                  {post.commentsCount || 0}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Real Post List */}
+      <div className="space-y-4">
+        <PostList
+          posts={filteredPosts}
+          loading={loading}
+          onPostDeleted={handlePostDeleted}
+          onPostUpdated={handlePostUpdated}
+          onLoadMore={() => {}}
+          emptyMessage="No trending posts found."
+          emptyDescription="When cohort members post questions and discussions, they appear here."
+        />
+      </div>
     </div>
   );
 };

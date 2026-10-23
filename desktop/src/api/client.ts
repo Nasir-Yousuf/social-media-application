@@ -7,12 +7,28 @@ export const getBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('pulse518_api_url');
     if (custom) return custom.endsWith('/api') ? custom : `${custom}/api`;
+
+    const hostname = window.location.hostname;
+    if (
+      import.meta.env.DEV ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === 'tauri.localhost' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.') ||
+      hostname.endsWith('.local')
+    ) {
+      const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+      if (rawUrl) return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
+      return LOCAL_BACKEND_URL;
+    }
   }
   const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   if (rawUrl) {
     return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
   }
-  return PRODUCTION_BACKEND_URL;
+  return LOCAL_BACKEND_URL;
 };
 
 export const api = axios.create({

@@ -12,6 +12,17 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     host: host || false,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5180',
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:5180',
+        ws: true,
+        changeOrigin: true,
+      },
+    },
     hmr: host
       ? {
           protocol: 'ws',

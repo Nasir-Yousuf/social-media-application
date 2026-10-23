@@ -137,7 +137,12 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { password } = req.body;
-    const loginId = req.body.loginId || req.body.emailOrUsername || req.body.username || req.body.email;
+    const loginId =
+      req.body.loginId ||
+      req.body.usernameOrEmail ||
+      req.body.emailOrUsername ||
+      req.body.username ||
+      req.body.email;
 
     if (!loginId || !password) {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });

@@ -1,144 +1,161 @@
-import React, { useState, useEffect } from 'react';
-import { Code2, Search, Copy, Check, Filter, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Code2, Search, RefreshCw, X } from 'lucide-react';
+import PostComposer from '../components/posts/PostComposer';
+import PostList from '../components/posts/PostList';
 import api from '../api/client';
-import { Post } from '../types';
+
+const LANGUAGES = [
+  { id: 'all', label: 'All Code' },
+  { id: 'javascript', label: 'JavaScript' },
+  { id: 'react', label: 'React' },
+  { id: 'python', label: 'Python' },
+  { id: 'typescript', label: 'TypeScript' },
+  { id: 'sql', label: 'SQL' },
+  { id: 'html', label: 'HTML/CSS' },
+  { id: 'cpp', label: 'C++' },
+  { id: 'java', label: 'Java' },
+  { id: 'shell', label: 'Shell' },
+];
 
 export const CodeHubView: React.FC = () => {
-  const [snippets, setSnippets] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [selectedLang, setSelectedLang] = useState<string>('all');
-
-  const fetchSnippets = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/posts/code-snippets');
-      if (res.data?.posts) {
-        setSnippets(res.data.posts);
-      }
-    } catch {
-      // Graceful error fallback
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [debouncedQuery, setDebouncedQuery] = useState<string>('');
 
   useEffect(() => {
-    fetchSnippets();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const handleCopy = (id: string, code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const fetchCodeFeed = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      try {
+        const params = new URLSearchParams();
+        if (selectedLanguage !== 'all') {
+          params.append('language', selectedLanguage);
+        }
+        if (debouncedQuery.trim()) {
+          params.append('q', debouncedQuery.trim());
+        }
+
+        const res = await api.get(`/posts/code-snippets?${params.toString()}`);
+        setPosts(res.data?.posts || []);
+      } catch (err) {
+        console.warn('Could not load code snippets feed:', err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [selectedLanguage, debouncedQuery]
+  );
+
+  useEffect(() => {
+    fetchCodeFeed();
+  }, [fetchCodeFeed]);
+
+  const handlePostCreated = (newPost: any) => {
+    setPosts((prev) => [newPost, ...prev]);
   };
 
-  const filteredSnippets = snippets.filter((s) => {
-    if (selectedLang === 'all') return true;
-    return s.codeSnippet?.language?.toLowerCase() === selectedLang.toLowerCase();
-  });
+  const handlePostDeleted = (postId: string) => {
+    setPosts((prev) => prev.filter((p) => p._id !== postId));
+  };
+
+  const handlePostUpdated = (updatedPost: any) => {
+    setPosts((prev) => prev.map((p) => (p._id === updatedPost._id ? updatedPost : p)));
+  };
 
   return (
-    <div className="h-full flex flex-col p-6 space-y-6 overflow-y-auto max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-neutral-100 flex items-center gap-2">
-            <Code2 className="w-5 h-5 text-emerald-400" />
-            Code Hub
-          </h2>
-          <p className="text-xs text-neutral-400">
-            Cohort code snippets, algorithm solutions, and reusable course utilities.
-          </p>
+    <div className="h-full flex flex-col p-4 sm:p-6 space-y-6 overflow-y-auto max-w-4xl mx-auto font-sans">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <Code2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-neutral-100">Code Hub</h1>
+            <p className="text-xs text-neutral-400">
+              Interactive sandbox repository of member code snippets, solutions, and scripts.
+            </p>
+          </div>
         </div>
         <button
-          onClick={fetchSnippets}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-xl text-xs font-medium transition cursor-pointer"
+          onClick={() => fetchCodeFeed(true)}
+          disabled={refreshing || loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 rounded-xl text-xs font-semibold transition cursor-pointer border border-neutral-800 disabled:opacity-50"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-emerald-400' : ''}`} />
           Refresh
         </button>
       </div>
 
-      {/* Language filter pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {['all', 'javascript', 'typescript', 'python', 'rust', 'sql', 'cpp'].map((lang) => (
-          <button
-            key={lang}
-            onClick={() => setSelectedLang(lang)}
-            className={`px-3 py-1 rounded-xl text-xs font-medium uppercase font-mono transition cursor-pointer ${
-              selectedLang === lang
-                ? 'bg-emerald-500 text-white font-bold'
-                : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'
-            }`}
-          >
-            {lang}
-          </button>
-        ))}
+      {/* Code Composer */}
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 shadow-sm">
+        <PostComposer onPostCreated={handlePostCreated} compact={true} />
       </div>
 
-      {loading ? (
-        <div className="p-12 text-center text-xs text-neutral-500">
-          Loading code snippets...
-        </div>
-      ) : filteredSnippets.length === 0 ? (
-        <div className="p-12 text-center text-xs text-neutral-500 bg-neutral-900/40 rounded-2xl border border-neutral-800">
-          No code snippets found for this category.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredSnippets.map((item) => (
-            <div
-              key={item._id}
-              className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-4 space-y-3"
+      {/* Filter & Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Language Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {LANGUAGES.map((lang) => (
+            <button
+              key={lang.id}
+              onClick={() => setSelectedLanguage(lang.id)}
+              className={`px-3 py-1 rounded-xl text-xs font-mono font-medium transition cursor-pointer shrink-0 ${
+                selectedLanguage === lang.id
+                  ? 'bg-emerald-500 text-white font-bold'
+                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+              }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-xs">
-                    {item.author?.name?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-semibold text-neutral-200">
-                      {item.author?.name || 'Classmate'}
-                    </h4>
-                    <p className="text-[10px] text-neutral-500">@{item.author?.username}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-neutral-800 text-emerald-400 font-mono text-[10px] rounded-lg border border-neutral-700">
-                    {item.codeSnippet?.language || 'code'}
-                  </span>
-                  {item.codeSnippet?.code && (
-                    <button
-                      onClick={() => handleCopy(item._id, item.codeSnippet!.code)}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs rounded-lg transition cursor-pointer"
-                    >
-                      {copiedId === item._id ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      {copiedId === item._id ? 'Copied' : 'Copy'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {item.content && (
-                <p className="text-xs text-neutral-300">{item.content}</p>
-              )}
-
-              {item.codeSnippet?.code && (
-                <div className="p-3 bg-neutral-950 rounded-xl font-mono text-xs overflow-x-auto text-emerald-400 border border-neutral-800">
-                  <pre>
-                    <code>{item.codeSnippet.code}</code>
-                  </pre>
-                </div>
-              )}
-            </div>
+              {lang.label}
+            </button>
           ))}
         </div>
-      )}
+
+        {/* Search Input */}
+        <div className="relative sm:w-64 shrink-0">
+          <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search code snippets..."
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-7 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-2 text-neutral-400 hover:text-white text-xs"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Code Post List */}
+      <div className="space-y-4">
+        <PostList
+          posts={posts}
+          loading={loading}
+          onPostDeleted={handlePostDeleted}
+          onPostUpdated={handlePostUpdated}
+          onLoadMore={() => {}}
+          emptyMessage="No code snippets found."
+          emptyDescription="Be the first to share a code snippet using the composer above!"
+        />
+      </div>
     </div>
   );
 };

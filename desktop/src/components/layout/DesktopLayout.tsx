@@ -16,9 +16,15 @@ import {
   LogOut,
   Shield,
   GraduationCap,
+  Keyboard,
+  Play,
+  Trophy,
+  Bookmark,
+  User as UserIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useMesh } from '../../mesh/context/MeshContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 interface DesktopLayoutProps {
   currentSection: string;
@@ -33,6 +39,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 }) => {
   const { user, backendConnected, logout } = useAuth();
   const { transportState, conversations: meshConvs } = useMesh();
+  const { unreadCount } = useNotifications();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('pulse518_desktop_sidebar_collapsed') === 'true';
@@ -58,6 +65,15 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
         e.preventDefault();
         onNavigate('learn');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+        e.preventDefault();
+        onNavigate('typing');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        onNavigate('code-practice');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        onNavigate('search');
       } else if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
         onNavigate('settings');
@@ -69,13 +85,20 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   }, [onNavigate]);
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: Home },
+    { id: 'home', label: 'Home Feed', icon: Home },
     { id: 'learn', label: 'Learn & Academy', icon: GraduationCap },
-    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: 0 },
-    { id: 'mesh', label: 'Clearfeed Mesh', icon: Radio, highlight: true },
-    { id: 'members', label: 'Members', icon: Users },
+    { id: 'typing', label: 'Typing Arena', icon: Keyboard, offline: true },
+    { id: 'code-practice', label: 'Code Sandbox & Practice', icon: Play, offline: true },
     { id: 'code', label: 'Code Hub', icon: Code2 },
-    { id: 'explore', label: 'Explore', icon: Compass },
+    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
+    { id: 'messages', label: 'Messages', icon: MessageSquare },
+    { id: 'mesh', label: 'Clearfeed Mesh (P2P)', icon: Radio, highlight: true },
+    { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadCount },
+    { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
+    { id: 'members', label: 'Cohort Members', icon: Users },
+    { id: 'explore', label: 'Explore Topics', icon: Compass },
+    { id: 'search', label: 'Search', icon: Search },
+    { id: 'profile', label: 'My Profile', icon: UserIcon },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -137,7 +160,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           } bg-neutral-900/60 border-r border-neutral-800/80 flex flex-col justify-between transition-all duration-200 shrink-0 select-none`}
         >
           {/* Top Nav List */}
-          <div className="p-3 space-y-1">
+          <div className="p-2 space-y-0.5 overflow-y-auto flex-1 select-none">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentSection === item.id;
@@ -146,9 +169,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
                   title={sidebarCollapsed ? item.label : undefined}
-                  className={`w-full flex items-center ${
+                  className={`w-full flex items-center justify-between ${
                     sidebarCollapsed ? 'justify-center px-0' : 'px-3'
-                  } py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  } py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
                     isActive
                       ? item.highlight
                         ? 'bg-emerald-500 text-white shadow-sm'
@@ -158,8 +181,20 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50'
                   }`}
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {!sidebarCollapsed && <span className="ml-3 truncate">{item.label}</span>}
+                  <div className="flex items-center min-w-0">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {!sidebarCollapsed && <span className="ml-2.5 truncate">{item.label}</span>}
+                  </div>
+                  {!sidebarCollapsed && item.offline && (
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      OFFLINE
+                    </span>
+                  )}
+                  {!sidebarCollapsed && typeof item.badge === 'number' && item.badge > 0 && (
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-rose-500 text-white">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -170,28 +205,43 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
             {/* User pill */}
             {user ? (
               <div
-                className={`flex items-center ${
+                className={`flex items-center justify-between ${
                   sidebarCollapsed ? 'justify-center p-1' : 'p-2'
                 } rounded-xl bg-neutral-950/60 border border-neutral-800/80`}
               >
-                <div className="w-7 h-7 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs shrink-0">
-                  {user.name?.[0]?.toUpperCase() || 'U'}
+                <div
+                  onClick={() => onNavigate('profile')}
+                  className="flex items-center min-w-0 cursor-pointer flex-1 hover:opacity-90"
+                  title="View Profile"
+                >
+                  <div className="w-7 h-7 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-xs shrink-0">
+                    {user.name?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  {!sidebarCollapsed && (
+                    <div className="ml-2.5 min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-neutral-200 truncate">{user.name}</p>
+                      <p className="text-[10px] text-neutral-500 truncate">@{user.username}</p>
+                    </div>
+                  )}
                 </div>
                 {!sidebarCollapsed && (
-                  <div className="ml-2.5 min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-neutral-200 truncate">{user.name}</p>
-                    <p className="text-[10px] text-neutral-500 truncate">@{user.username}</p>
-                  </div>
+                  <button
+                    onClick={logout}
+                    title="Sign Out"
+                    className="p-1 hover:text-rose-400 text-neutral-500 rounded transition cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
             ) : (
               <div
                 onClick={() => onNavigate('auth')}
-                className={`flex items-center ${
-                  sidebarCollapsed ? 'justify-center p-1' : 'px-3 py-2'
+                className={`flex items-center justify-center ${
+                  sidebarCollapsed ? 'p-1' : 'px-3 py-2'
                 } rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-xs font-semibold cursor-pointer hover:bg-sky-500/20 transition`}
               >
-                <span>{sidebarCollapsed ? 'In' : 'Sign In'}</span>
+                <span>{sidebarCollapsed ? 'In' : 'Sign In / Guest'}</span>
               </div>
             )}
 

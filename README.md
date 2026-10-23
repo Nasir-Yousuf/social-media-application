@@ -116,8 +116,8 @@ graph TD
 | Highlight                            | Description                                                                                                                                                     |
 | :----------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Full-Stack Reactive Architecture** | Built with **React 19**, **Express 5**, and **Mongoose 8** with full end-to-end type safety, modern async middleware, and optimistic UI updates.                |
-| **Universal Learn & Academy**        | **15 Complete Tracks & 446 distinct bilingual lessons** with live sandboxes, unit tests, quizzes, and certificates across Web, Desktop, and Mobile.            |
-| **Native Desktop App (Tauri 2)**     | Ultra-lightweight native desktop binary built with Rust and React 19, supporting offline learning, mesh communication, and global keyboard shortcuts.          |
+| **Universal Learn & Academy**        | **15 Complete Tracks & 446 distinct bilingual lessons** with live sandboxes, unit tests, quizzes, and certificates across Web, Desktop, and Mobile.             |
+| **Native Desktop App (Tauri 2)**     | Ultra-lightweight native desktop binary built with Rust and React 19, supporting offline learning, mesh communication, and global keyboard shortcuts.           |
 | **Client-Side Image Pre-Processing** | Canvas-based downscaling resizes profile photos to 128×128 JPEG at ≤100KB before transmission, reducing network payload by ~95%.                                |
 | **Reverse-Proxy-Aware IP Telemetry** | Extracts and normalizes genuine client IP addresses through Cloudflare, Vercel, and Railway headers (`CF-Connecting-IP`, `X-Forwarded-For`).                    |
 | **Maintainer Governance Safeguards** | Designated site maintainers are cryptographically shielded from unauthorized role changes, suspension, or deletion.                                             |
@@ -394,25 +394,25 @@ npm run build:desktop
 
 ## 🔌 API Architecture
 
-| Endpoint                           |  Method  |     Access     | Description                                       |
-| :--------------------------------- | :------: | :------------: | :------------------------------------------------ |
-| `/api/auth/register`               |  `POST`  |     Public     | Register new member with client IP tracking       |
-| `/api/auth/login`                  |  `POST`  |     Public     | Authenticate user, update session IP, return JWT  |
-| `/api/auth/me`                     |  `GET`   |    Private     | Retrieve authenticated profile and refresh roles  |
-| `/api/posts`                       |  `GET`   |     Public     | Fetch chronological posts with pagination         |
-| `/api/posts`                       |  `POST`  |    Private     | Create text/code post with IP attribution         |
-| `/api/posts/:id`                   | `DELETE` | Author / Admin | Remove post and cascade delete comments           |
-| `/api/posts/:id/comments`          |  `POST`  |    Private     | Add comment with IP tracking                      |
-| `/api/learning/progress`           |  `GET`   | Optional Auth  | Fetch user learning progress, XP, and streak      |
-| `/api/learning/progress/complete`  |  `POST`  |    Private     | Mark lesson completed and award XP                |
-| `/api/learning/quiz/submit`        |  `POST`  |    Private     | Submit formative quiz and evaluate score          |
-| `/api/learning/exam/submit`        |  `POST`  |    Private     | Submit final exam and issue completion certificate|
-| `/api/users/:id/avatar`            |  `GET`   |     Public     | Stream binary avatar buffer with HTTP caching     |
-| `/api/users/:id/avatar`            |  `PUT`   |    Private     | Upload compressed JPEG avatar buffer              |
-| `/api/admin/users`                 |  `GET`   |     Admin      | Fetch user directory with IP audit data           |
-| `/api/admin/traffic`               |  `GET`   |     Admin      | Stream live IP traffic and security events        |
-| `/api/admin/users/:id/role`        | `PATCH`  |     Admin      | Toggle admin status (protected against co-admins) |
-| `/api/admin/users/:id/status`      | `PATCH`  |     Admin      | Toggle account suspension                         |
+| Endpoint                          |  Method  |     Access     | Description                                        |
+| :-------------------------------- | :------: | :------------: | :------------------------------------------------- |
+| `/api/auth/register`              |  `POST`  |     Public     | Register new member with client IP tracking        |
+| `/api/auth/login`                 |  `POST`  |     Public     | Authenticate user, update session IP, return JWT   |
+| `/api/auth/me`                    |  `GET`   |    Private     | Retrieve authenticated profile and refresh roles   |
+| `/api/posts`                      |  `GET`   |     Public     | Fetch chronological posts with pagination          |
+| `/api/posts`                      |  `POST`  |    Private     | Create text/code post with IP attribution          |
+| `/api/posts/:id`                  | `DELETE` | Author / Admin | Remove post and cascade delete comments            |
+| `/api/posts/:id/comments`         |  `POST`  |    Private     | Add comment with IP tracking                       |
+| `/api/learning/progress`          |  `GET`   | Optional Auth  | Fetch user learning progress, XP, and streak       |
+| `/api/learning/progress/complete` |  `POST`  |    Private     | Mark lesson completed and award XP                 |
+| `/api/learning/quiz/submit`       |  `POST`  |    Private     | Submit formative quiz and evaluate score           |
+| `/api/learning/exam/submit`       |  `POST`  |    Private     | Submit final exam and issue completion certificate |
+| `/api/users/:id/avatar`           |  `GET`   |     Public     | Stream binary avatar buffer with HTTP caching      |
+| `/api/users/:id/avatar`           |  `PUT`   |    Private     | Upload compressed JPEG avatar buffer               |
+| `/api/admin/users`                |  `GET`   |     Admin      | Fetch user directory with IP audit data            |
+| `/api/admin/traffic`              |  `GET`   |     Admin      | Stream live IP traffic and security events         |
+| `/api/admin/users/:id/role`       | `PATCH`  |     Admin      | Toggle admin status (protected against co-admins)  |
+| `/api/admin/users/:id/status`     | `PATCH`  |     Admin      | Toggle account suspension                          |
 
 ---
 

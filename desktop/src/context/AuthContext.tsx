@@ -10,6 +10,7 @@ interface AuthContextValue {
   loading: boolean;
   backendConnected: boolean;
   login: (credentials: { usernameOrEmail: string; password: string }) => Promise<{ success: boolean; message?: string }>;
+  loginGuest: () => Promise<{ success: boolean; message?: string }>;
   register: (payload: { name: string; username: string; email: string; password: string; studentId?: string; coursePasscode: string }) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   updateUser: (updatedData: Partial<User>) => void;
@@ -38,7 +39,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const checkAuth = useCallback(async () => {
     const currentToken = localStorage.getItem('pulse518_token');
     if (!currentToken) {
-      setLoading(false);
+      try {
+        await api.get('/posts/feed?limit=1');
+        setBackendConnected(true);
+      } catch (err: any) {
+        setBackendConnected(Boolean(err.response));
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -68,8 +76,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (credentials: { usernameOrEmail: string; password: string }) => {
     try {
+      const cleanId = (credentials.usernameOrEmail || (credentials as any).loginId || '').trim();
       const res = await api.post('/auth/login', {
-        usernameOrEmail: credentials.usernameOrEmail.trim(),
+        loginId: cleanId,
+        emailOrUsername: cleanId,
+        usernameOrEmail: cleanId,
+        username: cleanId,
+        email: cleanId,
         password: credentials.password,
       });
 
@@ -86,6 +99,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { success: false, message: 'Invalid response from server.' };
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Login failed. Please check your credentials.';
+      return { success: false, message: msg };
+    }
+  };
+
+  const loginGuest = async () => {
+    try {
+      const res = await api.post('/auth/guest');
+      const { token: receivedToken, user: receivedUser } = res.data;
+      if (receivedToken && receivedUser) {
+        setToken(receivedToken);
+        setUser(receivedUser);
+        setBackendConnected(true);
+        localStorage.setItem('pulse518_token', receivedToken);
+        localStorage.setItem('pulse518_user', JSON.stringify(receivedUser));
+        socketService.connect(receivedToken);
+        return { success: true };
+      }
+      return { success: false, message: 'Invalid response from guest login.' };
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Guest login failed. Backend may be offline.';
       return { success: false, message: msg };
     }
   };
@@ -143,6 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         backendConnected,
         login,
+        loginGuest,
         register,
         logout,
         updateUser,

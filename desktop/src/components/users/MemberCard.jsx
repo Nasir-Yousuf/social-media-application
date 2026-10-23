@@ -1,0 +1,174 @@
+import React, { useState, useEffect } from 'react';
+import { NavLink } from 'react-router-dom';
+import { Phone, MessageSquare } from 'lucide-react';
+import Avatar from '../common/Avatar';
+import Button from '../common/Button';
+import api from '../../api/client';
+import { useNotifications } from '../../context/NotificationContext';
+import { useCall } from '../../context/CallContext';
+import { FacultyBadge } from '../common/ClearfeedIcons';
+
+export const MemberCard = ({ member }) => {
+  const { showToast } = useNotifications();
+  const { startCall } = useCall();
+  const [isFollowing, setIsFollowing] = useState(member.isFollowing);
+  const [followersCount, setFollowersCount] = useState(member.followersCount || 0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setIsFollowing(member.isFollowing);
+    setFollowersCount(member.followersCount || 0);
+  }, [member.isFollowing, member.followersCount]);
+
+  useEffect(() => {
+    const handleFollowSync = (e) => {
+      if (e.detail?.userId === member._id) {
+        if (typeof e.detail.isFollowing === 'boolean') {
+          setIsFollowing(e.detail.isFollowing);
+        }
+        if (typeof e.detail.followersCount === 'number') {
+          setFollowersCount(e.detail.followersCount);
+        }
+      }
+    };
+    window.addEventListener('clearfeed:followUpdated', handleFollowSync);
+    return () => window.removeEventListener('clearfeed:followUpdated', handleFollowSync);
+  }, [member._id]);
+
+  const handleFollowToggle = async () => {
+    setLoading(true);
+    try {
+      if (isFollowing) {
+        const res = await api.delete(`/users/${member._id}/follow`);
+        setIsFollowing(false);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : Math.max(0, followersCount - 1);
+        setFollowersCount(newCount);
+        showToast(`Unfollowed @${member.username}`, 'info');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: member._id,
+              username: member.username,
+              isFollowing: false,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      } else {
+        const res = await api.post(`/users/${member._id}/follow`);
+        setIsFollowing(true);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : followersCount + 1;
+        setFollowersCount(newCount);
+        showToast(`Following @${member.username}`, 'success');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: member._id,
+              username: member.username,
+              isFollowing: true,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update follow status', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 flex flex-col justify-between gap-3 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700/80 transition-all duration-200">
+      <div className="flex items-start justify-between gap-3">
+        <NavLink to={`/profile/${member.username}`} className="flex items-center gap-3 min-w-0">
+          <Avatar
+            src={member.avatarUrl}
+            name={member.name}
+            size="md"
+            showRoleBadge={false}
+            role={member.role}
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-sans font-bold text-sm text-neutral-900 dark:text-neutral-100 hover:underline truncate">
+                {member.name}
+              </span>
+            </div>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 block truncate font-sans">
+              @{member.username}
+            </span>
+            {member.status && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium inline-block mt-1">
+                {member.status}
+              </span>
+            )}
+          </div>
+        </NavLink>
+
+        {!member.isSelf && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => startCall(member)}
+              className="p-1.5 rounded-full border border-neutral-200 dark:border-neutral-700/80 hover:border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-neutral-600 dark:text-neutral-400 hover:text-emerald-500 transition-colors cursor-pointer"
+              title={`Voice Call @${member.username}`}
+              aria-label={`Call @${member.username}`}
+            >
+              <Phone className="w-3.5 h-3.5 text-emerald-500" />
+            </button>
+
+            <NavLink
+              to={`/messages?user=${member.username}`}
+              className="p-1.5 rounded-full border border-neutral-200 dark:border-neutral-700/80 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-500 transition-colors"
+              title={`Message @${member.username}`}
+              aria-label={`Message @${member.username}`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+            </NavLink>
+
+            <Button
+              variant={isFollowing ? 'outline' : 'secondary'}
+              size="xs"
+              onClick={handleFollowToggle}
+              isLoading={loading}
+              className="px-3 py-1 font-bold text-xs"
+            >
+              {isFollowing ? 'Following' : 'Follow'}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {member.bio && (
+        <p className="text-xs text-neutral-600 dark:text-neutral-300 line-clamp-2 leading-relaxed font-sans">
+          {member.bio}
+        </p>
+      )}
+
+      <div className="pt-2.5 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 font-sans">
+        <span>
+          <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{followersCount}</strong> follower{followersCount === 1 ? '' : 's'}
+        </span>
+        <NavLink
+          to={`/profile/${member.username}`}
+          className="text-sky-500 hover:underline font-semibold text-xs"
+        >
+          View profile &rarr;
+        </NavLink>
+      </div>
+    </div>
+  );
+};
+
+export default MemberCard;

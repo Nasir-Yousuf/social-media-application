@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, User as UserIcon, Mail, Key, Shield, Radio, ArrowRight } from 'lucide-react';
+import { Lock, User as UserIcon, Mail, Key, Shield, Radio, ArrowRight, Compass } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface AuthViewProps {
@@ -7,7 +7,7 @@ interface AuthViewProps {
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
-  const { login, register } = useAuth();
+  const { login, register, loginGuest } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [usernameOrEmail, setUsernameOrEmail] = useState<string>('');
@@ -22,6 +22,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [guestLoading, setGuestLoading] = useState<boolean>(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +50,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setError(null);
+    setGuestLoading(true);
+    try {
+      const res = await loginGuest();
+      if (!res.success) {
+        setError(res.message || 'Failed to enter as guest.');
+      }
+    } finally {
+      setGuestLoading(false);
     }
   };
 
@@ -158,6 +172,27 @@ export const AuthView: React.FC<AuthViewProps> = ({ onContinueOffline }) => {
               : 'Create Cohort Account'}
           </button>
         </form>
+
+        {/* Guest Mode Option */}
+        <div className="space-y-3 pt-1">
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-neutral-800 w-full" />
+            <span className="bg-neutral-900 px-3 text-[10px] uppercase tracking-wider font-semibold text-neutral-500 shrink-0">
+              or
+            </span>
+            <div className="border-t border-neutral-800 w-full" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            disabled={guestLoading || submitting}
+            className="w-full py-2.5 px-4 rounded-xl bg-neutral-800/80 hover:bg-neutral-800 text-neutral-200 text-xs font-bold flex items-center justify-center gap-2 border border-neutral-700/60 transition cursor-pointer active:scale-[0.98] disabled:opacity-50"
+          >
+            <Compass className="w-4 h-4 text-sky-400" />
+            <span>{guestLoading ? 'Entering as Guest...' : 'Continue as Guest'}</span>
+          </button>
+        </div>
 
         <div className="flex items-center justify-between text-xs text-neutral-400 pt-2 border-t border-neutral-800/80">
           <span>

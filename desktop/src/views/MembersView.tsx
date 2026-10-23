@@ -16,9 +16,8 @@ export const MembersView: React.FC<MembersViewProps> = ({ onStartChat }) => {
     setLoading(true);
     try {
       const res = await api.get('/users/directory');
-      if (res.data?.users) {
-        setMembers(res.data.users);
-      }
+      const incoming = res.data?.users || res.data?.members || [];
+      setMembers(incoming);
     } catch {
       // Graceful error handling
     } finally {

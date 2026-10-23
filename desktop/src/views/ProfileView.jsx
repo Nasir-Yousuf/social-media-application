@@ -1,0 +1,819 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, NavLink, useNavigate } from 'react-router-dom';
+import {
+  Calendar,
+  Code2,
+  FileText,
+  MessageSquare,
+  ArrowLeft,
+  Camera,
+  KeyRound,
+  Zap,
+  LogOut,
+  Phone,
+} from 'lucide-react';
+import { format } from 'date-fns';
+import api from '../api/client';
+import Avatar from '../components/common/Avatar';
+import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
+import PostList from '../components/posts/PostList';
+import EditProfileModal from '../components/users/EditProfileModal';
+import ChangePasswordModal from '../components/users/ChangePasswordModal';
+import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
+import { useCall } from '../context/CallContext';
+import { FacultyBadge } from '../components/common/ClearfeedIcons';
+import { getLocalTypingProfile } from '../utils/typingStorage';
+
+export const ProfilePage = () => {
+  const { username } = useParams();
+  const navigate = useNavigate();
+  const { user: currentUser, logout } = useAuth();
+  const { showToast } = useNotifications();
+  const { startCall } = useCall();
+
+  const [profile, setProfile] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [activeTab, setActiveTab] = useState('posts'); // 'posts' or 'code'
+  const [loading, setLoading] = useState(true);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+
+  // Followers / Following Modal
+  const [connectionsModal, setConnectionsModal] = useState({ isOpen: false, title: '', users: [] });
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+
+  const targetUsername = (username && username !== 'me') ? username : currentUser?.username;
+
+  const fetchProfileAndPosts = useCallback(async () => {
+    if (!targetUsername) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const [profileRes, postsRes] = await Promise.all([
+        api.get(`/users/profile/${targetUsername}`),
+        api.get(`/posts/user/${targetUsername}`),
+      ]);
+      const userData = profileRes.data.user;
+      if (
+        userData &&
+        (!userData.typingStats || userData.typingStats.bestWpm === 0) &&
+        currentUser &&
+        String(userData.username).toLowerCase() === String(currentUser.username).toLowerCase()
+      ) {
+        const localStats = getLocalTypingProfile();
+        if (localStats.bestWpm > 0 || localStats.testsCompleted > 0) {
+          userData.typingStats = localStats;
+        }
+      }
+      setProfile(userData);
+      setPosts(postsRes.data.posts || []);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to load profile', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [targetUsername, currentUser, showToast]);
+
+  useEffect(() => {
+    fetchProfileAndPosts();
+  }, [fetchProfileAndPosts]);
+
+  // Listen for real-time typing stats updates
+  useEffect(() => {
+    const handleTypingStatsUpdated = (e) => {
+      const stats = e.detail?.typingStats;
+      if (
+        stats &&
+        profile &&
+        currentUser &&
+        String(profile.username).toLowerCase() === String(currentUser.username).toLowerCase()
+      ) {
+        setProfile((prev) => (prev ? { ...prev, typingStats: stats } : prev));
+      }
+    };
+    window.addEventListener('clearfeed:typingStatsUpdated', handleTypingStatsUpdated);
+    return () => window.removeEventListener('clearfeed:typingStatsUpdated', handleTypingStatsUpdated);
+  }, [profile, currentUser]);
+
+  // Listen for real-time user profile/avatar updates
+  useEffect(() => {
+    const handleUserUpdated = (e) => {
+      const updatedUser = e.detail;
+      if (updatedUser && updatedUser.username?.toLowerCase() === username?.toLowerCase()) {
+        setProfile((prev) => (prev ? { ...prev, ...updatedUser } : updatedUser));
+        setPosts((prev) =>
+          prev.map((p) => {
+            const authorId = typeof p.author === 'object' ? p.author?._id : p.author;
+            if (String(authorId) === String(updatedUser._id)) {
+              return {
+                ...p,
+                author: {
+                  ...(typeof p.author === 'object' ? p.author : {}),
+                  avatarUrl: updatedUser.avatarUrl,
+                  name: updatedUser.name,
+                },
+              };
+            }
+            return p;
+          })
+        );
+      }
+    };
+
+    window.addEventListener('clearfeed:userUpdated', handleUserUpdated);
+    return () => window.removeEventListener('clearfeed:userUpdated', handleUserUpdated);
+  }, [username]);
+
+  // Listen for follow updates anywhere in the app to sync live profile counts
+  useEffect(() => {
+    const handleFollowUpdated = (e) => {
+      const detail = e.detail;
+      if (!detail) return;
+
+      setProfile((prev) => {
+        if (!prev) return prev;
+
+        // If the profile being viewed is the user who was followed/unfollowed
+        if (prev._id === detail.userId) {
+          return {
+            ...prev,
+            isFollowing: typeof detail.isFollowing === 'boolean' ? detail.isFollowing : prev.isFollowing,
+            followersCount: typeof detail.followersCount === 'number' ? detail.followersCount : prev.followersCount,
+          };
+        }
+
+        // If the profile being viewed is the current logged-in user themselves
+        if (currentUser && prev._id === currentUser._id) {
+          return {
+            ...prev,
+            followingCount: typeof detail.currentUserFollowingCount === 'number' ? detail.currentUserFollowingCount : prev.followingCount,
+            followersCount: typeof detail.currentUserFollowersCount === 'number' ? detail.currentUserFollowersCount : prev.followersCount,
+          };
+        }
+
+        return prev;
+      });
+
+      // Also sync if the user is listed in connectionsModal
+      setConnectionsModal((prev) => {
+        if (!prev.isOpen || !prev.users.length) return prev;
+        const updatedUsers = prev.users.map((u) => {
+          if (u._id === detail.userId) {
+            return {
+              ...u,
+              isFollowing: typeof detail.isFollowing === 'boolean' ? detail.isFollowing : u.isFollowing,
+              followersCount: typeof detail.followersCount === 'number' ? detail.followersCount : u.followersCount,
+            };
+          }
+          return u;
+        });
+        return { ...prev, users: updatedUsers };
+      });
+    };
+
+    window.addEventListener('clearfeed:followUpdated', handleFollowUpdated);
+    return () => window.removeEventListener('clearfeed:followUpdated', handleFollowUpdated);
+  }, [currentUser]);
+
+  const handleFollowToggle = async () => {
+    if (!profile) return;
+    setFollowLoading(true);
+    try {
+      if (profile.isFollowing) {
+        const res = await api.delete(`/users/${profile._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : Math.max(0, (profile.followersCount || 0) - 1);
+
+        setProfile((prev) => ({
+          ...prev,
+          isFollowing: false,
+          followersCount: newCount,
+        }));
+        showToast(`Unfollowed @${profile.username}`, 'info');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: profile._id,
+              username: profile.username,
+              isFollowing: false,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      } else {
+        const res = await api.post(`/users/${profile._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : (profile.followersCount || 0) + 1;
+
+        setProfile((prev) => ({
+          ...prev,
+          isFollowing: true,
+          followersCount: newCount,
+        }));
+        showToast(`Following @${profile.username}`, 'success');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: profile._id,
+              username: profile.username,
+              isFollowing: true,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update follow', 'error');
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const handleModalFollowToggle = async (targetUser) => {
+    try {
+      if (targetUser.isFollowing) {
+        const res = await api.delete(`/users/${targetUser._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : Math.max(0, (targetUser.followersCount || 0) - 1);
+
+        setConnectionsModal((prev) => ({
+          ...prev,
+          users: prev.users.map((u) =>
+            u._id === targetUser._id ? { ...u, isFollowing: false, followersCount: newCount } : u
+          ),
+        }));
+        showToast(`Unfollowed @${targetUser.username}`, 'info');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: targetUser._id,
+              username: targetUser.username,
+              isFollowing: false,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      } else {
+        const res = await api.post(`/users/${targetUser._id}/follow`);
+        const newCount = typeof res.data.followersCount === 'number'
+          ? res.data.followersCount
+          : (targetUser.followersCount || 0) + 1;
+
+        setConnectionsModal((prev) => ({
+          ...prev,
+          users: prev.users.map((u) =>
+            u._id === targetUser._id ? { ...u, isFollowing: true, followersCount: newCount } : u
+          ),
+        }));
+        showToast(`Following @${targetUser.username}`, 'success');
+
+        window.dispatchEvent(
+          new CustomEvent('clearfeed:followUpdated', {
+            detail: {
+              userId: targetUser._id,
+              username: targetUser.username,
+              isFollowing: true,
+              followersCount: newCount,
+              currentUserFollowingCount: res.data.currentUserFollowingCount,
+              currentUserFollowersCount: res.data.currentUserFollowersCount,
+            },
+          })
+        );
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update follow', 'error');
+    }
+  };
+
+  const openConnectionsModal = async (type) => {
+    if (!profile) return;
+    setConnectionsModal({
+      isOpen: true,
+      title: type === 'followers' ? 'Followers' : 'Following',
+      users: [],
+    });
+    setConnectionsLoading(true);
+    try {
+      const res = await api.get(`/users/${profile._id}/${type}`);
+      setConnectionsModal((prev) => ({
+        ...prev,
+        users: res.data[type] || [],
+      }));
+    } catch (err) {
+      showToast('Could not load connections', 'error');
+    } finally {
+      setConnectionsLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col font-sans animate-pulse">
+        {/* Sticky Top Bar Skeleton */}
+        <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/85 dark:bg-black/85 border-b border-neutral-200/80 dark:border-neutral-800/80 px-4 py-2 flex items-center gap-6">
+          <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+          <div className="space-y-1.5">
+            <div className="w-28 h-4 bg-neutral-200 dark:bg-neutral-800 rounded" />
+            <div className="w-16 h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+          </div>
+        </div>
+        {/* Banner Skeleton */}
+        <div className="h-32 sm:h-44 w-full bg-neutral-200 dark:bg-neutral-800/60" />
+        {/* Profile Info Skeleton */}
+        <div className="px-4 sm:px-6 pb-4 space-y-4">
+          <div className="flex justify-between items-end -mt-12 sm:-mt-14">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-neutral-300 dark:bg-neutral-700 ring-4 ring-white dark:ring-black" />
+            <div className="w-24 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 mb-1" />
+          </div>
+          <div className="space-y-2 pt-2">
+            <div className="w-40 h-5 bg-neutral-200 dark:bg-neutral-800 rounded" />
+            <div className="w-24 h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+            <div className="w-full max-w-sm h-3 bg-neutral-100 dark:bg-neutral-800/50 rounded mt-2" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex flex-col font-sans">
+        {/* Sticky Top Bar */}
+        <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/85 dark:bg-black/85 border-b border-neutral-200/80 dark:border-neutral-800/80 px-4 py-2 flex items-center gap-6">
+          <button
+            onClick={() => navigate(-1)}
+            aria-label="Back"
+            className="p-2 -ml-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors text-neutral-800 dark:text-neutral-200 cursor-pointer active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-neutral-900 dark:text-white leading-tight">Profile</h1>
+          </div>
+        </div>
+
+        {/* Not Found Body */}
+        <div className="py-24 px-4 text-center text-neutral-500 dark:text-neutral-400">
+          <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">This account doesn’t exist</h2>
+          <p className="text-sm mt-1">Try searching for another member.</p>
+          <NavLink
+            to="/"
+            className="inline-block mt-4 px-5 py-2 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm transition-colors"
+          >
+            Back to Feed
+          </NavLink>
+        </div>
+      </div>
+    );
+  }
+
+  const isSelf = profile.isSelf || currentUser?._id === profile._id;
+
+  const codePosts = posts.filter(
+    (p) =>
+      p.codeSnippet &&
+      ((Array.isArray(p.codeSnippet.files) && p.codeSnippet.files.length > 0) || p.codeSnippet.code)
+  );
+
+  const displayedPosts = activeTab === 'code' ? codePosts : posts;
+
+  return (
+    <div className="flex flex-col font-sans">
+      {/* Twitter Sticky Header */}
+      <div className="sticky top-0 z-30 backdrop-blur-xl bg-white/85 dark:bg-black/85 border-b border-neutral-200/80 dark:border-neutral-800/80 px-4 py-2 flex items-center gap-6">
+        <button
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+          className="p-2 -ml-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors text-neutral-800 dark:text-neutral-200 cursor-pointer active:scale-95"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-lg font-black tracking-tight text-neutral-900 dark:text-white truncate leading-tight">
+              {profile.name}
+            </h1>
+          </div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-tight">
+            {profile.postsCount ?? posts.length} {((profile.postsCount ?? posts.length) === 1) ? 'post' : 'posts'}
+          </p>
+        </div>
+      </div>
+
+      {/* Cover Banner */}
+      <div className="h-32 sm:h-44 w-full bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-600/25 dark:from-sky-950/60 dark:via-indigo-950/40 dark:to-neutral-900 relative overflow-hidden border-b border-neutral-200/80 dark:border-neutral-800/80">
+        <div className="absolute inset-0 opacity-20 dark:opacity-30 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
+        <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-sky-400/20 blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Profile Header Details */}
+      <div className="px-4 sm:px-6 pb-4">
+        {/* Avatar and Action Buttons */}
+        <div className="flex justify-between items-end -mt-12 sm:-mt-14 mb-4">
+          <div className="relative group">
+            <div
+              className={`ring-4 ring-white dark:ring-black rounded-full overflow-hidden inline-block bg-white dark:bg-black shadow-md ${
+                isSelf ? 'cursor-pointer' : ''
+              }`}
+              onClick={() => isSelf && setIsEditModalOpen(true)}
+              title={isSelf ? 'Click to change profile photo' : profile.name}
+            >
+              <Avatar
+                src={profile.avatarUrl}
+                name={profile.name}
+                size="2xl"
+                showRoleBadge={false}
+              />
+            </div>
+
+            {isSelf && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                title="Change profile photo"
+                className="absolute inset-0 rounded-full bg-black/45 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ring-4 ring-white dark:ring-black"
+              >
+                <Camera className="w-6 h-6 mb-0.5 drop-shadow-md" />
+                <span className="text-[10px] font-bold">Edit</span>
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mb-1">
+            {isSelf ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="font-bold rounded-full px-4 text-xs sm:text-sm"
+                >
+                  Edit profile
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasswordOpen(true)}
+                  className="px-3.5 py-1.5 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer active:scale-95"
+                  title="Change Password"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Password</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                  className="px-3.5 py-1.5 rounded-full border border-rose-300 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer active:scale-95 shadow-2xs"
+                  title="Log out of account"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Log out</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => startCall(profile)}
+                  className="p-2 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-emerald-500 hover:border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                  title={`Voice Call @${profile.username}`}
+                >
+                  <Phone className="w-4 h-4 text-emerald-500" />
+                </button>
+
+                <NavLink
+                  to={`/messages?user=${profile.username}`}
+                  className="p-2 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors"
+                  title={`Direct Message @${profile.username}`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </NavLink>
+
+
+                <Button
+                  variant={profile.isFollowing ? 'outline' : 'secondary'}
+                  size="sm"
+                  onClick={handleFollowToggle}
+                  isLoading={followLoading}
+                  className="px-5 font-bold rounded-full text-sm"
+                >
+                  {profile.isFollowing ? 'Following' : 'Follow'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* User Identity Info */}
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900 dark:text-white">
+                {profile.name}
+              </h2>
+            </div>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">@{profile.username}</p>
+          </div>
+
+          {profile.status && (
+            <div>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium inline-block border border-sky-200/50 dark:border-sky-500/20">
+                {profile.status}
+              </span>
+            </div>
+          )}
+
+          {profile.bio && (
+            <p className="text-sm text-neutral-800 dark:text-neutral-200 font-sans leading-relaxed whitespace-pre-wrap">
+              {profile.bio}
+            </p>
+          )}
+
+          {/* Metadata */}
+          <div className="flex items-center gap-4 pt-1 text-xs text-neutral-500 dark:text-neutral-400 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" />
+              <span>
+                Joined {profile.createdAt ? format(new Date(profile.createdAt), 'MMMM yyyy') : 'recently'}
+              </span>
+            </span>
+          </div>
+
+          {/* Followers / Following counts */}
+          <div className="flex items-center gap-5 pt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            <button
+              onClick={() => openConnectionsModal('following')}
+              className="hover:underline transition-all cursor-pointer flex items-center gap-1"
+            >
+              <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followingCount || 0}</strong>
+              <span className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">Following</span>
+            </button>
+
+            <button
+              onClick={() => openConnectionsModal('followers')}
+              className="hover:underline transition-all cursor-pointer flex items-center gap-1"
+            >
+              <strong className="text-neutral-900 dark:text-neutral-100 font-bold">{profile.followersCount || 0}</strong>
+              <span className="text-neutral-500 dark:text-neutral-400 text-xs sm:text-sm">Followers</span>
+            </button>
+          </div>
+
+          {/* Typing Arena Mastery Showcase */}
+          {profile.typingStats && (profile.typingStats.bestWpm > 0 || profile.typingStats.testsCompleted > 0) ? (
+            <div className="mt-4 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-500">
+                    <Zap className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-black tracking-wider uppercase text-amber-500">
+                      Typing Arena Mastery
+                    </h3>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {profile.typingStats.currentRank || 'Arena Typist'} • {profile.typingStats.xp || 0} XP
+                    </p>
+                  </div>
+                </div>
+                {!isSelf ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsChallengeModalOpen(true)}
+                    className="px-3 py-1 rounded-full bg-amber-500 hover:bg-amber-600 text-black text-xs font-black flex items-center gap-1 shadow-xs transition-transform active:scale-95 cursor-pointer"
+                  >
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>Challenge</span>
+                  </button>
+                ) : (
+                  <NavLink
+                    to="/typing"
+                    className="text-xs font-bold text-amber-500 hover:underline flex items-center gap-1"
+                  >
+                    Arena &rarr;
+                  </NavLink>
+                )}
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-amber-500">
+                    {profile.typingStats.bestWpm || 0}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Best WPM
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-neutral-800 dark:text-neutral-100">
+                    {profile.typingStats.bestAccuracy || 100}%
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Accuracy
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-amber-500">
+                    {profile.typingStats.duelsWon || 0}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    ⚔️ Duels Won
+                  </div>
+                </div>
+                <div className="p-2 rounded-xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/60 dark:border-neutral-800/60 shadow-xs">
+                  <div className="text-base sm:text-lg font-black text-neutral-800 dark:text-neutral-100">
+                    {profile.typingStats.testsCompleted || 0}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                    Races
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : isSelf ? (
+            <div className="mt-4 p-3 rounded-xl bg-neutral-100/70 dark:bg-neutral-900/50 border border-neutral-200/60 dark:border-neutral-800/60 flex items-center justify-between text-xs">
+              <span className="text-neutral-500">No Typing Arena record yet. Test your speed!</span>
+              <NavLink to="/typing" className="font-bold text-amber-500 hover:underline">
+                Start Typing &rarr;
+              </NavLink>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Profile Tabs */}
+      <div className="flex border-b border-neutral-200/80 dark:border-neutral-800/80">
+        <button
+          onClick={() => setActiveTab('posts')}
+          className="flex-1 py-3.5 text-center font-bold text-sm hover:bg-neutral-100/50 dark:hover:bg-neutral-900/50 transition-colors relative cursor-pointer"
+        >
+          <span
+            className={`transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'posts'
+                ? 'text-neutral-900 dark:text-white font-extrabold'
+                : 'text-neutral-500 font-medium'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Posts ({posts.length})
+          </span>
+          {activeTab === 'posts' && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-1 bg-sky-500 rounded-full" />
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('code')}
+          className="flex-1 py-3.5 text-center font-bold text-sm hover:bg-neutral-100/50 dark:hover:bg-neutral-900/50 transition-colors relative cursor-pointer"
+        >
+          <span
+            className={`transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'code'
+                ? 'text-neutral-900 dark:text-white font-extrabold'
+                : 'text-neutral-500 font-medium'
+            }`}
+          >
+            <Code2 className="w-4 h-4" />
+            Code Hub ({codePosts.length})
+          </span>
+          {activeTab === 'code' && (
+            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-1 bg-sky-500 rounded-full" />
+          )}
+        </button>
+      </div>
+
+      {/* Posts Stream */}
+      <div className="p-3 sm:p-4 pt-4 sm:pt-5 pb-8 space-y-4">
+        <PostList
+          posts={displayedPosts}
+          emptyMessage={
+            activeTab === 'code' ? 'No code snippets posted yet.' : 'No posts published yet.'
+          }
+          emptyDescription="Thoughts and code snippets written by this member will show up here."
+          onPostDeleted={(id) => setPosts((prev) => prev.filter((p) => p._id !== id))}
+          onPostUpdated={(up) => setPosts((prev) => prev.map((p) => (p._id === up._id ? up : p)))}
+        />
+      </div>
+
+      {/* Edit Profile Modal */}
+      {isEditModalOpen && (
+        <EditProfileModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onProfileUpdated={(updated) => {
+            setProfile((prev) => ({ ...prev, ...updated }));
+            setPosts((prev) =>
+              prev.map((p) => {
+                const authorId = typeof p.author === 'object' ? p.author?._id : p.author;
+                if (String(authorId) === String(updated._id)) {
+                  return {
+                    ...p,
+                    author: {
+                      ...(typeof p.author === 'object' ? p.author : {}),
+                      avatarUrl: updated.avatarUrl,
+                      name: updated.name,
+                    },
+                  };
+                }
+                return p;
+              })
+            );
+          }}
+        />
+      )}
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
+
+
+      {/* Connections Modal */}
+      <Modal
+        isOpen={connectionsModal.isOpen}
+        onClose={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
+        title={connectionsModal.title}
+      >
+        <div className="space-y-3 py-1">
+          {connectionsLoading ? (
+            <div className="py-6 text-center text-xs text-neutral-500">Loading...</div>
+          ) : connectionsModal.users.length === 0 ? (
+            <div className="py-8 text-center text-xs text-neutral-500">
+              No {connectionsModal.title.toLowerCase()} yet.
+            </div>
+          ) : (
+            connectionsModal.users.map((u) => {
+              const isMe = u.isSelf || (currentUser && currentUser._id === u._id);
+              return (
+                <div
+                  key={u._id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-neutral-50/70 dark:bg-black/40 border border-neutral-200 dark:border-neutral-800"
+                >
+                  <NavLink
+                    to={`/profile/${u.username}`}
+                    onClick={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
+                    className="flex items-center gap-2.5 min-w-0"
+                  >
+                    <Avatar src={u.avatarUrl} name={u.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 truncate">{u.name}</p>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">@{u.username}</p>
+                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-sans mt-0.5">
+                        {u.followersCount ?? 0} {u.followersCount === 1 ? 'follower' : 'followers'}
+                      </p>
+                    </div>
+                  </NavLink>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isMe && (
+                      <button
+                        onClick={() => handleModalFollowToggle(u)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${
+                          u.isFollowing
+                            ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 dark:hover:text-rose-400 border border-neutral-300 dark:border-neutral-700'
+                            : 'bg-neutral-900 dark:bg-white text-white dark:text-black hover:opacity-90 shadow-xs'
+                        }`}
+                      >
+                        {u.isFollowing ? 'Following' : 'Follow'}
+                      </button>
+                    )}
+
+                    <NavLink
+                      to={`/profile/${u.username}`}
+                      onClick={() => setConnectionsModal({ isOpen: false, title: '', users: [] })}
+                      className="text-xs text-sky-500 hover:underline font-semibold"
+                    >
+                      View &rarr;
+                    </NavLink>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+export default ProfilePage;
