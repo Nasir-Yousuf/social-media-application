@@ -9,6 +9,7 @@ import {
   Platform,
   StyleSheet,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ export const MeshConversationScreen = ({ route, navigation }) => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const flatListRef = useRef(null);
 
   const isBroadcast = (recipientPubkey || '').toLowerCase() === BROADCAST_PUBKEY.toLowerCase();
@@ -35,6 +37,27 @@ export const MeshConversationScreen = ({ route, navigation }) => {
   );
   const fingerprint = isBroadcast ? 'PUBLIC BROADCAST ROOM' : (currentPeer?.fingerprint || computeFingerprint(recipientPubkey || ''));
   const isVerified = currentPeer?.status === 'verified';
+
+  // Listen to keyboard show/hide to automatically keep input and bottom messages in view
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setIsKeyboardVisible(true);
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -67,6 +90,9 @@ export const MeshConversationScreen = ({ route, navigation }) => {
       });
       const updated = await loadMessages(recipientPubkey);
       setMessages(updated);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 80);
     } catch (err) {
       Alert.alert('Send Failed', err.message);
     } finally {
@@ -74,71 +100,72 @@ export const MeshConversationScreen = ({ route, navigation }) => {
     }
   };
 
-  const renderDeliveryBadge = (status) => {
+  const renderDeliveryBadge = (status, isMe = true) => {
+    const badgeColor = isMe ? 'rgba(255, 255, 255, 0.9)' : '#00ba7c';
     switch (status) {
       case DeliveryState.DELIVERED_ACK:
         return (
           <View style={styles.deliveryRow}>
-            <Ionicons name="checkmark-done" size={14} color="#00ba7c" />
-            <Text style={[styles.deliveryText, { color: '#00ba7c' }]}>Acknowledged</Text>
+            <Ionicons name="checkmark-done" size={13} color={badgeColor} />
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Delivered</Text>
           </View>
         );
       case DeliveryState.SENT_NEIGHBOR:
         return (
           <View style={styles.deliveryRow}>
-            <Ionicons name="radio-outline" size={13} color="#00A6F4" />
-            <Text style={[styles.deliveryText, { color: '#00A6F4' }]}>Sent to Neighbor</Text>
+            <Ionicons name="checkmark" size={13} color={badgeColor} />
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Sent to Peer</Text>
           </View>
         );
       case DeliveryState.RELAYED:
         return (
           <View style={styles.deliveryRow}>
-            <MaterialCommunityIcons name="transit-connection-variant" size={13} color="#ffd700" />
-            <Text style={[styles.deliveryText, { color: '#ffd700' }]}>Relayed</Text>
+            <MaterialCommunityIcons name="transit-connection-variant" size={13} color={badgeColor} />
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Relayed</Text>
           </View>
         );
       case DeliveryState.QUEUED:
         return (
           <View style={styles.deliveryRow}>
-            <Ionicons name="time-outline" size={13} color="#71767b" />
-            <Text style={styles.deliveryText}>Queued for route</Text>
+            <Ionicons name="time-outline" size={12} color={badgeColor} />
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Queued</Text>
           </View>
         );
       case DeliveryState.SAVED_LOCALLY:
       default:
         return (
           <View style={styles.deliveryRow}>
-            <Ionicons name="save-outline" size={13} color="#71767b" />
-            <Text style={styles.deliveryText}>Saved locally</Text>
+            <Ionicons name="checkmark-outline" size={12} color={badgeColor} />
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Saved</Text>
           </View>
         );
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[
-        styles.container,
-        { paddingTop: insets.top, backgroundColor: currentColors.bg },
-      ]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            borderBottomColor: currentColors.border,
-            backgroundColor: currentColors.surface,
-          },
-        ]}
+    <View style={[styles.container, { backgroundColor: currentColors.bg }]}>
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backBtn}
+        {/* Header */}
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop: insets.top + 6,
+              borderBottomColor: currentColors.border,
+              backgroundColor: currentColors.surface,
+            },
+          ]}
         >
-          <Ionicons name="arrow-back" size={24} color={currentColors.text} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+          >
+            <Ionicons name="arrow-back" size={24} color={currentColors.text} />
+          </TouchableOpacity>
 
         <View style={styles.headerTitleGroup}>
           <View style={styles.nameRow}>
@@ -265,7 +292,7 @@ export const MeshConversationScreen = ({ route, navigation }) => {
                       styles.messageTime,
                       {
                         color: isMe
-                          ? 'rgba(255,255,255,0.7)'
+                          ? 'rgba(255,255,255,0.75)'
                           : currentColors.textSecondary,
                       },
                     ]}
@@ -275,7 +302,7 @@ export const MeshConversationScreen = ({ route, navigation }) => {
                       minute: '2-digit',
                     })}
                   </Text>
-                  {isMe && renderDeliveryBadge(item.deliveryStatus)}
+                  {isMe && renderDeliveryBadge(item.deliveryStatus, isMe)}
                 </View>
               </View>
             </View>
@@ -290,7 +317,7 @@ export const MeshConversationScreen = ({ route, navigation }) => {
           {
             borderTopColor: currentColors.border,
             backgroundColor: currentColors.surface,
-            paddingBottom: Platform.OS === 'ios' ? insets.bottom : 10,
+            paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 10),
           },
         ]}
       >
@@ -303,11 +330,20 @@ export const MeshConversationScreen = ({ route, navigation }) => {
               color: currentColors.text,
             },
           ]}
-          placeholder="Type an offline encrypted message..."
+          placeholder={
+            isBroadcast
+              ? '📢 Broadcast message to everyone...'
+              : 'Type an offline encrypted message...'
+          }
           placeholderTextColor={currentColors.textSecondary}
           value={inputText}
           onChangeText={setInputText}
           multiline
+          onFocus={() => {
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 120);
+          }}
         />
 
         <TouchableOpacity
@@ -325,11 +361,13 @@ export const MeshConversationScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+  </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  keyboardContainer: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,7 +376,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   backBtn: { padding: 6, marginRight: 8 },
-  headerTitleGroup: { flex: 1 },
+  headerTitleGroup: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   headerName: { fontSize: 16, fontWeight: '800' },
   headerFingerprint: {
@@ -352,11 +390,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 6,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     gap: 6,
   },
-  securityPillText: { fontSize: 11, fontWeight: '600' },
-  messageList: { padding: 16, paddingBottom: 20 },
+  securityPillText: { fontSize: 11, fontWeight: '600', flexShrink: 1 },
+  messageList: { padding: 14, paddingBottom: 16 },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 60,
@@ -369,14 +408,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   messageRow: {
-    marginBottom: 12,
+    marginBottom: 10,
     flexDirection: 'row',
   },
   messageRowMe: { justifyContent: 'flex-end' },
   messageRowOther: { justifyContent: 'flex-start' },
   messageBubble: {
-    maxWidth: '80%',
-    borderRadius: 16,
+    maxWidth: '82%',
+    borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -396,7 +435,7 @@ const styles = StyleSheet.create({
   },
   messageTime: { fontSize: 10 },
   deliveryRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  deliveryText: { fontSize: 10, color: '#71767b' },
+  deliveryText: { fontSize: 10, fontWeight: '600' },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -140,7 +140,7 @@ export const MeshHomeScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* 1. NEARBY ACTIVE DEVICES (Tap-to-chat instantly without scanning) */}
+        {/* 1. NEARBY ACTIVE RADAR (1-Tap Fast Chat) */}
         <View
           style={[
             styles.radarCard,
@@ -151,14 +151,22 @@ export const MeshHomeScreen = ({ navigation }) => {
           ]}
         >
           <View style={styles.radarHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={styles.radarTitleRow}>
               <View style={[styles.pulseDot, { backgroundColor: '#00ba7c' }]} />
-              <Text style={[styles.radarTitle, { color: currentColors.text }]}>
-                Nearby Active Users • আশেপাশে সক্রিয়
+              <Text style={[styles.radarTitle, { color: currentColors.text }]} numberOfLines={1}>
+                Nearby Active
+              </Text>
+              <Text style={[styles.radarBanglaSubtitle, { color: currentColors.textSecondary }]} numberOfLines={1}>
+                (আশেপাশে সক্রিয়)
               </Text>
             </View>
-            <TouchableOpacity onPress={() => setShowPairModal(true)}>
-              <Text style={styles.qrScanLink}>Scan QR</Text>
+            <TouchableOpacity
+              onPress={() => setShowPairModal(true)}
+              style={styles.radarScanBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="qr-code-outline" size={13} color="#00ba7c" />
+              <Text style={styles.qrScanLink}>Scan</Text>
             </TouchableOpacity>
           </View>
 
@@ -223,6 +231,7 @@ export const MeshHomeScreen = ({ navigation }) => {
               borderColor: 'rgba(0,186,124,0.4)',
             },
           ]}
+          activeOpacity={0.75}
           onPress={() =>
             navigation.navigate('MeshConversation', {
               recipientPubkey: BROADCAST_PUBKEY,
@@ -231,22 +240,22 @@ export const MeshHomeScreen = ({ navigation }) => {
           }
         >
           <View style={styles.broadcastIconBadge}>
-            <Ionicons name="megaphone" size={22} color="#ffffff" />
+            <Ionicons name="megaphone" size={20} color="#ffffff" />
           </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={[styles.publicBroadcastTitle, { color: currentColors.text }]}>
-                Nearby Public Broadcast
+          <View style={styles.broadcastBody}>
+            <View style={styles.broadcastTitleRow}>
+              <Text style={[styles.publicBroadcastTitle, { color: currentColors.text }]} numberOfLines={1}>
+                Public Broadcast
               </Text>
               <View style={styles.publicLiveBadge}>
                 <Text style={styles.publicLiveBadgeText}>EVERYONE</Text>
               </View>
             </View>
             <Text style={[styles.publicBroadcastDesc, { color: currentColors.textSecondary }]} numberOfLines={1}>
-              Broadcast to all devices in range • ইন্টারনেট ছাড়া সবাইকে বার্তা
+              Broadcast to all in range • সবাইকে বার্তা
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#00ba7c" style={{ marginLeft: 6 }} />
+          <Ionicons name="chevron-forward" size={16} color="#00ba7c" style={{ marginLeft: 2 }} />
         </TouchableOpacity>
 
         {/* 3. CONVERSATIONS LIST (Direct 1-on-1 Chats) */}
@@ -379,7 +388,7 @@ const styles = StyleSheet.create({
   radarCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
+    padding: 13,
     marginBottom: 14,
   },
   radarHeader: {
@@ -387,14 +396,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 8,
+  },
+  radarTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
   },
   radarTitle: {
     fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
+  },
+  radarBanglaSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  radarScanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,186,124,0.12)',
+    flexShrink: 0,
   },
   qrScanLink: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#00ba7c',
   },
@@ -451,7 +483,8 @@ const styles = StyleSheet.create({
   publicBroadcastCard: {
     borderRadius: 16,
     borderWidth: 1.5,
-    padding: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
@@ -462,22 +495,37 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   broadcastIconBadge: {
-    width: 42,
-    height: 42,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: '#00ba7c',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
+  },
+  broadcastBody: {
+    flex: 1,
+    minWidth: 0,
+    marginHorizontal: 10,
+  },
+  broadcastTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
   },
   publicBroadcastTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
+    flex: 1,
+    minWidth: 0,
   },
   publicLiveBadge: {
     backgroundColor: 'rgba(0, 186, 124, 0.2)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   publicLiveBadgeText: {
     color: '#00ba7c',
@@ -487,7 +535,7 @@ const styles = StyleSheet.create({
   },
   publicBroadcastDesc: {
     fontSize: 11,
-    marginTop: 3,
+    marginTop: 2,
   },
   qrHomeBanner: {
     backgroundColor: '#00ba7c',
