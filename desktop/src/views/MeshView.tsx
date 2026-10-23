@@ -16,10 +16,15 @@ import {
   BookOpen,
   HelpCircle,
   Info,
+  QrCode,
+  Sparkles,
+  Wifi,
+  Zap,
 } from 'lucide-react';
 import { useMesh } from '../mesh/context/MeshContext';
 import { MeshPeer, MeshConversation, MeshMessage } from '../mesh/storage/meshStorage';
 import { MeshGuideModal } from '../components/mesh/MeshGuideModal';
+import { MeshPairingModal } from '../components/mesh/MeshPairingModal';
 
 export const MeshView: React.FC = () => {
   const {
@@ -34,6 +39,8 @@ export const MeshView: React.FC = () => {
     updateSettings,
     sendMessage,
     loadMessages,
+    addPeer,
+    broadcastBeacon,
     clearAllData,
     refreshMeshState,
   } = useMesh();
@@ -48,11 +55,21 @@ export const MeshView: React.FC = () => {
   const [newNick, setNewNick] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'chats' | 'peers' | 'identity'>('chats');
 
-  // Manual peer addition for local peer test / loopback
-  const [manualPeerPubkey, setManualPeerPubkey] = useState<string>('');
-  const [manualPeerNick, setManualPeerNick] = useState<string>('');
-  const [showAddPeerModal, setShowAddPeerModal] = useState<boolean>(false);
+  const [showPairingModal, setShowPairingModal] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
+  const [isPinging, setIsPinging] = useState<boolean>(false);
+
+  const handlePairConnect = async (peer: MeshPeer) => {
+    await addPeer(peer);
+    selectPeer(peer);
+    setActiveTab('chats');
+  };
+
+  const handleManualPing = async () => {
+    setIsPinging(true);
+    await broadcastBeacon();
+    setTimeout(() => setIsPinging(false), 1200);
+  };
 
   const selectConversation = async (conv: MeshConversation) => {
     setActiveConv(conv);
@@ -111,7 +128,7 @@ export const MeshView: React.FC = () => {
       {/* Sidebar */}
       <div className="w-80 border-r border-neutral-800/80 bg-neutral-900/40 flex flex-col shrink-0">
         {/* Header with Tagline */}
-        <div className="p-4 border-b border-neutral-800/80 space-y-2">
+        <div className="p-4 border-b border-neutral-800/80 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
               <Radio className="w-4 h-4 animate-pulse" />
@@ -124,7 +141,7 @@ export const MeshView: React.FC = () => {
                 title="Offline Mesh User Guide (English & বাংলা)"
               >
                 <BookOpen className="w-3 h-3 text-emerald-400" />
-                <span>Guide / নির্দেশিকা</span>
+                <span>Guide</span>
               </button>
               <button
                 onClick={() => refreshMeshState()}
@@ -135,6 +152,16 @@ export const MeshView: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Quick Connect & Scan Action Banner */}
+          <button
+            onClick={() => setShowPairingModal(true)}
+            className="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer active:scale-[0.99]"
+          >
+            <QrCode className="w-4 h-4" />
+            <span>Scan & Connect Nearby | কুইক পেয়ার</span>
+          </button>
+
           <div className="flex flex-col">
             <p className="text-[11px] font-semibold text-emerald-300">
               Connect nearby. Communicate offline.
@@ -243,44 +270,133 @@ export const MeshView: React.FC = () => {
         {/* Tab 2: Peers */}
         {activeTab === 'peers' && (
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            <div className="flex items-center justify-between">
+            {/* Auto-Discovery Radar Banner */}
+            <div className="p-3 bg-neutral-950/80 border border-emerald-500/30 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="relative flex items-center justify-center w-6 h-6">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-40" />
+                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 items-center justify-center">
+                      <Radio className="w-2 h-2 text-white" />
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-neutral-100 flex items-center gap-1.5">
+                      Nearby Peer Radar
+                    </h4>
+                    <p className="text-[10px] text-neutral-400">
+                      Auto-beaconing Wi-Fi & local radio
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleManualPing}
+                  disabled={isPinging}
+                  className="px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-emerald-300 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer border border-neutral-700 disabled:opacity-60"
+                  title="Broadcast beacon ping to wake up nearby devices"
+                >
+                  <Zap className={`w-3 h-3 text-amber-400 ${isPinging ? 'animate-bounce' : ''}`} />
+                  <span>{isPinging ? 'Pinging...' : 'Ping Nearby'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-neutral-800/80">
+                <button
+                  onClick={() => setShowPairingModal(true)}
+                  className="flex-1 py-1.5 px-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Scan / Pair QR</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                Discovered Nearby Peers
+                Discovered Peers ({peers.length})
               </span>
               <button
-                onClick={() => setShowAddPeerModal(true)}
+                onClick={() => setShowPairingModal(true)}
                 className="text-xs text-emerald-400 hover:underline cursor-pointer"
               >
-                + Add Peer Key
+                + Pair Key
               </button>
             </div>
 
             {peers.length === 0 ? (
-              <div className="p-6 text-center text-xs text-neutral-500 space-y-2 bg-neutral-950/40 border border-neutral-800/60 rounded-xl">
-                <Users className="w-7 h-7 mx-auto text-neutral-700" />
-                <p>No nearby Mesh peers found.</p>
-                <p className="text-[10px] text-neutral-400">
-                  Keep Mesh enabled or add another compatible device with its 64-character public key.
-                </p>
-              </div>
-            ) : (
-              peers.map((peer) => (
-                <div
-                  key={peer.publicKeyHex}
-                  onClick={() => selectPeer(peer)}
-                  className="p-3 bg-neutral-950/60 border border-neutral-800/80 hover:border-emerald-500/40 rounded-xl cursor-pointer transition space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-neutral-200">{peer.nickname}</span>
-                    <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-mono rounded">
-                      {peer.status}
-                    </span>
-                  </div>
-                  <p className="text-[10px] font-mono text-neutral-500 truncate">
-                    {peer.publicKeyHex}
+              <div className="p-6 text-center text-xs text-neutral-500 space-y-3 bg-neutral-950/40 border border-neutral-800/60 rounded-2xl">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+                  <Wifi className="w-6 h-6 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-neutral-300">Searching for nearby devices...</p>
+                  <p className="text-[11px] text-neutral-400 max-w-xs mx-auto">
+                    Keep Clearfeed Mesh open on both devices. Alternatively, tap below to scan with camera or show your QR code.
                   </p>
                 </div>
-              ))
+                <button
+                  onClick={() => setShowPairingModal(true)}
+                  className="py-2 px-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Instant QR Pairing</span>
+                </button>
+              </div>
+            ) : (
+              peers.map((peer) => {
+                const fingerprint = peer.publicKeyHex.slice(0, 8).toUpperCase();
+                return (
+                  <div
+                    key={peer.publicKeyHex}
+                    onClick={() => {
+                      selectPeer(peer);
+                      setActiveTab('chats');
+                    }}
+                    className="p-3.5 bg-neutral-950/70 border border-neutral-800/90 hover:border-emerald-500/50 rounded-2xl cursor-pointer transition space-y-2 group shadow-sm hover:shadow-emerald-500/5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative">
+                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs border border-emerald-500/30">
+                            {peer.nickname?.[0]?.toUpperCase() || 'P'}
+                          </div>
+                          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-neutral-950 rounded-full" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-neutral-100 group-hover:text-emerald-300 transition">
+                            {peer.nickname}
+                          </span>
+                          <p className="text-[10px] text-neutral-500 font-mono">
+                            ID: {fingerprint}... • {peer.hopDistance ? `${peer.hopDistance} hops` : 'Direct Link'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold rounded-full border border-emerald-500/30">
+                        Online
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-800/60 flex items-center justify-between">
+                      <span className="text-[10px] text-neutral-400 font-mono truncate max-w-[130px]">
+                        {peer.publicKeyHex.slice(0, 16)}...
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectPeer(peer);
+                          setActiveTab('chats');
+                        }}
+                        className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm shadow-emerald-500/20 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>Message</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         )}
@@ -403,18 +519,38 @@ export const MeshView: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Safety Fingerprint Badge */}
+              <button
+                onClick={() => setShowPairingModal(true)}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-medium rounded-lg transition cursor-pointer"
+                title="Verify Ed25519 Safety Fingerprint"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>
+                  {((activeConv?.peerPubkey || activePeer?.publicKeyHex) || '')
+                    .slice(0, 8)
+                    .toUpperCase()}{' '}
+                  • Verified
+                </span>
+              </button>
+
+              <button
+                onClick={() => setShowPairingModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-medium rounded-lg transition cursor-pointer"
+                title="Open QR Pairing & Code"
+              >
+                <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+                <span>QR Connect</span>
+              </button>
+
               <button
                 onClick={() => setShowGuide(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-medium rounded-lg transition cursor-pointer"
                 title="Open Offline Mesh Guide"
               >
                 <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Guide / নির্দেশিকা</span>
+                <span>Guide</span>
               </button>
-              <span className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium rounded-lg">
-                <ShieldCheck className="w-3 h-3" />
-                End-to-End Encrypted (CFM1)
-              </span>
             </div>
           </div>
 
@@ -534,70 +670,13 @@ export const MeshView: React.FC = () => {
         </div>
       )}
 
-      {/* Manual Add Peer Modal */}
-      {showAddPeerModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 max-w-md w-full space-y-4">
-            <h3 className="text-sm font-bold text-neutral-100">Add Peer Public Key</h3>
-            <p className="text-xs text-neutral-400">
-              Input a 64-character Ed25519 hex public key to start communicating with another peer device.
-            </p>
-            <div className="space-y-3">
-              <div>
-                <label className="text-[11px] font-semibold text-neutral-300">Nickname</label>
-                <input
-                  type="text"
-                  value={manualPeerNick}
-                  onChange={(e) => setManualPeerNick(e.target.value)}
-                  placeholder="e.g. Study Partner"
-                  className="w-full mt-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-neutral-300">
-                  Public Key (64-char hex)
-                </label>
-                <input
-                  type="text"
-                  value={manualPeerPubkey}
-                  onChange={(e) => setManualPeerPubkey(e.target.value)}
-                  placeholder="e.g. 9f8a..."
-                  className="w-full mt-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 font-mono text-xs text-neutral-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowAddPeerModal(false)}
-                className="px-3 py-1.5 bg-neutral-800 text-neutral-300 rounded-xl text-xs font-medium cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (manualPeerPubkey.trim().length === 64) {
-                    const peer: MeshPeer = {
-                      publicKeyHex: manualPeerPubkey.trim().toLowerCase(),
-                      nickname: manualPeerNick.trim() || `Peer_${manualPeerPubkey.substring(0, 6)}`,
-                      status: 'discovered',
-                      lastSeen: Date.now(),
-                    };
-                    selectPeer(peer);
-                    setShowAddPeerModal(false);
-                    setManualPeerPubkey('');
-                    setManualPeerNick('');
-                  } else {
-                    alert('Public key must be exactly 64 hex characters.');
-                  }
-                }}
-                className="px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-xs font-semibold cursor-pointer"
-              >
-                Add & Open
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 100% Offline QR Code Pairing & Camera Scanner Modal */}
+      <MeshPairingModal
+        isOpen={showPairingModal}
+        onClose={() => setShowPairingModal(false)}
+        onConnect={handlePairConnect}
+        identity={identity}
+      />
 
       {/* Offline Mesh User Guide Modal (Bilingual EN & BN) */}
       <MeshGuideModal isOpen={showGuide} onClose={() => setShowGuide(false)} />

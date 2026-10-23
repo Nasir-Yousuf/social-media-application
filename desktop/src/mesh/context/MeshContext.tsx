@@ -23,6 +23,8 @@ interface MeshContextValue {
   updateSettings: (newSettings: Partial<MeshSettings>) => Promise<void>;
   sendMessage: (args: { recipientPubkey: string; recipientNickname: string; text: string }) => Promise<MeshMessage>;
   loadMessages: (peerPubkey: string) => Promise<MeshMessage[]>;
+  addPeer: (peer: MeshPeer) => Promise<void>;
+  broadcastBeacon: () => Promise<void>;
   clearAllData: () => Promise<void>;
   refreshMeshState: () => Promise<void>;
 }
@@ -93,10 +95,15 @@ export const MeshProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       refreshMeshState();
     });
 
+    const unsubPeers = meshRouter.onPeersUpdated(() => {
+      refreshMeshState();
+    });
+
     return () => {
       unsubTransport();
       unsubMessages();
       unsubDelivery();
+      unsubPeers();
     };
   }, [refreshMeshState]);
 
@@ -140,6 +147,18 @@ export const MeshProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return meshStorage.loadMessages(peerPubkey);
   };
 
+  const addPeer = async (peer: MeshPeer): Promise<void> => {
+    await meshStorage.upsertPeer(peer);
+    // Announce presence immediately to this peer
+    await meshRouter.sendAnnounce(peer.publicKeyHex);
+    await refreshMeshState();
+  };
+
+  const broadcastBeacon = async (): Promise<void> => {
+    await meshRouter.broadcastBeacon();
+    await refreshMeshState();
+  };
+
   const clearAllData = async (): Promise<void> => {
     await meshStorage.clearAllMeshStorage();
     await refreshMeshState();
@@ -160,6 +179,8 @@ export const MeshProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateSettings,
         sendMessage,
         loadMessages,
+        addPeer,
+        broadcastBeacon,
         clearAllData,
         refreshMeshState,
       }}

@@ -121,6 +121,29 @@ class MeshStorage {
     } catch {}
   }
 
+  public async upsertPeer(peer: MeshPeer): Promise<void> {
+    try {
+      const peers = await this.loadPeers();
+      const idx = peers.findIndex(
+        (p) => p.publicKeyHex.toLowerCase() === peer.publicKeyHex.toLowerCase()
+      );
+      let updated: MeshPeer[];
+      if (idx >= 0) {
+        updated = [...peers];
+        updated[idx] = {
+          ...updated[idx],
+          nickname: peer.nickname || updated[idx].nickname,
+          lastSeen: peer.lastSeen || Date.now(),
+          status: peer.status || updated[idx].status,
+          hopDistance: peer.hopDistance !== undefined ? peer.hopDistance : updated[idx].hopDistance,
+        };
+      } else {
+        updated = [peer, ...peers];
+      }
+      await this.savePeers(updated);
+    } catch {}
+  }
+
   // Conversations
   public async loadConversations(): Promise<MeshConversation[]> {
     try {

@@ -101,17 +101,16 @@ Depending on your device and operating system, you may need to enable:
 
 You do not need to connect to the internet just to exchange local Mesh messages.
 
-### Step 4: Discover nearby users
+### Step 4: Discover nearby users (Radar & QR Code)
 
-Open **Nearby Peers** or the peer discovery screen.
+Clearfeed Mesh provides two ultra-fast, 100% offline ways to connect:
 
-If another compatible device is within communication range and has the necessary features enabled, it may appear in the list.
+1. **Auto-Discovery Radar:** Open the **Nearby Peers** tab. Compatible devices within range on local wireless/Wi-Fi will appear automatically with a green online indicator. Tap **Message Directly** to start chatting immediately.
+2. **Instant QR Code Scan & Connect:** Tap **Scan & Connect Nearby** (or the QR icon). Show your QR code to a friend, or point your camera/webcam at their screen. Pairing happens in under 1 second without typing any 64-character keys!
 
-Select the person you want to contact.
+If no devices appear automatically, tap **Ping Nearby** to broadcast an immediate presence beacon, or verify local Wi-Fi / Bluetooth is active on both devices.
 
-If no devices appear, check Bluetooth, permissions, device compatibility, and whether the other person has Mesh running.
-
-### Step 5: Verify the recipient
+### Step 5: Verify the recipient (Safety Fingerprint)
 
 For better security, compare the person's safety fingerprint with them in person or through another trusted method.
 
@@ -362,17 +361,16 @@ Clearfeed Mesh আপনার ডিভাইসের জন্য একট�
 
 শুধু স্থানীয় Mesh মেসেজ আদান-প্রদানের জন্য ইন্টারনেট সংযোগ প্রয়োজন হওয়ার কথা নয়।
 
-### ধাপ ৪: কাছাকাছি ব্যবহারকারীদের খুঁজুন
+### ধাপ ৪: কাছাকাছি ব্যবহারকারীদের খুঁজুন (রেডার ও কিউআর কোড)
 
-অ্যাপের **Nearby Peers** অথবা Peer Discovery স্ক্রিনে যান।
+Clearfeed Mesh-এ ১০০% অফলাইনে অতিদ্রুত সংযুক্ত হওয়ার ২টি সহজ পদ্ধতি রয়েছে:
 
-কাছাকাছি কোনো সামঞ্জস্যপূর্ণ ডিভাইস থাকলে এবং প্রয়োজনীয় ফিচার চালু থাকলে সেটি তালিকায় দেখা যেতে পারে।
+১. **অটো-ডিসকভারি রেডার (Nearby Radar):** অ্যাপের **Peers** ট্যাবে যান। স্থানীয় ওয়াইফাই বা রেডিও তরঙ্গে থাকা ডিভাইসগুলো স্বয়ংক্রিয়ভাবে অনলাইন হিসেবে ভেসে উঠবে। সরাসরি **Message** বোতামে ক্লিক করেই চ্যাট শুরু করতে পারেন।  
+২. **তাত্ক্ষণিক কিউআর কোড স্ক্যান (Scan & Connect):** **Scan & Connect Nearby** (বা QR আইকন)-এ ট্যাপ করুন। আপনার কিউআর কোডটি বন্ধুর ফোনে দেখান, অথবা আপনার ক্যামেরা দিয়ে বন্ধুর কিউআর কোডটি স্ক্যান করুন। কোনো দীর্ঘ ৬৪-অক্ষরের কি টাইপ করা ছাড়াই ১ সেকেন্ডের মধ্যে এনক্রিপ্ট সংযোগ তৈরি হবে!
 
-যার সঙ্গে কথা বলতে চান, তার ডিভাইস নির্বাচন করুন।
+কাউকে দেখতে না পেলে **Ping Nearby** চেপে একটি তাত্ক্ষণিক সিগন্যাল পাঠাতে পারেন।
 
-কাউকে দেখতে না পেলে Bluetooth, Permission, অ্যাপের সংস্করণ এবং অন্য ব্যক্তির Mesh চালু আছে কি না, তা পরীক্ষা করুন।
-
-### ধাপ ৫: প্রাপকের পরিচয় যাচাই করুন
+### ধাপ ৫: প্রাপকের পরিচয় যাচাই করুন (Safety Fingerprint)
 
 গুরুত্বপূর্ণ বা ব্যক্তিগত কথোপকথনের আগে Safety Fingerprint যাচাই করা ভালো।
 

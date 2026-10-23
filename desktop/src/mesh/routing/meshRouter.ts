@@ -11,16 +11,21 @@ import {
   decryptPayload,
 } from '../crypto/meshCrypto';
 import meshStorage, { MeshMessage, MeshConversation } from '../storage/meshStorage';
-import meshTransport from '../transport/meshTransport';
+import meshTransport, { TransportState } from '../transport/meshTransport';
 
 export type DeliveryListener = (message: MeshMessage) => void;
+export type PeerListener = () => void;
 
 class DesktopMeshRouter {
   private messageListeners: Set<DeliveryListener> = new Set();
   private deliveryListeners: Set<DeliveryListener> = new Set();
+  private peerListeners: Set<PeerListener> = new Set();
+  private beaconIntervalTimer: any = null;
 
   constructor() {
     meshTransport.onPacket((envelope) => this.handleIncomingPacket(envelope));
+    // Start auto-beaconing for discovery of nearby devices
+    this.startBeaconing(8);
   }
 
   public onMessageReceived(cb: DeliveryListener): () => void {
@@ -31,6 +36,89 @@ class DesktopMeshRouter {
   public onDeliveryUpdated(cb: DeliveryListener): () => void {
     this.deliveryListeners.add(cb);
     return () => this.deliveryListeners.delete(cb);
+  }
+
+  public onPeersUpdated(cb: PeerListener): () => void {
+    this.peerListeners.add(cb);
+    return () => this.peerListeners.delete(cb);
+  }
+
+  /**
+   * Broadcast an unencrypted peer presence beacon on the local transport
+   */
+  public async broadcastBeacon(): Promise<void> {
+    try {
+      const identity = await meshStorage.loadIdentity();
+      if (!identity) return;
+
+      const envelope = createEnvelope({
+        type: PacketType.BEACON,
+        senderPubkey: identity.publicKeyHex,
+        recipientPubkey: BROADCAST_PUBKEY,
+        hopsRemaining: 1, // Single-hop local discovery
+        hopCount: 0,
+        payload: {
+          nickname: identity.nickname,
+          timestamp: Date.now(),
+        },
+      });
+
+      const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:beacon`;
+      envelope.signature = signPacket(identity.secretKeyHex, sigString);
+
+      await meshTransport.broadcastPacket(envelope);
+    } catch (err: any) {
+      console.warn('[MeshRouter] Beacon broadcast error:', err?.message);
+    }
+  }
+
+  /**
+   * Start periodic beacon broadcasting
+   */
+  public startBeaconing(intervalSec = 8): void {
+    this.stopBeaconing();
+    // Immediate initial beacon
+    this.broadcastBeacon();
+    this.beaconIntervalTimer = setInterval(() => {
+      this.broadcastBeacon();
+    }, intervalSec * 1000);
+  }
+
+  /**
+   * Stop periodic beacon broadcasting
+   */
+  public stopBeaconing(): void {
+    if (this.beaconIntervalTimer) {
+      clearInterval(this.beaconIntervalTimer);
+      this.beaconIntervalTimer = null;
+    }
+  }
+
+  /**
+   * Announce presence directly to a newly seen peer so pairing is instantaneous
+   */
+  public async sendAnnounce(targetPubkey: string): Promise<void> {
+    try {
+      const identity = await meshStorage.loadIdentity();
+      if (!identity) return;
+
+      const envelope = createEnvelope({
+        type: PacketType.ANNOUNCE,
+        senderPubkey: identity.publicKeyHex,
+        recipientPubkey: targetPubkey,
+        hopsRemaining: 1,
+        hopCount: 0,
+        payload: {
+          nickname: identity.nickname,
+          timestamp: Date.now(),
+        },
+      });
+
+      const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:announce`;
+      envelope.signature = signPacket(identity.secretKeyHex, sigString);
+
+      await meshTransport.sendDirect(targetPubkey, envelope);
+    } catch {}
   }
 
   /**
@@ -124,6 +212,32 @@ class DesktopMeshRouter {
     const myPubkey = identity.publicKeyHex.toLowerCase();
     const isForMe = envelope.recipientPubkey.toLowerCase() === myPubkey || envelope.recipientPubkey === BROADCAST_PUBKEY;
 
+    // Handle Peer Discovery Beacons and Announcements
+    if (envelope.type === PacketType.BEACON || envelope.type === PacketType.ANNOUNCE) {
+      if (envelope.senderPubkey.toLowerCase() !== myPubkey) {
+        const senderPubkey = envelope.senderPubkey.toLowerCase();
+        const nick = envelope.payload?.nickname || `Peer_${senderPubkey.substring(0, 6)}`;
+
+        await meshStorage.upsertPeer({
+          publicKeyHex: senderPubkey,
+          nickname: nick,
+          status: 'discovered',
+          lastSeen: Date.now(),
+          hopDistance: envelope.hopCount || 0,
+        });
+
+        meshTransport.setState(TransportState.CONNECTED_PEERS);
+        this.peerListeners.forEach((cb) => cb());
+
+        // If another device sent a discovery beacon, respond with an immediate announce
+        // so discovery is bidirectional in under a second without waiting for next timer
+        if (envelope.type === PacketType.BEACON) {
+          this.sendAnnounce(senderPubkey);
+        }
+      }
+      return;
+    }
+
     if (isForMe && envelope.type === PacketType.ROUTED_DATA) {
       try {
         const { ciphertext, nonce, senderNickname } = envelope.payload;
@@ -167,6 +281,15 @@ class DesktopMeshRouter {
           plaintext,
           envelope.timestamp
         );
+
+        await meshStorage.upsertPeer({
+          publicKeyHex: envelope.senderPubkey.toLowerCase(),
+          nickname: senderNickname || 'Nearby Peer',
+          status: 'discovered',
+          lastSeen: envelope.timestamp,
+          hopDistance: envelope.hopCount,
+        });
+        this.peerListeners.forEach((cb) => cb());
 
         this.messageListeners.forEach((cb) => cb(msg));
       } catch (err: any) {
