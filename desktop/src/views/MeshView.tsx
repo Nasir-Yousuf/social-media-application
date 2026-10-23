@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Radio,
   ShieldCheck,
@@ -20,9 +20,11 @@ import {
   Sparkles,
   Wifi,
   Zap,
+  X,
 } from 'lucide-react';
 import { useMesh } from '../mesh/context/MeshContext';
-import { MeshPeer, MeshConversation, MeshMessage } from '../mesh/storage/meshStorage';
+import meshStorage, { MeshPeer, MeshConversation, MeshMessage } from '../mesh/storage/meshStorage';
+import meshRouter from '../mesh/routing/meshRouter';
 import { MeshGuideModal } from '../components/mesh/MeshGuideModal';
 import { MeshPairingModal } from '../components/mesh/MeshPairingModal';
 
@@ -58,6 +60,54 @@ export const MeshView: React.FC = () => {
   const [showPairingModal, setShowPairingModal] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
   const [isPinging, setIsPinging] = useState<boolean>(false);
+  const [notification, setNotification] = useState<{
+    senderPubkey: string;
+    senderNickname: string;
+    text: string;
+  } | null>(null);
+
+  // Subscribe to real-time incoming mesh packets
+  useEffect(() => {
+    const unsub = meshRouter.onMessageReceived(async (msg) => {
+      // 1. If currently viewing this conversation, dynamically append to messages list
+      const activePubkey = (activeConv?.peerPubkey || activePeer?.publicKeyHex || '').toLowerCase();
+      if (activePubkey && msg.senderPubkey.toLowerCase() === activePubkey) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+
+      // 2. If it is an incoming message, trigger notification banner with 1-click jump to chat
+      if (!msg.isOutgoing) {
+        setNotification({
+          senderPubkey: msg.senderPubkey,
+          senderNickname: msg.senderNickname || `Peer_${msg.senderPubkey.substring(0, 6)}`,
+          text: msg.text,
+        });
+      }
+    });
+
+    return () => unsub();
+  }, [activeConv, activePeer]);
+
+  const openChatWith = async (pubkey: string, nickname: string) => {
+    setActiveTab('chats');
+    const convs = await meshStorage.loadConversations();
+    const existing = convs.find((c) => c.peerPubkey.toLowerCase() === pubkey.toLowerCase());
+    if (existing) {
+      await selectConversation(existing);
+    } else {
+      await selectPeer({
+        publicKeyHex: pubkey,
+        nickname,
+        status: 'discovered',
+        lastSeen: Date.now(),
+        hopDistance: 0,
+      });
+    }
+    setNotification(null);
+  };
 
   const handlePairConnect = async (peer: MeshPeer) => {
     await addPeer(peer);
@@ -498,9 +548,48 @@ export const MeshView: React.FC = () => {
         )}
       </div>
 
-      {/* Main Conversation Panel */}
-      {activeConv || activePeer ? (
-        <div className="flex-1 flex flex-col h-full bg-neutral-950/40 min-w-0">
+      {/* Right Area (Notification Banner + Chat / Welcome View) */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
+        {notification && (
+          <div className="bg-emerald-500/20 border-b border-emerald-500/40 px-4 py-2.5 flex items-center justify-between shadow-lg z-20 shrink-0">
+            <div
+              onClick={() => openChatWith(notification.senderPubkey, notification.senderNickname)}
+              className="flex items-center gap-3 cursor-pointer flex-1 min-w-0 mr-3"
+            >
+              <div className="w-8 h-8 rounded-full bg-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-300">
+                  {notification.senderNickname} sent you a message
+                </p>
+                <p className="text-[11px] text-emerald-200/80 truncate max-w-lg">
+                  {notification.text}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => openChatWith(notification.senderPubkey, notification.senderNickname)}
+                className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1"
+              >
+                <span>Open Chat</span>
+                <span>→</span>
+              </button>
+              <button
+                onClick={() => setNotification(null)}
+                className="p-1 hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 rounded-lg transition cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Conversation Panel */}
+        {activeConv || activePeer ? (
+          <div className="flex-1 flex flex-col h-full bg-neutral-950/40 min-w-0">
           {/* Header */}
           <div className="h-14 px-6 border-b border-neutral-800/80 flex items-center justify-between bg-neutral-900/60 shrink-0">
             <div className="flex items-center gap-3">
@@ -669,6 +758,7 @@ export const MeshView: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
 
       {/* 100% Offline QR Code Pairing & Camera Scanner Modal */}
       <MeshPairingModal

@@ -7,6 +7,8 @@ import {
 import {
   signPacket,
   verifyPacketSignature,
+  signEnvelope,
+  verifyEnvelopeSignature,
   encryptPayload,
   decryptPayload,
 } from '../crypto/meshCrypto';
@@ -152,13 +154,14 @@ class DesktopMeshRouter {
       hopCount: 0,
       payload: {
         ciphertext: ciphertextHex,
+        ciphertextHex: ciphertextHex,
         nonce: nonceHex,
+        nonceHex: nonceHex,
         senderNickname: identity.nickname,
       },
     });
 
-    const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:${ciphertextHex}`;
-    envelope.signature = signPacket(identity.secretKeyHex, sigString);
+    envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
 
     const message: MeshMessage = {
       id: envelope.packetId,
@@ -240,12 +243,13 @@ class DesktopMeshRouter {
 
     if (isForMe && envelope.type === PacketType.ROUTED_DATA) {
       try {
-        const { ciphertext, nonce, senderNickname } = envelope.payload;
+        const ciphertext = envelope.payload?.ciphertext || envelope.payload?.ciphertextHex;
+        const nonce = envelope.payload?.nonce || envelope.payload?.nonceHex;
+        const senderNickname = envelope.payload?.senderNickname;
         if (!ciphertext || !nonce) return;
 
         // Verify sender signature
-        const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:${ciphertext}`;
-        const isValid = verifyPacketSignature(envelope.senderPubkey, sigString, envelope.signature || '');
+        const isValid = verifyEnvelopeSignature(envelope);
         if (!isValid) {
           console.warn('[MeshRouter] Discarded packet with invalid signature');
           return;

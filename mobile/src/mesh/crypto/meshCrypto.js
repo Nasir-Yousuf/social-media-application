@@ -213,8 +213,20 @@ export function verifyEnvelopeSignature(envelope) {
     const signatureBytes = hexToBytes(envelope.signature);
     const publicKeyBytes = hexToBytes(envelope.senderPubkey);
 
+    if (ed25519.verify(signatureBytes, messageBytes, publicKeyBytes)) {
+      return true;
+    }
+  } catch (err) {}
+
+  // Fallback to legacy string format for cross-platform compatibility
+  try {
+    const ciphertext = envelope.payload?.ciphertext || envelope.payload?.ciphertextHex || '';
+    const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:${ciphertext}`;
+    const messageBytes = new TextEncoder().encode(sigString);
+    const signatureBytes = hexToBytes(envelope.signature);
+    const publicKeyBytes = hexToBytes(envelope.senderPubkey);
     return ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
-  } catch (err) {
+  } catch {
     return false;
   }
 }

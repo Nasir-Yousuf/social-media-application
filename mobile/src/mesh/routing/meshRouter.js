@@ -148,7 +148,9 @@ class MeshRouter {
       hopsRemaining: 5,
       hopCount: 0,
       payload: {
+        ciphertext: encrypted.ciphertextHex,
         ciphertextHex: encrypted.ciphertextHex,
+        nonce: encrypted.nonceHex,
         nonceHex: encrypted.nonceHex,
         senderNickname: identity.nickname,
       },
@@ -269,10 +271,13 @@ class MeshRouter {
     // CASE A: Packet is for ME
     if (recipientPub === myPub) {
       if (envelope.type === PacketType.ROUTED_DATA) {
-        try {
+          const cHex = envelope.payload?.ciphertextHex || envelope.payload?.ciphertext;
+          const nHex = envelope.payload?.nonceHex || envelope.payload?.nonce;
+          if (!cHex || !nHex) return;
+
           const decrypted = decryptDirectPayload(
-            envelope.payload.ciphertextHex,
-            envelope.payload.nonceHex,
+            cHex,
+            nHex,
             identity.secretKeyHex,
             envelope.senderPubkey
           );

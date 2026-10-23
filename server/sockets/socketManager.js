@@ -181,6 +181,16 @@ function initSocket(server) {
     });
 
     // ==========================================
+    // CLEARFEED MESH PACKET RELAY (LAN / Wi-Fi)
+    // ==========================================
+    socket.on('mesh:packet', (envelope) => {
+      if (envelope && envelope.magic === 'CFM1') {
+        // Broadcast the encrypted envelope to all other connected devices on the local network
+        socket.broadcast.emit('mesh:packet', envelope);
+      }
+    });
+
+    // ==========================================
     // 1. MESSAGING & CHAT EVENTS
     // ==========================================
 

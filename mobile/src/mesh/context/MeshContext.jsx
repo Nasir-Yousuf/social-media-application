@@ -3,10 +3,12 @@ import meshStorage from '../storage/meshStorage.js';
 import meshIdentityService from '../identity/meshIdentityService.js';
 import meshTransport, { TransportState } from '../transport/meshTransport.js';
 import meshRouter, { DeliveryState } from '../routing/meshRouter.js';
+import { useNotifications } from '../../context/NotificationContext';
 
 const MeshContext = createContext(null);
 
 export const MeshProvider = ({ children }) => {
+  const { showToast, navigate } = useNotifications();
   const [identity, setIdentity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [transportState, setTransportState] = useState(TransportState.INITIALIZING);
@@ -47,8 +49,28 @@ export const MeshProvider = ({ children }) => {
       setTransportState(state);
     });
 
-    const unsubMessages = meshRouter.onMessageReceived(() => {
+    const unsubMessages = meshRouter.onMessageReceived((msg) => {
       refreshMeshState();
+
+      if (msg && !msg.isOutgoing) {
+        const senderName = msg.senderNickname || `Peer_${(msg.senderPubkey || '').substring(0, 6)}`;
+        const preview = msg.text ? (msg.text.length > 50 ? msg.text.substring(0, 47) + '...' : msg.text) : 'Sent a message';
+
+        if (typeof showToast === 'function') {
+          showToast(
+            `💬 ${senderName}: ${preview}`,
+            'success',
+            () => {
+              if (typeof navigate === 'function') {
+                navigate('MeshConversation', {
+                  recipientPubkey: msg.senderPubkey,
+                  recipientNickname: senderName,
+                });
+              }
+            }
+          );
+        }
+      }
     });
 
     const unsubDelivery = meshRouter.onDeliveryUpdated(() => {

@@ -1,3 +1,5 @@
+import socketService from '../../services/socket';
+
 export const TransportState = {
   INITIALIZING: 'INITIALIZING',
   READY_OFFLINE: 'READY_OFFLINE',
@@ -16,6 +18,7 @@ class MeshTransportManager {
     this.packetListeners = new Set();
     this.isBluetoothEnabled = true;
     this.hasPermissions = true;
+    this.isSocketBound = false;
   }
 
   /**
@@ -23,7 +26,15 @@ class MeshTransportManager {
    */
   async initialize() {
     try {
-      // In mobile environment, detect runtime permissions and platform radios
+      if (!this.isSocketBound) {
+        this.isSocketBound = true;
+        socketService.on('mesh:packet', (envelope) => {
+          if (envelope && envelope.magic === 'CFM1') {
+            this.emitIncomingPacket(envelope);
+          }
+        });
+      }
+
       this.currentState = TransportState.READY_OFFLINE;
       this.notifyState();
     } catch (err) {
@@ -70,17 +81,19 @@ class MeshTransportManager {
   }
 
   /**
-   * Transmit packet over supported local wireless transport
+   * Transmit packet over supported local wireless & LAN transport
    */
   async broadcastPacket(envelope) {
-    // Platform-aware packet broadcast across active radio interfaces
-    // In Phase 1/2 milestone, verifies envelope readiness and dispatches locally
+    try {
+      socketService.emit('mesh:packet', envelope);
+    } catch (err) {
+      console.warn('[MeshTransport] Broadcast packet error:', err.message);
+    }
     return true;
   }
 
   async sendDirect(peerPubkey, envelope) {
-    // Direct unicast transport
-    return true;
+    return this.broadcastPacket(envelope);
   }
 
   getStateExplanation() {

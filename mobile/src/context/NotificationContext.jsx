@@ -37,11 +37,21 @@ export const NotificationProvider = ({ children }) => {
     navigationRef.current = ref;
   }, []);
 
-  const showToast = useCallback((message, type = 'info') => {
-    setToast({ message, type });
+  const navigate = useCallback((name, params) => {
+    try {
+      if (navigationRef.current?.navigate) {
+        navigationRef.current.navigate(name, params);
+      }
+    } catch (err) {
+      console.warn('NavigationRef navigate error:', err);
+    }
+  }, []);
+
+  const showToast = useCallback((message, type = 'info', onPress = null) => {
+    setToast({ message, type, onPress });
     setTimeout(() => {
       setToast(null);
-    }, 3200);
+    }, 4500);
   }, []);
 
   const hideToast = useCallback(() => {
@@ -308,6 +318,8 @@ export const NotificationProvider = ({ children }) => {
         registerForPushNotifications,
         unregisterPushToken,
         setNavigationRef,
+        navigationRef,
+        navigate,
         toast,
         showToast,
         hideToast,

@@ -1,4 +1,5 @@
 import { MeshEnvelope } from '../protocol/wireProtocol';
+import socketService from '../../services/socket';
 
 export enum TransportState {
   INITIALIZING = 'INITIALIZING',
@@ -16,6 +17,7 @@ class DesktopMeshTransportManager {
   private subscribers: Set<(state: TransportState) => void> = new Set();
   private packetListeners: Set<(envelope: MeshEnvelope) => void> = new Set();
   private broadcastChannel: BroadcastChannel | null = null;
+  private isSocketBound = false;
 
   constructor() {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -28,6 +30,17 @@ class DesktopMeshTransportManager {
         };
       } catch {}
     }
+
+    try {
+      if (!this.isSocketBound) {
+        this.isSocketBound = true;
+        socketService.on('mesh:packet', (envelope: MeshEnvelope) => {
+          if (envelope && envelope.magic === 'CFM1') {
+            this.emitIncomingPacket(envelope);
+          }
+        });
+      }
+    } catch {}
   }
 
   public async initialize(): Promise<void> {
@@ -79,6 +92,11 @@ class DesktopMeshTransportManager {
       try {
         this.broadcastChannel.postMessage(envelope);
       } catch {}
+    }
+    try {
+      socketService.emit('mesh:packet', envelope);
+    } catch (err: any) {
+      console.warn('[DesktopMeshTransport] Socket emit warning:', err?.message);
     }
     return true;
   }

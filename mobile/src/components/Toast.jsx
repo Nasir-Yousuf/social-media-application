@@ -25,8 +25,17 @@ export const Toast = () => {
   return (
     <View style={[styles.container, { top: insets.top + 8 }]}>
       <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={hideToast}
+        activeOpacity={0.88}
+        onPress={() => {
+          if (typeof toast.onPress === 'function') {
+            try {
+              toast.onPress();
+            } catch (err) {
+              console.warn('Toast onPress error:', err);
+            }
+          }
+          hideToast();
+        }}
         style={[
           styles.content,
           {

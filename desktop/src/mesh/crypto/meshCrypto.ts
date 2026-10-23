@@ -120,3 +120,56 @@ export function verifyPacketSignature(publicKeyHex: string, dataString: string, 
     return false;
   }
 }
+
+export function signEnvelope(envelope: any, secretKeyHex: string): string {
+  const dataToSign = JSON.stringify({
+    magic: envelope.magic,
+    version: envelope.version,
+    type: envelope.type,
+    packetId: envelope.packetId,
+    senderPubkey: envelope.senderPubkey,
+    recipientPubkey: envelope.recipientPubkey,
+    timestamp: envelope.timestamp,
+    expiresAt: envelope.expiresAt,
+    payload: envelope.payload,
+  });
+
+  const messageBytes = new TextEncoder().encode(dataToSign);
+  const secretKey = hexToBytes(secretKeyHex);
+  const signatureBytes = ed25519.sign(messageBytes, secretKey);
+  return bytesToHex(signatureBytes);
+}
+
+export function verifyEnvelopeSignature(envelope: any): boolean {
+  if (!envelope.signature) return false;
+  try {
+    const dataToVerify = JSON.stringify({
+      magic: envelope.magic,
+      version: envelope.version,
+      type: envelope.type,
+      packetId: envelope.packetId,
+      senderPubkey: envelope.senderPubkey,
+      recipientPubkey: envelope.recipientPubkey,
+      timestamp: envelope.timestamp,
+      expiresAt: envelope.expiresAt,
+      payload: envelope.payload,
+    });
+
+    const messageBytes = new TextEncoder().encode(dataToVerify);
+    const signatureBytes = hexToBytes(envelope.signature);
+    const publicKeyBytes = hexToBytes(envelope.senderPubkey);
+
+    if (ed25519.verify(signatureBytes, messageBytes, publicKeyBytes)) {
+      return true;
+    }
+  } catch {}
+
+  // Fallback check for legacy colon-separated string format
+  try {
+    const ciphertext = envelope.payload?.ciphertext || envelope.payload?.ciphertextHex || '';
+    const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:${ciphertext}`;
+    return verifyPacketSignature(envelope.senderPubkey, sigString, envelope.signature);
+  } catch {
+    return false;
+  }
+}

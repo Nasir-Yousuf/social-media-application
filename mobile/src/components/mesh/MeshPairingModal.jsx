@@ -26,8 +26,7 @@ export const MeshPairingModal = ({
 }) => {
   const { colors: currentColors } = useTheme();
   const [activeTab, setActiveTab] = useState('my_qr'); // 'my_qr' | 'scan' | 'manual'
-  const [qrDataUrl, setQrDataUrl] = useState(null);
-  const [loadingQr, setLoadingQr] = useState(false);
+  const [qrMatrix, setQrMatrix] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
 
@@ -73,39 +72,39 @@ export const MeshPairingModal = ({
     return null;
   };
 
-  // Generate QR code base64 image on open or identity change
+  // Generate pure JS QR code matrix synchronously without Canvas or Node streams
   useEffect(() => {
     if (!visible || !identity?.publicKeyHex) return;
 
-    let isMounted = true;
-    setLoadingQr(true);
+    try {
+      const payload = `cfm1://peer?pk=${identity.publicKeyHex}&nick=${encodeURIComponent(
+        identity.nickname || 'Peer'
+      )}`;
 
-    const payload = `cfm1://peer?pk=${identity.publicKeyHex}&nick=${encodeURIComponent(
-      identity.nickname || 'Peer'
-    )}`;
-
-    QRCode.toDataURL(payload, {
-      margin: 2,
-      width: 256,
-      color: {
-        dark: '#052e16', // Deep emerald
-        light: '#ecfdf5', // Soft emerald tint
-      },
-    })
-      .then((dataUrl) => {
-        if (isMounted) {
-          setQrDataUrl(dataUrl);
-          setLoadingQr(false);
+      const qr = QRCode.create(payload, { errorCorrectionLevel: 'M' });
+      const size = qr.modules.size;
+      const rows = [];
+      for (let r = 0; r < size; r++) {
+        const row = [];
+        let currentVal = qr.modules.get(r, 0);
+        let count = 0;
+        for (let c = 0; c < size; c++) {
+          const val = qr.modules.get(r, c);
+          if (val === currentVal) {
+            count++;
+          } else {
+            row.push({ dark: Boolean(currentVal), count });
+            currentVal = val;
+            count = 1;
+          }
         }
-      })
-      .catch((err) => {
-        console.warn('[MeshPairing] QR Generation error:', err);
-        if (isMounted) setLoadingQr(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
+        row.push({ dark: Boolean(currentVal), count });
+        rows.push(row);
+      }
+      setQrMatrix({ size, rows });
+    } catch (err) {
+      console.warn('[MeshPairing] Pure JS QR Matrix error:', err);
+    }
   }, [visible, identity]);
 
   const handleBarCodeScanned = ({ data }) => {
@@ -340,7 +339,7 @@ export const MeshPairingModal = ({
             {activeTab === 'my_qr' && (
               <View style={styles.qrSection}>
                 <View style={styles.qrCard}>
-                  {loadingQr || !qrDataUrl ? (
+                  {!qrMatrix ? (
                     <View style={styles.qrLoadingBox}>
                       <ActivityIndicator size="large" color="#00ba7c" />
                       <Text style={styles.loadingText}>
@@ -348,11 +347,25 @@ export const MeshPairingModal = ({
                       </Text>
                     </View>
                   ) : (
-                    <Image
-                      source={{ uri: qrDataUrl }}
-                      style={styles.qrImage}
-                      resizeMode="contain"
-                    />
+                    <View style={styles.qrGridWrapper}>
+                      {(() => {
+                        const pixelSize = Math.max(4, Math.floor(210 / qrMatrix.size));
+                        return qrMatrix.rows.map((row, rIdx) => (
+                          <View key={`r-${rIdx}`} style={{ flexDirection: 'row', height: pixelSize }}>
+                            {row.map((run, cIdx) => (
+                              <View
+                                key={`c-${cIdx}`}
+                                style={{
+                                  width: run.count * pixelSize,
+                                  height: pixelSize,
+                                  backgroundColor: run.dark ? '#052e16' : '#ffffff',
+                                }}
+                              />
+                            ))}
+                          </View>
+                        ));
+                      })()}
+                    </View>
                   )}
                 </View>
 
@@ -752,6 +765,13 @@ const styles = StyleSheet.create({
   qrImage: {
     width: 210,
     height: 210,
+  },
+  qrGridWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    padding: 6,
+    borderRadius: 8,
   },
   qrLoadingBox: {
     width: 210,
