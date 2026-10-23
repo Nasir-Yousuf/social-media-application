@@ -16,6 +16,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useMesh } from '../../mesh/context/MeshContext';
 import { DeliveryState } from '../../mesh/routing/meshRouter';
 import { computeFingerprint } from '../../mesh/crypto/meshCrypto';
+import { BROADCAST_PUBKEY } from '../../mesh/protocol/wireProtocol';
 
 export const MeshConversationScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
@@ -28,10 +29,11 @@ export const MeshConversationScreen = ({ route, navigation }) => {
   const [sending, setSending] = useState(false);
   const flatListRef = useRef(null);
 
+  const isBroadcast = (recipientPubkey || '').toLowerCase() === BROADCAST_PUBKEY.toLowerCase();
   const currentPeer = peers.find(
     (p) => p.publicKeyHex?.toLowerCase() === recipientPubkey?.toLowerCase()
   );
-  const fingerprint = currentPeer?.fingerprint || computeFingerprint(recipientPubkey || '');
+  const fingerprint = isBroadcast ? 'PUBLIC BROADCAST ROOM' : (currentPeer?.fingerprint || computeFingerprint(recipientPubkey || ''));
   const isVerified = currentPeer?.status === 'verified';
 
   useEffect(() => {
@@ -141,9 +143,9 @@ export const MeshConversationScreen = ({ route, navigation }) => {
         <View style={styles.headerTitleGroup}>
           <View style={styles.nameRow}>
             <Text style={[styles.headerName, { color: currentColors.text }]}>
-              {recipientNickname || 'Mesh Peer'}
+              {isBroadcast ? '📢 Nearby Public Broadcast' : (recipientNickname || 'Mesh Peer')}
             </Text>
-            {isVerified && (
+            {isVerified && !isBroadcast && (
               <Ionicons
                 name="shield-checkmark"
                 size={16}
@@ -156,20 +158,26 @@ export const MeshConversationScreen = ({ route, navigation }) => {
             style={[styles.headerFingerprint, { color: currentColors.textSecondary }]}
             numberOfLines={1}
           >
-            {fingerprint}
+            {isBroadcast ? 'Broadcast to all nearby devices • সবার সাথে উন্মুক্ত চ্যাট' : fingerprint}
           </Text>
         </View>
 
         <TouchableOpacity
           onPress={() =>
             Alert.alert(
-              'End-to-End Encryption',
-              `Conversation with ${recipientNickname} is encrypted with ChaCha20-Poly1305. Packets passing through intermediate relay nodes cannot be read.\n\nKey Fingerprint:\n${fingerprint}`
+              isBroadcast ? 'Nearby Public Broadcast' : 'End-to-End Encryption',
+              isBroadcast
+                ? 'Messages sent in this channel are heard by all Clearfeed Mesh devices within local radio range without requiring internet or pairing.'
+                : `Conversation with ${recipientNickname} is encrypted with ChaCha20-Poly1305. Packets passing through intermediate relay nodes cannot be read.\n\nKey Fingerprint:\n${fingerprint}`
             )
           }
           style={styles.infoBtn}
         >
-          <Ionicons name="lock-closed" size={18} color="#00ba7c" />
+          <Ionicons
+            name={isBroadcast ? 'megaphone-outline' : 'lock-closed'}
+            size={18}
+            color="#00ba7c"
+          />
         </TouchableOpacity>
       </View>
 
@@ -237,6 +245,11 @@ export const MeshConversationScreen = ({ route, navigation }) => {
                       },
                 ]}
               >
+                {!isMe && isBroadcast && (
+                  <Text style={styles.broadcastSenderNick}>
+                    {item.senderNickname || 'Nearby Peer'}
+                  </Text>
+                )}
                 <Text
                   style={[
                     styles.messageText,
@@ -366,6 +379,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
+  },
+  broadcastSenderNick: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#00ba7c',
+    marginBottom: 3,
   },
   messageText: { fontSize: 14, lineHeight: 20 },
   messageMetaRow: {

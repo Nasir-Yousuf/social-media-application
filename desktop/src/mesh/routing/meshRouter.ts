@@ -140,25 +140,36 @@ class DesktopMeshRouter {
       throw new Error('Local Mesh identity not initialized');
     }
 
-    const { ciphertextHex, nonceHex } = encryptPayload(
-      identity.secretKeyHex,
-      recipientPubkey,
-      text
-    );
+    const isBroadcast = recipientPubkey.toLowerCase() === BROADCAST_PUBKEY.toLowerCase();
+    let payload: any;
 
-    const envelope = createEnvelope({
-      type: PacketType.ROUTED_DATA,
-      senderPubkey: identity.publicKeyHex,
-      recipientPubkey,
-      hopsRemaining: 5,
-      hopCount: 0,
-      payload: {
+    if (isBroadcast) {
+      payload = {
+        text,
+        senderNickname: identity.nickname || 'Nearby Peer',
+      };
+    } else {
+      const { ciphertextHex, nonceHex } = encryptPayload(
+        identity.secretKeyHex,
+        recipientPubkey,
+        text
+      );
+      payload = {
         ciphertext: ciphertextHex,
         ciphertextHex: ciphertextHex,
         nonce: nonceHex,
         nonceHex: nonceHex,
         senderNickname: identity.nickname,
-      },
+      };
+    }
+
+    const envelope = createEnvelope({
+      type: PacketType.ROUTED_DATA,
+      senderPubkey: identity.publicKeyHex,
+      recipientPubkey: recipientPubkey.toLowerCase(),
+      hopsRemaining: 5,
+      hopCount: 0,
+      payload,
     });
 
     envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
@@ -213,7 +224,6 @@ class DesktopMeshRouter {
     if (!identity) return;
 
     const myPubkey = identity.publicKeyHex.toLowerCase();
-    const isForMe = envelope.recipientPubkey.toLowerCase() === myPubkey || envelope.recipientPubkey === BROADCAST_PUBKEY;
 
     // Handle Peer Discovery Beacons and Announcements
     if (envelope.type === PacketType.BEACON || envelope.type === PacketType.ANNOUNCE) {
@@ -241,12 +251,28 @@ class DesktopMeshRouter {
       return;
     }
 
+    const isBroadcast = envelope.recipientPubkey.toLowerCase() === BROADCAST_PUBKEY.toLowerCase();
+    const isForMe = envelope.recipientPubkey.toLowerCase() === myPubkey || isBroadcast;
+
     if (isForMe && envelope.type === PacketType.ROUTED_DATA) {
       try {
-        const ciphertext = envelope.payload?.ciphertext || envelope.payload?.ciphertextHex;
-        const nonce = envelope.payload?.nonce || envelope.payload?.nonceHex;
-        const senderNickname = envelope.payload?.senderNickname;
-        if (!ciphertext || !nonce) return;
+        let plaintext = '';
+        if (isBroadcast) {
+          plaintext = envelope.payload?.text || '';
+        } else {
+          const ciphertext = envelope.payload?.ciphertext || envelope.payload?.ciphertextHex;
+          const nonce = envelope.payload?.nonce || envelope.payload?.nonceHex;
+          if (!ciphertext || !nonce) return;
+
+          plaintext = decryptPayload(
+            identity.secretKeyHex,
+            envelope.senderPubkey,
+            ciphertext,
+            nonce
+          );
+        }
+
+        if (!plaintext) return;
 
         // Verify sender signature
         const isValid = verifyEnvelopeSignature(envelope);
@@ -255,20 +281,17 @@ class DesktopMeshRouter {
           return;
         }
 
-        // Decrypt ChaCha20-Poly1305 payload
-        const plaintext = decryptPayload(
-          identity.secretKeyHex,
-          envelope.senderPubkey,
-          ciphertext,
-          nonce
-        );
+        const senderPubkey = envelope.senderPubkey.toLowerCase();
+        const senderNickname = envelope.payload?.senderNickname || 'Nearby Peer';
+        const targetConvPubkey = isBroadcast ? BROADCAST_PUBKEY.toLowerCase() : senderPubkey;
+        const targetConvNick = isBroadcast ? 'Nearby Public Broadcast' : senderNickname;
 
         const msg: MeshMessage = {
           id: envelope.packetId,
-          conversationId: envelope.senderPubkey.toLowerCase(),
-          senderPubkey: envelope.senderPubkey.toLowerCase(),
-          recipientPubkey: myPubkey,
-          senderNickname: senderNickname || 'Nearby Peer',
+          conversationId: targetConvPubkey,
+          senderPubkey,
+          recipientPubkey: isBroadcast ? BROADCAST_PUBKEY.toLowerCase() : myPubkey,
+          senderNickname,
           text: plaintext,
           timestamp: envelope.timestamp,
           isOutgoing: false,
@@ -276,13 +299,13 @@ class DesktopMeshRouter {
           hopCount: envelope.hopCount,
         };
 
-        const existing = await meshStorage.loadMessages(envelope.senderPubkey);
-        await meshStorage.saveMessages(envelope.senderPubkey, [...existing, msg]);
+        const existing = await meshStorage.loadMessages(targetConvPubkey);
+        await meshStorage.saveMessages(targetConvPubkey, [...existing, msg]);
 
         await this.updateConversationSnippet(
-          envelope.senderPubkey,
-          senderNickname || 'Nearby Peer',
-          plaintext,
+          targetConvPubkey,
+          targetConvNick,
+          isBroadcast ? `${senderNickname}: ${plaintext}` : plaintext,
           envelope.timestamp
         );
 
@@ -344,4 +367,5 @@ class DesktopMeshRouter {
 }
 
 export const meshRouter = new DesktopMeshRouter();
+export { BROADCAST_PUBKEY };
 export default meshRouter;

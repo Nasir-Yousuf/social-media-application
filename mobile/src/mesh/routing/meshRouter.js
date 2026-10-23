@@ -133,12 +133,28 @@ class MeshRouter {
     const trimmedText = text.trim();
     if (!trimmedText) throw new Error('Message cannot be empty');
 
-    // 1. End-to-end encrypt payload
-    const encrypted = encryptDirectPayload(
-      trimmedText,
-      identity.secretKeyHex,
-      recipientPubkey
-    );
+    const isBroadcast = recipientPubkey.toLowerCase() === BROADCAST_PUBKEY;
+    let payload;
+
+    if (isBroadcast) {
+      payload = {
+        text: trimmedText,
+        senderNickname: identity.nickname || 'Nearby Peer',
+      };
+    } else {
+      const encrypted = encryptDirectPayload(
+        trimmedText,
+        identity.secretKeyHex,
+        recipientPubkey
+      );
+      payload = {
+        ciphertext: encrypted.ciphertextHex,
+        ciphertextHex: encrypted.ciphertextHex,
+        nonce: encrypted.nonceHex,
+        nonceHex: encrypted.nonceHex,
+        senderNickname: identity.nickname,
+      };
+    }
 
     // 2. Build signed wire envelope
     const envelope = createEnvelope({
@@ -147,13 +163,7 @@ class MeshRouter {
       recipientPubkey: recipientPubkey.toLowerCase(),
       hopsRemaining: 5,
       hopCount: 0,
-      payload: {
-        ciphertext: encrypted.ciphertextHex,
-        ciphertextHex: encrypted.ciphertextHex,
-        nonce: encrypted.nonceHex,
-        nonceHex: encrypted.nonceHex,
-        senderNickname: identity.nickname,
-      },
+      payload,
     });
 
     envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
@@ -164,12 +174,13 @@ class MeshRouter {
       packetId: envelope.packetId,
       senderPubkey: identity.publicKeyHex,
       recipientPubkey: recipientPubkey.toLowerCase(),
-      recipientNickname: recipientNickname || 'Mesh Peer',
+      recipientNickname: isBroadcast ? 'Nearby Public Broadcast' : (recipientNickname || 'Mesh Peer'),
       text: trimmedText,
       timestamp: Date.now(),
       deliveryStatus: DeliveryState.SAVED_LOCALLY,
       isOutgoing: true,
       hopsTraveled: 0,
+      isBroadcast,
     };
 
     // Update conversation history
@@ -268,50 +279,63 @@ class MeshRouter {
       return;
     }
 
-    // CASE A: Packet is for ME
-    if (recipientPub === myPub) {
+    // CASE A: Packet is for ME or for EVERYONE (Nearby Public Broadcast)
+    const isBroadcast = recipientPub === BROADCAST_PUBKEY;
+    if (recipientPub === myPub || isBroadcast) {
       if (envelope.type === PacketType.ROUTED_DATA) {
-          const cHex = envelope.payload?.ciphertextHex || envelope.payload?.ciphertext;
-          const nHex = envelope.payload?.nonceHex || envelope.payload?.nonce;
-          if (!cHex || !nHex) return;
+        try {
+          let text = '';
+          if (isBroadcast) {
+            text = envelope.payload?.text || '';
+          } else {
+            const cHex = envelope.payload?.ciphertextHex || envelope.payload?.ciphertext;
+            const nHex = envelope.payload?.nonceHex || envelope.payload?.nonce;
+            if (!cHex || !nHex) return;
 
-          const decrypted = decryptDirectPayload(
-            cHex,
-            nHex,
-            identity.secretKeyHex,
-            envelope.senderPubkey
-          );
+            text = decryptDirectPayload(
+              cHex,
+              nHex,
+              identity.secretKeyHex,
+              envelope.senderPubkey
+            );
+          }
+
+          if (!text) return;
 
           const senderPub = envelope.senderPubkey.toLowerCase();
-          const senderNick = envelope.payload.senderNickname || 'Nearby Peer';
+          const senderNick = envelope.payload?.senderNickname || 'Nearby Peer';
+          const targetConvPubkey = isBroadcast ? BROADCAST_PUBKEY : senderPub;
+          const targetConvNick = isBroadcast ? 'Nearby Public Broadcast' : senderNick;
 
           const incomingMsg = {
             id: envelope.packetId,
             packetId: envelope.packetId,
             senderPubkey: senderPub,
-            recipientPubkey: myPub,
+            recipientPubkey: isBroadcast ? BROADCAST_PUBKEY : myPub,
             senderNickname: senderNick,
-            text: decrypted,
+            text,
             timestamp: envelope.timestamp,
             deliveryStatus: DeliveryState.DELIVERED_ACK,
             isOutgoing: false,
             hopsTraveled: envelope.hopCount,
+            isBroadcast,
           };
 
-          const msgs = await meshStorage.loadMessages(senderPub);
+          const msgs = await meshStorage.loadMessages(targetConvPubkey);
           msgs.push(incomingMsg);
-          await meshStorage.saveMessages(senderPub, msgs);
+          await meshStorage.saveMessages(targetConvPubkey, msgs);
 
           // Update conversation list
           const conversations = await meshStorage.loadConversations();
-          const convIdx = conversations.findIndex((c) => c.recipientPubkey === senderPub);
+          const convIdx = conversations.findIndex((c) => c.recipientPubkey === targetConvPubkey);
           const summary = {
-            id: senderPub,
-            recipientPubkey: senderPub,
-            recipientNickname: senderNick,
-            lastMessage: decrypted,
+            id: targetConvPubkey,
+            recipientPubkey: targetConvPubkey,
+            recipientNickname: targetConvNick,
+            lastMessage: isBroadcast ? `${senderNick}: ${text}` : text,
             lastTimestamp: Date.now(),
             unreadCount: (conversations[convIdx]?.unreadCount || 0) + 1,
+            isBroadcast,
           };
           if (convIdx >= 0) {
             conversations[convIdx] = summary;
@@ -320,8 +344,10 @@ class MeshRouter {
           }
           await meshStorage.saveConversations(conversations);
 
-          // Send back cryptographically signed END_TO_END_ACK
-          await this.sendEndToEndAck(envelope);
+          // Send back cryptographically signed END_TO_END_ACK if 1-on-1
+          if (!isBroadcast) {
+            await this.sendEndToEndAck(envelope);
+          }
 
           this.notifyMessage(incomingMsg);
         } catch (e) {

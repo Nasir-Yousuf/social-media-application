@@ -21,10 +21,11 @@ import {
   Wifi,
   Zap,
   X,
+  Megaphone,
 } from 'lucide-react';
 import { useMesh } from '../mesh/context/MeshContext';
 import meshStorage, { MeshPeer, MeshConversation, MeshMessage } from '../mesh/storage/meshStorage';
-import meshRouter from '../mesh/routing/meshRouter';
+import meshRouter, { BROADCAST_PUBKEY } from '../mesh/routing/meshRouter';
 import { MeshGuideModal } from '../components/mesh/MeshGuideModal';
 import { MeshPairingModal } from '../components/mesh/MeshPairingModal';
 
@@ -66,12 +67,21 @@ export const MeshView: React.FC = () => {
     text: string;
   } | null>(null);
 
+  const currentTargetPubkey = (activeConv?.peerPubkey || activePeer?.publicKeyHex || '').toLowerCase();
+  const isBroadcast = currentTargetPubkey === BROADCAST_PUBKEY.toLowerCase();
+
   // Subscribe to real-time incoming mesh packets
   useEffect(() => {
     const unsub = meshRouter.onMessageReceived(async (msg) => {
       // 1. If currently viewing this conversation, dynamically append to messages list
       const activePubkey = (activeConv?.peerPubkey || activePeer?.publicKeyHex || '').toLowerCase();
-      if (activePubkey && msg.senderPubkey.toLowerCase() === activePubkey) {
+      const isViewingBroadcast = activePubkey === BROADCAST_PUBKEY.toLowerCase();
+      const isMsgBroadcast = msg.recipientPubkey.toLowerCase() === BROADCAST_PUBKEY.toLowerCase();
+
+      if (
+        (isViewingBroadcast && isMsgBroadcast) ||
+        (!isMsgBroadcast && activePubkey && msg.senderPubkey.toLowerCase() === activePubkey)
+      ) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -81,8 +91,10 @@ export const MeshView: React.FC = () => {
       // 2. If it is an incoming message, trigger notification banner with 1-click jump to chat
       if (!msg.isOutgoing) {
         setNotification({
-          senderPubkey: msg.senderPubkey,
-          senderNickname: msg.senderNickname || `Peer_${msg.senderPubkey.substring(0, 6)}`,
+          senderPubkey: isMsgBroadcast ? BROADCAST_PUBKEY : msg.senderPubkey,
+          senderNickname: isMsgBroadcast
+            ? `📢 ${msg.senderNickname || 'Someone nearby'}`
+            : (msg.senderNickname || `Peer_${msg.senderPubkey.substring(0, 6)}`),
           text: msg.text,
         });
       }
@@ -270,49 +282,79 @@ export const MeshView: React.FC = () => {
         {/* Tab 1: Chats */}
         {activeTab === 'chats' && (
           <div className="flex-1 overflow-y-auto divide-y divide-neutral-800/40">
-            {conversations.length === 0 ? (
+            {/* PINNED RANGE-WIDE PUBLIC BROADCAST CHANNEL */}
+            <div
+              onClick={() => openChatWith(BROADCAST_PUBKEY, '📢 Public Broadcast (Everyone Nearby)')}
+              className={`p-3.5 flex items-center gap-3 cursor-pointer transition select-none ${
+                isBroadcast
+                  ? 'bg-amber-500/15 border-l-2 border-amber-400'
+                  : 'hover:bg-neutral-800/60 bg-amber-500/5'
+              }`}
+            >
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 border border-amber-500/30">
+                <Megaphone className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className="text-xs font-bold text-amber-300 truncate">
+                    Nearby Public Broadcast
+                  </p>
+                  <span className="text-[9px] bg-amber-500/25 text-amber-300 px-1.5 py-0.5 rounded font-black tracking-wide">
+                    EVERYONE
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 truncate">
+                  Broadcast to all devices in range • সবাইকে বার্তা
+                </p>
+              </div>
+            </div>
+
+            {/* DIRECT 1-ON-1 CHATS */}
+            {conversations.filter(c => c.peerPubkey.toLowerCase() !== BROADCAST_PUBKEY.toLowerCase()).length === 0 ? (
               <div className="p-8 text-center text-xs text-neutral-500 space-y-2">
                 <MessageSquare className="w-8 h-8 mx-auto text-neutral-700" />
-                <p>No offline conversations stored yet.</p>
+                <p>No direct 1-on-1 offline chats yet.</p>
                 <p className="text-[10px] text-neutral-400">
-                  Select a peer in the Peers tab or add a peer public key.
+                  Select a peer in the Peers tab or use the Public Broadcast above.
                 </p>
               </div>
             ) : (
-              conversations.map((conv) => {
-                const isActive = activeConv?.peerPubkey === conv.peerPubkey;
-                return (
-                  <div
-                    key={conv.peerPubkey}
-                    onClick={() => selectConversation(conv)}
-                    className={`p-3.5 flex items-center gap-3 cursor-pointer transition select-none ${
-                      isActive
-                        ? 'bg-emerald-500/10 border-l-2 border-emerald-400'
-                        : 'hover:bg-neutral-800/40'
-                    }`}
-                  >
-                    <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
-                      {conv.nickname?.[0]?.toUpperCase() || 'P'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <p className="text-xs font-semibold text-neutral-200 truncate">
-                          {conv.nickname}
-                        </p>
-                        <span className="text-[10px] text-neutral-500 font-mono">
-                          {new Date(conv.lastTimestamp).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+              conversations
+                .filter(c => c.peerPubkey.toLowerCase() !== BROADCAST_PUBKEY.toLowerCase())
+                .map((conv) => {
+                  const isActive = activeConv?.peerPubkey === conv.peerPubkey;
+                  return (
+                    <div
+                      key={conv.peerPubkey}
+                      onClick={() => selectConversation(conv)}
+                      className={`p-3.5 flex items-center gap-3 cursor-pointer transition select-none ${
+                        isActive
+                          ? 'bg-emerald-500/10 border-l-2 border-emerald-400'
+                          : 'hover:bg-neutral-800/40'
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+                        {conv.nickname?.[0]?.toUpperCase() || 'P'}
                       </div>
-                      <p className="text-xs text-neutral-400 truncate">
-                        {conv.lastMessageSnippet}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p className="text-xs font-semibold text-neutral-200 truncate">
+                            {conv.nickname}
+                          </p>
+                          <span className="text-[10px] text-neutral-500 font-mono">
+                            {new Date(conv.lastTimestamp).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-400 truncate">
+                          {conv.lastMessageSnippet}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })
             )}
           </div>
         )}
@@ -593,44 +635,74 @@ export const MeshView: React.FC = () => {
           {/* Header */}
           <div className="h-14 px-6 border-b border-neutral-800/80 flex items-center justify-between bg-neutral-900/60 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
-                {(activeConv?.nickname || activePeer?.nickname)?.[0]?.toUpperCase() || 'P'}
+              <div
+                className={`w-8 h-8 rounded-full ${
+                  isBroadcast
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-400'
+                } flex items-center justify-center font-bold text-xs`}
+              >
+                {isBroadcast ? (
+                  <Megaphone className="w-4 h-4" />
+                ) : (
+                  (activeConv?.nickname || activePeer?.nickname)?.[0]?.toUpperCase() || 'P'
+                )}
               </div>
               <div>
                 <h3 className="text-xs font-bold text-neutral-100 flex items-center gap-1.5">
-                  <Lock className="w-3 h-3 text-emerald-400" />
-                  {activeConv?.nickname || activePeer?.nickname}
+                  {isBroadcast ? (
+                    <span className="text-amber-300 font-extrabold flex items-center gap-1.5">
+                      <Megaphone className="w-3.5 h-3.5 text-amber-400" />
+                      Nearby Public Broadcast (Everyone)
+                    </span>
+                  ) : (
+                    <>
+                      <Lock className="w-3 h-3 text-emerald-400" />
+                      {activeConv?.nickname || activePeer?.nickname}
+                    </>
+                  )}
                 </h3>
-                <p className="text-[10px] text-neutral-500 font-mono truncate max-w-sm">
-                  {activeConv?.peerPubkey || activePeer?.publicKeyHex}
+                <p className="text-[10px] text-neutral-400 font-mono truncate max-w-sm">
+                  {isBroadcast
+                    ? '📢 Range-wide Channel • Reaches all devices in local range'
+                    : (activeConv?.peerPubkey || activePeer?.publicKeyHex)}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Safety Fingerprint Badge */}
-              <button
-                onClick={() => setShowPairingModal(true)}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-medium rounded-lg transition cursor-pointer"
-                title="Verify Ed25519 Safety Fingerprint"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>
-                  {((activeConv?.peerPubkey || activePeer?.publicKeyHex) || '')
-                    .slice(0, 8)
-                    .toUpperCase()}{' '}
-                  • Verified
+              {/* Safety Fingerprint or Broadcast Badge */}
+              {isBroadcast ? (
+                <span className="px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-bold rounded-lg flex items-center gap-1">
+                  <Megaphone className="w-3.5 h-3.5" />
+                  <span>Public Range Channel</span>
                 </span>
-              </button>
+              ) : (
+                <button
+                  onClick={() => setShowPairingModal(true)}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-mono font-medium rounded-lg transition cursor-pointer"
+                  title="Verify Ed25519 Safety Fingerprint"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>
+                    {((activeConv?.peerPubkey || activePeer?.publicKeyHex) || '')
+                      .slice(0, 8)
+                      .toUpperCase()}{' '}
+                    • Verified
+                  </span>
+                </button>
+              )}
 
-              <button
-                onClick={() => setShowPairingModal(true)}
-                className="flex items-center gap-1 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-medium rounded-lg transition cursor-pointer"
-                title="Open QR Pairing & Code"
-              >
-                <QrCode className="w-3.5 h-3.5 text-emerald-400" />
-                <span>QR Connect</span>
-              </button>
+              {!isBroadcast && (
+                <button
+                  onClick={() => setShowPairingModal(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-medium rounded-lg transition cursor-pointer"
+                  title="Open QR Pairing & Code"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>QR Connect</span>
+                </button>
+              )}
 
               <button
                 onClick={() => setShowGuide(true)}
@@ -647,11 +719,25 @@ export const MeshView: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-xs text-neutral-500 space-y-2">
-                <Lock className="w-8 h-8 text-neutral-700" />
-                <p className="font-semibold text-neutral-300">Direct Offline Conversation</p>
-                <p className="text-[11px] max-w-xs text-neutral-400">
-                  Messages sent here are encrypted using ChaCha20-Poly1305 with keys derived through X25519 Diffie-Hellman and relayed offline.
-                </p>
+                {isBroadcast ? (
+                  <>
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+                      <Megaphone className="w-6 h-6" />
+                    </div>
+                    <p className="font-bold text-neutral-200 text-sm">Nearby Public Broadcast Channel</p>
+                    <p className="text-[11px] max-w-sm text-neutral-400">
+                      Messages posted here are sent unencrypted so every nearby phone, tablet, and laptop within range can instantly see them without prior pairing.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-8 h-8 text-neutral-700" />
+                    <p className="font-semibold text-neutral-300">Direct Offline Conversation</p>
+                    <p className="text-[11px] max-w-xs text-neutral-400">
+                      Messages sent here are encrypted using ChaCha20-Poly1305 with keys derived through X25519 Diffie-Hellman and relayed offline.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               messages.map((msg) => (
@@ -662,14 +748,22 @@ export const MeshView: React.FC = () => {
                   <div
                     className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                       msg.isOutgoing
-                        ? 'bg-emerald-600 text-white rounded-br-xs'
+                        ? isBroadcast
+                          ? 'bg-amber-600 text-white rounded-br-xs'
+                          : 'bg-emerald-600 text-white rounded-br-xs'
                         : 'bg-neutral-800 text-neutral-100 rounded-bl-xs'
                     }`}
                   >
+                    {!msg.isOutgoing && isBroadcast && (
+                      <p className="text-[11px] font-bold text-amber-400 mb-1 flex items-center gap-1">
+                        <span>📢</span>
+                        <span>{msg.senderNickname || 'Nearby User'}</span>
+                      </p>
+                    )}
                     <p className="whitespace-pre-wrap">{msg.text}</p>
                     <div
                       className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                        msg.isOutgoing ? 'text-emerald-200' : 'text-neutral-400'
+                        msg.isOutgoing ? 'text-white/80' : 'text-neutral-400'
                       }`}
                     >
                       <span>
@@ -699,13 +793,21 @@ export const MeshView: React.FC = () => {
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Send offline encrypted message..."
+              placeholder={
+                isBroadcast
+                  ? '📢 Broadcast a message to everyone in range • সবাইকে বার্তা পাঠান...'
+                  : 'Send offline encrypted message...'
+              }
               className="flex-1 bg-neutral-950/80 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
             />
             <button
               type="submit"
               disabled={!inputText.trim() || sending}
-              className="p-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-xl transition cursor-pointer"
+              className={`p-2.5 ${
+                isBroadcast
+                  ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-white'
+              } disabled:opacity-50 rounded-xl transition cursor-pointer`}
             >
               <Send className="w-4 h-4" />
             </button>

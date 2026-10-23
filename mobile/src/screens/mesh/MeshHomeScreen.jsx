@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useMesh } from '../../mesh/context/MeshContext';
 import { MeshPairingModal } from '../../components/mesh/MeshPairingModal';
+import { BROADCAST_PUBKEY } from '../../mesh/protocol/wireProtocol';
 
 export const MeshHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -139,145 +140,126 @@ export const MeshHomeScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Quick QR Connect Banner */}
-        <TouchableOpacity
-          onPress={() => setShowPairModal(true)}
-          style={styles.qrHomeBanner}
+        {/* 1. NEARBY ACTIVE DEVICES (Tap-to-chat instantly without scanning) */}
+        <View
+          style={[
+            styles.radarCard,
+            {
+              backgroundColor: currentColors.surface,
+              borderColor: currentColors.border,
+            },
+          ]}
         >
-          <View style={styles.qrIconCircle}>
-            <Ionicons name="qr-code" size={18} color="#00ba7c" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.qrBannerTitle}>
-              Scan & Connect Nearby | কুইক পেয়ার
-            </Text>
-            <Text style={styles.qrBannerSubtitle}>
-              Tap to show QR code or paste peer public key
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#ffffff" />
-        </TouchableOpacity>
-
-        {/* Local Cryptographic Identity Card */}
-        {identity && (
-          <View
-            style={[
-              styles.identityCard,
-              {
-                backgroundColor: currentColors.surface,
-                borderColor: currentColors.border,
-              },
-            ]}
-          >
-            <View style={styles.identityTopRow}>
-              <View style={styles.identityAvatar}>
-                <Ionicons name="shield-checkmark" size={24} color="#00ba7c" />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text
-                  style={[
-                    styles.identityNickname,
-                    { color: currentColors.text },
-                  ]}
-                >
-                  {identity.nickname}
-                </Text>
-                <Text
-                  style={[
-                    styles.identityMeta,
-                    { color: currentColors.textSecondary },
-                  ]}
-                >
-                  Independent Local Mesh Node
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.fingerprintBox,
-                { backgroundColor: currentColors.bg },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.fingerprintLabel,
-                  { color: currentColors.textSecondary },
-                ]}
-              >
-                PUBLIC KEY FINGERPRINT
-              </Text>
-              <Text style={styles.fingerprintValue}>
-                {identity.fingerprint}
+          <View style={styles.radarHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={[styles.pulseDot, { backgroundColor: '#00ba7c' }]} />
+              <Text style={[styles.radarTitle, { color: currentColors.text }]}>
+                Nearby Active Users • আশেপাশে সক্রিয়
               </Text>
             </View>
+            <TouchableOpacity onPress={() => setShowPairModal(true)}>
+              <Text style={styles.qrScanLink}>Scan QR</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* Quick Actions Row */}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: currentColors.surface,
-                borderColor: currentColors.border,
-              },
-            ]}
-            onPress={() => navigation.navigate('MeshPeers')}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.radarList}
           >
-            <MaterialCommunityIcons
-              name="account-multiple-outline"
-              size={24}
-              color="#00A6F4"
-            />
-            <Text
-              style={[styles.actionBtnText, { color: currentColors.text }]}
+            {/* Quick Pair Button */}
+            <TouchableOpacity
+              style={styles.radarItem}
+              onPress={() => setShowPairModal(true)}
             >
-              Nearby Peers
-            </Text>
-            <Text style={styles.actionBtnCount}>{activePeerCount} visible</Text>
-          </TouchableOpacity>
+              <View style={[styles.radarAvatar, { borderColor: '#00ba7c', borderStyle: 'dashed' }]}>
+                <Ionicons name="qr-code-outline" size={20} color="#00ba7c" />
+              </View>
+              <Text style={[styles.radarNick, { color: currentColors.text }]} numberOfLines={1}>
+                Pair / Scan
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: currentColors.surface,
-                borderColor: currentColors.border,
-              },
-            ]}
-            onPress={() => navigation.navigate('MeshSettings')}
-          >
-            <Ionicons
-              name="git-network-outline"
-              size={24}
-              color="#ffd700"
-            />
-            <Text
-              style={[styles.actionBtnText, { color: currentColors.text }]}
-            >
-              Relay Status
-            </Text>
-            <Text style={styles.actionBtnCount}>
-              {settings.relayEnabled ? 'Forwarding ON' : 'Direct Only'}
-            </Text>
-          </TouchableOpacity>
+            {/* Discovered Nearby Devices */}
+            {peers.length === 0 ? (
+              <View style={styles.emptyRadarBox}>
+                <Text style={[styles.emptyRadarText, { color: currentColors.textSecondary }]}>
+                  Keep Mesh open nearby to auto-detect phones and laptops
+                </Text>
+              </View>
+            ) : (
+              peers.map((peer) => (
+                <TouchableOpacity
+                  key={peer.publicKeyHex}
+                  style={styles.radarItem}
+                  onPress={() =>
+                    navigation.navigate('MeshConversation', {
+                      recipientPubkey: peer.publicKeyHex,
+                      recipientNickname: peer.nickname,
+                    })
+                  }
+                >
+                  <View style={[styles.radarAvatar, { backgroundColor: 'rgba(0,186,124,0.15)', borderColor: '#00ba7c' }]}>
+                    <Text style={styles.radarInitial}>
+                      {peer.nickname?.[0]?.toUpperCase() || 'P'}
+                    </Text>
+                    <View style={styles.radarGreenDot} />
+                  </View>
+                  <Text style={[styles.radarNick, { color: currentColors.text }]} numberOfLines={1}>
+                    {peer.nickname}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
         </View>
 
-        {/* Conversations Section */}
+        {/* 2. PINNED PUBLIC BROADCAST CHANNEL (Chat with everyone in range) */}
+        <TouchableOpacity
+          style={[
+            styles.publicBroadcastCard,
+            {
+              backgroundColor: currentColors.surface,
+              borderColor: 'rgba(0,186,124,0.4)',
+            },
+          ]}
+          onPress={() =>
+            navigation.navigate('MeshConversation', {
+              recipientPubkey: BROADCAST_PUBKEY,
+              recipientNickname: '📢 Public Broadcast (Everyone Nearby)',
+            })
+          }
+        >
+          <View style={styles.broadcastIconBadge}>
+            <Ionicons name="megaphone" size={22} color="#ffffff" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.publicBroadcastTitle, { color: currentColors.text }]}>
+                Nearby Public Broadcast
+              </Text>
+              <View style={styles.publicLiveBadge}>
+                <Text style={styles.publicLiveBadgeText}>EVERYONE</Text>
+              </View>
+            </View>
+            <Text style={[styles.publicBroadcastDesc, { color: currentColors.textSecondary }]} numberOfLines={1}>
+              Broadcast to all devices in range • ইন্টারনেট ছাড়া সবাইকে বার্তা
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#00ba7c" style={{ marginLeft: 6 }} />
+        </TouchableOpacity>
+
+        {/* 3. CONVERSATIONS LIST (Direct 1-on-1 Chats) */}
         <View style={styles.sectionHeaderRow}>
-          <Text
-            style={[styles.sectionTitle, { color: currentColors.text }]}
-          >
-            Encrypted Conversations
+          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>
+            Direct Encrypted Chats
           </Text>
           <TouchableOpacity
             onPress={() => navigation.navigate('MeshPeers')}
             style={styles.newChatBtn}
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={16} color="#00ba7c" />
-            <Text style={styles.newChatBtnText}>New Chat</Text>
+            <Ionicons name="people-outline" size={15} color="#00ba7c" />
+            <Text style={styles.newChatBtnText}>All Nearby ({peers.length})</Text>
           </TouchableOpacity>
         </View>
 
@@ -393,6 +375,119 @@ export const MeshHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  radarCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 14,
+  },
+  radarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  radarTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  qrScanLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#00ba7c',
+  },
+  radarList: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 2,
+  },
+  radarItem: {
+    alignItems: 'center',
+    width: 64,
+  },
+  radarAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 6,
+  },
+  radarInitial: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#00ba7c',
+  },
+  radarGreenDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#00ba7c',
+    borderWidth: 2,
+    borderColor: '#000000',
+  },
+  radarNick: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  emptyRadarBox: {
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    justifyContent: 'center',
+  },
+  emptyRadarText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  publicBroadcastCard: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#00ba7c',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  broadcastIconBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#00ba7c',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  publicBroadcastTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  publicLiveBadge: {
+    backgroundColor: 'rgba(0, 186, 124, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  publicLiveBadgeText: {
+    color: '#00ba7c',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  publicBroadcastDesc: {
+    fontSize: 11,
+    marginTop: 3,
   },
   qrHomeBanner: {
     backgroundColor: '#00ba7c',
