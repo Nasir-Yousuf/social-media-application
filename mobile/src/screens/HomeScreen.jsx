@@ -123,6 +123,15 @@ export const HomeScreen = ({ navigation }) => {
           >
             <Ionicons name="bookmark-outline" size={20} color={colors.text} />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('MeshHome')}
+            style={[styles.headerBtn, { backgroundColor: 'rgba(0,186,124,0.12)', borderRadius: 10 }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Clearfeed Mesh Offline"
+          >
+            <Ionicons name="radio" size={18} color="#00ba7c" />
+          </TouchableOpacity>
         </View>
       </View>
 
