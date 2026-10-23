@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'qrcode';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { computeFingerprint } from '../../mesh/crypto/meshCrypto';
@@ -24,16 +25,27 @@ export const MeshPairingModal = ({
   identity,
 }) => {
   const { colors: currentColors } = useTheme();
-  const [activeTab, setActiveTab] = useState('my_qr'); // 'my_qr' | 'manual'
+  const [activeTab, setActiveTab] = useState('my_qr'); // 'my_qr' | 'scan' | 'manual'
   const [qrDataUrl, setQrDataUrl] = useState(null);
   const [loadingQr, setLoadingQr] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
 
+  // Camera permissions & scanner state
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+
   // Manual input state
   const [inputVal, setInputVal] = useState('');
   const [nickVal, setNickVal] = useState('');
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // Reset scanner state when tab changes or modal opens
+  useEffect(() => {
+    if (visible && activeTab === 'scan') {
+      setScanned(false);
+    }
+  }, [visible, activeTab]);
 
   // Parse QR or direct payload
   const parsePeerString = (raw) => {
@@ -95,6 +107,28 @@ export const MeshPairingModal = ({
       isMounted = false;
     };
   }, [visible, identity]);
+
+  const handleBarCodeScanned = ({ data }) => {
+    if (scanned) return;
+    const parsed = parsePeerString(data);
+    if (parsed) {
+      setScanned(true);
+      const peer = {
+        publicKeyHex: parsed.pubkey,
+        nickname: parsed.nickname || `Peer_${parsed.pubkey.substring(0, 6)}`,
+        status: 'discovered',
+        fingerprint: computeFingerprint(parsed.pubkey),
+        lastSeen: Date.now(),
+        reachability: 'direct',
+        hops: 0,
+      };
+
+      setTimeout(() => {
+        onConnect(peer);
+        onClose();
+      }, 300);
+    }
+  };
 
   const handleCopyLink = async () => {
     if (!identity) return;
@@ -209,7 +243,7 @@ export const MeshPairingModal = ({
             </TouchableOpacity>
           </View>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs (3 Tabs: My QR | Scan Camera | Paste Key) */}
           <View
             style={[
               styles.tabRow,
@@ -228,7 +262,7 @@ export const MeshPairingModal = ({
             >
               <Ionicons
                 name="qr-code"
-                size={16}
+                size={15}
                 color={activeTab === 'my_qr' ? '#fff' : currentColors.textSecondary}
               />
               <Text
@@ -242,7 +276,34 @@ export const MeshPairingModal = ({
                   },
                 ]}
               >
-                My QR Code
+                My QR
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setActiveTab('scan')}
+              style={[
+                styles.tabBtn,
+                activeTab === 'scan' && { backgroundColor: '#00ba7c' },
+              ]}
+            >
+              <Ionicons
+                name="camera"
+                size={15}
+                color={activeTab === 'scan' ? '#fff' : currentColors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  {
+                    color:
+                      activeTab === 'scan'
+                        ? '#fff'
+                        : currentColors.textSecondary,
+                  },
+                ]}
+              >
+                Scan Camera
               </Text>
             </TouchableOpacity>
 
@@ -255,7 +316,7 @@ export const MeshPairingModal = ({
             >
               <Ionicons
                 name="key-outline"
-                size={16}
+                size={15}
                 color={activeTab === 'manual' ? '#fff' : currentColors.textSecondary}
               />
               <Text
@@ -269,7 +330,7 @@ export const MeshPairingModal = ({
                   },
                 ]}
               >
-                Paste Key / Link
+                Paste Key
               </Text>
             </TouchableOpacity>
           </View>
@@ -387,7 +448,112 @@ export const MeshPairingModal = ({
               </View>
             )}
 
-            {/* TAB 2: MANUAL PASTE / CONNECT */}
+            {/* TAB 2: LIVE CAMERA SCANNER */}
+            {activeTab === 'scan' && (
+              <View style={styles.cameraSection}>
+                {!permission ? (
+                  <View style={styles.cameraCenterBox}>
+                    <ActivityIndicator size="large" color="#00ba7c" />
+                    <Text
+                      style={[
+                        styles.permissionText,
+                        { color: currentColors.textSecondary },
+                      ]}
+                    >
+                      Checking camera permission...
+                    </Text>
+                  </View>
+                ) : !permission.granted ? (
+                  <View
+                    style={[
+                      styles.permissionCard,
+                      {
+                        backgroundColor: currentColors.bg,
+                        borderColor: currentColors.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.permissionIconBadge}>
+                      <Ionicons name="camera-outline" size={32} color="#00ba7c" />
+                    </View>
+                    <Text
+                      style={[
+                        styles.permissionTitle,
+                        { color: currentColors.text },
+                      ]}
+                    >
+                      Camera Access Needed
+                    </Text>
+                    <Text
+                      style={[
+                        styles.permissionDesc,
+                        { color: currentColors.textSecondary },
+                      ]}
+                    >
+                      Camera permission is needed to scan nearby Clearfeed Mesh QR codes on other phones and laptops.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.permissionBtn}
+                      onPress={requestPermission}
+                    >
+                      <Text style={styles.permissionBtnText}>
+                        Grant Camera Permission
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.scannerWrapper}>
+                    <View style={styles.cameraPreviewBox}>
+                      <CameraView
+                        style={StyleSheet.absoluteFillObject}
+                        facing="back"
+                        barcodeScannerSettings={{
+                          barcodeTypes: ['qr'],
+                        }}
+                        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                      />
+
+                      {/* Reticle Overlay */}
+                      <View style={styles.reticleOverlay}>
+                        <View style={styles.reticleBox}>
+                          <View style={[styles.corner, styles.topLeft]} />
+                          <View style={[styles.corner, styles.topRight]} />
+                          <View style={[styles.corner, styles.bottomLeft]} />
+                          <View style={[styles.corner, styles.bottomRight]} />
+                        </View>
+                      </View>
+                    </View>
+
+                    {scanned ? (
+                      <View style={styles.scannedSuccessPill}>
+                        <Ionicons name="checkmark-circle" size={16} color="#00ba7c" />
+                        <Text style={styles.scannedSuccessText}>
+                          QR Detected! Connecting...
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.cameraHintPill}>
+                        <Ionicons name="scan-outline" size={14} color="#00ba7c" />
+                        <Text style={styles.cameraHintText}>
+                          Point camera at Clearfeed Mesh QR code
+                        </Text>
+                      </View>
+                    )}
+
+                    <Text
+                      style={[
+                        styles.scannerNote,
+                        { color: currentColors.textSecondary },
+                      ]}
+                    >
+                      Scan your friend's laptop or phone screen to pair and start chatting in less than 1 second.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* TAB 3: MANUAL PASTE / CONNECT */}
             {activeTab === 'manual' && (
               <View style={styles.manualSection}>
                 <View style={styles.inputGroup}>
@@ -560,10 +726,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   tabBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   bodyContent: {
@@ -654,6 +820,151 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  // Camera Scanner Styles
+  cameraSection: {
+    alignItems: 'center',
+  },
+  cameraCenterBox: {
+    height: 260,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  permissionText: {
+    fontSize: 12,
+  },
+  permissionCard: {
+    padding: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    width: '100%',
+  },
+  permissionIconBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0,186,124,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  permissionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  permissionDesc: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  permissionBtn: {
+    backgroundColor: '#00ba7c',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+  },
+  permissionBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  scannerWrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  cameraPreviewBox: {
+    width: '100%',
+    height: 240,
+    borderRadius: 20,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#000',
+    marginBottom: 14,
+  },
+  reticleOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reticleBox: {
+    width: 170,
+    height: 170,
+    position: 'relative',
+  },
+  corner: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderColor: '#00ba7c',
+  },
+  topLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 10,
+  },
+  topRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 10,
+  },
+  bottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 10,
+  },
+  bottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 10,
+  },
+  cameraHintPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,186,124,0.15)',
+    marginBottom: 8,
+  },
+  cameraHintText: {
+    fontSize: 11,
+    color: '#00ba7c',
+    fontWeight: '600',
+  },
+  scannedSuccessPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,186,124,0.25)',
+    marginBottom: 8,
+  },
+  scannedSuccessText: {
+    fontSize: 12,
+    color: '#00ba7c',
+    fontWeight: 'bold',
+  },
+  scannerNote: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
+    paddingHorizontal: 16,
+  },
+  // Manual Tab Styles
   manualSection: {
     gap: 16,
   },
