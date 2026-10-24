@@ -655,11 +655,17 @@ export const MessagesPage = () => {
     if (!msg) return;
     const senderId = typeof msg.sender === 'object' && msg.sender !== null ? msg.sender._id : msg.sender;
     const isMe = String(senderId) === String(currentUser?._id);
-    const senderName = isMe ? 'You' : (activeConversation?.otherUser?.name || 'Classmate');
+    const senderName = isMe
+      ? 'You'
+      : (typeof msg.sender === 'object' && msg.sender?.name)
+      ? msg.sender.name
+      : (activeConversation?.otherUser?.name || 'Classmate');
+
+    const replyText = msg.text || msg.content || (msg.codeSnippet?.code ? 'Shared a code snippet' : '');
 
     setReplyingTo({
       messageId: msg._id,
-      text: msg.text || (msg.codeSnippet ? 'Code snippet' : ''),
+      text: replyText,
       senderName,
       hasCode: Boolean(msg.codeSnippet?.code),
     });

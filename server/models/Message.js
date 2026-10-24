@@ -42,24 +42,30 @@ const messageSchema = new mongoose.Schema(
       default: false,
     },
     replyTo: {
-      messageId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Message',
-      },
-      text: {
-        type: String,
-        maxlength: 500,
-        default: '',
-      },
-      senderName: {
-        type: String,
-        maxlength: 100,
-        default: '',
-      },
-      hasCode: {
-        type: Boolean,
-        default: false,
-      },
+      type: new mongoose.Schema(
+        {
+          messageId: {
+            type: String,
+            default: null,
+          },
+          text: {
+            type: String,
+            maxlength: 500,
+            default: '',
+          },
+          senderName: {
+            type: String,
+            maxlength: 100,
+            default: '',
+          },
+          hasCode: {
+            type: Boolean,
+            default: false,
+          },
+        },
+        { _id: false }
+      ),
+      default: null,
     },
     typingChallenge: {
       type: mongoose.Schema.Types.ObjectId,

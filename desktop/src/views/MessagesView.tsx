@@ -273,14 +273,15 @@ export const MessagesView: React.FC = () => {
 
     const trimmedText = inputText.trim();
     const tempId = `temp-${Date.now()}`;
-    const replyToPayload = replyingTo && replyingTo.messageId
-      ? {
-          messageId: replyingTo.messageId,
-          text: replyingTo.text ? replyingTo.text.slice(0, 500) : '',
-          senderName: replyingTo.senderName || '',
-          hasCode: Boolean(replyingTo.hasCode),
-        }
-      : undefined;
+    const replyToPayload =
+      replyingTo && (replyingTo.text || replyingTo.hasCode)
+        ? {
+            messageId: replyingTo.messageId,
+            text: replyingTo.text ? replyingTo.text.slice(0, 500) : '',
+            senderName: replyingTo.senderName || '',
+            hasCode: Boolean(replyingTo.hasCode),
+          }
+        : undefined;
 
     const payload: any = {
       conversationId: activeConversation._id,
@@ -391,11 +392,17 @@ export const MessagesView: React.FC = () => {
     const isMe =
       msg.sender?._id === currentUser?._id ||
       (typeof msg.sender === 'string' && msg.sender === currentUser?._id);
-    const senderName = isMe ? 'You' : (activeConversation?.otherUser?.name || 'Classmate');
+    const senderName = isMe
+      ? 'You'
+      : (typeof msg.sender === 'object' && msg.sender?.name)
+      ? msg.sender.name
+      : (activeConversation?.otherUser?.name || 'Classmate');
+
+    const replyText = msg.text || msg.content || (msg.codeSnippet?.code ? 'Shared a code snippet' : '');
 
     setReplyingTo({
       messageId: msg._id,
-      text: msg.text || msg.content || (msg.codeSnippet?.code ? 'Code snippet' : ''),
+      text: replyText,
       senderName,
       hasCode: Boolean(msg.codeSnippet?.code),
     });
@@ -675,7 +682,7 @@ export const MessagesView: React.FC = () => {
                       }`}
                     >
                       {/* Quoted Reply Preview */}
-                      {msg.replyTo && (
+                      {Boolean(msg.replyTo && (msg.replyTo.text || msg.replyTo.hasCode)) && (
                         <div
                           onClick={() => scrollToMessage(msg.replyTo?.messageId)}
                           className={`mb-2 p-2 rounded-lg border-l-2 text-xs cursor-pointer transition select-none ${
@@ -686,10 +693,10 @@ export const MessagesView: React.FC = () => {
                         >
                           <div className="flex items-center gap-1 font-semibold text-[11px] mb-0.5 text-sky-300">
                             <CornerUpLeft className="w-3 h-3" />
-                            <span>{msg.replyTo.senderName || 'Replied message'}</span>
+                            <span>{msg.replyTo.senderName || 'Reply'}</span>
                           </div>
                           <p className="line-clamp-2 text-[11px] opacity-80 break-words font-normal">
-                            {msg.replyTo.text || 'Message'}
+                            {msg.replyTo.hasCode && !msg.replyTo.text ? '💻 Code snippet' : msg.replyTo.text}
                           </p>
                         </div>
                       )}

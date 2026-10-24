@@ -122,6 +122,14 @@ exports.getMessages = async (req, res) => {
     const isAi = otherUser?.username === 'ai' || otherUser?.role === 'ai' || otherUser?.isAi;
     const customAiName = isAi && conversation.customAiSettings?.customName ? conversation.customAiSettings.customName : null;
 
+    const sanitizedMessages = messages.map((m) => {
+      const obj = m.toObject ? m.toObject() : { ...m };
+      if (obj.replyTo && !obj.replyTo.text && !obj.replyTo.hasCode) {
+        obj.replyTo = null;
+      }
+      return obj;
+    });
+
     return res.status(200).json({
       conversation: {
         _id: conversation._id,
@@ -135,7 +143,7 @@ exports.getMessages = async (req, res) => {
           : null,
         customAiSettings: conversation.customAiSettings || null,
       },
-      messages,
+      messages: sanitizedMessages,
     });
   } catch (err) {
     console.error('getMessages error:', err);
@@ -285,14 +293,15 @@ exports.sendMessage = async (req, res) => {
             code: codeSnippet.code.slice(0, 4000),
           }
         : undefined,
-      replyTo: replyTo && replyTo.messageId
-        ? {
-            messageId: replyTo.messageId,
-            text: typeof replyTo.text === 'string' ? replyTo.text.slice(0, 500) : '',
-            senderName: typeof replyTo.senderName === 'string' ? replyTo.senderName.slice(0, 100) : '',
-            hasCode: Boolean(replyTo.hasCode),
-          }
-        : undefined,
+      replyTo:
+        replyTo && (replyTo.text || replyTo.hasCode)
+          ? {
+              messageId: replyTo.messageId ? String(replyTo.messageId) : null,
+              text: typeof replyTo.text === 'string' ? replyTo.text.slice(0, 500) : '',
+              senderName: typeof replyTo.senderName === 'string' ? replyTo.senderName.slice(0, 100) : '',
+              hasCode: Boolean(replyTo.hasCode),
+            }
+          : null,
       isRead: false,
     });
 

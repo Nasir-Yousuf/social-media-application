@@ -239,7 +239,7 @@ function initSocket(server) {
       }
 
       try {
-        const { conversationId, recipientId, text, codeSnippet } = data;
+        const { conversationId, recipientId, text, codeSnippet, replyTo } = data;
         const trimmedText = text ? text.trim().slice(0, 1000) : '';
         const hasValidCode = codeSnippet && codeSnippet.code && codeSnippet.code.trim().length > 0;
 
@@ -289,6 +289,15 @@ function initSocket(server) {
                 code: codeSnippet.code.slice(0, 4000),
               }
             : undefined,
+          replyTo:
+            replyTo && (replyTo.text || replyTo.hasCode)
+              ? {
+                  messageId: replyTo.messageId ? String(replyTo.messageId) : null,
+                  text: typeof replyTo.text === 'string' ? replyTo.text.slice(0, 500) : '',
+                  senderName: typeof replyTo.senderName === 'string' ? replyTo.senderName.slice(0, 100) : '',
+                  hasCode: Boolean(replyTo.hasCode),
+                }
+              : null,
           isRead: false,
         });
 
@@ -314,6 +323,9 @@ function initSocket(server) {
           .populate('recipient', 'name username avatarUrl');
 
         const messageData = populatedMsg.toObject();
+        if (messageData.replyTo && !messageData.replyTo.text && !messageData.replyTo.hasCode) {
+          messageData.replyTo = null;
+        }
 
         // Real-time broadcast to conversation and personal rooms (chained to prevent duplicate packets to same socket)
         const rooms = new Set();
@@ -1019,6 +1031,10 @@ async function broadcastChatMessage(conversationId, message, recipientId, sender
     }
   } catch (err) {
     console.warn('⚠️ broadcastChatMessage populate notice:', err.message);
+  }
+
+  if (messageData && messageData.replyTo && !messageData.replyTo.text && !messageData.replyTo.hasCode) {
+    messageData.replyTo = null;
   }
 
   const convIdStr = (conversationId || messageData?.conversation)?._id?.toString() || (conversationId || messageData?.conversation)?.toString();
