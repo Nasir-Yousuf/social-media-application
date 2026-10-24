@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Globe, Check, X, ShieldAlert } from 'lucide-react';
+import { Sparkles, Globe, Check, X, ShieldAlert, BookOpen } from 'lucide-react';
 import api from '../../api/client';
 
 const RELATIONSHIP_PRESETS = [
   { id: 'best friend', label: 'Best Friend 🤝', desc: 'Chill, hilarious, deeply supportive, talks about life and code' },
+  { id: 'english partner', label: 'English Chatting Partner 🇬🇧', desc: 'Fluent English partner who chats, teaches vocabulary, and gently fixes mistakes' },
   { id: 'girlfriend', label: 'Girlfriend ❤️', desc: 'Affectionate, caring, sweet, playful, and emotionally attentive' },
   { id: 'boyfriend', label: 'Boyfriend 💙', desc: 'Supportive, protective, warm, thoughtful, and playful' },
   { id: 'coding mentor', label: 'Coding Mentor 💡', desc: 'Expert senior developer who patiently debugs code with you' },
@@ -67,27 +68,27 @@ export const AiSettingsModal = ({ isOpen, onClose, conversationId, currentSettin
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-full max-w-lg bg-white dark:bg-[#121519] border border-neutral-200 dark:border-[#242930] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="relative px-6 pt-6 pb-4 border-b border-neutral-100 dark:border-[#242930] bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-transparent">
+        <div className="relative px-6 pt-6 pb-4 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/60">
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-5 right-5 p-2 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+            className="absolute top-5 right-5 p-2 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 shrink-0">
-              <Sparkles className="w-6 h-6 animate-pulse" />
+            <div className="w-11 h-11 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/20 flex items-center justify-center text-sky-500 shadow-sm shrink-0">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-black text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                 Customize Your AI Companion
               </h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
@@ -111,8 +112,8 @@ export const AiSettingsModal = ({ isOpen, onClose, conversationId, currentSettin
             <label className="block text-xs font-bold text-neutral-800 dark:text-neutral-200 uppercase tracking-wider">
               Name Your AI Friend
             </label>
-            <p className="text-xs text-neutral-500">
-              Give your companion a real name you love (e.g. <em>Maya, Aarav, Sara, Alex, Buddy</em>). They will respond to this name!
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Give your companion a name you like (e.g. <em>Emma, Maya, Aarav, Alex, Buddy</em>). They will respond naturally to it!
             </p>
             <div className="relative">
               <input
@@ -120,8 +121,8 @@ export const AiSettingsModal = ({ isOpen, onClose, conversationId, currentSettin
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
                 maxLength={40}
-                placeholder="e.g. Maya, Sara, Aarav"
-                className="w-full px-4 py-2.5 rounded-2xl bg-neutral-100 dark:bg-[#1a1e24] border border-neutral-200 dark:border-[#242930] text-sm font-bold text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+                placeholder="e.g. Emma, Maya, Alex"
+                className="w-full px-4 py-2.5 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-sm font-medium text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
               />
             </div>
           </div>
@@ -144,11 +145,11 @@ export const AiSettingsModal = ({ isOpen, onClose, conversationId, currentSettin
                     }}
                     className={`p-3 text-left rounded-2xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-sky-500 bg-sky-500/10 dark:bg-sky-500/15 text-sky-950 dark:text-sky-200 ring-1 ring-sky-500/30 shadow-xs'
-                        : 'border-neutral-200 dark:border-[#242930] hover:bg-neutral-50 dark:hover:bg-[#1a1e24] text-neutral-800 dark:text-neutral-200'
+                        ? 'border-sky-500 bg-sky-500/10 dark:bg-sky-500/15 text-sky-950 dark:text-sky-300 ring-1 ring-sky-500/30 shadow-xs'
+                        : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200'
                     }`}
                   >
-                    <div className="text-xs font-black flex items-center justify-between">
+                    <div className="text-xs font-bold flex items-center justify-between">
                       <span>{p.label}</span>
                       {isSelected && <Check className="w-3.5 h-3.5 text-sky-500" />}
                     </div>
@@ -178,7 +179,7 @@ export const AiSettingsModal = ({ isOpen, onClose, conversationId, currentSettin
                   onChange={(e) => setRelationship(e.target.value)}
                   placeholder="e.g. Caring older sister, late-night philosopher"
                   maxLength={50}
-                  className="mt-2 w-full px-4 py-2 rounded-xl bg-neutral-100 dark:bg-[#1a1e24] border border-neutral-200 dark:border-[#242930] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                  className="mt-2 w-full px-4 py-2 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                 />
               )}
             </div>
@@ -200,13 +201,13 @@ export const AiSettingsModal = ({ isOpen, onClose, conversationId, currentSettin
                     onClick={() => setLanguagePref(l.id)}
                     className={`p-3 text-left rounded-2xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-950 dark:text-emerald-200 ring-1 ring-emerald-500/30 shadow-xs'
-                        : 'border-neutral-200 dark:border-[#242930] hover:bg-neutral-50 dark:hover:bg-[#1a1e24] text-neutral-800 dark:text-neutral-200'
+                        ? 'border-sky-500 bg-sky-500/10 dark:bg-sky-500/15 text-sky-950 dark:text-sky-300 ring-1 ring-sky-500/30 shadow-xs'
+                        : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/60 text-neutral-800 dark:text-neutral-200'
                     }`}
                   >
-                    <div className="text-xs font-black flex items-center justify-between">
+                    <div className="text-xs font-bold flex items-center justify-between">
                       <span>{l.label}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-500" />}
                     </div>
                     <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-snug">
                       {l.desc}
@@ -218,12 +219,12 @@ export const AiSettingsModal = ({ isOpen, onClose, conversationId, currentSettin
           </div>
 
           {/* Modal Footer Buttons */}
-          <div className="pt-4 border-t border-neutral-100 dark:border-[#242930] flex items-center justify-end gap-2.5">
+          <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1e24] transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
             >
               Cancel
             </button>

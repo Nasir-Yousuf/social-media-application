@@ -24,6 +24,7 @@ import {
 import colors from '../theme/colors';
 import Avatar from '../components/Avatar';
 import { VerifiedBadge } from '../components/TwitterIcons';
+import AiSettingsModal from '../components/AiSettingsModal';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -59,6 +60,8 @@ export const ConversationScreen = ({ route, navigation }) => {
   const [sending, setSending] = useState(false);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [customAiSettings, setCustomAiSettings] = useState(null);
 
   // Code composer drawer state
   const [showCodeEditor, setShowCodeEditor] = useState(false);
@@ -120,6 +123,9 @@ export const ConversationScreen = ({ route, navigation }) => {
         const serverMessages = res.data.messages || [];
         if (res.data.conversation?.otherUser) {
           setOtherUser(res.data.conversation.otherUser);
+        }
+        if (res.data.conversation?.customAiSettings) {
+          setCustomAiSettings(res.data.conversation.customAiSettings);
         }
 
         if (isMountedRef.current) {
@@ -400,9 +406,22 @@ export const ConversationScreen = ({ route, navigation }) => {
   };
 
   // More options menu (clear messages or delete conversation)
+  const isAiChat =
+    otherUser?.username === 'ai' ||
+    otherUser?.role === 'ai' ||
+    Boolean(otherUser?.isAi);
+
   const handleMoreOptions = () => {
-    Alert.alert('Conversation Options', `Manage chat with @${otherUser?.username}`, [
-      { text: 'Cancel', style: 'cancel' },
+    const alertButtons = [{ text: 'Cancel', style: 'cancel' }];
+
+    if (isAiChat) {
+      alertButtons.push({
+        text: 'Customize AI Companion ✨',
+        onPress: () => setShowAiModal(true),
+      });
+    }
+
+    alertButtons.push(
       {
         text: 'Clear Message History',
         style: 'destructive',
@@ -437,8 +456,10 @@ export const ConversationScreen = ({ route, navigation }) => {
             showToast('Failed to delete conversation', 'error');
           }
         },
-      },
-    ]);
+      }
+    );
+
+    Alert.alert('Conversation Options', `Manage chat with @${otherUser?.username}`, alertButtons);
   };
 
   // Render individual message item
@@ -666,6 +687,18 @@ export const ConversationScreen = ({ route, navigation }) => {
           </View>
         </TouchableOpacity>
 
+        {/* Customize AI Companion button */}
+        {isAiChat && (
+          <TouchableOpacity
+            onPress={() => setShowAiModal(true)}
+            style={styles.headerAiBtn}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="sparkles" size={14} color={colors.accent || '#1d9bf0'} />
+            <Text style={styles.headerAiBtnText}>Customize</Text>
+          </TouchableOpacity>
+        )}
+
         {/* 100% Free Audio Call Button */}
         <TouchableOpacity
           onPress={() => startAudioCall(otherUser)}
@@ -849,6 +882,22 @@ export const ConversationScreen = ({ route, navigation }) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* AI Companion Customization Modal */}
+      {isAiChat && (
+        <AiSettingsModal
+          isOpen={showAiModal}
+          onClose={() => setShowAiModal(false)}
+          conversationId={conversationId}
+          currentSettings={customAiSettings}
+          onSaved={(newSettings) => {
+            setCustomAiSettings(newSettings);
+            if (newSettings?.customName) {
+              setOtherUser((prev) => ({ ...prev, name: newSettings.customName }));
+            }
+          }}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -866,6 +915,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.background,
+  },
+  headerAiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 166, 244, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 166, 244, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginRight: 6,
+  },
+  headerAiBtnText: {
+    color: colors.accent || '#1d9bf0',
+    fontSize: 11,
+    fontWeight: '700',
   },
   backBtn: {
     paddingRight: 12,
