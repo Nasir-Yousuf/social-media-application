@@ -991,8 +991,22 @@ async function broadcastChatMessage(conversationId, message, recipientId, sender
   }
 }
 
+// Helper to broadcast typing indicator
+function broadcastTypingStatus(conversationId, userId, isTyping) {
+  if (!ioInstance) return;
+  const convIdStr = conversationId?.toString();
+  if (convIdStr) {
+    ioInstance.to(`conv:${convIdStr}`).emit('chat:typing', {
+      conversationId: convIdStr,
+      userId: userId?.toString(),
+      isTyping: Boolean(isTyping),
+    });
+  }
+}
+
 module.exports = {
   initSocket,
   getIO,
   broadcastChatMessage,
+  broadcastTypingStatus,
 };

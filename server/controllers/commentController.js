@@ -142,6 +142,52 @@ exports.createComment = async (req, res) => {
       console.warn('createComment mention notify error:', mentionErr.message);
     }
 
+    // If comment mentions @ai, asynchronously generate a smart reply comment
+    if (content.toLowerCase().match(/(^|[^a-zA-Z0-9_])@ai($|[^a-zA-Z0-9_])/) && req.user.username !== 'ai') {
+      (async () => {
+        try {
+          const aiService = require('../services/aiService');
+          const aiUser = await aiService.ensureAiUser();
+          if (aiUser) {
+            const recentComments = await Comment.find({ post: postId })
+              .sort({ createdAt: -1 })
+              .limit(4)
+              .populate('author', 'name username');
+
+            const aiReplyText = await aiService.generateCommentReply({
+              post,
+              commentText: content.trim(),
+              commenterName: req.user.name || req.user.username,
+              parentComments: recentComments.reverse(),
+            });
+
+            if (aiReplyText) {
+              const aiComment = new Comment({
+                post: postId,
+                author: aiUser._id,
+                content: aiReplyText.trim().slice(0, 500),
+                ipAddress: '127.0.0.1',
+                userAgent: 'Clearfeed-AI/1.0',
+              });
+              await aiComment.save();
+              await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+
+              // Notify the commenter who tagged @ai
+              await Notification.create({
+                recipient: req.user._id,
+                sender: aiUser._id,
+                type: 'comment',
+                post: postId,
+                comment: aiComment._id,
+              });
+            }
+          }
+        } catch (aiCommentErr) {
+          console.warn('AI comment reply error:', aiCommentErr.message);
+        }
+      })();
+    }
+
     const commentObj = comment.toObject();
     if (!isAdmin) {
       delete commentObj.ipAddress;

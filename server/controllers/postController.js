@@ -391,6 +391,44 @@ exports.createPost = async (req, res) => {
         console.warn('createPost mention notify failed:', mentionErr.message);
       }
 
+      // If post mentions @ai, asynchronously generate a smart reply comment
+      if (post.content && post.content.toLowerCase().match(/(^|[^a-zA-Z0-9_])@ai($|[^a-zA-Z0-9_])/) && req.user.username !== 'ai') {
+        (async () => {
+          try {
+            const aiService = require('../services/aiService');
+            const aiUser = await aiService.ensureAiUser();
+            if (aiUser) {
+              const aiReplyText = await aiService.generateCommentReply({
+                post,
+                commentText: post.content.trim(),
+                commenterName: req.user.name || req.user.username,
+                parentComments: [],
+              });
+              if (aiReplyText) {
+                const aiComment = new Comment({
+                  post: post._id,
+                  author: aiUser._id,
+                  content: aiReplyText.trim().slice(0, 500),
+                  ipAddress: '127.0.0.1',
+                  userAgent: 'Clearfeed-AI/1.0',
+                });
+                await aiComment.save();
+                await Post.findByIdAndUpdate(post._id, { $inc: { commentsCount: 1 } });
+                await Notification.create({
+                  recipient: req.user._id,
+                  sender: aiUser._id,
+                  type: 'comment',
+                  post: post._id,
+                  comment: aiComment._id,
+                });
+              }
+            }
+          } catch (err) {
+            console.warn('Post AI reply error:', err.message);
+          }
+        })();
+      }
+
       // (b) Notify all eligible community members who haven't already received a mention notification
       if (post.visibility !== 'private' && post.visibility !== 'only_me') {
         try {

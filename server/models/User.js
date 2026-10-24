@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
       match: [/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'],
-      minlength: [3, 'Username must be at least 3 characters'],
+      minlength: [2, 'Username must be at least 2 characters'],
       maxlength: [20, 'Username cannot exceed 20 characters'],
     },
     email: {
@@ -63,8 +63,12 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['student', 'admin'],
+      enum: ['student', 'admin', 'ai'],
       default: 'student',
+    },
+    isAi: {
+      type: Boolean,
+      default: false,
     },
     studentId: {
       type: String,

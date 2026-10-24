@@ -63,18 +63,21 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
 
   const fetchSidebarData = async () => {
     try {
-      const [convsRes, usersRes] = await Promise.allSettled([
-        api.get('/messages/conversations'),
-        api.get('/users/directory'),
-      ]);
+      const token = localStorage.getItem('pulse518_token');
+      if (token) {
+        try {
+          const convsRes = await api.get('/messages/conversations');
+          if (convsRes.data?.conversations) {
+            setConversations(convsRes.data.conversations.slice(0, 5));
+          }
+        } catch {
+          // Ignore conversation errors when logged out/guest
+        }
+      }
 
-      if (convsRes.status === 'fulfilled' && convsRes.value.data?.conversations) {
-        setConversations(convsRes.value.data.conversations.slice(0, 5));
-      }
-      if (usersRes.status === 'fulfilled') {
-        const list = usersRes.value.data?.users || usersRes.value.data?.members || [];
-        setRecentMembers(list.slice(0, 5));
-      }
+      const usersRes = await api.get('/users/directory');
+      const list = usersRes.data?.users || usersRes.data?.members || [];
+      setRecentMembers(list.slice(0, 5));
     } catch {
       // Graceful offline fallback
     }
@@ -157,6 +160,31 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
               </button>
             </div>
           </div>
+
+          {/* Guest Onboarding Banner */}
+          {!user && (
+            <div className="bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-transparent border border-sky-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-sky-500/20 text-sky-400 shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-neutral-100">Welcome to Clearfeed Desktop</p>
+                  <p className="text-[11px] text-neutral-400">
+                    Viewing real feed in preview mode. Sign in to publish code, direct message, or customize your AI friend.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => onNavigate('auth')}
+                  className="px-3.5 py-1.5 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-sm active:scale-95"
+                >
+                  Sign In / Join
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Real Full PostComposer */}
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 shadow-sm">
@@ -266,7 +294,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
             </div>
 
             {recentMembers.length === 0 ? (
-              <p className="text-xs text-neutral-500 py-2 text-center">Loading members...</p>
+              <div className="py-4 text-center space-y-2">
+                <p className="text-xs text-neutral-500">
+                  {loading ? 'Loading members...' : 'No cohort members loaded.'}
+                </p>
+                <button
+                  onClick={fetchSidebarData}
+                  className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-semibold rounded-lg transition cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
             ) : (
               <div className="space-y-2">
                 {recentMembers.map((member) => (

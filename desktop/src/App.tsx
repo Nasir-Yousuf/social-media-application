@@ -120,13 +120,7 @@ const DesktopContent: React.FC = () => {
           <Route path="/bookmarks" element={<BookmarksView />} />
           <Route
             path="/members"
-            element={
-              isAuthenticated ? (
-                <MembersView onStartChat={handleStartChat} />
-              ) : (
-                <AuthView onContinueOffline={() => navigate('/mesh')} />
-              )
-            }
+            element={<MembersView onStartChat={handleStartChat} />}
           />
           <Route path="/explore" element={<ExploreView />} />
           <Route path="/search" element={<SearchView />} />

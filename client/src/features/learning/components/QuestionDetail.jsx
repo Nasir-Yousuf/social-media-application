@@ -16,6 +16,7 @@ import {
   Edit3,
   Save,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../../../api/client';
@@ -57,6 +58,7 @@ export const QuestionDetail = () => {
   const [includeCode, setIncludeCode] = useState(false);
   const [answerCode, setAnswerCode] = useState({ html: '', css: '', javascript: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [askingAi, setAskingAi] = useState(false);
 
   const answerRef = useRef(null);
   const {
@@ -392,6 +394,30 @@ export const QuestionDetail = () => {
     }
   };
 
+  const handleAskAiMentor = async () => {
+    setAskingAi(true);
+    try {
+      const storedLang = localStorage.getItem('clearfeed_learning_lang') || 'both';
+      const langPref = storedLang === 'bn' ? 'bangla' : storedLang === 'en' ? 'english' : 'both';
+      const res = await api.post(`/learning/questions/${id}/ask-ai`, {
+        languagePref: langPref,
+      });
+
+      if (res.data?.answer) {
+        setAnswers((prev) => [...prev, res.data.answer]);
+        setQuestion((prev) => ({
+          ...prev,
+          answersCount: typeof res.data.answersCount === 'number' ? res.data.answersCount : (prev?.answersCount || 0) + 1,
+        }));
+        showToast('Clearfeed AI Mentor replied with a helpful explanation! 💡', 'success');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'AI Mentor is currently busy. Please try again.', 'error');
+    } finally {
+      setAskingAi(false);
+    }
+  };
+
   const formatTime = (dateStr) => {
     try {
       return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
@@ -627,6 +653,17 @@ export const QuestionDetail = () => {
               {answers.length} {answers.length === 1 ? 'Answer' : 'Answers'}
             </span>
           </h2>
+
+          <button
+            type="button"
+            disabled={askingAi}
+            onClick={handleAskAiMentor}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-500/15 via-pink-500/15 to-sky-500/15 hover:from-purple-500/25 hover:to-pink-500/25 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+            title="Get an instant kind breakdown from Clearfeed AI Classmate"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-500 animate-pulse" />
+            <span>{askingAi ? 'AI Mentor Thinking...' : '✨ Ask AI Classmate'}</span>
+          </button>
         </div>
 
         {answers.length === 0 ? (
@@ -680,9 +717,16 @@ export const QuestionDetail = () => {
                           <span className="text-xs font-bold text-neutral-900 dark:text-neutral-100">
                             {answer.author.name}
                           </span>
-                          <span className="text-[11px] text-neutral-400">
-                            @{answer.author.username}
-                          </span>
+                          {(answer.author?.username === 'ai' || answer.author?.role === 'ai') ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5 text-purple-500" />
+                              <span>AI Mentor</span>
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-neutral-400">
+                              @{answer.author.username}
+                            </span>
+                          )}
                         </div>
                       )}
 

@@ -16,17 +16,33 @@ export const MembersView: React.FC<MembersViewProps> = ({ onStartChat }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchMembers = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await api.get('/users/directory');
       const incoming = res.data?.users || res.data?.members || [];
       setMembers(incoming);
-    } catch {
-      // Graceful error handling
+      if (incoming.length === 0) {
+        setError('No members found in directory.');
+      }
+    } catch (err: any) {
+      console.warn('Failed to load member directory:', err);
+      setError(err.response?.data?.message || 'Unable to connect to members service. Please check your backend.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartChatWithAuth = (member: User) => {
+    const token = localStorage.getItem('pulse518_token');
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+    onStartChat(member);
   };
 
   useEffect(() => {
@@ -92,6 +108,18 @@ export const MembersView: React.FC<MembersViewProps> = ({ onStartChat }) => {
       </div>
 
       {/* Roster Cards Grid */}
+      {error && members.length === 0 && (
+        <div className="p-6 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-center space-y-2">
+          <p className="text-xs text-rose-300 font-semibold">{error}</p>
+          <button
+            onClick={fetchMembers}
+            className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 text-xs font-semibold rounded-xl border border-neutral-700 transition cursor-pointer"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -103,7 +131,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ onStartChat }) => {
         </div>
       ) : filteredMembers.length === 0 ? (
         <div className="p-12 text-center text-xs text-neutral-500 bg-neutral-900/40 rounded-2xl border border-neutral-800">
-          No members matched your search.
+          {search ? 'No members matched your search.' : 'No cohort members found in this database.'}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -170,7 +198,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ onStartChat }) => {
 
               <div className="pt-2 border-t border-neutral-800/60">
                 <button
-                  onClick={() => onStartChat(member)}
+                  onClick={() => handleStartChatWithAuth(member)}
                   className="w-full flex items-center justify-center gap-2 py-2 bg-neutral-800/90 hover:bg-sky-500 hover:text-white text-neutral-200 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer shadow-sm active:scale-[0.98]"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />

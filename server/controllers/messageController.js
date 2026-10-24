@@ -3,7 +3,8 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { sendPushToUser } = require('../services/pushNotificationService');
-const { broadcastChatMessage } = require('../sockets/socketManager');
+const { broadcastChatMessage, broadcastTypingStatus } = require('../sockets/socketManager');
+const aiService = require('../services/aiService');
 
 // Get all conversations for current user
 exports.getConversations = async (req, res) => {
@@ -24,21 +25,26 @@ exports.getConversations = async (req, res) => {
       ) || conv.participants[0];
 
       const unreadCount = conv.unreadCounts?.get(currentUserId.toString()) || 0;
+      const isAi = otherUser?.username === 'ai' || otherUser?.role === 'ai' || otherUser?.isAi;
+      const customAiName = isAi && conv.customAiSettings?.customName ? conv.customAiSettings.customName : null;
 
       return {
         _id: conv._id,
         otherUser: otherUser
           ? {
               _id: otherUser._id,
-              name: otherUser.name,
+              name: customAiName || otherUser.name,
+              originalName: otherUser.name,
               username: otherUser.username,
               avatarUrl: otherUser.avatarUrl,
               role: otherUser.role,
               status: otherUser.status,
+              isAi: Boolean(isAi),
             }
           : null,
         lastMessage: conv.lastMessage,
         unreadCount,
+        customAiSettings: conv.customAiSettings || null,
         updatedAt: conv.updatedAt,
       };
     });
@@ -113,10 +119,21 @@ exports.getMessages = async (req, res) => {
       (p) => !p._id.equals(currentUserId)
     ) || conversation.participants[0];
 
+    const isAi = otherUser?.username === 'ai' || otherUser?.role === 'ai' || otherUser?.isAi;
+    const customAiName = isAi && conversation.customAiSettings?.customName ? conversation.customAiSettings.customName : null;
+
     return res.status(200).json({
       conversation: {
         _id: conversation._id,
-        otherUser,
+        otherUser: otherUser
+          ? {
+              ...otherUser.toObject(),
+              name: customAiName || otherUser.name,
+              originalName: otherUser.name,
+              isAi: Boolean(isAi),
+            }
+          : null,
+        customAiSettings: conversation.customAiSettings || null,
       },
       messages,
     });
@@ -169,12 +186,21 @@ exports.startConversation = async (req, res) => {
       await conversation.populate('participants', 'name username avatarUrl role status');
     }
 
+    const isAi = targetUser?.username === 'ai' || targetUser?.role === 'ai' || targetUser?.isAi;
+    const customAiName = isAi && conversation.customAiSettings?.customName ? conversation.customAiSettings.customName : null;
+
     return res.status(200).json({
       conversation: {
         _id: conversation._id,
-        otherUser: targetUser,
+        otherUser: {
+          ...targetUser.toObject(),
+          name: customAiName || targetUser.name,
+          originalName: targetUser.name,
+          isAi: Boolean(isAi),
+        },
         lastMessage: conversation.lastMessage,
         unreadCount: conversation.unreadCounts?.get(currentUserId.toString()) || 0,
+        customAiSettings: conversation.customAiSettings || null,
       },
     });
   } catch (err) {
@@ -298,6 +324,63 @@ exports.sendMessage = async (req, res) => {
       badge: (currentUnread || 0) + 1,
       channelId: 'messages',
     }).catch((err) => console.warn('Background push error:', err.message));
+
+    // Asynchronously dispatch AI response if recipient is Clearfeed AI (@ai)
+    (async () => {
+      try {
+        const recipientDoc = await User.findById(targetRecipientId).select('name username role isAi');
+        if (recipientDoc && (recipientDoc.username === 'ai' || recipientDoc.role === 'ai' || recipientDoc.isAi)) {
+          // 1. Emit typing indicator to conversation room
+          broadcastTypingStatus(conversation._id, targetRecipientId, true);
+
+          // 2. Fetch past context (up to 10 recent messages)
+          const history = await Message.find({ conversation: conversation._id })
+            .sort({ createdAt: 1 })
+            .limit(10)
+            .populate('sender', 'name username role isAi');
+
+          // 3. Generate response using aiService
+          const aiReplyText = await aiService.generateDirectChatReply({
+            user: req.user,
+            conversation,
+            recentMessages: history,
+            userMessage: trimmedText,
+          });
+
+          // 4. Create and save AI message
+          const aiMessage = new Message({
+            conversation: conversation._id,
+            sender: targetRecipientId,
+            recipient: currentUserId,
+            text: aiReplyText,
+            isRead: false,
+          });
+          await aiMessage.save();
+
+          // 5. Update conversation metadata
+          const aiCreatedAt = new Date();
+          conversation.lastMessage = {
+            text: aiReplyText.slice(0, 1000),
+            hasCode: false,
+            sender: targetRecipientId,
+            createdAt: aiCreatedAt,
+          };
+          const userKey = currentUserId.toString();
+          const unread = conversation.unreadCounts?.get(userKey) || 0;
+          if (conversation.unreadCounts) {
+            conversation.unreadCounts.set(userKey, unread + 1);
+          }
+          await conversation.save();
+
+          // 6. Turn off typing indicator & broadcast message
+          broadcastTypingStatus(conversation._id, targetRecipientId, false);
+          broadcastChatMessage(conversation._id, aiMessage, currentUserId, targetRecipientId);
+        }
+      } catch (aiErr) {
+        console.error('Async AI chat reply error:', aiErr);
+        broadcastTypingStatus(conversation._id, targetRecipientId, false);
+      }
+    })();
 
     return res.status(201).json({
       message: 'Message delivered.',
@@ -584,6 +667,50 @@ exports.getUnreadTotal = async (req, res) => {
   } catch (err) {
     console.error('getUnreadTotal error:', err);
     return res.status(500).json({ message: 'Failed to retrieve unread message count.' });
+  }
+};
+
+// Update custom AI settings for a 1-on-1 conversation (name, persona/relationship, language preference)
+exports.updateAiSettings = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { customName, relationship, languagePref } = req.body;
+    const currentUserId = req.user._id;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found.' });
+    }
+
+    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized to modify this conversation.' });
+    }
+
+    if (!conversation.customAiSettings) {
+      conversation.customAiSettings = {};
+    }
+
+    if (customName !== undefined) {
+      conversation.customAiSettings.customName = (customName || '').trim().slice(0, 50) || 'Clearfeed AI';
+    }
+    if (relationship !== undefined) {
+      conversation.customAiSettings.relationship = (relationship || '').trim().slice(0, 50) || 'best friend';
+    }
+    if (languagePref !== undefined && ['auto', 'bangla', 'english', 'both'].includes(languagePref)) {
+      conversation.customAiSettings.languagePref = languagePref;
+    }
+
+    await conversation.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'AI settings updated successfully.',
+      customAiSettings: conversation.customAiSettings,
+    });
+  } catch (err) {
+    console.error('updateAiSettings error:', err);
+    return res.status(500).json({ message: 'Failed to update AI settings.' });
   }
 };
 

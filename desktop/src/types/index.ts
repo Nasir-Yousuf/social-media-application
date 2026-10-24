@@ -5,12 +5,19 @@ export interface User {
   email?: string;
   avatarUrl?: string;
   bio?: string;
-  role: 'student' | 'admin';
+  role: 'student' | 'admin' | 'ai';
   status?: string;
+  isAi?: boolean;
   followersCount?: number;
   followingCount?: number;
   postsCount?: number;
   createdAt?: string;
+}
+
+export interface CustomAiSettings {
+  customName?: string;
+  relationship?: string;
+  languagePref?: 'auto' | 'bangla' | 'english' | 'both';
 }
 
 export interface Conversation {
@@ -18,11 +25,14 @@ export interface Conversation {
   otherUser?: {
     _id: string;
     name: string;
+    originalName?: string;
     username: string;
     avatarUrl?: string;
     role: string;
     status?: string;
+    isAi?: boolean;
   };
+  customAiSettings?: CustomAiSettings;
   lastMessage?: {
     content?: string;
     sender?: {

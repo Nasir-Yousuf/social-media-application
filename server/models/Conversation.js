@@ -34,6 +34,26 @@ const conversationSchema = new mongoose.Schema(
       of: Number,
       default: {},
     },
+    // Custom AI settings for 1-on-1 conversations with @ai
+    customAiSettings: {
+      customName: {
+        type: String,
+        trim: true,
+        maxlength: 50,
+        default: 'Clearfeed AI',
+      },
+      relationship: {
+        type: String,
+        trim: true,
+        maxlength: 50,
+        default: 'best friend', // e.g. 'best friend', 'girlfriend', 'boyfriend', 'study buddy'
+      },
+      languagePref: {
+        type: String,
+        enum: ['auto', 'bangla', 'english', 'both'],
+        default: 'auto',
+      },
+    },
   },
   {
     timestamps: true,

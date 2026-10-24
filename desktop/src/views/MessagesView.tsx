@@ -15,11 +15,13 @@ import {
   User as UserIcon,
   PenSquare,
   Users,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import socketService from '../services/socket';
 import api from '../api/client';
 import { Conversation, ChatMessage, User } from '../types';
+import AiSettingsModal from '../components/chat/AiSettingsModal';
 
 const QUICK_EMOJIS = ['👍', '❤️', '🔥', '🚀', '💻', '💡', '🎉', '🧠', '✨', '🎯', '💯'];
 const CODE_LANGUAGES = [
@@ -60,6 +62,8 @@ export const MessagesView: React.FC = () => {
   const [codeLang, setCodeLang] = useState<string>('javascript');
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
   const [sending, setSending] = useState<boolean>(false);
+  const [showAiModal, setShowAiModal] = useState<boolean>(false);
+  const [isPartnerTyping, setIsPartnerTyping] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeConvIdRef = useRef<string | null>(null);
@@ -218,10 +222,20 @@ export const MessagesView: React.FC = () => {
       setMessages((prev) => prev.filter((m) => m._id !== data.messageId));
     });
 
+    const unsubTyping = socketService.on('chat:typing', (data: any) => {
+      if (data?.conversationId === activeConvIdRef.current) {
+        setIsPartnerTyping(Boolean(data.isTyping));
+        if (data.isTyping) {
+          setTimeout(scrollToBottom, 50);
+        }
+      }
+    });
+
     return () => {
       unsubMessage();
       unsubReaction();
       unsubDelete();
+      unsubTyping();
     };
   }, [fetchConversations]);
 
@@ -420,8 +434,14 @@ export const MessagesView: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-xs font-semibold text-neutral-200 truncate">
-                        {conv.otherUser?.name || 'Classmate'}
+                      <p className="text-xs font-semibold text-neutral-200 truncate flex items-center gap-1.5">
+                        <span>{conv.otherUser?.name || 'Classmate'}</span>
+                        {(conv.otherUser?.username === 'ai' || conv.otherUser?.isAi) && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-0.5">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            <span>AI</span>
+                          </span>
+                        )}
                       </p>
                       {conv.lastMessage?.createdAt && (
                         <span className="text-[10px] text-neutral-500 font-mono">
@@ -460,19 +480,37 @@ export const MessagesView: React.FC = () => {
               <div>
                 <h3 className="text-xs font-bold text-neutral-100 flex items-center gap-1.5">
                   {activeConversation.otherUser?.name || 'Classmate'}
-                  {activeConversation.otherUser?.role === 'admin' && (
+                  {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) ? (
+                    <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded-full font-bold flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+                      <span>{activeConversation.customAiSettings?.relationship || 'AI Companion'}</span>
+                    </span>
+                  ) : activeConversation.otherUser?.role === 'admin' ? (
                     <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 py-0.2 rounded font-mono">
                       Staff
                     </span>
-                  )}
+                  ) : null}
                 </h3>
                 <p className="text-[10px] text-neutral-500 font-mono">
                   @{activeConversation.otherUser?.username}
+                  {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) && (
+                    <span className="ml-1.5 text-purple-400">· Always here for you</span>
+                  )}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) && (
+                <button
+                  onClick={() => setShowAiModal(true)}
+                  className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  title="Customize Name, Personality & Language"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Customize AI</span>
+                </button>
+              )}
               <button
                 onClick={() => selectConversation(activeConversation)}
                 className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition"
@@ -579,6 +617,12 @@ export const MessagesView: React.FC = () => {
                   </div>
                 );
               })
+            )}
+            {isPartnerTyping && (
+              <div className="flex items-center gap-2 text-xs text-neutral-400 pl-2 py-1 animate-pulse">
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <span>{activeConversation.otherUser?.name || 'AI'} is typing...</span>
+              </div>
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -737,6 +781,35 @@ export const MessagesView: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-neutral-800/40 p-2">
+              {/* Featured AI card at top */}
+              {!memberSearch && (
+                <div
+                  onClick={() => {
+                    const aiUser = directoryMembers.find((m) => m.username === 'ai') || {
+                      _id: 'ai',
+                      username: 'ai',
+                      name: 'Clearfeed AI',
+                      role: 'ai',
+                    };
+                    handleStartDirectChat(aiUser as any);
+                  }}
+                  className="p-3 mb-2 rounded-xl bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-sky-500/10 border border-purple-500/30 hover:border-purple-500/60 flex items-center justify-between cursor-pointer transition group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        Clearfeed AI Companion
+                        <span className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1 rounded">24/7 Friend</span>
+                      </h4>
+                      <p className="text-[11px] text-neutral-400">Chat about life, personal thoughts, or coding issues</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-purple-300 font-bold px-2.5 py-1 bg-purple-500/20 rounded-lg">Chat ✨</span>
+                </div>
+              )}
               {loadingMembers ? (
                 <div className="p-8 text-center text-xs text-neutral-500">
                   Loading course roster from database...
@@ -777,6 +850,42 @@ export const MessagesView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Persona Customization Modal */}
+      {activeConversation && (
+        <AiSettingsModal
+          isOpen={showAiModal}
+          onClose={() => setShowAiModal(false)}
+          conversationId={activeConversation._id}
+          currentSettings={activeConversation.customAiSettings}
+          onSaved={(newSettings) => {
+            setActiveConversation((prev: any) => ({
+              ...prev,
+              customAiSettings: newSettings,
+              otherUser: {
+                ...prev.otherUser,
+                name: newSettings.customName || prev.otherUser?.name,
+              },
+            }));
+            setConversations((prev) =>
+              prev.map((c) =>
+                c._id === activeConversation._id
+                  ? {
+                      ...c,
+                      customAiSettings: newSettings,
+                      otherUser: c.otherUser
+                        ? {
+                            ...c.otherUser,
+                            name: newSettings.customName || c.otherUser.name,
+                          }
+                        : undefined,
+                    }
+                  : c
+              )
+            );
+          }}
+        />
       )}
     </div>
   );

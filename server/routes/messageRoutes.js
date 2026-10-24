@@ -9,6 +9,7 @@ router.get('/conversations', messageController.getConversations);
 router.get('/conversations/:conversationId', messageController.getMessages);
 router.delete('/conversations/:conversationId', messageController.deleteConversation);
 router.delete('/conversations/:conversationId/messages', messageController.clearConversation);
+router.put('/conversations/:conversationId/ai-settings', messageController.updateAiSettings);
 router.post('/conversations', messageController.startConversation);
 router.post('/send', messageController.sendMessage);
 router.delete('/:messageId', messageController.deleteMessage);

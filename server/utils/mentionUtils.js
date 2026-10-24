@@ -10,7 +10,7 @@ const Notification = require('../models/Notification');
 const SPECIAL_MENTIONS = ['everyone', 'followers'];
 
 // Matches "@handle" when not preceded by a word character (avoids emails like a@b.com)
-const MENTION_REGEX = /(^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{3,20})/g;
+const MENTION_REGEX = /(^|[^a-zA-Z0-9_])@([a-zA-Z0-9_]{2,20})/g;
 
 /**
  * Extract mention intents from one or more text blocks.

@@ -23,6 +23,7 @@ export const AskQuestionModal = ({
   const [tagInput, setTagInput] = useState('');
   const [includeCode, setIncludeCode] = useState(false);
   const [postToFeed, setPostToFeed] = useState(true);
+  const [askAiMentor, setAskAiMentor] = useState(true);
   const [codeTab, setCodeTab] = useState('html');
   const [codeSnippet, setCodeSnippet] = useState({
     html: '',
@@ -119,6 +120,9 @@ export const AskQuestionModal = ({
     }
 
     setSubmitting(true);
+    const storedLang = localStorage.getItem('clearfeed_learning_lang') || 'both';
+    const langPref = storedLang === 'bn' ? 'bangla' : storedLang === 'en' ? 'english' : 'both';
+
     const payload = {
       title: title.trim(),
       description: description.trim(),
@@ -127,6 +131,8 @@ export const AskQuestionModal = ({
       lessonId: initialLesson?.id || '',
       codeSnippet: includeCode ? codeSnippet : undefined,
       postToFeed,
+      askAi: askAiMentor,
+      languagePref: langPref,
     };
 
     try {
@@ -404,6 +410,27 @@ export const AskQuestionModal = ({
               </div>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
                 Posts your question to the main timeline so followers can see, mention users, and help you faster.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* Ask AI Mentor Option */}
+        <div className="pt-1">
+          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-purple-500/25 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-sky-500/10 cursor-pointer select-none transition-colors hover:border-purple-500/40">
+            <input
+              type="checkbox"
+              checked={askAiMentor}
+              onChange={(e) => setAskAiMentor(e.target.checked)}
+              className="mt-0.5 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-purple-700 dark:text-purple-300">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0 animate-pulse" />
+                <span>Ask Clearfeed AI Mentor to reply / এআই সহপাঠীর সাহায্য চান</span>
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
+                Clearfeed AI will automatically generate a kind, detailed explanation with code examples in your selected language.
               </p>
             </div>
           </label>

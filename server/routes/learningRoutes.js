@@ -38,6 +38,10 @@ router.post('/question/:id/answer', requireAuth, learningController.createAnswer
 router.post('/questions/:id/answers/:answerId/accept', requireAuth, learningController.acceptAnswer);
 router.post('/question/:id/answers/:answerId/accept', requireAuth, learningController.acceptAnswer);
 
+// AI Mentor Response Route
+router.post('/questions/:id/ask-ai', optionalAuth, learningController.askAiForAnswer);
+router.post('/question/:id/ask-ai', optionalAuth, learningController.askAiForAnswer);
+
 router.post('/answers/:id/upvote', requireAuth, learningController.toggleAnswerUpvote);
 router.post('/answer/:id/upvote', requireAuth, learningController.toggleAnswerUpvote);
 

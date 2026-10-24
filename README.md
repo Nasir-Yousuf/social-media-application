@@ -27,13 +27,15 @@ A high-performance full-stack social network and developer code studio engineere
   - [1. The Chronological Feed](#1--the-chronological-feed--calm-reading-experience)
   - [2. Multi-File CodeHub Studio](#2--multi-file-codehub-studio)
   - [3. Clearfeed Learn & Academy (15 Tracks & 446 Lessons)](#3--clearfeed-learn--academy-15-tracks--446-lessons)
-  - [4. Administrative Governance & Security Dashboard](#4-️-administrative-governance--security-dashboard)
-  - [5. Personal Knowledge Base & Bookmarks](#5--personal-knowledge-base--bookmarks)
-  - [6. Community Directory & Member Profiles](#6--community-directory--member-profiles)
+  - [4. AI Companion & Classroom Mentor (Google Gemini 3.5)](#4--ai-companion--classroom-mentor-google-gemini-35)
+  - [5. Administrative Governance & Security Dashboard](#5-️-administrative-governance--security-dashboard)
+  - [6. Personal Knowledge Base & Bookmarks](#6--personal-knowledge-base--bookmarks)
+  - [7. Community Directory & Member Profiles](#7--community-directory--member-profiles)
 - [Clearfeed Mesh: Standalone Offline P2P Subsystem](#-clearfeed-mesh-standalone-offline-p2p-subsystem)
 - [Desktop Application (Tauri 2 + Rust + React 19)](#-desktop-application-tauri-2--rust--react-19)
 - [Tech Stack](#-tech-stack)
 - [API Architecture](#-api-architecture)
+- [Testing & Multi-Platform Verification](#-testing--multi-platform-verification-vercel-desktop-mobile)
 - [Zero-Cloud-Cost Storage Engine](#-zero-cloud-cost-storage-engine)
 - [Security & Administrative Governance](#-security--administrative-governance)
 - [Mobile Application (React Native + Expo)](#-mobile-application-react-native--expo)
@@ -156,22 +158,48 @@ Clearfeed includes a complete, production-grade interactive learning academy int
 - **Formative Quizzes & Official Certificates**: End-of-lesson multiple choice questions with instant explanations, plus printable verified track completion certificates.
 - **Offline Resilience**: Mobile and Desktop clients run all 446 lessons 100% offline via local storage without requiring internet or account logins.
 
-### 4. 🛡️ Administrative Governance & Security Dashboard
+### 4. 🤖 AI Companion & Classroom Mentor (Google Gemini 3.5)
+
+Clearfeed integrates **Google Gemini 3.5 Flash Lite** directly into its core communication and learning architecture as a native first-class member (`@ai`):
+
+- **1-on-1 Personal AI Companion (Custom Name & Relationship)**:
+  - Every user can initiate a 1-on-1 chat with the AI just like messaging any human friend on Clearfeed.
+  - **Customizable AI Identity**: Users can personalize the AI's name (e.g., *"Maya"*, *"Sara"*, *"Alex"*, *"Jarvis"*) to create a natural, comforting bond.
+  - **Relationship Personas**:
+    - **Best Friend & Confidante (সহজ-সরল ও আন্তরিক বন্ধু)**: Empathetic, warm, conversational, shares life thoughts, and listens unconditionally.
+    - **Caring Girlfriend (মায়াবতী ও আন্তরিক)**: Affectionate, caring, speaks with warmth, emotional resonance, and gentle support (`"হাই জান! ❤️ কেমন আছো?"`).
+    - **Gentle Boyfriend (শান্ত ও সাপোর্টিভ)**: Protective, supportive, encouraging, and reliable.
+    - **Tech Mentor & Senior Dev (সিনিয়র ডেভেলপার)**: Crisp, senior architectural guidance, clean code paradigms, and debugging advice.
+  - **Language Flexibility**: Auto-detects user intent or locks to Pure বাংলা, English, or Banglish (বাংলিশ).
+  - **Real-time UX**: Real-time Socket.io typing indicators (`@ai is typing...`) and persistent conversation settings.
+
+- **Kind & Brilliant Classroom AI Mentor in Learn & Practice**:
+  - Acts as the top student / helpful senior of the cohort who patiently explains concepts to a peer who is struggling.
+  - **1-Click `✨ Ask AI Classmate`**: Available inside all discussion questions under `/learn/questions/:id`.
+  - Breaks down complex programming concepts step-by-step with intuitive real-world analogies, clean runnable code blocks, and reassuring encouragement.
+  - Respects the track's selected language toggle (English, বাংলা, or Both).
+
+- **Feed & Comment Mention Automation**:
+  - Tag `@ai` anywhere in post comments or discussions.
+  - The AI analyzes the post topic and parent context to provide helpful, conversational answers.
+
+### 5. 🛡️ Administrative Governance & Security Dashboard
 
 - **Role-Based Access Control**: Instant permission toggles (`admin` vs. `student`/member).
 - **Live Traffic & IP Audit Logs**: Real-time inspection of IP addresses attached to registrations, logins, posts, and comments.
 - **Platform Integrity**: Post deletion across the network, user suspension controls, and site-wide announcement broadcasts.
 - **Maintainer Safeguards**: Primary platform maintainers hold non-demotable administrative status to protect application infrastructure.
 
-### 5. 🔖 Personal Knowledge Base & Bookmarks
+### 6. 🔖 Personal Knowledge Base & Bookmarks
 
 - Privately bookmark posts, technical guides, and code snippets to `/bookmarks`.
 - Instant search and filtering across saved entries.
 
-### 6. 👥 Community Directory & Member Profiles
+### 7. 👥 Community Directory & Member Profiles
 
 - Public profiles displaying user bio, technical interests, role badges, and custom status lines (e.g. `🔨 Building a compiler`).
 - Community directory with real-time search and role filtering.
+- Public directory access across Web, Desktop, and Mobile.
 
 ---
 
@@ -409,10 +437,69 @@ npm run build:desktop
 | `/api/learning/exam/submit`       |  `POST`  |    Private     | Submit final exam and issue completion certificate |
 | `/api/users/:id/avatar`           |  `GET`   |     Public     | Stream binary avatar buffer with HTTP caching      |
 | `/api/users/:id/avatar`           |  `PUT`   |    Private     | Upload compressed JPEG avatar buffer               |
-| `/api/admin/users`                |  `GET`   |     Admin      | Fetch user directory with IP audit data            |
-| `/api/admin/traffic`              |  `GET`   |     Admin      | Stream live IP traffic and security events         |
-| `/api/admin/users/:id/role`       | `PATCH`  |     Admin      | Toggle admin status (protected against co-admins)  |
-| `/api/admin/users/:id/status`     | `PATCH`  |     Admin      | Toggle account suspension                          |
+| `/api/admin/users`                            |  `GET`   |     Admin      | Fetch user directory with IP audit data            |
+| `/api/admin/traffic`                          |  `GET`   |     Admin      | Stream live IP traffic and security events         |
+| `/api/admin/users/:id/role`                   | `PATCH`  |     Admin      | Toggle admin status (protected against co-admins)  |
+| `/api/admin/users/:id/status`                 | `PATCH`  |     Admin      | Toggle account suspension                          |
+| `/api/messages/conversations/:id/ai-settings` |  `PUT`   |    Private     | Update AI companion nickname, persona & language   |
+| `/api/learning/questions/:id/ask-ai`          |  `POST`  |    Private     | Generate classroom AI mentor explanation & code    |
+
+---
+
+## 🧪 Testing & Multi-Platform Verification (Vercel, Desktop, Mobile)
+
+Clearfeed is architected and verified across three distinct target environments:
+
+### 1. 🌐 Web Application (Vercel Production & Local Vite)
+
+- **Production URL**: [https://clearfeed-web.vercel.app](https://clearfeed-web.vercel.app)
+- **Local Testing**:
+  ```bash
+  # In project root, start full stack (Backend on 5180 + Web Client on 5173):
+  npm run dev
+  # Or start web client only:
+  npm run dev:client
+  ```
+  Visit [http://localhost:5173](http://localhost:5173).
+- **Testing AI Companion on Web**:
+  1. Open `/messages` and click **"Start Chat"** or choose `@ai` from the directory.
+  2. Click the **"Customize AI"** badge to change the companion name (e.g. *"Maya"* or *"Alex"*), select a persona (*Caring Girlfriend*, *Best Friend*, etc.), and choose your preferred language (*বাংলা*, *English*, *Banglish*).
+  3. Send any message; observe the real-time typing indicator and empathetic response.
+- **Testing AI Classmate Mentor**:
+  1. Navigate to `/learn` -> open any lesson (e.g., JavaScript or React).
+  2. Click **"Discuss Lesson"** or view community questions.
+  3. Click **`✨ Ask AI Classmate`** on any question or toggle AI when asking a new question to receive a warm, step-by-step tutorial answer.
+
+### 2. 🖥️ Desktop Application (Tauri 2 + Rust + Vite)
+
+- **Local Desktop Web Preview**:
+  ```bash
+  npm run dev:desktop
+  ```
+  Open [http://localhost:1420](http://localhost:1420) in your browser.
+- **Native Desktop Binary**:
+  ```bash
+  npm run desktop
+  ```
+- **Backend Configuration & Troubleshooting on Desktop**:
+  - The desktop client includes a configurable backend selector under **Settings** (`/settings`).
+  - By default on `localhost:1420`, it automatically connects to your local Express server at `http://localhost:5180/api`.
+  - To test against the live cloud database, select **Railway Cloud** in Desktop Settings. If returning to local, click **Local Server** or **Reset**.
+  - Guest preview allows browsing real public feeds and the cohort member directory without requiring an initial login.
+
+### 3. 📱 Mobile Application (React Native + Expo)
+
+- **Starting the Mobile App**:
+  > **Note**: Always run from the project root using `npm run mobile` (or navigate to `cd mobile && npm start`). Running `npx expo` directly in the project root without navigating to `mobile/` will fail because the Expo CLI lives inside `mobile/package.json`.
+  ```bash
+  npm run mobile
+  # or
+  cd mobile && npm start
+  ```
+- **Testing on Mobile**:
+  - Scan the terminal QR code with the **Expo Go** app on Android or iOS.
+  - Or press `a` for Android emulator or `i` for iOS simulator.
+  - Test the tabbed VS Code multi-file viewer, offline curricula, and AI discussions with AMOLED black styling.
 
 ---
 
@@ -523,6 +610,8 @@ PORT=5180
 NODE_ENV=production
 MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/clearfeed
 JWT_SECRET=your_super_secret_jwt_key
+GEMINI_API_KEY=your_google_ai_studio_api_key
+GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
 **Frontend (`client/.env`):**

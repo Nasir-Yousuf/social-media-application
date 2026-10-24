@@ -143,6 +143,15 @@ const startServer = async () => {
       console.warn('Startup user role sync note:', cleanErr.message);
     }
 
+    // Automatically initialize Clearfeed AI companion user (@ai)
+    try {
+      const { ensureAiUser } = require('./services/aiService');
+      await ensureAiUser();
+      console.log('🤖 Clearfeed AI Companion & Mentor service initialized.');
+    } catch (aiInitErr) {
+      console.warn('Clearfeed AI initialization note:', aiInitErr.message);
+    }
+
     // Automatically purge any dummy typing results or seed records
     try {
       const TypingResult = require('./models/TypingResult');

@@ -25,19 +25,24 @@ export const SettingsView: React.FC = () => {
   const { identity, settings: meshSettings, updateSettings, clearAllData } = useMesh();
 
   const [apiUrl, setApiUrl] = useState<string>(() => {
-    return localStorage.getItem('pulse518_api_url') || PRODUCTION_BACKEND_URL;
+    return localStorage.getItem('pulse518_api_url') || getBaseUrl();
   });
   const [savedApiNotice, setSavedApiNotice] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [showPreviews, setShowPreviews] = useState<boolean>(true);
 
   const handleSaveApiUrl = (url: string) => {
-    setApiUrl(url);
-    if (url === PRODUCTION_BACKEND_URL) {
-      localStorage.removeItem('pulse518_api_url');
-    } else {
-      localStorage.setItem('pulse518_api_url', url);
-    }
+    const trimmed = url.trim();
+    setApiUrl(trimmed);
+    localStorage.setItem('pulse518_api_url', trimmed);
+    setSavedApiNotice(true);
+    checkAuth();
+    setTimeout(() => setSavedApiNotice(false), 2500);
+  };
+
+  const handleResetApiUrl = () => {
+    localStorage.removeItem('pulse518_api_url');
+    setApiUrl(getBaseUrl());
     setSavedApiNotice(true);
     checkAuth();
     setTimeout(() => setSavedApiNotice(false), 2500);
@@ -143,9 +148,15 @@ export const SettingsView: React.FC = () => {
             />
             <button
               onClick={() => handleSaveApiUrl(apiUrl)}
-              className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-xl text-xs font-semibold transition cursor-pointer"
+              className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-xl text-xs font-semibold transition cursor-pointer"
             >
               Apply
+            </button>
+            <button
+              onClick={handleResetApiUrl}
+              className="px-3 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-neutral-200 border border-neutral-800 rounded-xl text-xs font-semibold transition cursor-pointer"
+            >
+              Reset
             </button>
           </div>
         </div>

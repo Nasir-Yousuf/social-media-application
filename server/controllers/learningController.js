@@ -427,6 +427,47 @@ exports.createQuestion = async (req, res) => {
       console.warn('createQuestion mention notify error:', mentionErr.message);
     }
 
+    // If user requested AI help or tagged @ai in question, generate an AI answer in the background
+    const wantsAi = Boolean(req.body.askAi) || 
+      title.toLowerCase().match(/(^|[^a-zA-Z0-9_])@ai($|[^a-zA-Z0-9_])/) || 
+      description.toLowerCase().match(/(^|[^a-zA-Z0-9_])@ai($|[^a-zA-Z0-9_])/);
+    
+    if (wantsAi) {
+      (async () => {
+        try {
+          const aiService = require('../services/aiService');
+          const aiUser = await aiService.ensureAiUser();
+          if (aiUser) {
+            const aiContent = await aiService.generateLessonHelpReply({
+              question: newQuestion,
+              user: authorUser,
+              languagePref: req.body.languagePref || 'auto',
+            });
+
+            if (aiContent) {
+              const aiAnswer = await LearningAnswer.create({
+                question: newQuestion._id,
+                author: aiUser._id,
+                content: aiContent.trim(),
+              });
+              newQuestion.answersCount = (newQuestion.answersCount || 0) + 1;
+              await newQuestion.save();
+
+              // Notify the author
+              await Notification.create({
+                recipient: authorUser._id,
+                sender: aiUser._id,
+                type: 'question_answer',
+                question: newQuestion._id,
+              }).catch(() => {});
+            }
+          }
+        } catch (aiErr) {
+          console.warn('Background AI question answering error:', aiErr.message);
+        }
+      })();
+    }
+
     return res.status(201).json({
       message: 'Question posted successfully!',
       question: newQuestion,
@@ -1097,6 +1138,70 @@ exports.deleteAnswer = async (req, res) => {
   } catch (err) {
     console.error('deleteAnswer error:', err);
     return res.status(500).json({ message: 'Error deleting answer.' });
+  }
+};
+
+// Explicit endpoint for asking AI mentor on an existing question
+exports.askAiForAnswer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { languagePref = 'auto' } = req.body || {};
+
+    const question = await LearningQuestion.findById(id).populate('author', 'name username');
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found.' });
+    }
+
+    const aiService = require('../services/aiService');
+    const aiUser = await aiService.ensureAiUser();
+    if (!aiUser) {
+      return res.status(500).json({ message: 'AI Mentor service is temporarily unavailable.' });
+    }
+
+    const aiContent = await aiService.generateLessonHelpReply({
+      question,
+      user: req.user || question.author,
+      languagePref,
+    });
+
+    const newAnswer = await LearningAnswer.create({
+      question: question._id,
+      author: aiUser._id,
+      content: aiContent.trim(),
+    });
+
+    question.answersCount = (question.answersCount || 0) + 1;
+    await question.save();
+
+    await newAnswer.populate('author', 'name username avatarUrl role status');
+
+    // Send notification to question author
+    const recipientId = question.author?._id || question.author;
+    if (recipientId && (!req.user || !req.user._id.equals(recipientId))) {
+      await Notification.create({
+        recipient: recipientId,
+        sender: aiUser._id,
+        type: 'question_answer',
+        question: question._id,
+      }).catch(() => {});
+    }
+
+    return res.status(201).json({
+      message: 'AI Mentor responded successfully!',
+      answer: {
+        _id: newAnswer._id,
+        content: newAnswer.content,
+        author: newAnswer.author,
+        upvotesCount: 0,
+        isUpvoted: false,
+        isAccepted: false,
+        createdAt: newAnswer.createdAt,
+      },
+      answersCount: question.answersCount,
+    });
+  } catch (err) {
+    console.error('askAiForAnswer error:', err);
+    return res.status(500).json({ message: 'Failed to generate AI answer: ' + err.message });
   }
 };
 
