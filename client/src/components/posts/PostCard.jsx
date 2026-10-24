@@ -51,7 +51,20 @@ export const PostCard = ({
   const [currentPost, setCurrentPost] = useState(post);
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
-  const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
+  const resolveInitialComments = (p) => {
+    let count = p?.commentsCount || 0;
+    try {
+      if (p?._id) {
+        const cached = JSON.parse(localStorage.getItem(`clearfeed_answers_${p._id}`) || '[]');
+        if (Array.isArray(cached) && cached.length > count) {
+          count = cached.length;
+        }
+      }
+    } catch (_) {}
+    return count;
+  };
+
+  const [commentsCount, setCommentsCount] = useState(() => resolveInitialComments(post));
   const resolveViews = (p) => {
     if (Array.isArray(p?.viewedBy) && p.viewedBy.length > 0) {
       return p.viewedBy.length;
@@ -88,6 +101,10 @@ export const PostCard = ({
   useEffect(() => {
     setViewsCount(resolveViews(post));
   }, [post.viewsCount, post.viewedBy]);
+
+  useEffect(() => {
+    setCommentsCount(resolveInitialComments(post));
+  }, [post.commentsCount, post._id]);
 
   // Record impression view once
   useEffect(() => {

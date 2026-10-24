@@ -39,8 +39,36 @@ export const CommentsSection = ({ postId, onCommentCountChange, canReply = true 
     const fetchComments = async () => {
       try {
         const res = await api.get(`/posts/${postId}/comments`);
+        let list = res.data.comments || [];
+
+        // Check local answer cache for instant sync
+        try {
+          const cached = JSON.parse(localStorage.getItem(`clearfeed_answers_${postId}`) || '[]');
+          if (Array.isArray(cached) && cached.length > 0) {
+            const merged = [...list];
+            cached.forEach((item) => {
+              const exists = merged.some(
+                (c) => c._id === item._id || c.content?.trim() === item.content?.trim()
+              );
+              if (!exists) {
+                merged.push({
+                  _id: item._id || `local_${Date.now()}`,
+                  post: postId,
+                  author: item.author,
+                  content: item.content,
+                  createdAt: item.createdAt || new Date().toISOString(),
+                });
+              }
+            });
+            list = merged;
+          }
+        } catch (_) {}
+
         if (isMounted) {
-          setComments(res.data.comments || []);
+          setComments(list);
+          if (onCommentCountChange) {
+            onCommentCountChange(list.length);
+          }
         }
       } catch (err) {
         console.warn('Failed to load comments:', err);
@@ -68,6 +96,19 @@ export const CommentsSection = ({ postId, onCommentCountChange, canReply = true 
         content: newComment.trim(),
       });
       setComments((prev) => [...prev, res.data.comment]);
+      // Also sync to clearfeed_answers_${postId}
+      try {
+        const cached = JSON.parse(localStorage.getItem(`clearfeed_answers_${postId}`) || '[]');
+        if (Array.isArray(cached)) {
+          const exists = cached.some(
+            (c) => c._id === res.data.comment?._id || c.content?.trim() === res.data.comment?.content?.trim()
+          );
+          if (!exists && res.data.comment) {
+            cached.push(res.data.comment);
+            localStorage.setItem(`clearfeed_answers_${postId}`, JSON.stringify(cached));
+          }
+        }
+      } catch (_) {}
       setNewComment('');
       closeMention();
       if (onCommentCountChange) {
@@ -179,6 +220,11 @@ export const CommentsSection = ({ postId, onCommentCountChange, canReply = true 
                       <span className="text-neutral-500 dark:text-neutral-400 text-[11px]">
                         @{comment.author?.username}
                       </span>
+                      {(comment.author?.role === 'ai' || comment.author?.username === 'ai') && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                          ✨ AI Mentor
+                        </span>
+                      )}
                       <span className="text-neutral-400">·</span>
                       <span className="text-neutral-400 text-[11px]">
                         {formatTime(comment.createdAt)}

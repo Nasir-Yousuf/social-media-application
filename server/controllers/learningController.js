@@ -489,6 +489,22 @@ exports.createQuestion = async (req, res) => {
               newQuestion.answersCount = (newQuestion.answersCount || 0) + 1;
               await newQuestion.save();
 
+              // If question was shared to feed, mirror answer as a comment
+              if (newQuestion.feedPost) {
+                try {
+                  const Comment = require('../models/Comment');
+                  const Post = require('../models/Post');
+                  await Comment.create({
+                    post: newQuestion.feedPost,
+                    author: aiUser._id,
+                    content: aiContent.trim(),
+                  });
+                  await Post.findByIdAndUpdate(newQuestion.feedPost, { $inc: { commentsCount: 1 } });
+                } catch (feedPostErr) {
+                  console.warn('Mirror AI answer to feedPost Comment error:', feedPostErr.message);
+                }
+              }
+
               // Notify the author
               await Notification.create({
                 recipient: authorUser._id,
@@ -638,6 +654,28 @@ exports.createAnswer = async (req, res) => {
     await question.save();
 
     await newAnswer.populate('author', 'name username avatarUrl role status');
+
+    // If question was shared to feed, mirror answer as a comment
+    if (question.feedPost) {
+      try {
+        const Comment = require('../models/Comment');
+        const Post = require('../models/Post');
+        const existingComment = await Comment.findOne({
+          post: question.feedPost,
+          content: content.trim(),
+        });
+        if (!existingComment) {
+          await Comment.create({
+            post: question.feedPost,
+            author: authorUser._id,
+            content: content.trim(),
+          });
+          await Post.findByIdAndUpdate(question.feedPost, { $inc: { commentsCount: 1 } });
+        }
+      } catch (feedPostErr) {
+        console.warn('Mirror answer to feedPost Comment error:', feedPostErr.message);
+      }
+    }
 
     // Send notification to question author if not self
     if (!question.author.equals(req.user._id)) {
@@ -1255,6 +1293,28 @@ exports.askAiForAnswer = async (req, res) => {
 
       question.answersCount = (question.answersCount || 0) + 1;
       await question.save();
+
+      // If question was shared to feed, mirror answer as a comment
+      if (question.feedPost) {
+        try {
+          const Comment = require('../models/Comment');
+          const Post = require('../models/Post');
+          const existingComment = await Comment.findOne({
+            post: question.feedPost,
+            content: aiContent.trim(),
+          });
+          if (!existingComment) {
+            await Comment.create({
+              post: question.feedPost,
+              author: aiUser._id,
+              content: aiContent.trim(),
+            });
+            await Post.findByIdAndUpdate(question.feedPost, { $inc: { commentsCount: 1 } });
+          }
+        } catch (feedPostErr) {
+          console.warn('Mirror AI answer to feedPost Comment error:', feedPostErr.message);
+        }
+      }
 
       await newAnswer.populate('author', 'name username avatarUrl role status');
       answerPayload = {

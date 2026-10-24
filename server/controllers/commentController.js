@@ -25,22 +25,64 @@ exports.getCommentsByPost = async (req, res) => {
     }
 
     const comments = await Comment.find({ post: postId })
-      .populate('author', 'name username avatarUrl role')
+      .populate('author', 'name username avatarUrl role status')
       .sort({ createdAt: 1 });
 
-    const enriched = comments.map((c) => {
-      const obj = c.toObject();
+    // Also fetch any LearningAnswer linked to this question / post ID
+    const LearningAnswer = require('../models/LearningAnswer');
+    let answers = await LearningAnswer.find({ question: postId })
+      .populate('author', 'name username avatarUrl role status')
+      .sort({ createdAt: 1 });
+
+    // Check if there is an associated LearningQuestion
+    const LearningQuestion = require('../models/LearningQuestion');
+    const matchedQ = await LearningQuestion.findOne({
+      $or: [
+        { feedPost: postId },
+        { title: (post.content || '').split('\n')[0].replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim() }
+      ]
+    });
+    if (matchedQ) {
+      const qAnswers = await LearningAnswer.find({ question: matchedQ._id })
+        .populate('author', 'name username avatarUrl role status')
+        .sort({ createdAt: 1 });
+      answers = [...answers, ...qAnswers];
+    }
+
+    const mergedList = [...comments];
+    answers.forEach((ans) => {
+      const exists = mergedList.some((c) => c.content?.trim() === ans.content?.trim());
+      if (!exists) {
+        mergedList.push({
+          _id: ans._id,
+          post: postId,
+          author: ans.author,
+          content: ans.content,
+          createdAt: ans.createdAt,
+          isAccepted: ans.isAccepted,
+        });
+      }
+    });
+
+    const enriched = mergedList.map((c) => {
+      const obj = typeof c.toObject === 'function' ? c.toObject() : { ...c };
       if (!isAdmin) {
         delete obj.ipAddress;
         delete obj.userAgent;
       }
       return {
         ...obj,
-        isOwner: currentUserId ? c.author && c.author._id.equals(currentUserId) : false,
+        isOwner: currentUserId ? obj.author && (obj.author._id?.equals?.(currentUserId) || obj.author._id === currentUserId) : false,
       };
     });
 
-    return res.status(200).json({ comments: enriched });
+    // Auto-sync post commentsCount if mismatched
+    if (post.commentsCount !== enriched.length) {
+      post.commentsCount = enriched.length;
+      post.save().catch(() => {});
+    }
+
+    return res.status(200).json({ comments: enriched, commentsCount: enriched.length });
   } catch (err) {
     console.error('getCommentsByPost error:', err);
     return res.status(500).json({ message: 'Error retrieving comments.' });
@@ -140,6 +182,41 @@ exports.createComment = async (req, res) => {
       });
     } catch (mentionErr) {
       console.warn('createComment mention notify error:', mentionErr.message);
+    }
+
+    // Mirror comment to LearningAnswer if this post represents or is linked to a LearningQuestion
+    try {
+      const LearningQuestion = require('../models/LearningQuestion');
+      const LearningAnswer = require('../models/LearningAnswer');
+      const cleanTitle = (post.content || '').split('\n')[0].replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim();
+      const matchedQ = await LearningQuestion.findOne({
+        $or: [
+          { feedPost: postId },
+          ...(postId.match(/^[0-9a-fA-F]{24}$/) ? [{ _id: postId }] : []),
+          ...(cleanTitle ? [{ title: cleanTitle }] : []),
+        ],
+      });
+
+      if (matchedQ) {
+        const existingAns = await LearningAnswer.findOne({
+          question: matchedQ._id,
+          content: content.trim(),
+        });
+        if (!existingAns) {
+          await LearningAnswer.create({
+            question: matchedQ._id,
+            author: req.user._id,
+            content: content.trim(),
+            upvotes: [],
+            downvotes: [],
+            votesScore: 0,
+            isAccepted: false,
+          });
+          await LearningQuestion.findByIdAndUpdate(matchedQ._id, { $inc: { answersCount: 1 } });
+        }
+      }
+    } catch (mirrorErr) {
+      console.warn('Mirror comment to LearningAnswer error:', mirrorErr.message);
     }
 
     // If comment mentions @ai, asynchronously generate a smart reply comment
