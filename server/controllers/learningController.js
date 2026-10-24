@@ -253,12 +253,48 @@ exports.getQuestionById = async (req, res) => {
       return res.status(404).json({ message: 'Question not found.' });
     }
 
-    const question = await LearningQuestion.findById(id).populate(
+    let question = await LearningQuestion.findById(id).populate(
       'author',
       'name username avatarUrl role status'
     );
 
     if (!question) {
+      // Robust fallback: Check if question exists in Post collection
+      const post = await Post.findById(id).populate('author', 'name username avatarUrl role status');
+      if (post) {
+        const firstLine = post.content?.split('\n')[0] || '';
+        const title = firstLine.replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim() || 'Community Question';
+        const description = post.content?.split('\n').slice(1).join('\n').trim() || post.content;
+        const Comment = require('../models/Comment');
+        const comments = await Comment.find({ post: id }).populate('author', 'name username avatarUrl role status').sort({ createdAt: 1 });
+        const currentUserId = req.user?._id;
+        const answers = comments.map((c) => ({
+          _id: c._id,
+          content: c.content,
+          author: c.author,
+          upvotesCount: c.likes?.length || 0,
+          isUpvoted: currentUserId ? c.likes?.some((u) => u.equals(currentUserId)) : false,
+          isAccepted: false,
+          createdAt: c.createdAt,
+        }));
+        return res.status(200).json({
+          question: {
+            _id: post._id,
+            title,
+            description,
+            track: 'general',
+            tags: post.tags || [],
+            author: post.author,
+            codeSnippet: post.codeSnippet,
+            upvotesCount: post.likesCount || 0,
+            isUpvoted: currentUserId ? post.likes?.some((u) => u.equals(currentUserId)) : false,
+            isOwner: currentUserId ? post.author?._id?.equals(currentUserId) : false,
+            createdAt: post.createdAt,
+            answersCount: answers.length,
+          },
+          answers,
+        });
+      }
       return res.status(404).json({ message: 'Question not found.' });
     }
 
@@ -1147,7 +1183,29 @@ exports.askAiForAnswer = async (req, res) => {
     const { id } = req.params;
     const { languagePref = 'auto' } = req.body || {};
 
-    const question = await LearningQuestion.findById(id).populate('author', 'name username');
+    let question = await LearningQuestion.findById(id).populate('author', 'name username');
+    let isMirroredPost = false;
+    let postDoc = null;
+
+    if (!question && mongoose.Types.ObjectId.isValid(id)) {
+      postDoc = await Post.findById(id).populate('author', 'name username');
+      if (postDoc) {
+        isMirroredPost = true;
+        const firstLine = postDoc.content?.split('\n')[0] || '';
+        const title = firstLine.replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim() || 'Community Question';
+        const description = postDoc.content?.split('\n').slice(1).join('\n').trim() || postDoc.content;
+        question = {
+          _id: postDoc._id,
+          title,
+          description,
+          author: postDoc.author,
+          track: 'general',
+          codeSnippet: postDoc.codeSnippet,
+          answersCount: postDoc.commentsCount || 0,
+        };
+      }
+    }
+
     if (!question) {
       return res.status(404).json({ message: 'Question not found.' });
     }
@@ -1164,31 +1222,42 @@ exports.askAiForAnswer = async (req, res) => {
       languagePref,
     });
 
-    const newAnswer = await LearningAnswer.create({
-      question: question._id,
-      author: aiUser._id,
-      content: aiContent.trim(),
-    });
+    let answerPayload = null;
+    let totalAnswersCount = 0;
 
-    question.answersCount = (question.answersCount || 0) + 1;
-    await question.save();
+    if (isMirroredPost) {
+      const Comment = require('../models/Comment');
+      const newComment = await Comment.create({
+        post: postDoc._id,
+        author: aiUser._id,
+        content: aiContent.trim(),
+      });
+      postDoc.commentsCount = (postDoc.commentsCount || 0) + 1;
+      await postDoc.save();
 
-    await newAnswer.populate('author', 'name username avatarUrl role status');
-
-    // Send notification to question author
-    const recipientId = question.author?._id || question.author;
-    if (recipientId && (!req.user || !req.user._id.equals(recipientId))) {
-      await Notification.create({
-        recipient: recipientId,
-        sender: aiUser._id,
-        type: 'question_answer',
+      await newComment.populate('author', 'name username avatarUrl role status');
+      answerPayload = {
+        _id: newComment._id,
+        content: newComment.content,
+        author: newComment.author,
+        upvotesCount: 0,
+        isUpvoted: false,
+        isAccepted: false,
+        createdAt: newComment.createdAt,
+      };
+      totalAnswersCount = postDoc.commentsCount;
+    } else {
+      const newAnswer = await LearningAnswer.create({
         question: question._id,
-      }).catch(() => {});
-    }
+        author: aiUser._id,
+        content: aiContent.trim(),
+      });
 
-    return res.status(201).json({
-      message: 'AI Mentor responded successfully!',
-      answer: {
+      question.answersCount = (question.answersCount || 0) + 1;
+      await question.save();
+
+      await newAnswer.populate('author', 'name username avatarUrl role status');
+      answerPayload = {
         _id: newAnswer._id,
         content: newAnswer.content,
         author: newAnswer.author,
@@ -1196,8 +1265,26 @@ exports.askAiForAnswer = async (req, res) => {
         isUpvoted: false,
         isAccepted: false,
         createdAt: newAnswer.createdAt,
-      },
-      answersCount: question.answersCount,
+      };
+      totalAnswersCount = question.answersCount;
+    }
+
+    // Send notification to question author
+    const recipientId = question.author?._id || question.author;
+    if (recipientId && (!req.user || !req.user._id.equals(recipientId))) {
+      await Notification.create({
+        recipient: recipientId,
+        sender: aiUser._id,
+        type: isMirroredPost ? 'comment' : 'question_answer',
+        question: question._id,
+        post: isMirroredPost ? postDoc._id : undefined,
+      }).catch(() => {});
+    }
+
+    return res.status(201).json({
+      message: 'AI Mentor responded successfully!',
+      answer: answerPayload,
+      answersCount: totalAnswersCount,
     });
   } catch (err) {
     console.error('askAiForAnswer error:', err);
