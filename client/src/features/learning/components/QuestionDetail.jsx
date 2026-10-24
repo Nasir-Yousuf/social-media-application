@@ -658,10 +658,10 @@ export const QuestionDetail = () => {
             type="button"
             disabled={askingAi}
             onClick={handleAskAiMentor}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-500/15 via-pink-500/15 to-sky-500/15 hover:from-purple-500/25 hover:to-pink-500/25 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-600 dark:text-sky-400 text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50"
             title="Get an instant kind breakdown from Clearfeed AI Classmate"
           >
-            <Sparkles className="w-3.5 h-3.5 text-purple-500 animate-pulse" />
+            <Sparkles className="w-3.5 h-3.5 text-sky-500 animate-pulse" />
             <span>{askingAi ? 'AI Mentor Thinking...' : '✨ Ask AI Classmate'}</span>
           </button>
         </div>
@@ -718,8 +718,8 @@ export const QuestionDetail = () => {
                             {answer.author.name}
                           </span>
                           {(answer.author?.username === 'ai' || answer.author?.role === 'ai') ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                              <Sparkles className="w-2.5 h-2.5 text-purple-500" />
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5 text-sky-500" />
                               <span>AI Mentor</span>
                             </span>
                           ) : (

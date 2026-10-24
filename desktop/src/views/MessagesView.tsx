@@ -95,6 +95,7 @@ export const MessagesView: React.FC = () => {
   const selectConversation = async (conv: Conversation) => {
     setActiveConversation(conv);
     setLoadingMessages(true);
+    socketService.emit('chat:join', { conversationId: conv._id });
     try {
       const res = await api.get(`/messages/conversations/${conv._id}`);
       if (res.data?.messages) {
@@ -244,10 +245,13 @@ export const MessagesView: React.FC = () => {
     e.preventDefault();
     if (!activeConversation || (!inputText.trim() && !codeSnippet.trim()) || sending) return;
 
+    const trimmedText = inputText.trim();
     const tempId = `temp-${Date.now()}`;
     const payload: any = {
+      conversationId: activeConversation._id,
       recipientId: activeConversation.otherUser?._id,
-      content: inputText.trim(),
+      text: trimmedText,
+      content: trimmedText,
       tempId,
     };
 
@@ -268,7 +272,8 @@ export const MessagesView: React.FC = () => {
         username: currentUser?.username || 'me',
         avatarUrl: currentUser?.avatarUrl,
       },
-      content: inputText.trim(),
+      text: trimmedText,
+      content: trimmedText,
       codeSnippet: payload.codeSnippet,
       createdAt: new Date().toISOString(),
       status: 'sending',
@@ -284,9 +289,10 @@ export const MessagesView: React.FC = () => {
     setSending(true);
     try {
       const res = await api.post('/messages/send', payload);
-      if (res.data?.message) {
+      const returnedMsg = res.data?.message || res.data?.data;
+      if (returnedMsg) {
         setMessages((prev) =>
-          prev.map((m) => (m.tempId === tempId ? { ...res.data.message, status: 'sent' } : m))
+          prev.map((m) => (m.tempId === tempId ? { ...returnedMsg, status: 'sent' } : m))
         );
         fetchConversations(true);
       }
@@ -437,8 +443,8 @@ export const MessagesView: React.FC = () => {
                       <p className="text-xs font-semibold text-neutral-200 truncate flex items-center gap-1.5">
                         <span>{conv.otherUser?.name || 'Classmate'}</span>
                         {(conv.otherUser?.username === 'ai' || conv.otherUser?.isAi) && (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded-full font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-0.5">
-                            <Sparkles className="w-2.5 h-2.5" />
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full font-black bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center gap-0.5">
+                            <Sparkles className="w-2.5 h-2.5 text-sky-400" />
                             <span>AI</span>
                           </span>
                         )}
@@ -453,7 +459,7 @@ export const MessagesView: React.FC = () => {
                       )}
                     </div>
                     <p className="text-xs text-neutral-400 truncate">
-                      {conv.lastMessage?.content || 'Started a conversation'}
+                      {conv.lastMessage?.text || conv.lastMessage?.content || 'Started a conversation'}
                     </p>
                   </div>
                   {(conv.unreadCount || 0) > 0 && (
@@ -481,8 +487,8 @@ export const MessagesView: React.FC = () => {
                 <h3 className="text-xs font-bold text-neutral-100 flex items-center gap-1.5">
                   {activeConversation.otherUser?.name || 'Classmate'}
                   {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) ? (
-                    <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded-full font-bold flex items-center gap-1">
-                      <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+                    <span className="text-[9px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-1.5 py-0.2 rounded-full font-bold flex items-center gap-1">
+                      <Sparkles className="w-2.5 h-2.5 text-sky-400" />
                       <span>{activeConversation.customAiSettings?.relationship || 'AI Companion'}</span>
                     </span>
                   ) : activeConversation.otherUser?.role === 'admin' ? (
@@ -494,7 +500,7 @@ export const MessagesView: React.FC = () => {
                 <p className="text-[10px] text-neutral-500 font-mono">
                   @{activeConversation.otherUser?.username}
                   {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) && (
-                    <span className="ml-1.5 text-purple-400">· Always here for you</span>
+                    <span className="ml-1.5 text-sky-400">· Always here for you</span>
                   )}
                 </p>
               </div>
@@ -504,10 +510,10 @@ export const MessagesView: React.FC = () => {
               {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) && (
                 <button
                   onClick={() => setShowAiModal(true)}
-                  className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                   title="Customize Name, Personality & Language"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
                   <span>Customize AI</span>
                 </button>
               )}
@@ -553,7 +559,7 @@ export const MessagesView: React.FC = () => {
                           : 'bg-neutral-800 text-neutral-100 rounded-bl-xs'
                       }`}
                     >
-                      {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                      {(msg.text || msg.content) && <p className="whitespace-pre-wrap">{msg.text || msg.content}</p>}
 
                       {/* Attached Code Snippet */}
                       {msg.codeSnippet && msg.codeSnippet.code && (
@@ -620,7 +626,7 @@ export const MessagesView: React.FC = () => {
             )}
             {isPartnerTyping && (
               <div className="flex items-center gap-2 text-xs text-neutral-400 pl-2 py-1 animate-pulse">
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
                 <span>{activeConversation.otherUser?.name || 'AI'} is typing...</span>
               </div>
             )}
@@ -793,21 +799,21 @@ export const MessagesView: React.FC = () => {
                     };
                     handleStartDirectChat(aiUser as any);
                   }}
-                  className="p-3 mb-2 rounded-xl bg-gradient-to-r from-purple-500/15 via-pink-500/10 to-sky-500/10 border border-purple-500/30 hover:border-purple-500/60 flex items-center justify-between cursor-pointer transition group"
+                  className="p-3 mb-2 rounded-xl bg-gradient-to-r from-sky-500/10 via-emerald-500/5 to-transparent border border-sky-500/20 hover:border-sky-500/40 flex items-center justify-between cursor-pointer transition group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform">
                       <Sparkles className="w-4 h-4" />
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                         Clearfeed AI Companion
-                        <span className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1 rounded">24/7 Friend</span>
+                        <span className="text-[9px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1 rounded">24/7 Friend</span>
                       </h4>
                       <p className="text-[11px] text-neutral-400">Chat about life, personal thoughts, or coding issues</p>
                     </div>
                   </div>
-                  <span className="text-xs text-purple-300 font-bold px-2.5 py-1 bg-purple-500/20 rounded-lg">Chat ✨</span>
+                  <span className="text-xs text-sky-400 font-bold px-2.5 py-1 bg-sky-500/10 rounded-lg group-hover:bg-sky-500/20 transition-colors">Chat ✨</span>
                 </div>
               )}
               {loadingMembers ? (

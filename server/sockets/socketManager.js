@@ -330,6 +330,59 @@ function initSocket(server) {
         if (typeof callback === 'function') {
           callback({ success: true, message: messageData });
         }
+
+        // Asynchronously dispatch AI response if recipient is Clearfeed AI (@ai)
+        (async () => {
+          try {
+            const aiService = require('../services/aiService');
+            const recipientDoc = await User.findById(targetRecipientId).select('name username role isAi');
+            if (recipientDoc && (recipientDoc.username === 'ai' || recipientDoc.role === 'ai' || recipientDoc.isAi)) {
+              broadcastTypingStatus(conv._id, targetRecipientId, true, userId);
+
+              const history = await Message.find({ conversation: conv._id })
+                .sort({ createdAt: 1 })
+                .limit(10)
+                .populate('sender', 'name username role isAi');
+
+              const senderUser = await User.findById(userId);
+
+              const aiReplyText = await aiService.generateDirectChatReply({
+                user: senderUser || { name: 'User' },
+                conversation: conv,
+                recentMessages: history,
+                userMessage: trimmedText,
+              });
+
+              const aiMessage = new Message({
+                conversation: conv._id,
+                sender: targetRecipientId,
+                recipient: userId,
+                text: aiReplyText,
+                isRead: false,
+              });
+              await aiMessage.save();
+
+              conv.lastMessage = {
+                text: aiReplyText.slice(0, 1000),
+                hasCode: false,
+                sender: targetRecipientId,
+                createdAt: new Date(),
+              };
+              const uKey = userId.toString();
+              const curUnread = conv.unreadCounts?.get(uKey) || 0;
+              if (conv.unreadCounts) {
+                conv.unreadCounts.set(uKey, curUnread + 1);
+              }
+              await conv.save();
+
+              broadcastTypingStatus(conv._id, targetRecipientId, false, userId);
+              broadcastChatMessage(conv._id, aiMessage, userId, targetRecipientId);
+            }
+          } catch (aiErr) {
+            console.error('Socket AI chat error:', aiErr);
+            broadcastTypingStatus(conv._id, targetRecipientId, false, userId);
+          }
+        })();
       } catch (sendErr) {
         console.error('Socket chat:send_message error:', sendErr);
         if (typeof callback === 'function') callback({ error: sendErr.message });
@@ -992,15 +1045,19 @@ async function broadcastChatMessage(conversationId, message, recipientId, sender
 }
 
 // Helper to broadcast typing indicator
-function broadcastTypingStatus(conversationId, userId, isTyping) {
+function broadcastTypingStatus(conversationId, userId, isTyping, recipientId) {
   if (!ioInstance) return;
   const convIdStr = conversationId?.toString();
+  const payload = {
+    conversationId: convIdStr,
+    userId: userId?.toString(),
+    isTyping: Boolean(isTyping),
+  };
   if (convIdStr) {
-    ioInstance.to(`conv:${convIdStr}`).emit('chat:typing', {
-      conversationId: convIdStr,
-      userId: userId?.toString(),
-      isTyping: Boolean(isTyping),
-    });
+    ioInstance.to(`conv:${convIdStr}`).emit('chat:typing', payload);
+  }
+  if (recipientId) {
+    ioInstance.to(`user:${recipientId.toString()}`).emit('chat:typing', payload);
   }
 }
 

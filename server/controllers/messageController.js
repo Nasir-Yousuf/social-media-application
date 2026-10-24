@@ -150,10 +150,14 @@ exports.startConversation = async (req, res) => {
     const currentUserId = req.user._id;
 
     let targetUser = null;
-    if (recipientId) {
-      targetUser = await User.findById(recipientId).select('name username avatarUrl role status');
-    } else if (recipientUsername) {
-      targetUser = await User.findOne({ username: recipientUsername.toLowerCase() }).select('name username avatarUrl role status');
+    if (recipientId && mongoose.Types.ObjectId.isValid(recipientId)) {
+      targetUser = await User.findById(recipientId).select('name username avatarUrl role status isAi');
+    }
+    if (!targetUser && recipientUsername) {
+      targetUser = await User.findOne({ username: recipientUsername.toLowerCase() }).select('name username avatarUrl role status isAi');
+    }
+    if (!targetUser && recipientId && typeof recipientId === 'string') {
+      targetUser = await User.findOne({ username: recipientId.toLowerCase() }).select('name username avatarUrl role status isAi');
     }
 
     if (!targetUser) {
@@ -167,7 +171,7 @@ exports.startConversation = async (req, res) => {
     // Look for existing conversation between these 2 users
     let conversation = await Conversation.findOne({
       participants: { $all: [currentUserId, targetUser._id], $size: 2 },
-    }).populate('participants', 'name username avatarUrl role status');
+    }).populate('participants', 'name username avatarUrl role status isAi');
 
     if (!conversation) {
       conversation = new Conversation({
@@ -183,7 +187,7 @@ exports.startConversation = async (req, res) => {
         ]),
       });
       await conversation.save();
-      await conversation.populate('participants', 'name username avatarUrl role status');
+      await conversation.populate('participants', 'name username avatarUrl role status isAi');
     }
 
     const isAi = targetUser?.username === 'ai' || targetUser?.role === 'ai' || targetUser?.isAi;
@@ -212,10 +216,11 @@ exports.startConversation = async (req, res) => {
 // Send message
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, recipientId, text, codeSnippet } = req.body;
+    const { conversationId, recipientId, text, content, message: bodyMessage, codeSnippet } = req.body;
     const currentUserId = req.user._id;
 
-    const trimmedText = text ? text.trim().slice(0, 1000) : '';
+    const rawText = text || content || bodyMessage || '';
+    const trimmedText = typeof rawText === 'string' ? rawText.trim().slice(0, 1000) : '';
     const hasValidCode =
       codeSnippet &&
       codeSnippet.code &&
@@ -229,19 +234,29 @@ exports.sendMessage = async (req, res) => {
 
     if (conversationId) {
       conversation = await Conversation.findById(conversationId);
-    } else if (recipientId) {
-      conversation = await Conversation.findOne({
-        participants: { $all: [currentUserId, recipientId], $size: 2 },
-      });
-      if (!conversation) {
-        conversation = new Conversation({
-          participants: [currentUserId, recipientId],
-          unreadCounts: new Map([
-            [currentUserId.toString(), 0],
-            [recipientId.toString(), 0],
-          ]),
+    }
+    
+    if (!conversation && recipientId) {
+      let targetId = recipientId;
+      if (!mongoose.Types.ObjectId.isValid(recipientId)) {
+        const u = await User.findOne({ username: String(recipientId).toLowerCase() });
+        if (u) targetId = u._id;
+      }
+
+      if (targetId && mongoose.Types.ObjectId.isValid(targetId)) {
+        conversation = await Conversation.findOne({
+          participants: { $all: [currentUserId, targetId], $size: 2 },
         });
-        await conversation.save();
+        if (!conversation) {
+          conversation = new Conversation({
+            participants: [currentUserId, targetId],
+            unreadCounts: new Map([
+              [currentUserId.toString(), 0],
+              [targetId.toString(), 0],
+            ]),
+          });
+          await conversation.save();
+        }
       }
     }
 
@@ -330,8 +345,8 @@ exports.sendMessage = async (req, res) => {
       try {
         const recipientDoc = await User.findById(targetRecipientId).select('name username role isAi');
         if (recipientDoc && (recipientDoc.username === 'ai' || recipientDoc.role === 'ai' || recipientDoc.isAi)) {
-          // 1. Emit typing indicator to conversation room
-          broadcastTypingStatus(conversation._id, targetRecipientId, true);
+          // 1. Emit typing indicator to conversation room & recipient
+          broadcastTypingStatus(conversation._id, targetRecipientId, true, currentUserId);
 
           // 2. Fetch past context (up to 10 recent messages)
           const history = await Message.find({ conversation: conversation._id })
@@ -373,18 +388,19 @@ exports.sendMessage = async (req, res) => {
           await conversation.save();
 
           // 6. Turn off typing indicator & broadcast message
-          broadcastTypingStatus(conversation._id, targetRecipientId, false);
+          broadcastTypingStatus(conversation._id, targetRecipientId, false, currentUserId);
           broadcastChatMessage(conversation._id, aiMessage, currentUserId, targetRecipientId);
         }
       } catch (aiErr) {
         console.error('Async AI chat reply error:', aiErr);
-        broadcastTypingStatus(conversation._id, targetRecipientId, false);
+        broadcastTypingStatus(conversation._id, targetRecipientId, false, currentUserId);
       }
     })();
 
     return res.status(201).json({
-      message: 'Message delivered.',
+      message: message,
       data: message,
+      success: true,
     });
   } catch (err) {
     console.error('sendMessage error:', err);

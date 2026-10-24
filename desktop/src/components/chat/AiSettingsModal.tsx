@@ -84,21 +84,21 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="w-full max-w-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-lg bg-white dark:bg-[#121519] border border-neutral-200 dark:border-[#242930] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="relative px-6 pt-6 pb-4 border-b border-neutral-100 dark:border-neutral-800 bg-gradient-to-r from-sky-500/10 via-purple-500/10 to-pink-500/10">
+        <div className="relative px-6 pt-6 pb-4 border-b border-neutral-100 dark:border-[#242930] bg-gradient-to-r from-sky-500/10 via-emerald-500/5 to-transparent">
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-5 right-5 p-2 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+            className="absolute top-5 right-5 p-2 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-[#1a1e24] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-purple-500/20 shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 shrink-0">
               <Sparkles className="w-6 h-6 animate-pulse" />
             </div>
             <div>
@@ -136,7 +136,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
                 onChange={(e) => setCustomName(e.target.value)}
                 maxLength={40}
                 placeholder="e.g. Maya, Sara, Aarav"
-                className="w-full px-4 py-2.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-700 text-sm font-bold text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500 transition-all"
+                className="w-full px-4 py-2.5 rounded-2xl bg-neutral-100 dark:bg-[#1a1e24] border border-neutral-200 dark:border-[#242930] text-sm font-bold text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
               />
             </div>
           </div>
@@ -159,13 +159,13 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
                     }}
                     className={`p-3 text-left rounded-2xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-purple-500 bg-purple-500/10 text-purple-950 dark:text-purple-200 shadow-xs'
-                        : 'border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 text-neutral-800 dark:text-neutral-200'
+                        ? 'border-sky-500 bg-sky-500/10 dark:bg-sky-500/15 text-sky-950 dark:text-sky-200 ring-1 ring-sky-500/30 shadow-xs'
+                        : 'border-neutral-200 dark:border-[#242930] hover:bg-neutral-50 dark:hover:bg-[#1a1e24] text-neutral-800 dark:text-neutral-200'
                     }`}
                   >
                     <div className="text-xs font-black flex items-center justify-between">
                       <span>{p.label}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-500" />}
                     </div>
                     <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-snug">
                       {p.desc}
@@ -181,7 +181,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
                 type="button"
                 onClick={() => setIsCustomRel(true)}
                 className={`text-xs font-bold cursor-pointer transition-colors ${
-                  isCustomRel ? 'text-purple-600 dark:text-purple-400' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                  isCustomRel ? 'text-sky-500' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                 }`}
               >
                 + Define custom relationship / persona
@@ -193,7 +193,7 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
                   onChange={(e) => setRelationship(e.target.value)}
                   placeholder="e.g. Caring older sister, late-night philosopher"
                   maxLength={50}
-                  className="mt-2 w-full px-4 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800/70 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  className="mt-2 w-full px-4 py-2 rounded-xl bg-neutral-100 dark:bg-[#1a1e24] border border-neutral-200 dark:border-[#242930] text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-hidden focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                 />
               )}
             </div>
@@ -213,17 +213,17 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
                     key={l.id}
                     type="button"
                     onClick={() => setLanguagePref(l.id as any)}
-                    className={`p-2.5 text-left rounded-2xl border transition-all cursor-pointer ${
+                    className={`p-3 text-left rounded-2xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'border-sky-500 bg-sky-500/10 text-sky-950 dark:text-sky-200 shadow-xs'
-                        : 'border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 text-neutral-800 dark:text-neutral-200'
+                        ? 'border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-950 dark:text-emerald-200 ring-1 ring-emerald-500/30 shadow-xs'
+                        : 'border-neutral-200 dark:border-[#242930] hover:bg-neutral-50 dark:hover:bg-[#1a1e24] text-neutral-800 dark:text-neutral-200'
                     }`}
                   >
-                    <div className="text-xs font-bold flex items-center justify-between">
+                    <div className="text-xs font-black flex items-center justify-between">
                       <span>{l.label}</span>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-sky-500" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500" />}
                     </div>
-                    <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-snug">
                       {l.desc}
                     </p>
                   </button>
@@ -232,22 +232,23 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Modal Footer Actions */}
-          <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-end gap-3">
+          {/* Modal Footer Buttons */}
+          <div className="pt-4 border-t border-neutral-100 dark:border-[#242930] flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-5 py-2.5 rounded-full text-xs font-bold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-[#1a1e24] transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-500/25 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-sky-500/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
             >
-              {saving ? 'Saving...' : 'Save AI Personality ✨'}
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{saving ? 'Saving...' : 'Save Settings'}</span>
             </button>
           </div>
         </form>

@@ -214,6 +214,7 @@ export const MessagesPage = () => {
   // Fetch messages for a specific conversation without wiping pending optimistic messages
   const fetchMessages = useCallback(async (convId, silent = false) => {
     if (!silent) setLoadingMessages(true);
+    socketService.emit('chat:join', { conversationId: convId });
     try {
       const res = await api.get(`/messages/conversations/${convId}`);
       const serverMessages = res.data.messages || [];
@@ -955,8 +956,8 @@ export const MessagesPage = () => {
                           {conv.otherUser?.name || 'Classmate'}
                         </span>
                         {(conv.otherUser?.username === 'ai' || conv.otherUser?.isAi) ? (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-black bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 shrink-0 flex items-center gap-0.5">
-                            <Sparkles className="w-2.5 h-2.5" />
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-black bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0 flex items-center gap-0.5">
+                            <Sparkles className="w-2.5 h-2.5 text-sky-500" />
                             <span>AI</span>
                           </span>
                         ) : (
@@ -1071,8 +1072,8 @@ export const MessagesPage = () => {
                       {activeConversation.otherUser?.name || 'Classmate'}
                     </NavLink>
                     {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 shrink-0 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-purple-500 animate-pulse" />
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 shrink-0 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-sky-500 animate-pulse" />
                         <span>{activeConversation.customAiSettings?.relationship ? `${activeConversation.customAiSettings.relationship}` : 'AI Companion'}</span>
                       </span>
                     ) : activeConversation.otherUser?.role === 'admin' ? (
@@ -1087,8 +1088,8 @@ export const MessagesPage = () => {
                     </span>
                     <span className="text-neutral-300 dark:text-neutral-700">·</span>
                     {(activeConversation.otherUser?.username === 'ai' || activeConversation.otherUser?.isAi) ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] text-purple-600 dark:text-purple-400 font-bold shrink-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                      <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] text-sky-600 dark:text-sky-400 font-bold shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
                         <span>Always here for you</span>
                       </span>
                     ) : (
@@ -1107,10 +1108,10 @@ export const MessagesPage = () => {
                   <button
                     type="button"
                     onClick={() => setShowAiModal(true)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-sky-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer mr-1"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-600 dark:text-sky-400 text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer mr-1"
                     title="Customize Name, Personality & Language"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                    <Sparkles className="w-3.5 h-3.5 text-sky-500" />
                     <span className="hidden sm:inline">Customize AI</span>
                   </button>
                 )}
@@ -1418,9 +1419,9 @@ export const MessagesPage = () => {
                       {activeConversation?.otherUser?.name || 'AI'} is typing
                     </span>
                     <span className="flex gap-1 items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-bounce [animation-delay:-0.3s]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-bounce [animation-delay:-0.15s]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-bounce" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:-0.3s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:-0.15s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce" />
                     </span>
                   </div>
                 </div>
@@ -1666,18 +1667,18 @@ export const MessagesPage = () => {
                   };
                   handleStartChatWithMember(aiMember);
                 }}
-                className="p-3 mb-2 rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-sky-500/10 border border-purple-500/25 hover:border-purple-500/50 flex items-center justify-between transition-all cursor-pointer group"
+                className="p-3 mb-2 rounded-2xl bg-gradient-to-r from-sky-500/10 via-emerald-500/5 to-transparent border border-sky-500/20 hover:border-sky-500/40 flex items-center justify-between transition-all cursor-pointer group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform shrink-0">
-                    <Sparkles className="w-5 h-5 animate-pulse" />
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform shrink-0">
+                    <Sparkles className="w-5 h-5 animate-pulse text-white" />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="font-black text-xs sm:text-sm text-neutral-900 dark:text-neutral-100">
                         Clearfeed AI Companion
                       </span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-purple-500/20 text-purple-600 dark:text-purple-300">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-sky-500/20 text-sky-600 dark:text-sky-300">
                         24/7 Friend
                       </span>
                     </div>
@@ -1688,7 +1689,7 @@ export const MessagesPage = () => {
                 </div>
                 <button
                   type="button"
-                  className="px-3 py-1.5 rounded-full bg-purple-600 text-white font-bold text-xs shadow-xs hover:bg-purple-500 shrink-0"
+                  className="px-3 py-1.5 rounded-full bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-xs shrink-0 cursor-pointer transition-colors"
                 >
                   Chat ✨
                 </button>

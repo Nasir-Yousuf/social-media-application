@@ -34,12 +34,14 @@ export interface Conversation {
   };
   customAiSettings?: CustomAiSettings;
   lastMessage?: {
+    text?: string;
     content?: string;
+    hasCode?: boolean;
     sender?: {
       _id: string;
       name: string;
       username: string;
-    };
+    } | string;
     createdAt?: string;
   };
   unreadCount?: number;
@@ -54,9 +56,12 @@ export interface ChatMessage {
     name: string;
     username: string;
     avatarUrl?: string;
+    isAi?: boolean;
+    role?: string;
   };
   recipient?: string;
-  content: string;
+  text?: string;
+  content?: string;
   codeSnippet?: {
     code: string;
     language: string;
