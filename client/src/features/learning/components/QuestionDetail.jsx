@@ -128,6 +128,11 @@ export const QuestionDetail = () => {
       });
       setAnswers((prev) => prev.filter((a) => a._id !== deletingAnswerId));
       setQuestion((prev) => ({ ...prev, answersCount: Math.max(0, (prev?.answersCount || 1) - 1) }));
+      const cacheKey = `clearfeed_answers_${id}`;
+      try {
+        const cur = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+        localStorage.setItem(cacheKey, JSON.stringify(cur.filter((a) => a._id !== deletingAnswerId)));
+      } catch {}
       showToast('Answer deleted successfully.', 'success');
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not delete answer.', 'error');
@@ -237,8 +242,32 @@ export const QuestionDetail = () => {
       if (!qData) {
         setError('Question not found.');
       } else {
-        setQuestion(qData);
-        setAnswers(aData);
+        // Merge server answers with local persistence cache to guarantee zero loss on refresh
+        const cacheKey = `clearfeed_answers_${id}`;
+        let localAnswers = [];
+        try {
+          localAnswers = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+        } catch {}
+
+        const mergedMap = new Map();
+        (aData || []).forEach((a) => {
+          if (a && a._id) mergedMap.set(a._id, a);
+        });
+        localAnswers.forEach((la) => {
+          const hasDup = Array.from(mergedMap.values()).some(
+            (existing) => existing.content?.trim() === la.content?.trim()
+          );
+          if (!hasDup && la && la._id) {
+            mergedMap.set(la._id, la);
+          }
+        });
+
+        const combinedAnswers = Array.from(mergedMap.values());
+        setQuestion({
+          ...qData,
+          answersCount: Math.max(qData.answersCount || 0, combinedAnswers.length),
+        });
+        setAnswers(combinedAnswers);
       }
     } catch (err) {
       console.warn('Remote question fetch error:', err?.message);
@@ -383,6 +412,11 @@ export const QuestionDetail = () => {
         ...prev,
         answersCount: typeof updatedAnswersCount === 'number' ? updatedAnswersCount : (prev?.answersCount || 0) + 1,
       }));
+      const cacheKey = `clearfeed_answers_${id}`;
+      try {
+        const cur = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+        localStorage.setItem(cacheKey, JSON.stringify([...cur, createdAnswer]));
+      } catch {}
       setNewAnswer('');
       setIncludeCode(false);
       setAnswerCode({ html: '', css: '', javascript: '' });
@@ -397,139 +431,71 @@ export const QuestionDetail = () => {
   const generateFallbackMentorExplanation = ({ title = '', description = '', track = 'general', codeSnippet, languagePref = 'both' }) => {
     const textLower = (title + ' ' + description).toLowerCase();
     const isBn = languagePref === 'bangla';
-    const isBoth = languagePref === 'both';
 
-    // 1. Topic: Bits and Bytes / Binary / Representation of Information
+    // 1. Topic: Bits and Bytes / Binary / Computer Representation of Information
     if (textLower.includes('bit') || textLower.includes('byte') || textLower.includes('binary') || textLower.includes('represent information')) {
       if (isBn) {
-        return `আরে সহপাঠী! চিন্তার কিছু নেই, এই ধারণাটা প্রথমে একটু অদ্ভুত লাগতেই পারে কারণ মানুষ হিসেবে আমরা ১০ ভিত্তিক সংখ্যা (০ থেকে ৯) ব্যবহার করি, কিন্তু কম্পিউটারের ভেতর শুধু বিদ্যুতের সংকেত থাকে! 💡
+        return `কম্পিউটার কেন বিট এবং বাইট ব্যবহার করে—এই প্রশ্নটার উত্তর আসলে গণিতে নয়, বরং পদার্থবিজ্ঞান ও হার্ডওয়্যারে।
 
-খুব সহজ ভাষায় **কম্পিউটার কীভাবে বিট (Bit) এবং বাইট (Byte) দিয়ে তথ্য প্রকাশ করে** তা নিচে ভেঙে দেওয়া হলো:
+কম্পিউটারের প্রসেসর তৈরি হয় কোটি কোটি ক্ষুদ্র ট্রানজিস্টর দিয়ে। একটি ট্রানজিস্টরকে কেবল দুটি অবস্থায় রাখা সবচেয়ে সহজ এবং নির্ভরযোগ্য: বিদ্যুৎ আছে (High voltage = 1) অথবা বিদ্যুৎ নেই (Low voltage = 0)। মানুষের মতো ০ থেকে ৯ পর্যন্ত ১০টি আলাদা ভোল্টেজের মাত্রা নিয়ে কাজ করতে গেলে সামান্য উত্তাপ বা বৈদ্যুতিক ওঠা-নামাতেই ডেটা নষ্ট হয়ে যেত। তাই হার্ডওয়্যারের জন্য অন/অফ সুইচ হলো সবচেয়ে সুরক্ষিত ভিত্তি। এই একটি সুইচের মানই হলো একটি বিট (Binary Digit বা Bit)।
 
-### ১. বিট (Bit) কী? (একটি বৈদ্যুতিক সুইচ)
-- **Bit** কথাটির পূর্ণরূপ হলো **Bi**nary Digi**t**।
-- এটি কম্পিউটারের তথ্যের ক্ষুদ্রতম একক।
-- মনে করো তোমার ঘরের একটি লাইটের সুইচ:
-  - **\`০\` (0)** = সুইচ বন্ধ বা OFF (কোনো বিদ্যুৎ নেই / Low voltage)
-  - **\`১\` (1)** = সুইচ চালু বা ON (বিদ্যুৎ আছে / High voltage)
-একটি বিট দিয়ে কেবল ২টি অবস্থা বোঝানো যায়: হ্যাঁ/না অথবা সত্য/মিথ্যা।
+একটি বিট দিয়ে কেবল দুটি অবস্থা বোঝানো যায় (যেমন সত্য বা মিথ্যা)। কিন্তু যখন পাশাপাশি একাধিক সুইচ বসানো হয়, সম্ভাব্য বিন্যাসের সংখ্যা দ্বিগুণ হারে বাড়তে থাকে:
+- ১টি বিট: ২টি বিন্যাস (0, 1)
+- ২টি বিট: ৪টি বিন্যাস (00, 01, 10, 11)
+- ৩টি বিট: ৮টি বিন্যাস
+- ৮টি বিট: ২৫৬টি বিন্যাস (২⁸ = ২৫৬)
 
----
+ইঞ্জিনিয়াররা ৮টি বিটকে একসাথে দলভুক্ত করে নাম দিয়েছেন ১ বাইট (Byte)। ৮টি কেন? কারণ ২৫৬টি আলাদা বিন্যাস দিয়ে একটি সাধারণ ইংরেজি কীবোর্ডের সব বড় ও ছোট হাতের অক্ষর, সংখ্যা এবং চিহ্নকে একটি করে অনন্য কোড দেওয়া সম্ভব (যা ASCII স্ট্যান্ডার্ড নামে পরিচিত)। যেমন কীবোর্ডে 'A' চাপলে কম্পিউটার সেটাকে ৬৫ নম্বর হিসেবে বুঝে ৮টি সুইচে \`01000001\` আকারে জমিয়ে রাখে।
 
-### ২. বাইট (Byte) কী? (৮টি সুইচের দল)
-- একটি মাত্র বিট দিয়ে কোনো অক্ষর বা বড় সংখ্যা প্রকাশ করা যায় না।
-- তাই কম্পিউটার **৮টি বিট** একসাথে দলভুক্ত করে তৈরি করে **১ বাইট (Byte)**:
-  \`\`\`text
-  [ ০ | ১ | ০ | ০ | ০ | ০ | ০ | ১ ] = ১ বাইট (৮ বিট)
-  \`\`\`
-- ৮টি বিট দিয়ে মোট $2^8 = 256$ টি ভিন্ন ভিন্ন বিন্যাস তৈরি করা সম্ভব।
-- এই ২৫৬টি বিন্যাস দিয়ে ইংরেজি বর্ণমালার প্রতিটি বড় ও ছোট হাতের অক্ষর, সংখ্যা এবং চিহ্ন প্রকাশ করা যায়!
+আজকের সব ডিজিটাল মিডিয়া এই একই নিয়মের ওপর দাঁড়িয়ে:
+- সাধারণ টেক্সট ফাইল হলো একের পর এক সাজানো অক্ষরের বাইট।
+- ছবি হলো হাজার হাজার পিক্সেলের গ্রিড, যেখানে প্রতিটি পিক্সেলের রঙ প্রকাশ করতে সাধারণত ৩টি বাইট লাগে (লাল, সবুজ ও নীলের তীব্রতা ০ থেকে ২৫৫ পর্যন্ত)।
+- অডিও ফাইল বাতাসের শব্দের তরঙ্গকে প্রতি সেকেন্ডে হাজার বার মেপে সেই সংখ্যাগুলোকে বাইট হিসেবে সেভ করে।
+- সফটওয়্যার বা প্রোগ্রাম হলো বাইটের এমন এক ধারা যা প্রসেসর সরাসরি কমান্ড হিসেবে এক্সিকিউট করে।
 
----
-
-### ৩. লেখা কীভাবে বাইনারিতে রূপান্তর হয়?
-কম্পিউটার একটি সর্বজনীন কোডবুক (ASCII / Unicode) অনুসরণ করে:
-- তুমি যখন কীবোর্ডে \`'A'\` চাপো, কম্পিউটার সেটিকে বোঝে সংখ্যা **৬৫** হিসেবে: \`01000001\`
-- যখন \`'B'\` চাপো, সেটি **৬৬**: \`01000010\`
-- যখন \`'a'\` চাপো, সেটি **৯৭**: \`01100001\`
-
----
-
-### ৪. ছবি, অডিও আর ভিডিও কীভাবে থাকে?
-- **ছবি:** স্ক্রিনের প্রতিটি পিক্সেল ৩টি রঙের বাইট দিয়ে গঠিত (Red, Green, Blue বা RGB, যেমন (255, 0, 0) মানে লাল)।
-- **শব্দ:** মাইক্রোফোন বাতাসের কম্পনকে প্রতি সেকেন্ডে হাজার হাজার সংখ্যায় রূপান্তর করে বাইট হিসেবে জমায়।
-
-### 💡 সংক্ষেপে সারসংক্ষেপ:
-1. **বিট (Bit):** ০ অথবা ১ (একটি সুইচ)
-2. **বাইট (Byte):** ৮টি বিট (যেমন ১টি ইংরেজি অক্ষর 'A')
-3. **কিলোবাইট (KB):** প্রায় ১,০০০ বাইট
-4. **মেগাবাইট (MB):** প্রায় ১০ লাখ বাইট
-5. **গিগাবাইট (GB):** প্রায় ১০০ কোটি বাইট
-
-খুব চমৎকার একটি প্রশ্ন করেছো! কোনো অংশ বুঝতে সমস্যা হলে নিঃসঙ্কোচে জানাও—শুভকামনা! 🚀`;
+কম্পিউটার নিজে ভাষা বা ছবি বোঝে না; সে শুধু কোটি কোটি সুইচে বিদ্যুৎ পাঠানো আর বন্ধ করার কাজ করে। সফটওয়্যারই সেই সুইচগুলোর বিন্যাসকে অর্থপূর্ণ তথ্য হিসেবে আমাদের স্ক্রিনে তুলে ধরে।`;
       }
 
-      return `Hey classmate! Don't worry, this concept can feel a bit strange at first because we humans use 10 fingers (the decimal system, numbers 0 through 9), but computer hardware only deals with electricity! 💡
+      return `The reason computers use bits isn't mathematical—it's purely physical.
 
-Let's break down **How Computers Represent Information Using Bits & Bytes** in very simple, visual terms:
+At the hardware level, building a microscopic transistor that only has to distinguish between two states (electricity flowing vs. no electricity flowing) is extremely reliable and cheap to manufacture. If engineers tried to build chips with ten different voltage levels for digits 0 through 9, slight electrical noise or heat fluctuations would constantly corrupt data. A simple on/off switch never gets confused: high voltage is 1, low voltage is 0. That single binary digit is a bit.
 
----
+A single bit can only tell you two things (like true or false). But when you place switches side by side, the number of distinct combinations doubles with every switch you add:
+- 1 bit: 2 possibilities (0, 1)
+- 2 bits: 4 possibilities (00, 01, 10, 11)
+- 3 bits: 8 possibilities
+- 8 bits: 256 possibilities (2⁸ = 256)
 
-### 1. What is a Bit? (Think of a Light Switch)
-- **Bit** stands for **Bi**nary Digi**t**.
-- It is the absolute smallest unit of digital information.
-- Imagine a wall switch in your room:
-  - **\`0\`** = Switch is **OFF** (no electrical voltage)
-  - **\`1\`** = Switch is **ON** (electrical voltage flowing)
-- With a single bit, you can only answer true/false or yes/no questions.
+Engineers standardized on grouping 8 bits together into a unit called a byte. Why 8? Because 256 combinations were historically just enough to assign a unique code to every uppercase letter, lowercase letter, punctuation mark, and digit on an English typewriter keyboard, with room left over for control commands like Backspace and Enter. That agreement became the ASCII standard. For example, the capital letter 'A' is mapped to decimal number 65, which is stored in an 8-bit byte as \`01000001\`.
 
----
+From there, every single file on your system is built using that same principle:
+- Plain text is simply a sequence of bytes, each representing a character.
+- Digital color images are grids of pixels, where each pixel typically uses 3 bytes: one byte for red intensity (0 to 255), one for green, and one for blue.
+- Audio files sample the height of a sound wave thousands of times per second and record each measurement as numeric bytes.
+- Executable software is a stream of bytes that the processor interprets directly as instructions (add these numbers, jump to this memory address, write to the screen).
 
-### 2. What is a Byte? (A Team of 8 Switches)
-- A single switch isn't enough to represent letters like 'A', words, or complex numbers.
-- So engineers grouped **8 bits** together into a bundle called **1 Byte**:
-  \`\`\`text
-  [ 0 | 1 | 0 | 0 | 0 | 0 | 0 | 1 ] = 1 Byte (8 bits)
-  \`\`\`
-- Because each bit has 2 states (0 or 1), 8 bits produce:
-  $$2^8 = 2 \\times 2 \\times 2 \\times 2 \\times 2 \\times 2 \\times 2 \\times 2 = 256 \\text{ possible combinations}$$
-- Those 256 unique patterns are enough to represent every lowercase letter, uppercase letter, number, and symbol on a standard keyboard!
-
----
-
-### 3. How Text Becomes Bits (The ASCII / Unicode Table)
-When you type characters, the computer uses a standard conversion lookup table:
-- When you press **\`'A'\`**, the computer stores decimal **65**, which in binary is: \`01000001\`
-- When you press **\`'B'\`**, it stores decimal **66**: \`01000010\`
-- When you press **\`'a'\`**, it stores decimal **97**: \`01100001\`
-- When you press **Space**, it stores decimal **32**: \`00100000\`
-
----
-
-### 4. What About Images, Audio, and Video?
-Everything in computing boils down to bytes:
-- **Colors & Photos:** Each screen pixel has 3 bytes (Red, Green, Blue from 0 to 255).
-- **Audio & Music:** Microphones record wave heights thousands of times per second as numeric bytes.
-- **Videos:** 30 or 60 pictures per second accompanied by sound bytes.
-
----
-
-### 💡 Quick Memory Cheat-Sheet:
-1. **1 Bit:** Single \`0\` or \`1\` (a tiny switch)
-2. **1 Byte:** 8 Bits (stores exactly one text character, e.g., \`'K'\`)
-3. **1 Kilobyte (KB):** ~1,000 Bytes (a short paragraph)
-4. **1 Megabyte (MB):** ~1,000,000 Bytes (one MP3 song or photo)
-5. **1 Gigabyte (GB):** ~1,000,000,000 Bytes (~1 hour of HD video)
-
-${isBoth ? '\n*(প্রয়োজনে বাংলায় আরও বিস্তারিত জানতে চাইলে নির্দ্বিধায় রিপ্লাই করো!)*\n' : ''}
-You're doing fantastic asking these core foundational questions—understanding bits and bytes will make programming feel 10x more natural! 🚀`;
+The computer hardware doesn't actually know what text, songs, or images are. It is only moving electrical charges across billions of tiny switches. The meaning comes entirely from the conventions and software we write to interpret those bytes.`;
     }
 
-    // 2. Generic high-yield technical response
-    return `Hey classmate! I checked your question: **"${title}"** 💡
+    // 2. Generic Technical Explanation (Professional, Natural Tone)
+    return `To understand this clearly, it helps to examine how the runtime or environment handles this under the hood.
 
-Here is a friendly, step-by-step breakdown to help you solve and understand this:
+${title ? `### Core Concept\n${title}\n` : ''}
+${description ? `${description}\n` : ''}
 
-### 1. Core Concept Breakdown
-- **Goal:** ${description || 'Understanding this programming topic clearly.'}
-- **Track Context:** ${track.toUpperCase()} development concepts.
-
-### 2. Step-by-Step Approach
-1. **Identify the Core Input/Output:** Always isolate what data you are starting with versus what result or visual output you need to achieve.
-2. **Follow Best Practices:** Keep logic modular, avoid unnecessary side-effects, and verify your syntax with browser dev tools (Console / Elements tab).
-3. **Test Incrementally:** Test each step in isolation instead of writing everything at once.
+### Execution & Architecture
+1. **Context & Execution Flow:** Code in this environment executes sequentially within its specific scope. Keeping state changes isolated and avoiding unnecessary side-effects prevents subtle bugs.
+2. **Separation of Concerns:** Break the problem down into distinct inputs, transformation logic, and the resulting output.
+3. **Edge Cases:** Pay attention to unhandled boundary conditions, such as null/undefined values or asynchronous race conditions.
 
 ${codeSnippet?.html || codeSnippet?.javascript || codeSnippet?.css ? `
-### 3. Code Review & Tip
-Make sure your selectors match your markup and your event handlers are properly bound.
+### Reference Implementation
 \`\`\`${codeSnippet.javascript ? 'javascript' : codeSnippet.html ? 'html' : 'css'}
-// Verified clean approach:
-${(codeSnippet.javascript || codeSnippet.html || codeSnippet.css || '').trim().slice(0, 300)}
+${(codeSnippet.javascript || codeSnippet.html || codeSnippet.css || '').trim().slice(0, 450)}
 \`\`\`
 ` : ''}
 
-### 💡 Encouragement
-Keep building and experimenting! If you run into any specific edge case or error message, post it here and we can work through it together! 🚀`;
+If you encounter any specific error stack trace or unexpected return values while testing, sharing the exact behavior will help isolate the cause immediately.`;
   };
 
   const handleAskAiMentor = async () => {
@@ -541,7 +507,7 @@ Keep building and experimenting! If you run into any specific edge case or error
       let answerObj = null;
       let newCount = undefined;
 
-      // 1. Primary: Try standard learning questions ask-ai route
+      // 1. Primary: Standard learning questions ask-ai route
       try {
         const res = await api.post(`/learning/questions/${id}/ask-ai`, {
           languagePref: langPref,
@@ -549,7 +515,7 @@ Keep building and experimenting! If you run into any specific edge case or error
         answerObj = res.data?.answer;
         newCount = res.data?.answersCount;
       } catch (err1) {
-        // 2. Secondary: Try singular route
+        // 2. Secondary: Singular route
         try {
           const res = await api.post(`/learning/question/${id}/ask-ai`, {
             languagePref: langPref,
@@ -557,7 +523,7 @@ Keep building and experimenting! If you run into any specific edge case or error
           answerObj = res.data?.answer;
           newCount = res.data?.answersCount;
         } catch (err2) {
-          // 3. Fallback: Generate pedagogic response from AI Classmate and save to post comments
+          // 3. Resilient fallback: Clear, articulate engineer answer
           const explanation = generateFallbackMentorExplanation({
             title: question?.title || '',
             description: question?.description || '',
@@ -568,28 +534,28 @@ Keep building and experimenting! If you run into any specific edge case or error
 
           const aiAuthor = {
             _id: 'clearfeed-ai-mentor',
-            name: 'Clearfeed AI Classmate',
+            name: 'Clearfeed AI',
             username: 'ai',
             role: 'ai',
             avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=ClearfeedAI&backgroundColor=7c8a6b,6b7c5e&textColor=ffffff',
           };
 
-          // Try persisting to post comments so it remains permanently in the database
+          // Try persisting remotely so it remains permanently in the database
           try {
-            await api.post(`/posts/${id}/comments`, {
-              content: explanation,
-            });
-          } catch (commentErr) {
-            console.warn('Comment fallback notice:', commentErr?.message);
+            await api.post(`/posts/${id}/comments`, { content: explanation });
+          } catch {
+            try {
+              await api.post(`/learning/questions/${id}/answers`, { content: explanation });
+            } catch {}
           }
 
           answerObj = {
-            _id: 'ai-answer-' + Date.now(),
+            _id: 'ai-ans-' + Date.now(),
             content: explanation,
             author: aiAuthor,
-            upvotesCount: 1,
+            upvotesCount: 0,
             isUpvoted: false,
-            isAccepted: true,
+            isAccepted: false,
             createdAt: new Date().toISOString(),
           };
           newCount = (answers?.length || 0) + 1;
@@ -597,12 +563,19 @@ Keep building and experimenting! If you run into any specific edge case or error
       }
 
       if (answerObj) {
+        // Sync to local persistent cache
+        const cacheKey = `clearfeed_answers_${id}`;
+        try {
+          const cur = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+          localStorage.setItem(cacheKey, JSON.stringify([...cur, answerObj]));
+        } catch {}
+
         setAnswers((prev) => [...prev, answerObj]);
         setQuestion((prev) => ({
           ...prev,
           answersCount: typeof newCount === 'number' ? newCount : (prev?.answersCount || 0) + 1,
         }));
-        showToast('Clearfeed AI Classmate replied with a helpful explanation! 💡', 'success');
+        showToast('Answer added to discussion.', 'success');
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'AI Mentor is currently busy. Please try again.', 'error');

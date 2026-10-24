@@ -57,8 +57,8 @@ exports.createComment = async (req, res) => {
       return res.status(400).json({ message: 'Comment content cannot be empty.' });
     }
 
-    if (content.trim().length > 500) {
-      return res.status(400).json({ message: 'Comment cannot exceed 500 characters.' });
+    if (content.trim().length > 5000) {
+      return res.status(400).json({ message: 'Comment cannot exceed 5000 characters.' });
     }
 
     const post = await Post.findById(postId);
@@ -165,7 +165,7 @@ exports.createComment = async (req, res) => {
               const aiComment = new Comment({
                 post: postId,
                 author: aiUser._id,
-                content: aiReplyText.trim().slice(0, 500),
+                content: aiReplyText.trim().slice(0, 5000),
                 ipAddress: '127.0.0.1',
                 userAgent: 'Clearfeed-AI/1.0',
               });

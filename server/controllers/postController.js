@@ -408,7 +408,7 @@ exports.createPost = async (req, res) => {
                 const aiComment = new Comment({
                   post: post._id,
                   author: aiUser._id,
-                  content: aiReplyText.trim().slice(0, 500),
+                  content: aiReplyText.trim().slice(0, 5000),
                   ipAddress: '127.0.0.1',
                   userAgent: 'Clearfeed-AI/1.0',
                 });
