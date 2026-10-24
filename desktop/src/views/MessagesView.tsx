@@ -16,6 +16,9 @@ import {
   PenSquare,
   Users,
   Sparkles,
+  Copy,
+  Reply,
+  CornerUpLeft,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import socketService from '../services/socket';
@@ -64,6 +67,8 @@ export const MessagesView: React.FC = () => {
   const [sending, setSending] = useState<boolean>(false);
   const [showAiModal, setShowAiModal] = useState<boolean>(false);
   const [isPartnerTyping, setIsPartnerTyping] = useState<boolean>(false);
+  const [replyingTo, setReplyingTo] = useState<{ messageId: string; text: string; senderName: string; hasCode: boolean } | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeConvIdRef = useRef<string | null>(null);
@@ -268,12 +273,22 @@ export const MessagesView: React.FC = () => {
 
     const trimmedText = inputText.trim();
     const tempId = `temp-${Date.now()}`;
+    const replyToPayload = replyingTo && replyingTo.messageId
+      ? {
+          messageId: replyingTo.messageId,
+          text: replyingTo.text ? replyingTo.text.slice(0, 500) : '',
+          senderName: replyingTo.senderName || '',
+          hasCode: Boolean(replyingTo.hasCode),
+        }
+      : undefined;
+
     const payload: any = {
       conversationId: activeConversation._id,
       recipientId: activeConversation.otherUser?._id,
       text: trimmedText,
       content: trimmedText,
       tempId,
+      replyTo: replyToPayload,
     };
 
     if (showCodeEditor && codeSnippet.trim()) {
@@ -296,6 +311,7 @@ export const MessagesView: React.FC = () => {
       text: trimmedText,
       content: trimmedText,
       codeSnippet: payload.codeSnippet,
+      replyTo: replyToPayload,
       createdAt: new Date().toISOString(),
       status: 'sending',
     };
@@ -305,6 +321,7 @@ export const MessagesView: React.FC = () => {
     setCodeSnippet('');
     setShowCodeEditor(false);
     setShowEmojiPicker(false);
+    setReplyingTo(null);
     setTimeout(scrollToBottom, 30);
 
     setSending(true);
@@ -328,6 +345,71 @@ export const MessagesView: React.FC = () => {
       );
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleCopyMessage = async (msg: ChatMessage) => {
+    if (!msg) return;
+    let contentToCopy = '';
+    const mainText = msg.text || msg.content || '';
+    if (mainText && msg.codeSnippet?.code) {
+      contentToCopy = `${mainText}\n\n\`\`\`${msg.codeSnippet.language || ''}\n${msg.codeSnippet.code}\n\`\`\``;
+    } else if (mainText) {
+      contentToCopy = mainText;
+    } else if (msg.codeSnippet?.code) {
+      contentToCopy = msg.codeSnippet.code;
+    }
+    if (!contentToCopy) return;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(contentToCopy);
+      } else {
+        throw new Error('fallback');
+      }
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = contentToCopy;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      textArea.remove();
+    }
+
+    setCopiedMsgId(msg._id);
+    setTimeout(() => {
+      setCopiedMsgId((curr) => (curr === msg._id ? null : curr));
+    }, 2000);
+  };
+
+  const handleStartReply = (msg: ChatMessage) => {
+    if (!msg) return;
+    const isMe =
+      msg.sender?._id === currentUser?._id ||
+      (typeof msg.sender === 'string' && msg.sender === currentUser?._id);
+    const senderName = isMe ? 'You' : (activeConversation?.otherUser?.name || 'Classmate');
+
+    setReplyingTo({
+      messageId: msg._id,
+      text: msg.text || msg.content || (msg.codeSnippet?.code ? 'Code snippet' : ''),
+      senderName,
+      hasCode: Boolean(msg.codeSnippet?.code),
+    });
+  };
+
+  const scrollToMessage = (msgId?: string) => {
+    if (!msgId) return;
+    const el = document.getElementById(`desktop-msg-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-sky-500', 'bg-sky-950/40', 'transition-all', 'duration-300');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-sky-500', 'bg-sky-950/40');
+      }, 1500);
     }
   };
 
@@ -573,9 +655,16 @@ export const MessagesView: React.FC = () => {
                   msg.sender?._id === currentUser?._id ||
                   (typeof msg.sender === 'string' && msg.sender === currentUser?._id) ||
                   msg.status === 'sending';
+                const isOtherAi = Boolean(
+                  activeConversation?.otherUser?.username === 'ai' ||
+                  (activeConversation?.otherUser as any)?.isAi ||
+                  activeConversation?.otherUser?.role === 'ai'
+                );
+                const canDelete = isMe || isOtherAi;
                 return (
                   <div
                     key={msg._id || msg.tempId}
+                    id={msg._id ? `desktop-msg-${msg._id}` : undefined}
                     className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1 group`}
                   >
                     <div
@@ -585,6 +674,26 @@ export const MessagesView: React.FC = () => {
                           : 'bg-neutral-800 text-neutral-100 rounded-bl-xs'
                       }`}
                     >
+                      {/* Quoted Reply Preview */}
+                      {msg.replyTo && (
+                        <div
+                          onClick={() => scrollToMessage(msg.replyTo?.messageId)}
+                          className={`mb-2 p-2 rounded-lg border-l-2 text-xs cursor-pointer transition select-none ${
+                            isMe
+                              ? 'bg-sky-700/60 border-white text-white/90 hover:bg-sky-700/80'
+                              : 'bg-neutral-900/80 border-sky-400 text-neutral-300 hover:bg-neutral-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 font-semibold text-[11px] mb-0.5 text-sky-300">
+                            <CornerUpLeft className="w-3 h-3" />
+                            <span>{msg.replyTo.senderName || 'Replied message'}</span>
+                          </div>
+                          <p className="line-clamp-2 text-[11px] opacity-80 break-words font-normal">
+                            {msg.replyTo.text || 'Message'}
+                          </p>
+                        </div>
+                      )}
+
                       {(msg.text || msg.content) && <p className="whitespace-pre-wrap">{msg.text || msg.content}</p>}
 
                       {/* Attached Code Snippet */}
@@ -627,6 +736,20 @@ export const MessagesView: React.FC = () => {
 
                     {/* Reactions & Actions */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition px-1">
+                      <button
+                        onClick={() => handleStartReply(msg)}
+                        className="text-neutral-500 hover:text-sky-400 p-1 rounded transition cursor-pointer"
+                        title="Reply"
+                      >
+                        <Reply className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleCopyMessage(msg)}
+                        className="text-neutral-500 hover:text-sky-400 p-1 rounded transition cursor-pointer"
+                        title={copiedMsgId === msg._id ? "Copied!" : "Copy message"}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
                       {QUICK_EMOJIS.slice(0, 4).map((emoji) => (
                         <button
                           key={emoji}
@@ -636,11 +759,11 @@ export const MessagesView: React.FC = () => {
                           {emoji}
                         </button>
                       ))}
-                      {isMe && (
+                      {canDelete && (
                         <button
                           onClick={() => handleDeleteMessage(msg._id)}
                           className="text-neutral-500 hover:text-rose-400 p-1 rounded transition cursor-pointer"
-                          title="Delete message"
+                          title={isOtherAi && !isMe ? "Delete AI response" : "Delete message"}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -661,6 +784,31 @@ export const MessagesView: React.FC = () => {
 
           {/* Composer Box */}
           <div className="p-4 border-t border-neutral-800/80 bg-neutral-900/60 shrink-0 space-y-2">
+            {/* Replying To Banner */}
+            {replyingTo && (
+              <div className="flex items-center justify-between p-2.5 bg-neutral-950 border border-neutral-800 border-l-4 border-l-sky-500 rounded-xl text-xs">
+                <div className="flex items-start gap-2 overflow-hidden">
+                  <CornerUpLeft className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                  <div className="truncate">
+                    <p className="font-semibold text-sky-300 text-[11px]">
+                      Replying to {replyingTo.senderName}
+                    </p>
+                    <p className="text-neutral-400 text-[11px] truncate">
+                      {replyingTo.text}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyingTo(null)}
+                  className="text-neutral-500 hover:text-white p-1 rounded-lg transition shrink-0 ml-2 cursor-pointer"
+                  title="Cancel reply"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Code Snippet Editor Drawer */}
             {showCodeEditor && (
               <div className="p-3 bg-neutral-950 border border-neutral-800 rounded-xl space-y-2">

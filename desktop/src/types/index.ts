@@ -71,6 +71,12 @@ export interface ChatMessage {
     emoji: string;
     username?: string;
   }>;
+  replyTo?: {
+    messageId?: string;
+    text?: string;
+    senderName?: string;
+    hasCode?: boolean;
+  };
   isRead?: boolean;
   createdAt: string;
   tempId?: string;

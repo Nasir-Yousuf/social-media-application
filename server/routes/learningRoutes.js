@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const learningController = require('../controllers/learningController');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
+const { aiLimiter, contentCreationLimiter } = require('../middleware/rateLimiter');
 
 // Progress tracking
 router.get('/progress', optionalAuth, learningController.getProgress);
@@ -19,10 +20,10 @@ router.get('/certificate/:certificateId', optionalAuth, learningController.getCe
 router.get('/questions', optionalAuth, learningController.getQuestions);
 router.get('/question', optionalAuth, learningController.getQuestions);
 
-router.post('/questions', optionalAuth, learningController.createQuestion);
-router.post('/question', optionalAuth, learningController.createQuestion);
-router.post('/questions/create', optionalAuth, learningController.createQuestion);
-router.post('/question/create', optionalAuth, learningController.createQuestion);
+router.post('/questions', optionalAuth, contentCreationLimiter, learningController.createQuestion);
+router.post('/question', optionalAuth, contentCreationLimiter, learningController.createQuestion);
+router.post('/questions/create', optionalAuth, contentCreationLimiter, learningController.createQuestion);
+router.post('/question/create', optionalAuth, contentCreationLimiter, learningController.createQuestion);
 
 router.get('/questions/:id', optionalAuth, learningController.getQuestionById);
 router.get('/question/:id', optionalAuth, learningController.getQuestionById);
@@ -30,17 +31,17 @@ router.get('/question/:id', optionalAuth, learningController.getQuestionById);
 router.post('/questions/:id/upvote', requireAuth, learningController.toggleQuestionUpvote);
 router.post('/question/:id/upvote', requireAuth, learningController.toggleQuestionUpvote);
 
-router.post('/questions/:id/answers', requireAuth, learningController.createAnswer);
-router.post('/question/:id/answers', requireAuth, learningController.createAnswer);
-router.post('/questions/:id/answer', requireAuth, learningController.createAnswer);
-router.post('/question/:id/answer', requireAuth, learningController.createAnswer);
+router.post('/questions/:id/answers', requireAuth, contentCreationLimiter, learningController.createAnswer);
+router.post('/question/:id/answers', requireAuth, contentCreationLimiter, learningController.createAnswer);
+router.post('/questions/:id/answer', requireAuth, contentCreationLimiter, learningController.createAnswer);
+router.post('/question/:id/answer', requireAuth, contentCreationLimiter, learningController.createAnswer);
 
 router.post('/questions/:id/answers/:answerId/accept', requireAuth, learningController.acceptAnswer);
 router.post('/question/:id/answers/:answerId/accept', requireAuth, learningController.acceptAnswer);
 
-// AI Mentor Response Route
-router.post('/questions/:id/ask-ai', optionalAuth, learningController.askAiForAnswer);
-router.post('/question/:id/ask-ai', optionalAuth, learningController.askAiForAnswer);
+// AI Mentor Response Route (Protected by aiLimiter to guard API quota)
+router.post('/questions/:id/ask-ai', optionalAuth, aiLimiter, learningController.askAiForAnswer);
+router.post('/question/:id/ask-ai', optionalAuth, aiLimiter, learningController.askAiForAnswer);
 
 router.post('/answers/:id/upvote', requireAuth, learningController.toggleAnswerUpvote);
 router.post('/answer/:id/upvote', requireAuth, learningController.toggleAnswerUpvote);

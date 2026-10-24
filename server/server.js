@@ -1,16 +1,23 @@
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const mongoSanitize = require('./middleware/mongoSanitize');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
-const { connectDB } = require('./config/db');
+const { connectDB, disconnectDB } = require('./config/db');
 const seedDatabase = require('./seeds/seedData');
 const { initSocket } = require('./sockets/socketManager');
+const { corsOptions, validateSecurityEnvironment } = require('./config/security');
+const { apiLimiter } = require('./middleware/rateLimiter');
 
 // Load environment variables
 const path = require('path');
 dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
+
+// Run security validation checks on boot
+validateSecurityEnvironment();
 
 const app = express();
 const server = http.createServer(app);
@@ -20,13 +27,26 @@ const PORT = process.env.PORT || 5180;
 // Trust reverse proxies (Railway, Cloudflare, Vercel) for accurate client IP resolution
 app.set('trust proxy', true);
 
-// Middleware
-app.use(cors({
-  origin: true, // Dynamically allows requesting origin (Vercel, localhost, etc.) and supports credentials
-  credentials: true,
-}));
+// Security Headers (mitigates clickjacking, MIME sniffing, HSTS)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// CORS with strictly validated origins
+app.use(cors(corsOptions));
+
+// Request Body Parsing
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// Prevent NoSQL query injection
+app.use(mongoSanitize);
+
+// Global Rate Limiting across all API routes
+app.use('/api', apiLimiter);
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
@@ -64,12 +84,20 @@ app.use('/api/race', require('./routes/typingRoutes'));
 app.use('/race', require('./routes/typingRoutes'));
 
 
-// Secure Maintenance Purge Endpoint (for clearing dummy data on remote host without direct mongo shell)
+// Secure Maintenance Purge Endpoint (guards against accidental or unauthorized database wipes)
 app.post('/api/maintenance/clean', async (req, res) => {
-  const secret = req.headers['x-maintenance-key'] || req.query.secret || req.body?.secret;
-  const validSecrets = [process.env.COURSE_INVITE_CODE || 'CS518-2026', process.env.JWT_SECRET].filter(Boolean);
+  const isProd = process.env.NODE_ENV === 'production';
+  const configuredSecret = process.env.MAINTENANCE_SECRET_KEY;
 
-  if (!secret || !validSecrets.includes(secret)) {
+  if (isProd && !configuredSecret) {
+    return res.status(403).json({ message: 'Maintenance endpoint is disabled in production unless MAINTENANCE_SECRET_KEY is configured.' });
+  }
+
+  const secret = req.headers['x-maintenance-key'] || req.query.secret || req.body?.secret;
+  const expectedSecret = configuredSecret || (!isProd ? 'dev-clearfeed-purge-local' : null);
+
+  if (!secret || !expectedSecret || secret !== expectedSecret) {
+    console.warn(`[SECURITY] Unauthorized maintenance purge attempted from IP: ${req.ip}`);
     return res.status(403).json({ message: 'Unauthorized maintenance key.' });
   }
 
@@ -243,6 +271,32 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+// Graceful shutdown handling for process managers (Docker, Railway, PM2, Nodemon)
+const handleGracefulShutdown = async (signal) => {
+  console.log(`\n🛑 Received ${signal}. Commencing graceful server shutdown...`);
+  server.close(async () => {
+    console.log('🔒 HTTP & WebSocket server closed.');
+    try {
+      await disconnectDB();
+      console.log('🔒 MongoDB connection terminated cleanly.');
+    } catch (e) {
+      console.warn('Notice while disconnecting database:', e.message);
+    }
+    process.exit(0);
+  });
+
+  // Force shutdown if connections do not close within 8s
+  setTimeout(() => {
+    console.error('⚠️ Forcefully terminating process after timeout.');
+    process.exit(1);
+  }, 8000).unref();
+};
+
+process.on('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
 
 module.exports = { app, server };

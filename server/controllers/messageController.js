@@ -111,7 +111,7 @@ exports.getMessages = async (req, res) => {
     const messages = await Message.find({ conversation: conversationId })
       .sort({ createdAt: 1 })
       .limit(limit)
-      .select('sender recipient text codeSnippet typingChallenge isRead reactions createdAt')
+      .select('sender recipient text codeSnippet typingChallenge replyTo isRead reactions createdAt')
       .populate('reactions.user', 'name username avatarUrl')
       .populate('typingChallenge');
 
@@ -216,7 +216,7 @@ exports.startConversation = async (req, res) => {
 // Send message
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, recipientId, text, content, message: bodyMessage, codeSnippet } = req.body;
+    const { conversationId, recipientId, text, content, message: bodyMessage, codeSnippet, replyTo } = req.body;
     const currentUserId = req.user._id;
 
     const rawText = text || content || bodyMessage || '';
@@ -285,6 +285,14 @@ exports.sendMessage = async (req, res) => {
             code: codeSnippet.code.slice(0, 4000),
           }
         : undefined,
+      replyTo: replyTo && replyTo.messageId
+        ? {
+            messageId: replyTo.messageId,
+            text: typeof replyTo.text === 'string' ? replyTo.text.slice(0, 500) : '',
+            senderName: typeof replyTo.senderName === 'string' ? replyTo.senderName.slice(0, 100) : '',
+            hasCode: Boolean(replyTo.hasCode),
+          }
+        : undefined,
       isRead: false,
     });
 
@@ -348,17 +356,22 @@ exports.sendMessage = async (req, res) => {
           // 1. Emit typing indicator to conversation room & recipient
           broadcastTypingStatus(conversation._id, targetRecipientId, true, currentUserId);
 
-          // 2. Fetch past context (up to 10 recent messages)
-          const history = await Message.find({ conversation: conversation._id })
-            .sort({ createdAt: 1 })
+          // 2. Fetch past context (up to 10 most recent messages, excluding newly added message)
+          const history = await Message.find({
+            conversation: conversation._id,
+            _id: { $ne: message._id },
+          })
+            .sort({ createdAt: -1 })
             .limit(10)
             .populate('sender', 'name username role isAi');
+
+          const chronologicalHistory = history.reverse();
 
           // 3. Generate response using aiService
           const aiReplyText = await aiService.generateDirectChatReply({
             user: req.user,
             conversation,
-            recentMessages: history,
+            recentMessages: chronologicalHistory,
             userMessage: trimmedText,
           });
 
@@ -460,10 +473,22 @@ exports.deleteMessage = async (req, res) => {
       return res.status(404).json({ message: 'Conversation not found.' });
     }
 
-    // Sender or participant of the conversation can delete message to free storage
+    // Sender, conversation owner in AI chat, or admin can delete message
     const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
-    if (!message.sender.equals(currentUserId) && !isParticipant) {
+    if (!isParticipant) {
       return res.status(403).json({ message: 'You are not authorized to delete this message.' });
+    }
+
+    const isAuthor = message.sender.equals(currentUserId);
+    const otherParticipantId = conversation.participants.find((p) => !p.equals(currentUserId));
+    let isAiChat = false;
+    if (otherParticipantId) {
+      const otherUser = await User.findById(otherParticipantId).select('username role isAi');
+      isAiChat = Boolean(otherUser && (otherUser.username === 'ai' || otherUser.isAi || otherUser.role === 'ai'));
+    }
+
+    if (!isAuthor && !isAiChat && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'In peer chats, you can only delete your own messages.' });
     }
 
     await Message.findByIdAndDelete(messageId);

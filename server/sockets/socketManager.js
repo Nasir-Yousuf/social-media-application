@@ -17,12 +17,16 @@ const activeCalls = new Map();
 // Track group call rooms: roomId -> Map<userId, { user: Object, isMuted: boolean, joinedAt: Date }>
 const groupCallRooms = new Map();
 
+const { isOriginAllowed } = require('../config/security');
+
 function initSocket(server) {
   const io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
-        // Reflect requesting origin to allow cross-origin socket connections from Vercel deployments
-        callback(null, true);
+        if (isOriginAllowed(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error('Socket.IO CORS blocked: Origin not authorized.'));
       },
       methods: ['GET', 'POST'],
       credentials: true,

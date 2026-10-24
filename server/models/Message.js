@@ -41,6 +41,26 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    replyTo: {
+      messageId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Message',
+      },
+      text: {
+        type: String,
+        maxlength: 500,
+        default: '',
+      },
+      senderName: {
+        type: String,
+        maxlength: 100,
+        default: '',
+      },
+      hasCode: {
+        type: Boolean,
+        default: false,
+      },
+    },
     typingChallenge: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TypingChallenge',

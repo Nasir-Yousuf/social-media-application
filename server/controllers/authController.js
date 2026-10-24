@@ -13,20 +13,27 @@ const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
 };
 
-// Designated platform maintainers with guaranteed Admin powers
+// Designated platform maintainers with guaranteed Admin powers (STRICT exact match only)
+const DEFAULT_ADMIN_USERNAMES = ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'];
+const DEFAULT_ADMIN_EMAILS = ['sowrovsarker2003@gmail.com'];
+
 const isCoAdmin = (username = '', email = '') => {
   const cleanU = (username || '').toLowerCase().trim();
   const cleanE = (email || '').toLowerCase().trim();
-  return (
-    cleanU === 'nasir' ||
-    cleanU === 'nasiryousuf' ||
-    cleanU === 'nasir_yousuf' ||
-    cleanU.startsWith('nasir') ||
-    cleanU === 'whoissowrov' ||
-    cleanU === 'sowrov' ||
-    cleanE === 'sowrovsarker2003@gmail.com' ||
-    cleanE.startsWith('sowrov')
-  );
+
+  const envAdminUsers = (process.env.ADMIN_USERNAMES || '')
+    .split(',')
+    .map((u) => u.trim().toLowerCase())
+    .filter(Boolean);
+  const envAdminEmails = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  const allowedUsers = new Set([...DEFAULT_ADMIN_USERNAMES, ...envAdminUsers]);
+  const allowedEmails = new Set([...DEFAULT_ADMIN_EMAILS, ...envAdminEmails]);
+
+  return allowedUsers.has(cleanU) || allowedEmails.has(cleanE);
 };
 
 // Register

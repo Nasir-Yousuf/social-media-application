@@ -160,26 +160,48 @@ ${languageGuidance}
   // Format past history for Gemini
   const contents = [];
   if (Array.isArray(recentMessages)) {
-    // Keep up to 10 recent messages
     const sliced = recentMessages.slice(-10);
     for (const msg of sliced) {
-      const isAiSender = msg.sender && (msg.sender.username === 'ai' || msg.sender.isAi || msg.sender.equals?.(cachedAiUser?._id));
+      const isAiSender =
+        msg.sender &&
+        (msg.sender.username === 'ai' ||
+          msg.sender.isAi ||
+          msg.sender.role === 'ai' ||
+          (cachedAiUser &&
+            (msg.sender._id?.equals?.(cachedAiUser._id) ||
+              msg.sender.equals?.(cachedAiUser._id))));
       const role = isAiSender ? 'model' : 'user';
-      const text = msg.text || (msg.codeSnippet?.code ? `\`\`\`${msg.codeSnippet.language || ''}\n${msg.codeSnippet.code}\n\`\`\`` : '');
+      const text =
+        (msg.text || '').trim() ||
+        (msg.codeSnippet?.code
+          ? `\`\`\`${msg.codeSnippet.language || ''}\n${msg.codeSnippet.code}\n\`\`\``
+          : '');
       if (text) {
-        contents.push({
-          role,
-          parts: [{ text }],
-        });
+        if (contents.length > 0 && contents[contents.length - 1].role === role) {
+          contents[contents.length - 1].parts[0].text += `\n\n${text}`;
+        } else {
+          contents.push({
+            role,
+            parts: [{ text }],
+          });
+        }
       }
     }
   }
 
-  // Ensure current message is at the end if not already included
-  if (contents.length === 0 || contents[contents.length - 1].role !== 'user') {
+  // Gemini multi-turn chat MUST start with a 'user' turn
+  while (contents.length > 0 && contents[0].role !== 'user') {
+    contents.shift();
+  }
+
+  // ALWAYS append the current user prompt as the final active turn
+  const promptText = (userMessage || '').trim() || 'Hello!';
+  if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+    contents[contents.length - 1].parts[0].text += `\n\n${promptText}`;
+  } else {
     contents.push({
       role: 'user',
-      parts: [{ text: userMessage || 'Hello!' }],
+      parts: [{ text: promptText }],
     });
   }
 

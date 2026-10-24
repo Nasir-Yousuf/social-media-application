@@ -19,6 +19,8 @@ import {
   RotateCcw,
   Phone,
   Users,
+  Reply,
+  CornerUpLeft,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
@@ -83,6 +85,10 @@ export const MessagesPage = () => {
     reactions: [],
     messageId: null,
   });
+
+  // Message reply & copy state
+  const [replyingTo, setReplyingTo] = useState(null); // { messageId, text, senderName, hasCode }
+  const [copiedMsgId, setCopiedMsgId] = useState(null);
 
   const [conversationSearch, setConversationSearch] = useState('');
   const [convFilter, setConvFilter] = useState('all'); // 'all' | 'unread'
@@ -440,10 +446,20 @@ export const MessagesPage = () => {
         }
       : undefined;
 
+    const replyToPayload = replyingTo && replyingTo.messageId
+      ? {
+          messageId: replyingTo.messageId,
+          text: replyingTo.text ? replyingTo.text.slice(0, 500) : '',
+          senderName: replyingTo.senderName || '',
+          hasCode: Boolean(replyingTo.hasCode),
+        }
+      : undefined;
+
     const payload = {
       conversationId: activeConversation._id,
       text: trimmedText,
       codeSnippet: codeSnippetPayload,
+      replyTo: replyToPayload,
     };
 
     // 1. Instant optimistic message bubble (0ms perceived latency)
@@ -459,6 +475,7 @@ export const MessagesPage = () => {
       recipient: activeConversation.otherUser?._id,
       text: trimmedText,
       codeSnippet: codeSnippetPayload,
+      replyTo: replyToPayload,
       isRead: false,
       status: 'sending',
       createdAt: nowIso,
@@ -467,11 +484,12 @@ export const MessagesPage = () => {
     // 2. Append optimistic bubble to active thread immediately
     setMessages((prev) => [...prev, optimisticMessage]);
 
-    // 3. Clear text/code composer immediately so user can keep typing
+    // 3. Clear text/code composer and reply bar immediately so user can keep typing
     setInputText('');
     setSnippetCode('');
     setShowCodeEditor(false);
     setShowEmojiPicker(false);
+    setReplyingTo(null);
 
     // Reset textarea height and keep focus
     if (inputRef.current) {
@@ -564,17 +582,111 @@ export const MessagesPage = () => {
     setMessages((prev) => prev.filter((m) => m._id !== msgId));
   };
 
-  // Copy code snippet to clipboard
-  const handleCopyCode = (code) => {
-    navigator.clipboard.writeText(code);
+  // Copy code snippet to clipboard with feedback
+  const handleCopyCode = async (code) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        throw new Error('Fallback needed');
+      }
+    } catch {
+      const textArea = document.createElement('textarea');
+      textArea.value = code;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      textArea.remove();
+    }
     showToast('Code copied to clipboard', 'success');
   };
 
-  // Copy message text to clipboard
-  const handleCopyText = (text) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
+  // Copy full message (text, code, or both) with robust fallback & checkmark indicator
+  const handleCopyMessage = async (msg) => {
+    if (!msg) return;
+    let contentToCopy = '';
+    if (msg.text && msg.codeSnippet?.code) {
+      contentToCopy = `${msg.text}\n\n\`\`\`${msg.codeSnippet.language || ''}\n${msg.codeSnippet.code}\n\`\`\``;
+    } else if (msg.text) {
+      contentToCopy = msg.text;
+    } else if (msg.codeSnippet?.code) {
+      contentToCopy = msg.codeSnippet.code;
+    }
+
+    if (!contentToCopy) return;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(contentToCopy);
+      } else {
+        throw new Error('Fallback needed');
+      }
+    } catch {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = contentToCopy;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      } catch {
+        showToast('Unable to copy message', 'error');
+        return;
+      }
+    }
+
+    setCopiedMsgId(msg._id);
+    setTimeout(() => {
+      setCopiedMsgId((curr) => (curr === msg._id ? null : curr));
+    }, 2000);
     showToast('Message copied to clipboard', 'success');
+  };
+
+  // Start replying to a specific message
+  const handleStartReply = (msg) => {
+    if (!msg) return;
+    const senderId = typeof msg.sender === 'object' && msg.sender !== null ? msg.sender._id : msg.sender;
+    const isMe = String(senderId) === String(currentUser?._id);
+    const senderName = isMe ? 'You' : (activeConversation?.otherUser?.name || 'Classmate');
+
+    setReplyingTo({
+      messageId: msg._id,
+      text: msg.text || (msg.codeSnippet ? 'Code snippet' : ''),
+      senderName,
+      hasCode: Boolean(msg.codeSnippet?.code),
+    });
+
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  // Cancel active reply mode
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  // Smoothly scroll to quoted message and highlight it briefly
+  const scrollToMessage = (msgId) => {
+    if (!msgId) return;
+    const el = document.getElementById(`message-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-sky-500', 'bg-sky-50/60', 'dark:bg-sky-950/40', 'transition-all', 'duration-300');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-sky-500', 'bg-sky-50/60', 'dark:bg-sky-950/40');
+      }, 1500);
+    } else {
+      showToast('Quoted message is not visible in current scroll view', 'info');
+    }
   };
 
   // WhatsApp Message Reactions: Add, switch, or remove
@@ -1206,6 +1318,12 @@ export const MessagesPage = () => {
                   const isTemp = typeof msg._id === 'string' && msg._id.startsWith('temp-');
                   const isSending = msg.status === 'sending' || isTemp;
                   const isFailed = msg.status === 'failed';
+                  const isOtherAi = Boolean(
+                    activeConversation?.otherUser?.username === 'ai' ||
+                    activeConversation?.otherUser?.isAi ||
+                    activeConversation?.otherUser?.role === 'ai'
+                  );
+                  const canDelete = (isMe || isOtherAi) && !isSending && !isFailed;
                   const hasReactions = Array.isArray(msg.reactions) && msg.reactions.length > 0;
                   const currentUserReaction = msg.reactions?.find((r) => {
                     const uId = r.user?._id || r.user;
@@ -1230,18 +1348,72 @@ export const MessagesPage = () => {
                         className={`group/msg flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-full my-0.5`}
                       >
                         <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'} max-w-full`}>
-                          {/* WhatsApp Floating Reaction Bar Capsule */}
+                          {/* Floating Quick Action & Reaction Bar Capsule */}
                           {reactionPickerMsgId === msg._id && (
-                            <WhatsAppReactionPicker
-                              messageId={msg._id}
-                              isMe={isMe}
-                              currentUserReaction={currentUserReaction}
-                              onReact={handleReactToMessage}
-                              onClose={() => setReactionPickerMsgId(null)}
-                            />
+                            <div className={`absolute -top-12 ${isMe ? 'right-0' : 'left-0'} z-40 flex flex-col items-center gap-1.5 animate-in zoom-in-75 duration-150 select-none drop-shadow-xl`}>
+                              <WhatsAppReactionPicker
+                                messageId={msg._id}
+                                isMe={isMe}
+                                currentUserReaction={currentUserReaction}
+                                onReact={handleReactToMessage}
+                                onClose={() => setReactionPickerMsgId(null)}
+                              />
+                              {/* Mobile Quick Action Pill */}
+                              <div className="bg-white/95 dark:bg-[#1e222b]/95 backdrop-blur-md border border-neutral-200/90 dark:border-neutral-700/80 rounded-full px-2 py-1 flex items-center gap-1 shadow-2xl">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReactionPickerMsgId(null);
+                                    handleStartReply(msg);
+                                  }}
+                                  className="px-2.5 py-1 rounded-full text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 cursor-pointer"
+                                  title="Reply to message"
+                                >
+                                  <Reply className="w-3.5 h-3.5 rotate-180 text-sky-500" />
+                                  <span>Reply</span>
+                                </button>
+                                <span className="w-px h-3 bg-neutral-200 dark:bg-neutral-700" />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReactionPickerMsgId(null);
+                                    handleCopyMessage(msg);
+                                  }}
+                                  className="px-2.5 py-1 rounded-full text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1.5 cursor-pointer"
+                                  title="Copy message"
+                                >
+                                  {copiedMsgId === msg._id ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5 text-neutral-500" />
+                                  )}
+                                  <span>{copiedMsgId === msg._id ? 'Copied!' : 'Copy'}</span>
+                                </button>
+                                {canDelete && (
+                                  <>
+                                    <span className="w-px h-3 bg-neutral-200 dark:bg-neutral-700" />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setReactionPickerMsgId(null);
+                                        handleDeleteMessage(msg._id);
+                                      }}
+                                      className="px-2 py-1 rounded-full text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1 cursor-pointer"
+                                      title="Delete message"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           )}
 
                           <div
+                            id={`message-${msg._id}`}
                             onClick={() => {
                               if (window.getSelection()?.toString()) return;
                               if (window.innerWidth < 768 && !isFailed && !isSending) {
@@ -1260,6 +1432,30 @@ export const MessagesPage = () => {
                                 : 'bg-white dark:bg-[#181b22] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800/80 rounded-bl-xs'
                             }`}
                           >
+                            {/* Quoted Message Preview inside bubble */}
+                            {msg.replyTo && (msg.replyTo.text || msg.replyTo.hasCode) && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  scrollToMessage(msg.replyTo.messageId);
+                                }}
+                                className={`mb-2 p-2 rounded-xl text-xs border-l-4 cursor-pointer transition-all select-none ${
+                                  isMe
+                                    ? 'bg-black/25 hover:bg-black/35 border-white text-white/95'
+                                    : 'bg-neutral-100/90 dark:bg-neutral-800/90 hover:bg-neutral-200 dark:hover:bg-neutral-700 border-sky-500 text-neutral-800 dark:text-neutral-200'
+                                }`}
+                                title="Click to jump to quoted message"
+                              >
+                                <div className={`font-bold text-[11px] flex items-center gap-1.5 ${isMe ? 'text-white' : 'text-sky-600 dark:text-sky-400'}`}>
+                                  <CornerUpLeft className="w-3 h-3" />
+                                  <span>{msg.replyTo.senderName || 'Reply'}</span>
+                                </div>
+                                <p className="text-[11px] truncate opacity-90 mt-0.5 font-normal">
+                                  {msg.replyTo.hasCode ? '💻 Code snippet' : msg.replyTo.text}
+                                </p>
+                              </div>
+                            )}
+
                             {/* Text Content */}
                             {msg.text && (
                               <p className="whitespace-pre-wrap break-words">{msg.text}</p>
@@ -1295,7 +1491,7 @@ export const MessagesPage = () => {
                               </div>
                             )}
 
-                            {/* WhatsApp Reactions Overlapping Badge */}
+                            {/* Reactions Overlapping Badge */}
                             {hasReactions && (
                               <WhatsAppReactionsBadge
                                 reactions={msg.reactions}
@@ -1323,7 +1519,7 @@ export const MessagesPage = () => {
                                 : 'opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100'
                             }`}
                           >
-                            {/* WhatsApp Reaction Trigger Button */}
+                            {/* Reaction Trigger Button */}
                             {!isFailed && !isSending && (
                               <button
                                 type="button"
@@ -1342,14 +1538,41 @@ export const MessagesPage = () => {
                               </button>
                             )}
 
-                            {msg.text && (
+                            {/* Reply Action Button */}
+                            {!isFailed && !isSending && (
                               <button
                                 type="button"
-                                onClick={() => handleCopyText(msg.text)}
-                                className="p-1.5 rounded-full hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
-                                title="Copy message text"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartReply(msg);
+                                }}
+                                className="p-1.5 rounded-full hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-400 hover:text-sky-500 transition-colors cursor-pointer"
+                                title="Reply to message"
                               >
-                                <Copy className="w-3.5 h-3.5" />
+                                <Reply className="w-3.5 h-3.5 rotate-180" />
+                              </button>
+                            )}
+
+                            {/* Copy Full Message Action Button */}
+                            {(msg.text || hasSnippet) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyMessage(msg);
+                                }}
+                                className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+                                  copiedMsgId === msg._id
+                                    ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+                                    : 'hover:bg-neutral-200/80 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+                                }`}
+                                title={copiedMsgId === msg._id ? "Copied to clipboard!" : "Copy message"}
+                              >
+                                {copiedMsgId === msg._id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-500 animate-in zoom-in duration-150" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
                               </button>
                             )}
 
@@ -1372,7 +1595,7 @@ export const MessagesPage = () => {
                                   <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
-                            ) : isMe && !isSending ? (
+                            ) : canDelete ? (
                               deletingMsgId === msg._id ? (
                                 <span className="p-1.5 flex items-center justify-center">
                                   <TwitterSpinner size="xs" className="text-rose-500" />
@@ -1499,6 +1722,29 @@ export const MessagesPage = () => {
                     className="w-full bg-[#1b1e24] p-2.5 rounded-xl text-xs font-mono text-neutral-200 placeholder:text-neutral-500 focus:outline-none resize-y border border-[#2a2e38] sidebar-scroll"
                     spellCheck={false}
                   />
+                </div>
+              )}
+
+              {/* Active Quoted Reply Banner */}
+              {replyingTo && (
+                <div className="flex items-center justify-between px-3.5 py-2 mb-2 bg-neutral-100/95 dark:bg-[#16181c]/95 backdrop-blur-md rounded-2xl border-l-4 border-sky-500 shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
+                  <div className="flex flex-col min-w-0 flex-1 mr-2">
+                    <span className="font-bold text-sky-600 dark:text-sky-400 text-xs flex items-center gap-1.5">
+                      <Reply className="w-3.5 h-3.5 rotate-180" />
+                      <span>Replying to {replyingTo.senderName}</span>
+                    </span>
+                    <span className="text-neutral-600 dark:text-neutral-300 truncate text-[11px] mt-0.5">
+                      {replyingTo.hasCode ? '💻 Code snippet' : replyingTo.text}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancelReply}
+                    className="p-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer shrink-0"
+                    title="Cancel reply"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 
