@@ -311,18 +311,17 @@ function initSocket(server) {
 
         const messageData = populatedMsg.toObject();
 
-        // Real-time broadcast to both participants
-        io.to(`user:${targetRecipientId}`).emit('chat:message', {
-          conversationId: conv._id.toString(),
-          message: messageData,
-        });
+        // Real-time broadcast to conversation and personal rooms (chained to prevent duplicate packets to same socket)
+        const rooms = new Set();
+        if (conv._id) rooms.add(`conv:${conv._id.toString()}`);
+        if (targetRecipientId) rooms.add(`user:${targetRecipientId.toString()}`);
+        if (userId) rooms.add(`user:${userId.toString()}`);
 
-        io.to(`user:${userId}`).emit('chat:message', {
-          conversationId: conv._id.toString(),
-          message: messageData,
-        });
-
-        io.to(`conv:${conv._id}`).emit('chat:message', {
+        let broadcaster = io;
+        for (const r of rooms) {
+          broadcaster = broadcaster.to(r);
+        }
+        broadcaster.emit('chat:message', {
           conversationId: conv._id.toString(),
           message: messageData,
         });
@@ -1025,23 +1024,18 @@ async function broadcastChatMessage(conversationId, message, recipientId, sender
     message: messageData,
   };
 
-  // 1. Emit to recipient personal room
-  if (recipientId) {
-    const recIdStr = recipientId.toString();
-    ioInstance.to(`user:${recIdStr}`).emit('chat:message', payload);
-  }
-
-  // 2. Emit to sender personal room (for multi-device / other active client tabs)
+  // Real-time broadcast chained across target rooms to prevent sending duplicate packets to a single socket
+  const rooms = new Set();
+  if (convIdStr) rooms.add(`conv:${convIdStr}`);
+  if (recipientId) rooms.add(`user:${recipientId.toString()}`);
   const sndId = senderId || messageData?.sender?._id || messageData?.sender;
-  if (sndId) {
-    const sndIdStr = sndId.toString();
-    ioInstance.to(`user:${sndIdStr}`).emit('chat:message', payload);
-  }
+  if (sndId) rooms.add(`user:${sndId.toString()}`);
 
-  // 3. Emit to conversation room
-  if (convIdStr) {
-    ioInstance.to(`conv:${convIdStr}`).emit('chat:message', payload);
+  let broadcaster = ioInstance;
+  for (const r of rooms) {
+    broadcaster = broadcaster.to(r);
   }
+  broadcaster.emit('chat:message', payload);
 }
 
 // Helper to broadcast typing indicator

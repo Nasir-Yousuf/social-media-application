@@ -319,19 +319,28 @@ export const MessagesPage = () => {
 
       if (currentActiveId && msgConvId === currentActiveId.toString()) {
         setMessages((prev) => {
-          const exists = prev.some(
-            (m) =>
-              m._id === incoming._id ||
-              (m.status === 'sending' && m.text === incoming.text)
-          );
-          if (exists) {
-            return prev.map((m) =>
-              m._id === incoming._id || (m.status === 'sending' && m.text === incoming.text)
-                ? incoming
-                : m
-            );
+          // 1. If message already exists by Mongo _id, update that single item
+          const existingById = prev.findIndex((m) => m._id === incoming._id);
+          if (existingById !== -1) {
+            return prev.map((m, idx) => (idx === existingById ? { ...m, ...incoming, status: 'sent' } : m));
           }
-          return [...prev, incoming];
+
+          // 2. If there is a matching sending optimistic message, reconcile it
+          const optimisticIndex = prev.findIndex((m) => {
+            if (m.status === 'sending') {
+              const mText = m.text || m.content || '';
+              const inText = incoming.text || incoming.content || '';
+              return mText === inText;
+            }
+            return false;
+          });
+
+          if (optimisticIndex !== -1) {
+            return prev.map((m, idx) => (idx === optimisticIndex ? { ...incoming, status: 'sent' } : m));
+          }
+
+          // 3. New incoming message, append safely
+          return [...prev, { ...incoming, status: 'sent' }];
         });
 
         requestAnimationFrame(() => scrollToBottom(true));

@@ -80,7 +80,7 @@ export const MessagesView: React.FC = () => {
       const res = await api.get('/messages/conversations');
       if (res.data?.conversations) {
         setConversations(res.data.conversations);
-        if (!activeConversation && res.data.conversations.length > 0 && !userParam) {
+        if (!activeConvIdRef.current && res.data.conversations.length > 0 && !userParam) {
           selectConversation(res.data.conversations[0]);
         }
       }
@@ -89,7 +89,7 @@ export const MessagesView: React.FC = () => {
     } finally {
       if (!silent) setLoadingConvs(false);
     }
-  }, [activeConversation, userParam]);
+  }, [userParam]);
 
   // 2. Fetch Messages for active conversation
   const selectConversation = async (conv: Conversation) => {
@@ -198,15 +198,36 @@ export const MessagesView: React.FC = () => {
   useEffect(() => {
     const unsubMessage = socketService.on('chat:message', (data: any) => {
       const newMsg = data?.message || data;
-      if (!newMsg) return;
+      if (!newMsg || !newMsg._id) return;
 
       const targetConvId = (data.conversationId || newMsg.conversation?._id || newMsg.conversation)?.toString();
       if (targetConvId === activeConvIdRef.current) {
         setMessages((prev) => {
-          if (prev.some((m) => m._id === newMsg._id || (newMsg.tempId && m.tempId === newMsg.tempId))) {
-            return prev.map((m) => (m.tempId === newMsg.tempId ? newMsg : m));
+          // 1. If message already exists by Mongo _id, update that single item
+          const existingById = prev.findIndex((m) => m._id === newMsg._id);
+          if (existingById !== -1) {
+            return prev.map((m, idx) => (idx === existingById ? { ...m, ...newMsg, status: 'sent' } : m));
           }
-          return [...prev, newMsg];
+
+          // 2. If there is a matching sending optimistic message, reconcile it
+          const optimisticIndex = prev.findIndex((m) => {
+            if (newMsg.tempId && m.tempId === newMsg.tempId) return true;
+            if (m.status === 'sending') {
+              const mText = m.text || m.content || '';
+              const nText = newMsg.text || newMsg.content || '';
+              const mSender = typeof m.sender === 'object' ? m.sender?._id : m.sender;
+              const nSender = typeof newMsg.sender === 'object' ? newMsg.sender?._id : newMsg.sender;
+              return mText === nText && String(mSender) === String(nSender);
+            }
+            return false;
+          });
+
+          if (optimisticIndex !== -1) {
+            return prev.map((m, idx) => (idx === optimisticIndex ? { ...newMsg, status: 'sent' } : m));
+          }
+
+          // 3. New incoming message, append safely
+          return [...prev, { ...newMsg, status: 'sent' }];
         });
         setTimeout(scrollToBottom, 50);
       }
@@ -290,10 +311,15 @@ export const MessagesView: React.FC = () => {
     try {
       const res = await api.post('/messages/send', payload);
       const returnedMsg = res.data?.message || res.data?.data;
-      if (returnedMsg) {
-        setMessages((prev) =>
-          prev.map((m) => (m.tempId === tempId ? { ...returnedMsg, status: 'sent' } : m))
-        );
+      if (returnedMsg && returnedMsg._id) {
+        setMessages((prev) => {
+          // If already reconciled via socket, ensure no leftover temp bubble
+          const alreadyExists = prev.some((m) => m._id === returnedMsg._id);
+          if (alreadyExists) {
+            return prev.filter((m) => m.tempId !== tempId);
+          }
+          return prev.map((m) => (m.tempId === tempId ? { ...returnedMsg, status: 'sent' } : m));
+        });
         fetchConversations(true);
       }
     } catch {
