@@ -40,24 +40,6 @@ const getInitials = (name = '') => {
     .slice(0, 2);
 };
 
-const getBackendOrigin = () => {
-  if (typeof window !== 'undefined') {
-    const custom = localStorage.getItem('pulse518_api_url');
-    if (custom) return custom.trim().replace(/\/+$/, '').replace(/\/api$/, '');
-
-    // In web browsers (Vercel production and Vite dev), relative /api URLs
-    // route through the same-origin proxy, completely preventing CORP & CORS blocks
-    return '';
-  }
-
-  const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-  if (rawBase) {
-    return rawBase.replace(/\/api$/, '');
-  }
-
-  return '';
-};
-
 export const resolveAvatarUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
@@ -72,9 +54,18 @@ export const resolveAvatarUrl = (url) => {
     return trimmed;
   }
 
-  const origin = getBackendOrigin();
-  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return `${origin}${cleanPath}`;
+  // If a custom backend URL was configured in settings, prefix it
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('pulse518_api_url');
+    if (custom) {
+      const origin = custom.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+      const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      return `${origin}${cleanPath}`;
+    }
+  }
+
+  // Relative /api paths route seamlessly through Vercel/Vite reverse proxy as same-origin
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 };
 
 export const Avatar = ({
