@@ -9,6 +9,7 @@ const authLimiter = rateLimit({
   max: 20, // Max 20 attempts per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     message: 'Too many authentication attempts from this IP address. Please try again after 15 minutes.',
   },
@@ -22,6 +23,7 @@ const apiLimiter = rateLimit({
   max: 500, // Max 500 requests per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     message: 'Rate limit exceeded. Please slow down your requests.',
   },
@@ -35,6 +37,7 @@ const aiLimiter = rateLimit({
   max: 25, // Max 25 AI queries per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     message: 'AI usage rate limit reached. Please wait a minute before sending another prompt.',
   },
@@ -48,6 +51,7 @@ const contentCreationLimiter = rateLimit({
   max: 60, // Max 60 creations per 10 minutes
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     message: 'You are posting too quickly. Please pause for a moment.',
   },

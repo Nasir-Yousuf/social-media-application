@@ -25,7 +25,7 @@ initSocket(server);
 const PORT = process.env.PORT || 5180;
 
 // Trust reverse proxies (Railway, Cloudflare, Vercel) for accurate client IP resolution
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 // Security Headers (mitigates clickjacking, MIME sniffing, HSTS)
 app.use(
