@@ -45,17 +45,9 @@ const getBackendOrigin = () => {
     const custom = localStorage.getItem('pulse518_api_url');
     if (custom) return custom.trim().replace(/\/+$/, '').replace(/\/api$/, '');
 
-    const hostname = window.location.hostname;
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('172.') ||
-      hostname.endsWith('.local')
-    ) {
-      return '';
-    }
+    // In web browsers (Vercel production and Vite dev), relative /api URLs
+    // route through the same-origin proxy, completely preventing CORP & CORS blocks
+    return '';
   }
 
   const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
@@ -63,7 +55,7 @@ const getBackendOrigin = () => {
     return rawBase.replace(/\/api$/, '');
   }
 
-  return 'https://clearfeed518.up.railway.app';
+  return '';
 };
 
 export const resolveAvatarUrl = (url) => {
