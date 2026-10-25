@@ -192,10 +192,10 @@ const startServer = async () => {
         await TypingResult.deleteMany({ user: { $in: dummyUserIds } });
       }
       await TypingResult.deleteMany({
-        _id: { $regex: '^seed_' },
+        _id: { $type: 'string', $regex: '^seed_' },
       });
     } catch (dummyErr) {
-      console.warn('Startup dummy typing purge note:', dummyErr.message);
+      // Ignore if no legacy dummy typing records exist
     }
 
     // Automatically purge orphaned follow edges and ensure follow graph integrity
