@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Radio,
   ShieldCheck,
@@ -70,11 +70,14 @@ export const MeshView: React.FC = () => {
   const currentTargetPubkey = (activeConv?.peerPubkey || activePeer?.publicKeyHex || '').toLowerCase();
   const isBroadcast = currentTargetPubkey === BROADCAST_PUBKEY.toLowerCase();
 
+  const activeTargetRef = useRef<string>('');
+  activeTargetRef.current = currentTargetPubkey;
+
   // Subscribe to real-time incoming mesh packets
   useEffect(() => {
     const unsub = meshRouter.onMessageReceived(async (msg) => {
       // 1. If currently viewing this conversation, dynamically append to messages list
-      const activePubkey = (activeConv?.peerPubkey || activePeer?.publicKeyHex || '').toLowerCase();
+      const activePubkey = activeTargetRef.current;
       const isViewingBroadcast = activePubkey === BROADCAST_PUBKEY.toLowerCase();
       const isMsgBroadcast = msg.recipientPubkey.toLowerCase() === BROADCAST_PUBKEY.toLowerCase();
 
@@ -101,12 +104,16 @@ export const MeshView: React.FC = () => {
     });
 
     return () => unsub();
-  }, [activeConv, activePeer]);
+  }, []);
 
-  // Immediate presence broadcast when opening Mesh
+  // Immediate presence broadcast when opening Mesh (run exactly once on initial mount)
+  const hasBroadcastedRef = useRef<boolean>(false);
   useEffect(() => {
-    broadcastBeacon();
-  }, [broadcastBeacon]);
+    if (!hasBroadcastedRef.current) {
+      hasBroadcastedRef.current = true;
+      broadcastBeacon();
+    }
+  }, []);
 
   const openChatWith = async (pubkey: string, nickname: string) => {
     setActiveTab('chats');

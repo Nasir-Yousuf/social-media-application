@@ -31,6 +31,21 @@ interface MeshContextValue {
 
 const MeshContext = createContext<MeshContextValue | null>(null);
 
+const getOrCreateIdentity = async (): Promise<MeshIdentity> => {
+  let current = await meshStorage.loadIdentity();
+  if (!current) {
+    const keys = generateIdentityKeypair();
+    current = {
+      publicKeyHex: keys.publicKeyHex,
+      secretKeyHex: keys.secretKeyHex,
+      nickname: `Peer_${keys.publicKeyHex.substring(0, 6)}`,
+      createdAt: Date.now(),
+    };
+    await meshStorage.saveIdentity(current);
+  }
+  return current;
+};
+
 export const MeshProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [identity, setIdentity] = useState<MeshIdentity | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -43,21 +58,6 @@ export const MeshProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     batterySaving: false,
     discoveryIntervalSec: 10,
   });
-
-  const getOrCreateIdentity = async (): Promise<MeshIdentity> => {
-    let current = await meshStorage.loadIdentity();
-    if (!current) {
-      const keys = generateIdentityKeypair();
-      current = {
-        publicKeyHex: keys.publicKeyHex,
-        secretKeyHex: keys.secretKeyHex,
-        nickname: `Peer_${keys.publicKeyHex.substring(0, 6)}`,
-        createdAt: Date.now(),
-      };
-      await meshStorage.saveIdentity(current);
-    }
-    return current;
-  };
 
   const refreshMeshState = useCallback(async () => {
     try {
@@ -107,29 +107,35 @@ export const MeshProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [refreshMeshState]);
 
-  const updateNickname = async (newNickname: string): Promise<MeshIdentity | null> => {
-    if (!identity) return null;
-    const updated: MeshIdentity = { ...identity, nickname: newNickname.trim() };
+  const updateNickname = useCallback(async (newNickname: string): Promise<MeshIdentity | null> => {
+    let current = identity;
+    if (!current) {
+      current = await meshStorage.loadIdentity();
+    }
+    if (!current) return null;
+    const updated: MeshIdentity = { ...current, nickname: newNickname.trim() };
     await meshStorage.saveIdentity(updated);
     setIdentity(updated);
     return updated;
-  };
+  }, [identity]);
 
-  const resetIdentity = async (): Promise<MeshIdentity> => {
+  const resetIdentity = useCallback(async (): Promise<MeshIdentity> => {
     await meshStorage.clearIdentity();
     const fresh = await getOrCreateIdentity();
     setIdentity(fresh);
     await refreshMeshState();
     return fresh;
-  };
+  }, [refreshMeshState]);
 
-  const updateSettings = async (newSettings: Partial<MeshSettings>): Promise<void> => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    await meshStorage.saveSettings(updated);
-  };
+  const updateSettings = useCallback(async (newSettings: Partial<MeshSettings>): Promise<void> => {
+    setSettings((prev) => {
+      const updated = { ...prev, ...newSettings };
+      meshStorage.saveSettings(updated);
+      return updated;
+    });
+  }, []);
 
-  const sendMessage = async ({
+  const sendMessage = useCallback(async ({
     recipientPubkey,
     recipientNickname,
     text,
@@ -141,28 +147,28 @@ export const MeshProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const msg = await meshRouter.sendMessage({ recipientPubkey, recipientNickname, text });
     await refreshMeshState();
     return msg;
-  };
+  }, [refreshMeshState]);
 
-  const loadMessages = async (peerPubkey: string): Promise<MeshMessage[]> => {
+  const loadMessages = useCallback(async (peerPubkey: string): Promise<MeshMessage[]> => {
     return meshStorage.loadMessages(peerPubkey);
-  };
+  }, []);
 
-  const addPeer = async (peer: MeshPeer): Promise<void> => {
+  const addPeer = useCallback(async (peer: MeshPeer): Promise<void> => {
     await meshStorage.upsertPeer(peer);
     // Announce presence immediately to this peer
     await meshRouter.sendAnnounce(peer.publicKeyHex);
     await refreshMeshState();
-  };
+  }, [refreshMeshState]);
 
-  const broadcastBeacon = async (): Promise<void> => {
+  const broadcastBeacon = useCallback(async (): Promise<void> => {
     await meshRouter.broadcastBeacon();
     await refreshMeshState();
-  };
+  }, [refreshMeshState]);
 
-  const clearAllData = async (): Promise<void> => {
+  const clearAllData = useCallback(async (): Promise<void> => {
     await meshStorage.clearAllMeshStorage();
     await refreshMeshState();
-  };
+  }, [refreshMeshState]);
 
   return (
     <MeshContext.Provider
