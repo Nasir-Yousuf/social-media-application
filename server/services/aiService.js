@@ -264,10 +264,14 @@ ${languageGuidance}
       maxOutputTokens: 1000,
       temperature: 0.9,
     });
-    return replyText || 'I am here with you! 😊';
+    return replyText || 'I am right here with you! 😊';
   } catch (err) {
     console.error('generateDirectChatReply error:', err.message);
-    return 'Hey! I got a little distracted, but I am listening now. What was that? 😊';
+    const isBengali = languagePref === 'bangla' || /[\u0980-\u09FF]/.test(userMessage || '');
+    if (isBengali) {
+      return 'আমি এই মুহূর্তে সাময়িকভাবে সংযোগ করতে পারছি না (আমাদের AI সার্ভিস সাময়িক রক্ষণাবেক্ষণে আছে) 🛠️✨ খুব শীঘ্রই আমি আবার ফিরে আসছি! কিছুক্ষণের মধ্যে আবার চেষ্টা করো প্লিজ।';
+    }
+    return "I'm temporarily taking a quick breather as our AI services are currently undergoing scheduled maintenance 🛠️✨ We'll be fully back up in just a moment—please check back shortly!";
   }
 }
 
@@ -331,7 +335,11 @@ ${languageGuidance}
     return answer;
   } catch (err) {
     console.error('generateLessonHelpReply error:', err.message);
-    return 'Hey! I checked your question—let me take a closer look and help you work through it! Keep up the great effort! 💡';
+    const isBengali = languagePref === 'bangla' || /[\u0980-\u09FF]/.test(question?.title || '') || /[\u0980-\u09FF]/.test(question?.description || '');
+    if (isBengali) {
+      return '🛠️ **AI মেন্টর নোটিশ:** আমাদের অটোমেটেড AI ক্লাসরুম অ্যাসিস্ট্যান্ট এই মুহূর্তে সাময়িক রক্ষণাবেক্ষণে রয়েছে।\n\nকিছুক্ষণের মধ্যেই সার্ভিসটি পুনরায় চালু হবে। অনুগ্রহ করে একটু পর আবার চেষ্টা করুন অথবা আপনার সহপাঠীদের সমাধানগুলো দেখে নিন!';
+    }
+    return '🛠️ **AI Mentor Notice:** Our automated AI classroom assistance is currently undergoing scheduled maintenance.\n\nOur engineering team is already on it and the service will be back shortly. In the meantime, feel free to review your classmates\' solutions below or discuss this with peers in the community!';
   }
 }
 
@@ -374,7 +382,11 @@ Style:
     return reply;
   } catch (err) {
     console.error('generateCommentReply error:', err.message);
-    return `Hey @${commenterName}! 👋 I see your tag—always happy to connect!`;
+    const isBengali = /[\u0980-\u09FF]/.test(commentText || '');
+    if (isBengali) {
+      return `হাই @${commenterName}! 👋 আমাকে মেনশন করার জন্য ধন্যবাদ। আমাদের AI সার্ভিস এই মুহূর্তে সাময়িক রক্ষণাবেক্ষণে রয়েছে 🛠️✨ খুব শীঘ্রই আমি আবার ফিরে এসে উত্তর দিচ্ছি!`;
+    }
+    return `Hey @${commenterName}! 👋 Thanks for tagging me! Our AI service is currently taking a brief maintenance break 🛠️✨ Our engineering team will have me back shortly—feel free to check back soon!`;
   }
 }
 

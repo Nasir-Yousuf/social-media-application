@@ -1,3 +1,7 @@
+const nodeCrypto = require('crypto');
+if (typeof globalThis.crypto === 'undefined') {
+  globalThis.crypto = nodeCrypto.webcrypto || nodeCrypto;
+}
 const mongoose = require('mongoose');
 
 let mongodInstance = null;
