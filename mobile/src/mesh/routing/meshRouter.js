@@ -344,6 +344,27 @@ class MeshRouter {
           }
           await meshStorage.saveConversations(conversations);
 
+          // Auto-discover sender in peers list so users can start 1-on-1 chat in 1 tap
+          if (senderPub && senderPub !== myPub) {
+            const peers = await meshStorage.loadPeers();
+            const pIdx = peers.findIndex((p) => p.publicKeyHex.toLowerCase() === senderPub);
+            const discoveredPeer = {
+              publicKeyHex: senderPub,
+              nickname: senderNick,
+              status: 'discovered',
+              lastSeen: Date.now(),
+              hopDistance: envelope.hopCount || 0,
+              reachability: envelope.hopCount === 0 ? 'direct' : 'relayed',
+            };
+            if (pIdx >= 0) {
+              peers[pIdx] = { ...peers[pIdx], ...discoveredPeer };
+            } else {
+              peers.unshift(discoveredPeer);
+            }
+            await meshStorage.savePeers(peers);
+            this.notifyPeersUpdated();
+          }
+
           // Send back cryptographically signed END_TO_END_ACK if 1-on-1
           if (!isBroadcast) {
             await this.sendEndToEndAck(envelope);

@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { useMesh } from '../../mesh/context/MeshContext';
 import { MeshPairingModal } from '../../components/mesh/MeshPairingModal';
 import { BROADCAST_PUBKEY } from '../../mesh/protocol/wireProtocol';
@@ -17,6 +18,7 @@ import { BROADCAST_PUBKEY } from '../../mesh/protocol/wireProtocol';
 export const MeshHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { colors: currentColors } = useTheme();
+  const { showToast } = useNotifications();
   const {
     identity,
     transportState,
@@ -25,6 +27,7 @@ export const MeshHomeScreen = ({ navigation }) => {
     conversations,
     settings,
     addPeer,
+    broadcastBeacon,
   } = useMesh();
 
   const [showPairModal, setShowPairModal] = useState(false);
@@ -160,14 +163,27 @@ export const MeshHomeScreen = ({ navigation }) => {
                 (আশেপাশে সক্রিয়)
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => setShowPairModal(true)}
-              style={styles.radarScanBtn}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="qr-code-outline" size={13} color="#00ba7c" />
-              <Text style={styles.qrScanLink}>Scan</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  broadcastBeacon();
+                  showToast('Broadcasting presence beacon to nearby peers...', 'info');
+                }}
+                style={[styles.radarScanBtn, { backgroundColor: 'rgba(0,186,124,0.1)' }]}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="radio-outline" size={13} color="#00ba7c" />
+                <Text style={styles.qrScanLink}>Sync</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowPairModal(true)}
+                style={styles.radarScanBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="qr-code-outline" size={13} color="#00ba7c" />
+                <Text style={styles.qrScanLink}>Scan / Paste</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -190,11 +206,18 @@ export const MeshHomeScreen = ({ navigation }) => {
 
             {/* Discovered Nearby Devices */}
             {peers.length === 0 ? (
-              <View style={styles.emptyRadarBox}>
+              <TouchableOpacity
+                style={styles.emptyRadarBox}
+                onPress={() => {
+                  broadcastBeacon();
+                  showToast('Broadcasting presence beacon to nearby peers...', 'info');
+                }}
+                activeOpacity={0.8}
+              >
                 <Text style={[styles.emptyRadarText, { color: currentColors.textSecondary }]}>
-                  Keep Mesh open nearby to auto-detect phones and laptops
+                  Tap to scan & auto-detect phones/laptops on your Wi-Fi ➔
                 </Text>
-              </View>
+              </TouchableOpacity>
             ) : (
               peers.map((peer) => (
                 <TouchableOpacity

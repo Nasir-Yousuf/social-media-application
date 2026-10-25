@@ -72,6 +72,33 @@ export const MeshPairingModal = ({
     return null;
   };
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      if (!text || !text.trim()) {
+        Alert.alert('Clipboard Empty', 'Please copy a Clearfeed Mesh QR link or 64-hex public key first.');
+        return;
+      }
+      const parsed = parsePeerString(text);
+      if (parsed) {
+        setScanned(true);
+        const peer = {
+          publicKeyHex: parsed.pubkey,
+          nickname: parsed.nickname || `Peer_${parsed.pubkey.substring(0, 6)}`,
+          status: 'discovered',
+          fingerprint: computeFingerprint(parsed.pubkey),
+          lastSeen: Date.now(),
+        };
+        onConnect(peer);
+        setTimeout(() => onClose(), 400);
+      } else {
+        Alert.alert('Invalid Key', 'The copied text is not a valid Clearfeed Mesh link or public key.');
+      }
+    } catch (err) {
+      Alert.alert('Paste Error', err.message);
+    }
+  };
+
   // Generate pure JS QR code matrix synchronously without Canvas or Node streams
   useEffect(() => {
     if (!visible || !identity?.publicKeyHex) return;
@@ -518,7 +545,7 @@ export const MeshPairingModal = ({
                   <View style={styles.scannerWrapper}>
                     <View style={styles.cameraPreviewBox}>
                       <CameraView
-                        style={StyleSheet.absoluteFillObject}
+                        style={styles.cameraView}
                         facing="back"
                         barcodeScannerSettings={{
                           barcodeTypes: ['qr'],
@@ -527,7 +554,7 @@ export const MeshPairingModal = ({
                       />
 
                       {/* Reticle Overlay */}
-                      <View style={styles.reticleOverlay}>
+                      <View style={styles.reticleOverlay} pointerEvents="none">
                         <View style={styles.reticleBox}>
                           <View style={[styles.corner, styles.topLeft]} />
                           <View style={[styles.corner, styles.topRight]} />
@@ -553,13 +580,25 @@ export const MeshPairingModal = ({
                       </View>
                     )}
 
+                    {/* Instant Paste from Clipboard */}
+                    <TouchableOpacity
+                      style={styles.pasteQuickBtn}
+                      onPress={handlePasteFromClipboard}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="clipboard-outline" size={17} color="#ffffff" style={{ marginRight: 8 }} />
+                      <Text style={styles.pasteQuickBtnText}>
+                        Paste Key from Clipboard (Instant Connect)
+                      </Text>
+                    </TouchableOpacity>
+
                     <Text
                       style={[
                         styles.scannerNote,
                         { color: currentColors.textSecondary },
                       ]}
                     >
-                      Scan your friend's laptop or phone screen to pair and start chatting in less than 1 second.
+                      Scan your friend's laptop or phone screen, or paste their link above to connect immediately.
                     </Text>
                   </View>
                 )}
@@ -897,12 +936,39 @@ const styles = StyleSheet.create({
   },
   cameraPreviewBox: {
     width: '100%',
-    height: 240,
-    borderRadius: 20,
-    overflow: 'hidden',
+    height: 250,
     position: 'relative',
-    backgroundColor: '#000',
-    marginBottom: 14,
+    backgroundColor: '#000000',
+    borderWidth: 2,
+    borderColor: 'rgba(0,186,124,0.3)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  cameraView: {
+    width: '100%',
+    height: '100%',
+  },
+  pasteQuickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00ba7c',
+    borderRadius: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    width: '100%',
+    marginVertical: 10,
+    shadowColor: '#00ba7c',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pasteQuickBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   reticleOverlay: {
     ...StyleSheet.absoluteFillObject,

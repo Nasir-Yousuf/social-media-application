@@ -208,23 +208,40 @@ export const MeshConversationScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Security Info Banner */}
-      <View
-        style={[
-          styles.securityPill,
-          {
-            backgroundColor: currentColors.surface,
-            borderBottomColor: currentColors.border,
-          },
-        ]}
-      >
-        <MaterialCommunityIcons name="shield-lock-outline" size={14} color="#00ba7c" />
-        <Text
-          style={[styles.securityPillText, { color: currentColors.textSecondary }]}
+      {/* Security or Broadcast Info Banner */}
+      {isBroadcast ? (
+        <View
+          style={[
+            styles.broadcastHelperPill,
+            {
+              backgroundColor: 'rgba(0,186,124,0.12)',
+              borderBottomColor: 'rgba(0,186,124,0.25)',
+            },
+          ]}
         >
-          Offline Encrypted Mesh • Multi-Hop Relay Active
-        </Text>
-      </View>
+          <Ionicons name="radio-outline" size={15} color="#00ba7c" style={{ marginRight: 6 }} />
+          <Text style={styles.broadcastHelperText}>
+            📡 Nearby Public Chat • Everyone on your Wi-Fi & Bluetooth can talk freely!
+          </Text>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.securityPill,
+            {
+              backgroundColor: currentColors.surface,
+              borderBottomColor: currentColors.border,
+            },
+          ]}
+        >
+          <MaterialCommunityIcons name="shield-lock-outline" size={14} color="#00ba7c" />
+          <Text
+            style={[styles.securityPillText, { color: currentColors.textSecondary }]}
+          >
+            Offline Encrypted Mesh • Multi-Hop Relay Active
+          </Text>
+        </View>
+      )}
 
       {/* Message List */}
       <FlatList
@@ -395,6 +412,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   securityPillText: { fontSize: 11, fontWeight: '600', flexShrink: 1 },
+  broadcastHelperPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  broadcastHelperText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#00ba7c',
+    textAlign: 'center',
+  },
   messageList: { padding: 14, paddingBottom: 16 },
   emptyContainer: {
     alignItems: 'center',

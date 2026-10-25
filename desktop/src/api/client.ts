@@ -7,32 +7,12 @@ export const getBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('pulse518_api_url');
     if (custom) return custom.endsWith('/api') ? custom : `${custom}/api`;
-
-    // In production builds (tauri package, vite build), default to cloud production
-    if (!import.meta.env.DEV) {
-      const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-      if (rawUrl) return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
-      return PRODUCTION_BACKEND_URL;
-    }
-
-    const hostname = window.location.hostname;
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('172.') ||
-      hostname.endsWith('.local')
-    ) {
-      const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-      if (rawUrl) return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
-      return LOCAL_BACKEND_URL;
-    }
   }
   const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   if (rawUrl) {
     return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
   }
+  // Default to production cloud backend so Desktop & Mobile communicate on the same network bridge
   return PRODUCTION_BACKEND_URL;
 };
 

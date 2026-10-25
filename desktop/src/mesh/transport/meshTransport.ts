@@ -45,6 +45,19 @@ class DesktopMeshTransportManager {
 
   public async initialize(): Promise<void> {
     try {
+      if (!this.isSocketBound) {
+        this.isSocketBound = true;
+        socketService.on('mesh:packet', (envelope: MeshEnvelope) => {
+          if (envelope && envelope.magic === 'CFM1') {
+            this.emitIncomingPacket(envelope);
+          }
+        });
+      }
+      try {
+        socketService.connect();
+      } catch (err: any) {
+        console.warn('[DesktopMeshTransport] Socket connect notice:', err?.message);
+      }
       this.currentState = TransportState.READY_OFFLINE;
       this.notifyState();
     } catch {

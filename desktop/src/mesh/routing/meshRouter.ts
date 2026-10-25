@@ -65,8 +65,7 @@ class DesktopMeshRouter {
         },
       });
 
-      const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:beacon`;
-      envelope.signature = signPacket(identity.secretKeyHex, sigString);
+      envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
 
       await meshTransport.broadcastPacket(envelope);
     } catch (err: any) {
@@ -116,8 +115,7 @@ class DesktopMeshRouter {
         },
       });
 
-      const sigString = `${envelope.packetId}:${envelope.senderPubkey}:${envelope.recipientPubkey}:${envelope.timestamp}:announce`;
-      envelope.signature = signPacket(identity.secretKeyHex, sigString);
+      envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
 
       await meshTransport.sendDirect(targetPubkey, envelope);
     } catch {}

@@ -103,6 +103,11 @@ export const MeshView: React.FC = () => {
     return () => unsub();
   }, [activeConv, activePeer]);
 
+  // Immediate presence broadcast when opening Mesh
+  useEffect(() => {
+    broadcastBeacon();
+  }, [broadcastBeacon]);
+
   const openChatWith = async (pubkey: string, nickname: string) => {
     setActiveTab('chats');
     const convs = await meshStorage.loadConversations();
