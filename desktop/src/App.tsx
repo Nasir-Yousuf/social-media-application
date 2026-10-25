@@ -99,6 +99,12 @@ const DesktopContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<HomeView onNavigate={handleNavigate} />} />
           <Route path="/home" element={<HomeView onNavigate={handleNavigate} />} />
+          <Route path="/learn" element={<LearnView />} />
+          <Route path="/learn/questions" element={<LearnView />} />
+          <Route path="/learn/questions/:id" element={<LearnView />} />
+          <Route path="/learn/:track" element={<LearnView />} />
+          <Route path="/learn/:track/:lessonId" element={<LearnView />} />
+          <Route path="/learn/:track/lesson/:lessonId" element={<LearnView />} />
           <Route path="/learn/*" element={<LearnView />} />
           <Route path="/typing" element={<TypingArenaView />} />
           <Route path="/code-practice" element={<CodePracticeView />} />

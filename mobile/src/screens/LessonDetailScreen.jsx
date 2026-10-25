@@ -22,6 +22,13 @@ import { useTheme } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LESSONS } from '../data/learningCurriculum';
 import { LESSON_QUIZZES } from '../data/lessonQuizzes';
+import {
+  MobileIPOSimulator,
+  MobileSpeedRaceSimulator,
+  MobileFiveUnitsVisualizer,
+  MobileDeskBookshelfSimulator,
+  MobileMemoryHierarchy,
+} from '../components/learning/ConceptAnimations';
 
 const getLessonCode = (les) => {
   if (!les) return '';
@@ -370,36 +377,92 @@ export const LessonDetailScreen = ({ route, navigation }) => {
                 <View style={styles.conceptCardHeader}>
                   <Ionicons name="checkmark-done-circle" size={18} color="#10b981" style={{ marginRight: 6 }} />
                   <Text style={[styles.conceptCardTitle, { color: '#10b981' }]}>
-                    Key Takeaways / মূল বিষয়সমূহ
+                    {lang === 'bn' ? 'মূল শিক্ষণীয় বিষয়সমূহ (Key Takeaways)' : 'Key Takeaways / মূল বিষয়সমূহ'}
                   </Text>
                 </View>
-                {lesson.keyTakeaways.map((item, idx) => (
-                  <View key={idx} style={{ flexDirection: 'row', marginTop: 6, alignItems: 'flex-start' }}>
-                    <Text style={{ color: themeColors.accent, marginRight: 8, fontSize: 13 }}>•</Text>
-                    <Text style={[styles.conceptBodyText, { flex: 1 }]}>{item}</Text>
-                  </View>
-                ))}
+                {lesson.keyTakeaways.map((item, idx) => {
+                  const bnItem = lesson.keyTakeawaysBn?.[idx];
+                  return (
+                    <View key={idx} style={{ marginTop: 8, paddingBottom: 6, borderBottomWidth: idx < lesson.keyTakeaways.length - 1 ? 1 : 0, borderBottomColor: '#1e293b22' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                        <Ionicons name="checkmark-circle" size={15} color="#10b981" style={{ marginRight: 8, marginTop: 2 }} />
+                        <Text style={[styles.conceptBodyText, { flex: 1, fontWeight: '600' }]}>{item}</Text>
+                      </View>
+                      {(lang === 'bn' || lang === 'both') && bnItem && (
+                        <Text style={[styles.conceptBodyTextBn, { marginLeft: 23, marginTop: 4 }]}>
+                          {bnItem}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
 
-            {/* 5. Rich Content Sections (e.g. Computer Basics) */}
+            {/* ========================================================
+                INTERACTIVE CONCEPT DEMONSTRATIONS & ANIMATIONS
+               ======================================================== */}
+            {/* Lesson 1 Suite: IPO Conveyor + Speed Race */}
+            {(lesson?.interactiveType === 'lesson1-suite' || lesson?.id === 'cb-intro-to-computers') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileIPOSimulator lang={lang} />
+                <MobileSpeedRaceSimulator lang={lang} />
+              </View>
+            )}
+
+            {/* Lesson 2 & 3 Suite: Five Functional Units Hub & Architecture */}
+            {(lesson?.interactiveType === 'lesson2-suite' ||
+              lesson?.interactiveType === 'architecture-diagram-simulation' ||
+              lesson?.id === 'cb-basic-components' ||
+              lesson?.id === 'cb-cpu-architecture') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileFiveUnitsVisualizer lang={lang} />
+              </View>
+            )}
+
+            {/* Lesson 4 & 5 Suite: Desk vs Bookshelf (RAM vs SSD) + Hierarchy */}
+            {(lesson?.interactiveType === 'lesson4-suite' ||
+              lesson?.interactiveType === 'lesson5-suite' ||
+              lesson?.id === 'cb-hardware-software' ||
+              lesson?.id === 'cb-memory-hierarchy') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileDeskBookshelfSimulator lang={lang} />
+                <MobileMemoryHierarchy lang={lang} />
+              </View>
+            )}
+
+            {/* 5. Rich Content Sections (e.g. Computer Basics, AI, etc.) */}
             {Array.isArray(lesson?.contentSections) && lesson.contentSections.map((sec, sIdx) => (
               <View key={sIdx} style={styles.conceptCard}>
                 <View style={styles.conceptCardHeader}>
                   <Ionicons name="book-outline" size={18} color={themeColors.accent} style={{ marginRight: 6 }} />
                   <Text style={styles.conceptCardTitle}>
-                    {lang === 'bn' ? sec.headingBn || sec.heading : sec.heading}
+                    {lang === 'bn'
+                      ? sec.headingBn || sec.heading
+                      : lang === 'both'
+                      ? `${sec.heading} ${sec.headingBn ? `· ${sec.headingBn}` : ''}`
+                      : sec.heading}
                   </Text>
                 </View>
 
                 {(lang === 'en' || lang === 'both') && sec.bodyEn && (
-                  <Text style={styles.conceptBodyText}>{sec.bodyEn}</Text>
+                  <View style={{ marginTop: 4 }}>
+                    {sec.bodyEn.split('\n\n').map((para, pIdx) => (
+                      <Text key={pIdx} style={[styles.conceptBodyText, { marginBottom: 8, lineHeight: 20 }]}>
+                        {para}
+                      </Text>
+                    ))}
+                  </View>
                 )}
 
                 {(lang === 'bn' || lang === 'both') && sec.bodyBn && (
-                  <Text style={[styles.conceptBodyTextBn, lang === 'both' && { marginTop: 8 }]}>
-                    {sec.bodyBn}
-                  </Text>
+                  <View style={{ marginTop: lang === 'both' ? 8 : 4, borderTopWidth: lang === 'both' ? 1 : 0, borderTopColor: '#33415544', paddingTop: lang === 'both' ? 8 : 0 }}>
+                    {sec.bodyBn.split('\n\n').map((para, pIdx) => (
+                      <Text key={pIdx} style={[styles.conceptBodyTextBn, { marginBottom: 8, lineHeight: 22 }]}>
+                        {para}
+                      </Text>
+                    ))}
+                  </View>
                 )}
               </View>
             ))}
