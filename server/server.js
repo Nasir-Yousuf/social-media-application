@@ -1,20 +1,19 @@
+const path = require('path');
+const dotenv = require('dotenv');
+dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config();
+
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoSanitize = require('./middleware/mongoSanitize');
 const morgan = require('morgan');
-const dotenv = require('dotenv');
 const { connectDB, disconnectDB } = require('./config/db');
 const seedDatabase = require('./seeds/seedData');
 const { initSocket } = require('./sockets/socketManager');
 const { corsOptions, validateSecurityEnvironment } = require('./config/security');
 const { apiLimiter } = require('./middleware/rateLimiter');
-
-// Load environment variables
-const path = require('path');
-dotenv.config({ path: path.join(__dirname, '.env') });
-dotenv.config();
 
 // Run security validation checks on boot
 validateSecurityEnvironment();

@@ -1,8 +1,14 @@
 const https = require('https');
 const User = require('../models/User');
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+function getGeminiApiKey() {
+  return (process.env.GEMINI_API_KEY || '').trim();
+}
+
+function getGeminiModel() {
+  const m = (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
+  return m.replace(/^models\//, '');
+}
 
 let cachedAiUser = null;
 
@@ -45,14 +51,10 @@ async function ensureAiUser() {
 }
 
 /**
- * Low-level call to Google Gemini API
+ * Executes a single HTTP request to Gemini API for a specified model
  */
-function callGeminiApi({ contents, systemInstruction, maxOutputTokens = 1200, temperature = 0.85 }) {
+function executeGeminiRequest({ model, apiKey, contents, systemInstruction, maxOutputTokens, temperature }) {
   return new Promise((resolve, reject) => {
-    if (!GEMINI_API_KEY) {
-      return reject(new Error('GEMINI_API_KEY is not configured in server environment.'));
-    }
-
     const payload = {
       contents,
       generationConfig: {
@@ -68,7 +70,7 @@ function callGeminiApi({ contents, systemInstruction, maxOutputTokens = 1200, te
     }
 
     const bodyString = JSON.stringify(payload);
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const req = https.request(
       endpoint,
@@ -116,6 +118,41 @@ function callGeminiApi({ contents, systemInstruction, maxOutputTokens = 1200, te
     req.write(bodyString);
     req.end();
   });
+}
+
+/**
+ * Robust call to Google Gemini API with automatic candidate model fallbacks
+ */
+async function callGeminiApi({ contents, systemInstruction, maxOutputTokens = 1200, temperature = 0.85 }) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured in server environment.');
+  }
+
+  const primaryModel = getGeminiModel();
+  const modelsToTry = [primaryModel];
+  if (!modelsToTry.includes('gemini-2.5-flash')) modelsToTry.push('gemini-2.5-flash');
+  if (!modelsToTry.includes('gemini-1.5-flash')) modelsToTry.push('gemini-1.5-flash');
+
+  let lastError = null;
+  for (const model of modelsToTry) {
+    try {
+      const text = await executeGeminiRequest({
+        model,
+        apiKey,
+        contents,
+        systemInstruction,
+        maxOutputTokens,
+        temperature,
+      });
+      if (text) return text;
+    } catch (err) {
+      lastError = err;
+      console.warn(`Gemini attempt (${model}) failed: ${err.message}. Trying fallback if available...`);
+    }
+  }
+
+  throw lastError || new Error('Gemini API request failed across all candidate models.');
 }
 
 /**
