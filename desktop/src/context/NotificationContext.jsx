@@ -376,7 +376,111 @@ export const NotificationProvider = ({ children }) => {
         playTwitterNotificationSound();
         const senderName = incoming.sender?.name || incoming.sender?.username || 'Classmate';
         const snippet = incoming.text || (incoming.codeSnippet ? 'Shared code' : 'New message');
-        showToast(`💬 ${senderName}: ${snippet}`, 'info');
+        showToast(`💬 ${senderName}: ${snippet}`, 'info', {
+          avatarUrl: incoming.sender?.avatarUrl,
+          onClick: () => {
+            navigate(`/messages?user=${incoming.sender?.username}`);
+          },
+          duration: 5000,
+        });
+
+        if (
+          typeof window !== 'undefined' &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          try {
+            new Notification(`Message from ${senderName}`, {
+              body: snippet,
+              icon: incoming.sender?.avatarUrl || undefined,
+            });
+          } catch {}
+        }
+      }
+    });
+
+    const unsubSocketNotif = socketService.on('notification:new', (payload) => {
+      const incoming = payload?.notification;
+      if (typeof payload?.unreadCount === 'number') {
+        setUnreadCount(payload.unreadCount);
+      } else {
+        fetchUnreadCount();
+      }
+
+      if (incoming) {
+        playTwitterNotificationSound();
+
+        let notifText = 'You have a new notification';
+        let targetUrl = '/notifications';
+        const senderName = incoming.sender?.name || incoming.sender?.username || 'Someone';
+        const senderUsername = incoming.sender?.username || 'player';
+
+        if (incoming.type === 'like') {
+          notifText = `❤️ ${senderName} appreciated your post`;
+        } else if (incoming.type === 'comment') {
+          notifText = `💬 ${senderName} responded to your post`;
+        } else if (incoming.type === 'follow') {
+          notifText = `👤 ${senderName} began following you`;
+        } else if (incoming.type === 'mention' || incoming.type === 'question_mention') {
+          notifText = `📢 ${senderName} mentioned you`;
+        } else if (incoming.type === 'everyone_mention') {
+          notifText = `📢 ${senderName} mentioned @everyone`;
+        } else if (incoming.type === 'announcement') {
+          const postContent = incoming.post?.content || 'Check out the new official announcement!';
+          const postId = incoming.post?._id || incoming.post;
+          notifText = `📌 Announcement from ${senderName}: "${postContent.slice(0, 48)}${postContent.length > 48 ? '...' : ''}"`;
+          targetUrl = postId ? `/posts/${postId}` : '/notifications';
+          window.dispatchEvent(new CustomEvent('clearfeed:newPost'));
+        } else if (incoming.type === 'new_post') {
+          const postContent = incoming.post?.content || 'Check out their new update!';
+          const postId = incoming.post?._id || incoming.post;
+          notifText = `📝 ${senderName} shared a new post: "${postContent.slice(0, 48)}${postContent.length > 48 ? '...' : ''}"`;
+          targetUrl = postId ? `/posts/${postId}` : '/notifications';
+          window.dispatchEvent(new CustomEvent('clearfeed:newPost'));
+        } else if (incoming.type === 'typing_challenge') {
+          const tc = incoming.typingChallenge;
+          const carId = tc?.carId || 'street_phantom';
+          const chId = tc?._id || tc;
+          notifText = `🏎️⚡ ${senderName} challenged you to a Highway Supercar Race! Click to race!`;
+          targetUrl = `/typing?theme=race&duelWith=${senderUsername}&car=${carId}&challengeId=${chId}`;
+        } else if (incoming.type === 'typing_challenge_result') {
+          notifText = `🏆 ${senderName} completed your Highway Supercar Race duel!`;
+          targetUrl = '/typing?theme=race';
+        }
+
+        const isRaceChallenge = incoming.type === 'typing_challenge';
+        const isPostAlert = incoming.type === 'new_post' || incoming.type === 'announcement';
+        const hasPostLink = Boolean(incoming.post?._id || incoming.post);
+
+        showToast(notifText, 'info', {
+          avatarUrl: incoming.sender?.avatarUrl,
+          actionLabel: isRaceChallenge ? 'RACE NOW 🏎️' : (isPostAlert && hasPostLink ? 'VIEW POST' : undefined),
+          actionOnClick: () => {
+            navigate(targetUrl);
+          },
+          onClick: () => {
+            navigate(targetUrl);
+          },
+          duration: isRaceChallenge ? 10000 : 7000,
+        });
+
+        // Native Desktop / Browser Notification
+        if (
+          typeof window !== 'undefined' &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          try {
+            const nativeNotif = new Notification(`Clearfeed: ${senderName}`, {
+              body: notifText,
+              icon: incoming.sender?.avatarUrl || undefined,
+            });
+            nativeNotif.onclick = () => {
+              window.focus();
+              navigate(targetUrl);
+            };
+          } catch {}
+        }
       }
     });
 
@@ -403,6 +507,7 @@ export const NotificationProvider = ({ children }) => {
     return () => {
       clearInterval(interval);
       unsubSocketMsg();
+      unsubSocketNotif();
       window.removeEventListener('focus', handleVisibilityChange);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('storage', handleStorage);

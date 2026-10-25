@@ -153,13 +153,18 @@ exports.createComment = async (req, res) => {
 
     // Notify author if not self-commenting
     if (!post.author.equals(req.user._id)) {
-      await Notification.create({
+      const notif = await Notification.create({
         recipient: post.author,
         sender: req.user._id,
         type: 'comment',
         post: postId,
         comment: comment._id,
       });
+
+      try {
+        const { broadcastNotification } = require('../sockets/socketManager');
+        broadcastNotification(post.author, notif);
+      } catch {}
 
       sendPushToUser(post.author, {
         title: 'New Reply',

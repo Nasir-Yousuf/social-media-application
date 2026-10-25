@@ -37,6 +37,7 @@ export const TypingLeaderboard = ({
   currentSessionMode,
   title = 'Speed Championship Leaderboard',
   showFullControls = true,
+  userBestScore: propUserBestScore = null,
 }) => {
   const { user } = useAuth();
   const { showToast } = useNotifications();
@@ -53,6 +54,10 @@ export const TypingLeaderboard = ({
   const [userRank, setUserRank] = useState(() => {
     const init = getResilientLeaderboard('all', 'all', user);
     return init.userRank || null;
+  });
+  const [userBestScore, setUserBestScore] = useState(() => {
+    const init = getResilientLeaderboard('all', 'all', user);
+    return propUserBestScore || init.userBestScore || null;
   });
   const [loading, setLoading] = useState(false);
 
@@ -88,6 +93,9 @@ export const TypingLeaderboard = ({
     if (localResilient.userRank) {
       setUserRank(localResilient.userRank);
     }
+    if (localResilient.userBestScore) {
+      setUserBestScore(localResilient.userBestScore);
+    }
 
     let remoteLeaderboard = null;
     try {
@@ -101,6 +109,9 @@ export const TypingLeaderboard = ({
       remoteLeaderboard = res.data.leaderboard || [];
       if (res.data.userRank) {
         setUserRank(res.data.userRank);
+      }
+      if (res.data.userBestScore) {
+        setUserBestScore(res.data.userBestScore);
       }
     } catch (err) {
       // Graceful fallback to local resilient leaderboard
@@ -117,6 +128,9 @@ export const TypingLeaderboard = ({
     setLeaderboard(resilient.leaderboard);
     if (resilient.userRank) {
       setUserRank(resilient.userRank);
+    }
+    if (resilient.userBestScore) {
+      setUserBestScore(resilient.userBestScore);
     }
   };
 

@@ -256,6 +256,36 @@ export const ConversationScreen = ({ route, navigation }) => {
       }
     });
 
+    // 6. Real-time Message Reactions Listener
+    const handleReactionEvent = (data) => {
+      if (data?.messageId && isMountedRef.current) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m._id === data.messageId ? { ...m, reactions: data.reactions || [] } : m
+          )
+        );
+      }
+    };
+    const unsubReaction = socketService.on('chat:reaction', handleReactionEvent);
+    const unsubReactionAlt = socketService.on('chat:message_reacted', handleReactionEvent);
+
+    // 7. Real-time Message Deletion Listener
+    const handleDeleteEvent = (data) => {
+      const targetConvId = data?.conversationId?.toString();
+      const currentConvId = conversationId?.toString();
+      if (!targetConvId || targetConvId === currentConvId) {
+        if (isMountedRef.current) {
+          if (data.messageId === '__ALL__' || data.messageId === '__CONVERSATION_DELETED__') {
+            setMessages([]);
+          } else if (data.messageId) {
+            setMessages((prev) => prev.filter((m) => m._id !== data.messageId));
+          }
+        }
+      }
+    };
+    const unsubDelete = socketService.on('chat:delete', handleDeleteEvent);
+    const unsubDeleteAlt = socketService.on('chat:message_deleted', handleDeleteEvent);
+
     // Passive fallback interval (18s background safety sync)
     const fallbackSync = setInterval(() => {
       fetchMessages(true);
@@ -271,6 +301,10 @@ export const ConversationScreen = ({ route, navigation }) => {
       unsubRead();
       unsubOnline();
       unsubOffline();
+      unsubReaction();
+      unsubReactionAlt();
+      unsubDelete();
+      unsubDeleteAlt();
       if (fetchUnreadCount) fetchUnreadCount();
     };
   }, [conversationId, currentUser?._id, fetchMessages, fetchUnreadCount]);
@@ -375,12 +409,23 @@ export const ConversationScreen = ({ route, navigation }) => {
         prev.map((m) => {
           if (m._id !== msgId) return m;
           const currentReactions = Array.isArray(m.reactions) ? [...m.reactions] : [];
-          const existingIdx = currentReactions.findIndex(
-            (r) => (r.user?._id || r.user) === currentUser?._id && r.emoji === emoji
-          );
+          const existingIdx = currentReactions.findIndex((r) => {
+            const uId = r.user?._id || r.user;
+            return String(uId) === String(currentUser?._id);
+          });
 
           if (existingIdx >= 0) {
-            currentReactions.splice(existingIdx, 1);
+            if (currentReactions[existingIdx].emoji === emoji) {
+              // Toggle off
+              currentReactions.splice(existingIdx, 1);
+            } else {
+              // Update emoji
+              currentReactions[existingIdx] = {
+                ...currentReactions[existingIdx],
+                emoji,
+                createdAt: new Date(),
+              };
+            }
           } else {
             currentReactions.push({
               emoji,
@@ -392,10 +437,88 @@ export const ConversationScreen = ({ route, navigation }) => {
         })
       );
 
-      await api.post(`/messages/${msgId}/react`, { emoji });
+      const res = await api.post(`/messages/${msgId}/react`, { emoji });
+      if (res.data?.reactions && isMountedRef.current) {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === msgId ? { ...m, reactions: res.data.reactions } : m))
+        );
+      }
     } catch (err) {
-      showToast('Failed to apply reaction', 'error');
+      showToast('Failed to update reaction', 'error');
     }
+  };
+
+  // Delete individual message with confirmation
+  const handleDeleteMessage = (msgId) => {
+    if (!msgId) return;
+    Alert.alert(
+      'Delete Message?',
+      'This message will be permanently removed for everyone in this conversation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setMessages((prev) => prev.filter((m) => m._id !== msgId));
+            try {
+              await api.delete(`/messages/${msgId}`);
+              showToast('Message deleted', 'info');
+            } catch (err) {
+              showToast(err.response?.data?.message || 'Failed to delete message', 'error');
+              fetchMessages(true);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Message long-press options action sheet
+  const handleMessageLongPress = (msg) => {
+    if (!msg || !msg._id) return;
+    const senderId = typeof msg.sender === 'object' ? msg.sender?._id : msg.sender;
+    const isMine = senderId === currentUser?._id;
+    const isOtherAi =
+      otherUser?.username === 'ai' ||
+      otherUser?.role === 'ai' ||
+      Boolean(otherUser?.isAi);
+    const canDelete = (isMine || isOtherAi) && msg.status !== 'sending' && msg.status !== 'failed';
+
+    const options = [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Add / Change Reaction 😊',
+        onPress: () => setActiveReactionMsgId((curr) => (curr === msg._id ? null : msg._id)),
+      },
+    ];
+
+    if (msg.text) {
+      options.push({
+        text: 'Copy Message Text 📋',
+        onPress: async () => {
+          await Clipboard.setStringAsync(msg.text);
+          showToast('Text copied to clipboard', 'success');
+        },
+      });
+    }
+
+    if (msg.codeSnippet?.code) {
+      options.push({
+        text: 'Copy Code Snippet 💻',
+        onPress: () => handleCopyCode(msg.codeSnippet.code),
+      });
+    }
+
+    if (canDelete) {
+      options.push({
+        text: isOtherAi && !isMine ? 'Delete AI Response 🗑️' : 'Delete Message 🗑️',
+        style: 'destructive',
+        onPress: () => handleDeleteMessage(msg._id),
+      });
+    }
+
+    Alert.alert('Message Options', undefined, options);
   };
 
   // Copy code snippet to clipboard
@@ -519,9 +642,7 @@ export const ConversationScreen = ({ route, navigation }) => {
               isFailed && styles.bubbleFailed,
             ]}
             activeOpacity={0.9}
-            onLongPress={() =>
-              setActiveReactionMsgId(activeReactionMsgId === item._id ? null : item._id)
-            }
+            onLongPress={() => handleMessageLongPress(item)}
             onPress={() => {
               if (isFailed) handleRetrySend(item);
             }}
@@ -591,20 +712,41 @@ export const ConversationScreen = ({ route, navigation }) => {
                   isMine ? styles.reactionBadgeMine : styles.reactionBadgeOther,
                 ]}
               >
-                {Object.entries(reactionCounts || {}).map(([emoji, count]) => (
-                  <View key={emoji} style={styles.reactionPill}>
-                    <Text style={styles.reactionEmoji}>{emoji}</Text>
-                    {count > 1 && (
-                      <Text style={styles.reactionCount}>{count}</Text>
-                    )}
-                  </View>
-                ))}
+                {Object.entries(reactionCounts || {}).map(([emoji, count]) => {
+                  const hasUserReacted = item.reactions?.some((r) => {
+                    const uId = r.user?._id || r.user;
+                    return String(uId) === String(currentUser?._id) && r.emoji === emoji;
+                  });
+                  return (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[
+                        styles.reactionPill,
+                        hasUserReacted && styles.reactionPillActive,
+                      ]}
+                      onPress={() => handleReactToMessage(item._id, emoji)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.reactionEmoji}>{emoji}</Text>
+                      {count > 1 && (
+                        <Text
+                          style={[
+                            styles.reactionCount,
+                            hasUserReacted && styles.reactionCountActive,
+                          ]}
+                        >
+                          {count}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Quick Emoji Bar if active for this message */}
+        {/* Quick Emoji Bar & Action Pill if active for this message */}
         {activeReactionMsgId === item._id && (
           <View
             style={[
@@ -612,15 +754,62 @@ export const ConversationScreen = ({ route, navigation }) => {
               isMine ? styles.quickEmojiBarMine : styles.quickEmojiBarOther,
             ]}
           >
-            {QUICK_EMOJIS.map((emoji) => (
+            <View style={styles.quickEmojiScroll}>
+              {QUICK_EMOJIS.map((emoji) => {
+                const isSelected = item.reactions?.some((r) => {
+                  const uId = r.user?._id || r.user;
+                  return String(uId) === String(currentUser?._id) && r.emoji === emoji;
+                });
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    style={[styles.quickEmojiBtn, isSelected && styles.quickEmojiBtnSelected]}
+                    onPress={() => handleReactToMessage(item._id, emoji)}
+                  >
+                    <Text style={styles.quickEmojiText}>{emoji}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.quickActionDivider} />
+
+            <View style={styles.quickActionsRow}>
+              {item.text ? (
+                <TouchableOpacity
+                  style={styles.quickActionIconBtn}
+                  onPress={async () => {
+                    setActiveReactionMsgId(null);
+                    await Clipboard.setStringAsync(item.text);
+                    showToast('Text copied to clipboard', 'success');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Feather name="copy" size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ) : null}
+
+              {((isMine || isAiChat) && !isSending && !isFailed) ? (
+                <TouchableOpacity
+                  style={styles.quickActionIconBtn}
+                  onPress={() => {
+                    setActiveReactionMsgId(null);
+                    handleDeleteMessage(item._id);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="trash-outline" size={17} color="#ff4d4f" />
+                </TouchableOpacity>
+              ) : null}
+
               <TouchableOpacity
-                key={emoji}
-                style={styles.quickEmojiBtn}
-                onPress={() => handleReactToMessage(item._id, emoji)}
+                style={styles.quickActionIconBtn}
+                onPress={() => setActiveReactionMsgId(null)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.quickEmojiText}>{emoji}</Text>
+                <Ionicons name="close" size={17} color={colors.textSecondary} />
               </TouchableOpacity>
-            ))}
+            </View>
           </View>
         )}
       </View>
@@ -1134,6 +1323,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
+  reactionPillActive: {
+    backgroundColor: '#172e48',
+    borderColor: '#38bdf8',
+  },
   reactionEmoji: {
     fontSize: 12,
   },
@@ -1143,8 +1336,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginLeft: 3,
   },
+  reactionCountActive: {
+    color: '#38bdf8',
+  },
   quickEmojiBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1152,7 +1349,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     marginTop: 6,
-    alignSelf: 'flex-start',
     shadowColor: '#000',
     shadowOpacity: 0.3,
     shadowRadius: 5,
@@ -1166,11 +1362,35 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginLeft: 8,
   },
+  quickEmojiScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   quickEmojiBtn: {
     padding: 6,
+    borderRadius: 14,
+  },
+  quickEmojiBtnSelected: {
+    backgroundColor: '#1a365d',
   },
   quickEmojiText: {
     fontSize: 18,
+  },
+  quickActionDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: colors.border,
+    marginHorizontal: 6,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickActionIconBtn: {
+    padding: 6,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   composerContainer: {
     flexDirection: 'row',

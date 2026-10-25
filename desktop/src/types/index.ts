@@ -67,9 +67,11 @@ export interface ChatMessage {
     language: string;
   };
   reactions?: Array<{
-    user: string;
+    _id?: string;
+    user: string | any;
     emoji: string;
     username?: string;
+    createdAt?: string;
   }>;
   replyTo?: {
     messageId?: string;

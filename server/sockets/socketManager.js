@@ -342,6 +342,37 @@ function initSocket(server) {
           message: messageData,
         });
 
+        // Create Notification record for direct message and send background push alert
+        (async () => {
+          try {
+            await Notification.create({
+              recipient: targetRecipientId,
+              sender: userId,
+              type: 'message',
+              conversation: conv._id,
+            });
+
+            const { sendPushToUser } = require('../services/pushNotificationService');
+            const senderUserDoc = await User.findById(userId).select('name username').lean();
+            const senderName = senderUserDoc?.name || senderUserDoc?.username || 'New Message';
+            sendPushToUser(targetRecipientId, {
+              title: senderName,
+              body: trimmedText || (hasValidCode ? 'Shared a code snippet' : 'Sent you a direct message'),
+              data: {
+                type: 'message',
+                conversationId: conv._id.toString(),
+                senderId: userId.toString(),
+                senderName,
+              },
+              sound: 'default',
+              badge: currentUnread + 1,
+              channelId: 'messages',
+            }).catch((pushErr) => console.warn('Background push error:', pushErr.message));
+          } catch (notifErr) {
+            console.warn('Socket message notification error:', notifErr.message);
+          }
+        })();
+
         if (typeof callback === 'function') {
           callback({ success: true, message: messageData });
         }
@@ -1077,9 +1108,97 @@ function broadcastTypingStatus(conversationId, userId, isTyping, recipientId) {
   }
 }
 
+// Helper to broadcast notification in real-time to a user across all active devices
+async function broadcastNotification(recipientId, notificationDoc) {
+  if (!ioInstance || !recipientId) return;
+  try {
+    const rIdStr = recipientId.toString();
+    const unreadCount = await Notification.countDocuments({
+      recipient: recipientId,
+      read: false,
+    });
+
+    let notifObj = notificationDoc?.toObject ? notificationDoc.toObject() : { ...notificationDoc };
+
+    // Ensure sender details are populated for immediate UI toast display
+    if (notifObj && (!notifObj.sender?.name || !notifObj.sender?.username)) {
+      if (notifObj._id) {
+        const fullDoc = await Notification.findById(notifObj._id)
+          .populate('sender', 'name username avatarUrl role')
+          .populate({ path: 'post', select: 'content codeSnippet tags isAnnouncement' })
+          .populate('typingChallenge')
+          .lean();
+        if (fullDoc) notifObj = fullDoc;
+      }
+    }
+
+    ioInstance.to(`user:${rIdStr}`).emit('notification:new', {
+      notification: notifObj,
+      unreadCount,
+    });
+  } catch (err) {
+    console.warn('broadcastNotification error:', err.message);
+  }
+}
+
+// Helper to broadcast emoji reaction updates to chat rooms & participants
+function broadcastMessageReaction(conversationId, messageId, reactions, action, participantIds = []) {
+  if (!ioInstance) return;
+  const convIdStr = conversationId?.toString();
+  const msgIdStr = messageId?.toString();
+  const payload = {
+    conversationId: convIdStr,
+    messageId: msgIdStr,
+    reactions,
+    action,
+  };
+
+  const rooms = new Set();
+  if (convIdStr) rooms.add(`conv:${convIdStr}`);
+  if (Array.isArray(participantIds)) {
+    participantIds.forEach((p) => {
+      const pId = p?._id || p;
+      if (pId) rooms.add(`user:${pId.toString()}`);
+    });
+  }
+
+  for (const r of rooms) {
+    ioInstance.to(r).emit('chat:reaction', payload);
+    ioInstance.to(r).emit('chat:message_reacted', payload);
+  }
+}
+
+// Helper to broadcast message deletion to chat rooms & participants
+function broadcastMessageDeleted(conversationId, messageId, participantIds = []) {
+  if (!ioInstance) return;
+  const convIdStr = conversationId?.toString();
+  const msgIdStr = messageId?.toString();
+  const payload = {
+    conversationId: convIdStr,
+    messageId: msgIdStr,
+  };
+
+  const rooms = new Set();
+  if (convIdStr) rooms.add(`conv:${convIdStr}`);
+  if (Array.isArray(participantIds)) {
+    participantIds.forEach((p) => {
+      const pId = p?._id || p;
+      if (pId) rooms.add(`user:${pId.toString()}`);
+    });
+  }
+
+  for (const r of rooms) {
+    ioInstance.to(r).emit('chat:delete', payload);
+    ioInstance.to(r).emit('chat:message_deleted', payload);
+  }
+}
+
 module.exports = {
   initSocket,
   getIO,
   broadcastChatMessage,
   broadcastTypingStatus,
+  broadcastNotification,
+  broadcastMessageReaction,
+  broadcastMessageDeleted,
 };

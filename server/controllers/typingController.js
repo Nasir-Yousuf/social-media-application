@@ -634,12 +634,32 @@ exports.createChallenge = async (req, res) => {
     await challenge.save();
 
     // 1. Create notification for challenged user
-    await Notification.create({
+    const notif = await Notification.create({
       recipient: targetUser._id,
       sender: challengerId,
       type: 'typing_challenge',
       typingChallenge: challenge._id,
     });
+
+    try {
+      const { broadcastNotification } = require('../sockets/socketManager');
+      broadcastNotification(targetUser._id, notif);
+    } catch {}
+
+    try {
+      const { sendPushToUser } = require('../services/pushNotificationService');
+      const challengerName = req.user?.name || req.user?.username || 'A player';
+      sendPushToUser(targetUser._id, {
+        title: '🏎️ Highway Supercar Challenge!',
+        body: `${challengerName} challenged you to a Supercar Race duel! Click to race!`,
+        data: {
+          type: 'typing_challenge',
+          challengeId: challenge._id.toString(),
+          senderUsername: req.user?.username,
+        },
+        channelId: 'social',
+      }).catch(() => {});
+    } catch {}
 
     // Challenges are delivered exclusively via Notifications and Typing Arena
 
@@ -872,12 +892,31 @@ exports.completeChallenge = async (req, res) => {
         ? challenge.challenger._id
         : challenge.challenged._id;
 
-      await Notification.create({
+      const notif = await Notification.create({
         recipient: otherUserId,
         sender: userId,
         type: 'typing_challenge_result',
         typingChallenge: challenge._id,
       });
+
+      try {
+        const { broadcastNotification } = require('../sockets/socketManager');
+        broadcastNotification(otherUserId, notif);
+      } catch {}
+
+      try {
+        const { sendPushToUser } = require('../services/pushNotificationService');
+        const finisherName = req.user?.name || req.user?.username || 'Your opponent';
+        sendPushToUser(otherUserId, {
+          title: '🏆 Race Duel Completed!',
+          body: `${finisherName} completed your Highway Supercar Race duel!`,
+          data: {
+            type: 'typing_challenge_result',
+            challengeId: challenge._id.toString(),
+          },
+          channelId: 'social',
+        }).catch(() => {});
+      } catch {}
     }
 
     return res.status(200).json({

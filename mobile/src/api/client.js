@@ -23,7 +23,7 @@ const getDevHostIp = () => {
     }
   }
   // Default to your current local machine Wi-Fi IPv4 address
-  return '192.168.0.246';
+  return '192.168.1.90';
 };
 
 const DEV_IP = getDevHostIp();
@@ -58,11 +58,27 @@ export const setBaseUrl = async (url) => {
 export const getBaseUrl = async () => {
   if (customBaseUrl) return customBaseUrl;
   const saved = await AsyncStorage.getItem('cf_api_base_url');
+  if (saved && saved !== CLOUD_URL) {
+    customBaseUrl = saved;
+    return saved;
+  }
+  // In development / Expo Go on local Wi-Fi, prefer host laptop if active
+  if (__DEV__) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch(`${LOCAL_DEV_URL}/health`, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+      if (res && res.ok) {
+        customBaseUrl = LOCAL_DEV_URL;
+        return LOCAL_DEV_URL;
+      }
+    } catch {}
+  }
   if (saved) {
     customBaseUrl = saved;
     return saved;
   }
-  // In development / Expo Go on local Wi-Fi, connect to host laptop's local LAN server
   if (__DEV__) {
     return LOCAL_DEV_URL;
   }

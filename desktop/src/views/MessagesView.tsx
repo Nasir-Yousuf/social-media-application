@@ -239,15 +239,30 @@ export const MessagesView: React.FC = () => {
       fetchConversations(true);
     });
 
-    const unsubReaction = socketService.on('chat:reaction', (data: any) => {
-      setMessages((prev) =>
-        prev.map((m) => (m._id === data.messageId ? { ...m, reactions: data.reactions } : m))
-      );
-    });
+    const handleReaction = (data: any) => {
+      if (data?.messageId) {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === data.messageId ? { ...m, reactions: data.reactions || [] } : m))
+        );
+      }
+    };
 
-    const unsubDelete = socketService.on('chat:delete', (data: any) => {
-      setMessages((prev) => prev.filter((m) => m._id !== data.messageId));
-    });
+    const handleDelete = (data: any) => {
+      const targetConvId = data?.conversationId?.toString();
+      if (!targetConvId || targetConvId === activeConvIdRef.current) {
+        if (data.messageId === '__ALL__' || data.messageId === '__CONVERSATION_DELETED__') {
+          setMessages([]);
+        } else if (data.messageId) {
+          setMessages((prev) => prev.filter((m) => m._id !== data.messageId));
+        }
+      }
+      fetchConversations(true);
+    };
+
+    const unsubReaction = socketService.on('chat:reaction', handleReaction);
+    const unsubReactionAlt = socketService.on('chat:message_reacted', handleReaction);
+    const unsubDelete = socketService.on('chat:delete', handleDelete);
+    const unsubDeleteAlt = socketService.on('chat:message_deleted', handleDelete);
 
     const unsubTyping = socketService.on('chat:typing', (data: any) => {
       if (data?.conversationId === activeConvIdRef.current) {
@@ -261,7 +276,9 @@ export const MessagesView: React.FC = () => {
     return () => {
       unsubMessage();
       unsubReaction();
+      unsubReactionAlt();
       unsubDelete();
+      unsubDeleteAlt();
       unsubTyping();
     };
   }, [fetchConversations]);
@@ -421,16 +438,116 @@ export const MessagesView: React.FC = () => {
   };
 
   const handleReact = async (messageId: string, emoji: string) => {
+    if (!messageId || !emoji) return;
+    const targetMsg = messages.find((m) => m._id === messageId);
+    if (!targetMsg) return;
+
+    const currentReactions = Array.isArray(targetMsg.reactions) ? targetMsg.reactions : [];
+    const myExistingReaction = currentReactions.find((r: any) => {
+      const uId = r.user?._id || r.user;
+      return String(uId) === String(currentUser?._id);
+    });
+
+    let optimisticReactions: any[];
+    if (myExistingReaction && myExistingReaction.emoji === emoji) {
+      // Toggle off / remove
+      optimisticReactions = currentReactions.filter((r: any) => {
+        const uId = r.user?._id || r.user;
+        return String(uId) !== String(currentUser?._id);
+      });
+    } else if (myExistingReaction) {
+      // Switch emoji
+      optimisticReactions = currentReactions.map((r: any) => {
+        const uId = r.user?._id || r.user;
+        if (String(uId) === String(currentUser?._id)) {
+          return { ...r, emoji, createdAt: new Date().toISOString() };
+        }
+        return r;
+      });
+    } else {
+      // Add new reaction
+      optimisticReactions = [
+        ...currentReactions,
+        {
+          _id: `temp-${Date.now()}`,
+          user: {
+            _id: currentUser?._id,
+            name: currentUser?.name,
+            username: currentUser?.username,
+            avatarUrl: currentUser?.avatarUrl,
+          },
+          emoji,
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    }
+
+    setMessages((prev) =>
+      prev.map((m) => (m._id === messageId ? { ...m, reactions: optimisticReactions } : m))
+    );
+
     try {
-      await api.post(`/messages/${messageId}/react`, { emoji });
-    } catch {}
+      const res = await api.post(`/messages/${messageId}/react`, { emoji });
+      if (res.data?.reactions) {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === messageId ? { ...m, reactions: res.data.reactions } : m))
+        );
+      }
+    } catch {
+      if (activeConversation?._id) {
+        api.get(`/messages/conversations/${activeConversation._id}`)
+          .then((r) => { if (r.data?.messages) setMessages(r.data.messages); })
+          .catch(() => {});
+      }
+    }
   };
 
   const handleDeleteMessage = async (messageId: string) => {
+    if (!window.confirm('Delete this message permanently? It will be removed for everyone in this conversation.')) {
+      return;
+    }
+    setMessages((prev) => prev.filter((m) => m._id !== messageId));
     try {
       await api.delete(`/messages/${messageId}`);
-      setMessages((prev) => prev.filter((m) => m._id !== messageId));
-    } catch {}
+      fetchConversations(true);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete message');
+      if (activeConversation?._id) {
+        api.get(`/messages/conversations/${activeConversation._id}`)
+          .then((r) => { if (r.data?.messages) setMessages(r.data.messages); })
+          .catch(() => {});
+      }
+    }
+  };
+
+  const handleClearConversation = async () => {
+    if (!activeConversation?._id) return;
+    if (!window.confirm('Clear all messages in this conversation? All chat history will be erased permanently.')) {
+      return;
+    }
+    try {
+      await api.delete(`/messages/conversations/${activeConversation._id}/messages`);
+      setMessages([]);
+      fetchConversations(true);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to clear messages');
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!activeConversation?._id) return;
+    if (!window.confirm('Delete this entire conversation? All messages and conversation records will be permanently erased.')) {
+      return;
+    }
+    const convId = activeConversation._id;
+    try {
+      await api.delete(`/messages/conversations/${convId}`);
+      setActiveConversation(null);
+      setMessages([]);
+      fetchConversations(true);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete conversation');
+    }
   };
 
   const filteredConversations = conversations.filter((c) => {
@@ -634,10 +751,17 @@ export const MessagesView: React.FC = () => {
               )}
               <button
                 onClick={() => selectConversation(activeConversation)}
-                className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition"
+                className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition cursor-pointer"
                 title="Refresh messages"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleClearConversation}
+                className="p-1.5 text-neutral-400 hover:text-amber-400 rounded-lg hover:bg-neutral-800 transition cursor-pointer"
+                title="Clear all messages in this conversation"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -715,6 +839,51 @@ export const MessagesView: React.FC = () => {
                         </div>
                       )}
 
+                      {/* Reaction Pills on Bubble */}
+                      {Array.isArray(msg.reactions) && msg.reactions.length > 0 && (() => {
+                        const reactionCounts: Record<string, number> = {};
+                        msg.reactions.forEach((r: any) => {
+                          if (r.emoji) reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+                        });
+                        return (
+                          <div
+                            className={`flex items-center gap-1 mt-1.5 flex-wrap ${
+                              isMe ? 'justify-end' : 'justify-start'
+                            }`}
+                          >
+                            {Object.entries(reactionCounts).map(([emoji, count]) => {
+                              const isSelected = msg.reactions?.some((r: any) => {
+                                const uId = r.user?._id || r.user;
+                                return String(uId) === String(currentUser?._id) && r.emoji === emoji;
+                              });
+                              return (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReact(msg._id, emoji);
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition select-none ${
+                                    isSelected
+                                      ? 'bg-sky-400/25 border border-sky-300 text-white font-bold ring-1 ring-sky-400/50'
+                                      : isMe
+                                      ? 'bg-sky-700/80 border border-sky-500/50 text-white/90 hover:bg-sky-700'
+                                      : 'bg-neutral-900/90 border border-neutral-700 text-neutral-300 hover:bg-neutral-800'
+                                  }`}
+                                  title={isSelected ? `Remove ${emoji}` : `React ${emoji}`}
+                                >
+                                  <span>{emoji}</span>
+                                  {count > 1 && (
+                                    <span className="text-[10px] font-bold opacity-80">{count}</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+
                       {/* Message Meta */}
                       <div
                         className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
@@ -741,38 +910,56 @@ export const MessagesView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Reactions & Actions */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition px-1">
+                    {/* Reactions & Actions Floating Toolbar */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition px-1 relative">
                       <button
+                        type="button"
                         onClick={() => handleStartReply(msg)}
-                        className="text-neutral-500 hover:text-sky-400 p-1 rounded transition cursor-pointer"
-                        title="Reply"
+                        className="text-neutral-400 hover:text-sky-400 p-1 rounded hover:bg-neutral-800 transition cursor-pointer"
+                        title="Reply to message"
                       >
-                        <Reply className="w-3 h-3" />
+                        <Reply className="w-3.5 h-3.5" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleCopyMessage(msg)}
-                        className="text-neutral-500 hover:text-sky-400 p-1 rounded transition cursor-pointer"
+                        className="text-neutral-400 hover:text-sky-400 p-1 rounded hover:bg-neutral-800 transition cursor-pointer"
                         title={copiedMsgId === msg._id ? "Copied!" : "Copy message"}
                       >
-                        <Copy className="w-3 h-3" />
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
-                      {QUICK_EMOJIS.slice(0, 4).map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => handleReact(msg._id, emoji)}
-                          className="text-xs hover:scale-125 transition cursor-pointer p-0.5"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
+
+                      {/* Quick Reaction Emojis */}
+                      <div className="flex items-center bg-neutral-900/90 border border-neutral-800 rounded-full px-1.5 py-0.5 gap-0.5 shadow-sm">
+                        {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => {
+                          const isSelected = msg.reactions?.some((r: any) => {
+                            const uId = r.user?._id || r.user;
+                            return String(uId) === String(currentUser?._id) && r.emoji === emoji;
+                          });
+                          return (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleReact(msg._id, emoji)}
+                              className={`text-xs hover:scale-130 active:scale-95 transition cursor-pointer px-1 py-0.5 rounded-full ${
+                                isSelected ? 'bg-sky-500/30 ring-1 ring-sky-400 scale-110' : 'hover:bg-neutral-800'
+                              }`}
+                              title={isSelected ? `Remove ${emoji}` : `React ${emoji}`}
+                            >
+                              {emoji}
+                            </button>
+                          );
+                        })}
+                      </div>
+
                       {canDelete && (
                         <button
+                          type="button"
                           onClick={() => handleDeleteMessage(msg._id)}
-                          className="text-neutral-500 hover:text-rose-400 p-1 rounded transition cursor-pointer"
+                          className="text-neutral-400 hover:text-rose-400 p-1 rounded hover:bg-rose-950/30 transition cursor-pointer ml-0.5"
                           title={isOtherAi && !isMe ? "Delete AI response" : "Delete message"}
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>

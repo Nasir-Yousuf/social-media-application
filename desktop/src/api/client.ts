@@ -8,12 +8,17 @@ export const getBaseUrl = (): string => {
     const custom = localStorage.getItem('pulse518_api_url');
     if (custom) return custom.endsWith('/api') ? custom : `${custom}/api`;
 
+    // In production builds (tauri package, vite build), default to cloud production
+    if (!import.meta.env.DEV) {
+      const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+      if (rawUrl) return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
+      return PRODUCTION_BACKEND_URL;
+    }
+
     const hostname = window.location.hostname;
     if (
-      import.meta.env.DEV ||
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
-      hostname === 'tauri.localhost' ||
       hostname.startsWith('192.168.') ||
       hostname.startsWith('10.') ||
       hostname.startsWith('172.') ||
@@ -28,7 +33,7 @@ export const getBaseUrl = (): string => {
   if (rawUrl) {
     return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
   }
-  return LOCAL_BACKEND_URL;
+  return PRODUCTION_BACKEND_URL;
 };
 
 export const api = axios.create({
@@ -54,7 +59,24 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    // Auto-fallback from local server to cloud if local dev server is unreachable
+    if (
+      error.message &&
+      (error.message.includes('Network Error') || error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED') &&
+      !originalRequest._retry &&
+      originalRequest.baseURL !== PRODUCTION_BACKEND_URL &&
+      !originalRequest.url?.includes('railway.app')
+    ) {
+      originalRequest._retry = true;
+      originalRequest.baseURL = PRODUCTION_BACKEND_URL;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('pulse518_api_url', PRODUCTION_BACKEND_URL);
+      }
+      return api(originalRequest);
+    }
+
     if (error.response && error.response.status === 401) {
       if (localStorage.getItem('pulse518_token')) {
         localStorage.removeItem('pulse518_token');

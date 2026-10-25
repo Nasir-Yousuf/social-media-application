@@ -14,6 +14,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useMesh } from '../../mesh/context/MeshContext';
 import { computeFingerprint, generateIdentityKeypair } from '../../mesh/crypto/meshCrypto';
+import { BROADCAST_PUBKEY } from '../../mesh/protocol/wireProtocol';
 import { MeshPairingModal } from '../../components/mesh/MeshPairingModal';
 
 export const MeshPeersScreen = ({ navigation }) => {
@@ -196,15 +197,59 @@ export const MeshPeersScreen = ({ navigation }) => {
         keyExtractor={(item) => item.publicKeyHex}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          <View
-            style={[
-              styles.radarCard,
-              {
-                backgroundColor: currentColors.surface,
-                borderColor: 'rgba(0,186,124,0.3)',
-              },
-            ]}
-          >
+          <>
+            {/* 1. PINNED NEARBY PUBLIC BROADCAST */}
+            <TouchableOpacity
+              style={[
+                styles.publicBroadcastCard,
+                {
+                  backgroundColor: currentColors.surface,
+                  borderColor: 'rgba(0,186,124,0.4)',
+                },
+              ]}
+              activeOpacity={0.75}
+              onPress={() =>
+                navigation.navigate('MeshConversation', {
+                  recipientPubkey: BROADCAST_PUBKEY,
+                  recipientNickname: '📢 Nearby Public Broadcast (Everyone)',
+                })
+              }
+            >
+              <View style={styles.broadcastIconBadge}>
+                <Ionicons name="megaphone" size={20} color="#ffffff" />
+              </View>
+              <View style={styles.broadcastBody}>
+                <View style={styles.broadcastTitleRow}>
+                  <Text
+                    style={[styles.publicBroadcastTitle, { color: currentColors.text }]}
+                    numberOfLines={1}
+                  >
+                    Nearby Public Broadcast
+                  </Text>
+                  <View style={styles.publicLiveBadge}>
+                    <Text style={styles.publicLiveBadgeText}>EVERYONE</Text>
+                  </View>
+                </View>
+                <Text
+                  style={[styles.publicBroadcastDesc, { color: currentColors.textSecondary }]}
+                  numberOfLines={1}
+                >
+                  Broadcast to all in range • সবাইকে বার্তা
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#00ba7c" style={{ marginLeft: 2 }} />
+            </TouchableOpacity>
+
+            {/* 2. RADAR SCANNER */}
+            <View
+              style={[
+                styles.radarCard,
+                {
+                  backgroundColor: currentColors.surface,
+                  borderColor: 'rgba(0,186,124,0.3)',
+                },
+              ]}
+            >
             <View style={styles.radarTopRow}>
               <View style={styles.radarPulseContainer}>
                 <MaterialCommunityIcons name="radar" size={22} color="#00ba7c" />
@@ -261,6 +306,7 @@ export const MeshPeersScreen = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
           </View>
+        </>
         }
         ListEmptyComponent={
           <View
@@ -528,6 +574,51 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,186,124,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  publicBroadcastCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  broadcastIconBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#00ba7c',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  broadcastBody: {
+    flex: 1,
+  },
+  broadcastTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  publicBroadcastTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  publicLiveBadge: {
+    backgroundColor: 'rgba(0, 186, 124, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  publicLiveBadgeText: {
+    color: '#00ba7c',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  publicBroadcastDesc: {
+    fontSize: 12,
   },
   radarCard: {
     borderRadius: 18,

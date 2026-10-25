@@ -367,9 +367,35 @@ export const MessagesPage = () => {
       }
     });
 
+    // Real-time message reactions listener
+    const unsubReaction = socketService.on('chat:reaction', (payload) => {
+      if (payload?.messageId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m._id === payload.messageId ? { ...m, reactions: payload.reactions || [] } : m
+          )
+        );
+      }
+    });
+
+    // Real-time message deletion listener
+    const unsubDelete = socketService.on('chat:delete', (payload) => {
+      const currentActiveId = activeConvIdRef.current;
+      if (payload?.conversationId && currentActiveId === payload.conversationId.toString()) {
+        if (payload.messageId === '__ALL__' || payload.messageId === '__CONVERSATION_DELETED__') {
+          setMessages([]);
+        } else if (payload.messageId) {
+          setMessages((prev) => prev.filter((m) => m._id !== payload.messageId));
+        }
+      }
+      fetchConversations(true);
+    });
+
     return () => {
       unsubMsg();
       unsubTyping();
+      unsubReaction();
+      unsubDelete();
     };
   }, [fetchConversations]);
 

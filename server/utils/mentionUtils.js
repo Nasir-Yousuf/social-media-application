@@ -115,6 +115,12 @@ const notifyMentions = async ({
 
   if (docs.length > 0) {
     await Notification.insertMany(docs, { ordered: false });
+    try {
+      const { broadcastNotification } = require('../sockets/socketManager');
+      for (const d of docs) {
+        broadcastNotification(d.recipient, d);
+      }
+    } catch {}
   }
 
   result.direct = finalDirect.length;

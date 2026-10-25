@@ -291,13 +291,56 @@ export const NotificationProvider = ({ children }) => {
         setUnreadMessagesCount((prev) => prev + 1);
         const senderName = incoming.sender?.name || incoming.sender?.username || 'New Message';
         const snippet = incoming.text || (incoming.codeSnippet ? 'Shared code' : 'Sent a message');
-        showToast(`💬 ${senderName}: ${snippet}`, 'info');
+        showToast(`💬 ${senderName}: ${snippet}`, 'info', () => {
+          navigate('Conversation', {
+            conversationId: payload.conversationId,
+            otherUser: incoming.sender,
+          });
+        });
+      }
+    });
+
+    // Real-time in-app notification when social alerts / challenges arrive
+    const unsubSocketNotif = socketService.on('notification:new', (payload) => {
+      const incoming = payload?.notification;
+      if (typeof payload?.unreadCount === 'number') {
+        setUnreadCount(payload.unreadCount);
+        updateBadgeCount(payload.unreadCount + unreadMessagesCount);
+      } else {
+        fetchUnreadCounts();
+      }
+
+      if (incoming) {
+        let msg = 'New notification';
+        const sender = incoming.sender?.name || incoming.sender?.username || 'Someone';
+        if (incoming.type === 'like') msg = `❤️ ${sender} appreciated your post`;
+        else if (incoming.type === 'comment') msg = `💬 ${sender} replied to your post`;
+        else if (incoming.type === 'follow') msg = `👤 ${sender} started following you`;
+        else if (incoming.type === 'mention' || incoming.type === 'question_mention') msg = `📢 ${sender} mentioned you`;
+        else if (incoming.type === 'everyone_mention') msg = `📢 ${sender} mentioned @everyone`;
+        else if (incoming.type === 'typing_challenge') msg = `🏎️⚡ ${sender} challenged you to a Highway Race!`;
+        else if (incoming.type === 'typing_challenge_result') msg = `🏆 ${sender} completed your race challenge!`;
+        else if (incoming.type === 'announcement') msg = `📌 Announcement from ${sender}`;
+        else if (incoming.type === 'new_post') msg = `📝 ${sender} shared a new post`;
+
+        showToast(msg, 'info', () => {
+          if (incoming.type === 'typing_challenge' || incoming.type === 'typing_challenge_result') {
+            navigate('Practice');
+          } else if (incoming.post?._id || incoming.post) {
+            navigate('PostDetail', { postId: incoming.post?._id || incoming.post });
+          } else if (incoming.type === 'follow' && incoming.sender?.username) {
+            navigate('Profile', { username: incoming.sender.username });
+          } else {
+            navigate('MainTabs', { screen: 'Notifications' });
+          }
+        });
       }
     });
 
     return () => {
       clearInterval(interval);
       unsubSocketMsg();
+      unsubSocketNotif();
       try {
         notifReceivedSub?.remove();
         responseSub?.remove();

@@ -483,6 +483,22 @@ exports.createPost = async (req, res) => {
               post: post._id,
             }));
             await Notification.insertMany(postNotifs, { ordered: false });
+
+            try {
+              const { broadcastNotification } = require('../sockets/socketManager');
+              for (const n of postNotifs) {
+                broadcastNotification(n.recipient, {
+                  ...n,
+                  sender: {
+                    _id: req.user._id,
+                    name: req.user.name,
+                    username: req.user.username,
+                    avatarUrl: req.user.avatarUrl,
+                  },
+                  post: { _id: post._id, content: post.content },
+                });
+              }
+            } catch {}
           }
         } catch (postNotifErr) {
           console.warn('createPost general notify failed:', postNotifErr.message);
@@ -803,12 +819,17 @@ exports.toggleLike = async (req, res) => {
 
       // Only notify if author isn't liking own post
       if (!post.author.equals(currentUserId)) {
-        await Notification.create({
+        const notif = await Notification.create({
           recipient: post.author,
           sender: currentUserId,
           type: 'like',
           post: post._id,
         });
+
+        try {
+          const { broadcastNotification } = require('../sockets/socketManager');
+          broadcastNotification(post.author, notif);
+        } catch {}
 
         sendPushToUser(post.author, {
           title: 'New Appreciation',

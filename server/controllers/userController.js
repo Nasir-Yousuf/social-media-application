@@ -173,11 +173,16 @@ exports.followUser = async (req, res) => {
     await Follow.create({ follower: currentUserId, following: targetUserId });
 
     // Create notification
-    await Notification.create({
+    const notif = await Notification.create({
       recipient: targetUserId,
       sender: currentUserId,
       type: 'follow',
     });
+
+    try {
+      const { broadcastNotification } = require('../sockets/socketManager');
+      broadcastNotification(targetUserId, notif);
+    } catch {}
 
     sendPushToUser(targetUserId, {
       title: 'New Follower',

@@ -2,9 +2,12 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const { sendPushToUser } = require('../services/pushNotificationService');
-const { broadcastChatMessage, broadcastTypingStatus } = require('../sockets/socketManager');
-const aiService = require('../services/aiService');
+const {
+  broadcastChatMessage,
+  broadcastTypingStatus,
+  broadcastMessageReaction,
+  broadcastMessageDeleted,
+} = require('../sockets/socketManager');
 
 // Get all conversations for current user
 exports.getConversations = async (req, res) => {
@@ -532,6 +535,13 @@ exports.deleteMessage = async (req, res) => {
       await conversation.save();
     }
 
+    // Real-time broadcast message deletion to conversation room and participants
+    try {
+      broadcastMessageDeleted(convId, messageId, conversation?.participants);
+    } catch (bcErr) {
+      console.warn('broadcastMessageDeleted error:', bcErr.message);
+    }
+
     return res.status(200).json({
       message: 'Message deleted successfully.',
       messageId,
@@ -558,12 +568,21 @@ exports.deleteConversation = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this conversation.' });
     }
 
+    const participants = conversation.participants;
+
     // Purge all messages from collection
     await Message.deleteMany({ conversation: conversationId });
     // Purge notifications related to this conversation
     await Notification.deleteMany({ conversation: conversationId });
     // Purge conversation metadata
     await Conversation.findByIdAndDelete(conversationId);
+
+    // Real-time broadcast conversation purge
+    try {
+      broadcastMessageDeleted(conversationId, '__CONVERSATION_DELETED__', participants);
+    } catch (bcErr) {
+      console.warn('broadcastMessageDeleted error:', bcErr.message);
+    }
 
     return res.status(200).json({
       message: 'Conversation and all messages permanently deleted.',
@@ -608,6 +627,13 @@ exports.clearConversation = async (req, res) => {
     }
 
     await conversation.save();
+
+    // Real-time broadcast clear all messages
+    try {
+      broadcastMessageDeleted(conversationId, '__ALL__', conversation.participants);
+    } catch (bcErr) {
+      console.warn('broadcastMessageDeleted error:', bcErr.message);
+    }
 
     return res.status(200).json({
       message: 'All messages cleared successfully.',
@@ -686,6 +712,19 @@ exports.reactToMessage = async (req, res) => {
 
     await message.save();
     await message.populate('reactions.user', 'name username avatarUrl');
+
+    // Real-time broadcast reaction to conversation room and participants
+    try {
+      broadcastMessageReaction(
+        conversation._id,
+        message._id,
+        message.reactions,
+        action,
+        conversation.participants
+      );
+    } catch (bcErr) {
+      console.warn('broadcastMessageReaction error:', bcErr.message);
+    }
 
     return res.status(200).json({
       message: `Reaction ${action}.`,

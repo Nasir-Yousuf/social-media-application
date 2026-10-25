@@ -235,7 +235,7 @@ export const MeshHomeScreen = ({ navigation }) => {
           onPress={() =>
             navigation.navigate('MeshConversation', {
               recipientPubkey: BROADCAST_PUBKEY,
-              recipientNickname: '📢 Public Broadcast (Everyone Nearby)',
+              recipientNickname: '📢 Nearby Public Broadcast (Everyone)',
             })
           }
         >
@@ -245,7 +245,7 @@ export const MeshHomeScreen = ({ navigation }) => {
           <View style={styles.broadcastBody}>
             <View style={styles.broadcastTitleRow}>
               <Text style={[styles.publicBroadcastTitle, { color: currentColors.text }]} numberOfLines={1}>
-                Public Broadcast
+                Nearby Public Broadcast
               </Text>
               <View style={styles.publicLiveBadge}>
                 <Text style={styles.publicLiveBadgeText}>EVERYONE</Text>
