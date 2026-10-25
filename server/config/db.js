@@ -1,7 +1,4 @@
-const nodeCrypto = require('crypto');
-if (typeof globalThis.crypto === 'undefined') {
-  globalThis.crypto = nodeCrypto.webcrypto || nodeCrypto;
-}
+require('./cryptoPolyfill');
 const mongoose = require('mongoose');
 
 let mongodInstance = null;
