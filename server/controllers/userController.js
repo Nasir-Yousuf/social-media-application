@@ -128,18 +128,24 @@ exports.updateProfile = async (req, res) => {
 // Serve avatar image directly from MongoDB Buffer
 exports.getAvatar = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('+avatar +avatarMimeType');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
+
+    const user = await User.findById(req.params.id).select('+avatar +avatarMimeType username');
 
     if (!user || !user.avatar) {
-      return res.status(404).json({ message: 'Avatar image not found.' });
+      const username = user?.username || 'user';
+      return res.redirect(302, `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(username)}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`);
     }
 
     res.set('Content-Type', user.avatarMimeType || 'image/jpeg');
-    res.set('Cache-Control', 'no-cache, private, must-revalidate');
+    res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     return res.send(user.avatar);
   } catch (err) {
     console.error('getAvatar error:', err);
-    return res.status(500).json({ message: 'Error retrieving avatar image.' });
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
+    return res.redirect(302, 'https://api.dicebear.com/7.x/initials/svg?seed=user');
   }
 };
 

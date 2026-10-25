@@ -164,12 +164,13 @@ export const MessagesScreen = ({ navigation }) => {
     try {
       const res = await api.post('/messages/conversations', {
         recipientId: member._id,
+        recipientUsername: member.username,
       });
       const conv = res.data.conversation;
       if (conv) {
         navigation.navigate('Conversation', {
           conversationId: conv._id,
-          otherUser: member,
+          otherUser: conv.otherUser || member,
         });
       }
     } catch (err) {
@@ -463,6 +464,41 @@ export const MessagesScreen = ({ navigation }) => {
             <FlatList
               data={filteredMembers}
               keyExtractor={(item) => item._id}
+              ListHeaderComponent={
+                !memberSearch ? (
+                  <TouchableOpacity
+                    style={styles.aiFeaturedCard}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      const aiMember = directoryMembers.find((m) => m.username === 'ai') || {
+                        _id: 'ai',
+                        username: 'ai',
+                        name: 'Clearfeed AI',
+                        role: 'ai',
+                        isAi: true,
+                        avatarUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=ClearfeedAI&backgroundColor=7c8a6b,6b7c5e&textColor=ffffff',
+                      };
+                      handleStartChatWithMember(aiMember);
+                    }}
+                  >
+                    <View style={styles.aiFeaturedIconWrap}>
+                      <Ionicons name="sparkles" size={18} color="#ffffff" />
+                    </View>
+                    <View style={styles.aiFeaturedTextWrap}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.aiFeaturedTitle}>Clearfeed AI Companion</Text>
+                        <View style={styles.aiBadge}>
+                          <Text style={styles.aiBadgeText}>24/7 Friend</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.aiFeaturedSubtitle} numberOfLines={1}>
+                        Chat in English or বাংলা about code, life, or practice!
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.accent || '#1d9bf0'} />
+                  </TouchableOpacity>
+                ) : null
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.memberPickRow}
@@ -782,6 +818,50 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: 'rgba(29, 155, 240, 0.08)',
     marginLeft: 8,
+  },
+  aiFeaturedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(29, 155, 240, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(29, 155, 240, 0.25)',
+  },
+  aiFeaturedIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.accent || '#1d9bf0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  aiFeaturedTextWrap: {
+    flex: 1,
+  },
+  aiFeaturedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  aiBadge: {
+    backgroundColor: 'rgba(29, 155, 240, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  aiBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.accent || '#1d9bf0',
+  },
+  aiFeaturedSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });
 

@@ -418,6 +418,7 @@ export const MessagesPage = () => {
     try {
       const res = await api.post('/messages/conversations', {
         recipientId: targetUser._id,
+        recipientUsername: targetUser.username,
       });
       const conv = res.data.conversation;
       setActiveConversation(conv);

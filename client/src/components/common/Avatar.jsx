@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FacultyBadge } from './ClearfeedIcons';
 
 const sizeMap = {
@@ -40,22 +40,49 @@ const getInitials = (name = '') => {
     .slice(0, 2);
 };
 
-export const resolveAvatarUrl = (url) => {
-  if (!url) return null;
-  if (
-    url.startsWith('http://') ||
-    url.startsWith('https://') ||
-    url.startsWith('data:') ||
-    url.startsWith('blob:')
-  ) {
-    return url;
+const getBackendOrigin = () => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('pulse518_api_url');
+    if (custom) return custom.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+
+    const hostname = window.location.hostname;
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.') ||
+      hostname.endsWith('.local')
+    ) {
+      return '';
+    }
   }
+
   const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-  const apiBase = rawBase.replace(/\/api$/, '');
-  if (url.startsWith('/api') || url.startsWith('/')) {
-    return `${apiBase}${url}`;
+  if (rawBase) {
+    return rawBase.replace(/\/api$/, '');
   }
-  return url;
+
+  return 'https://clearfeed518.up.railway.app';
+};
+
+export const resolveAvatarUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed;
+  }
+
+  const origin = getBackendOrigin();
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${origin}${cleanPath}`;
 };
 
 export const Avatar = ({
@@ -68,6 +95,7 @@ export const Avatar = ({
   showRoleBadge = false,
   role = 'student',
 }) => {
+  const [imgFailed, setImgFailed] = useState(false);
   const effectiveSrc = src || user?.avatarUrl;
   const effectiveName = name || user?.name || user?.username || '';
   const effectiveRole = user?.role || role;
@@ -79,17 +107,24 @@ export const Avatar = ({
   const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(effectiveName || 'user')}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
   const resolvedSrc = resolveAvatarUrl(effectiveSrc);
 
+  useEffect(() => {
+    setImgFailed(false);
+  }, [resolvedSrc]);
+
   return (
     <div className={`relative inline-block shrink-0 select-none ${className}`}>
-      {resolvedSrc ? (
+      {resolvedSrc && !imgFailed ? (
         <img
           key={resolvedSrc}
           src={resolvedSrc}
           alt={alt}
           className={`${sizeClasses} rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-800 transition-opacity duration-200 hover:opacity-90 shadow-2xs`}
           onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = defaultAvatar;
+            if (e.target.src !== defaultAvatar) {
+              e.target.src = defaultAvatar;
+            } else {
+              setImgFailed(true);
+            }
           }}
         />
       ) : (
@@ -99,6 +134,16 @@ export const Avatar = ({
         >
           {initials || '?'}
         </div>
+      )}
+
+      {/* Role Badge */}
+      {showRoleBadge && effectiveRole === 'faculty' && (
+        <span
+          className="absolute -bottom-0.5 -right-0.5 bg-white dark:bg-neutral-900 rounded-full p-0.5 shadow-xs ring-1 ring-neutral-200 dark:ring-neutral-700"
+          title="Verified Faculty"
+        >
+          <FacultyBadge size={14} />
+        </span>
       )}
     </div>
   );

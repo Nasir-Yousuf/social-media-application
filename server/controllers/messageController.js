@@ -168,6 +168,15 @@ exports.startConversation = async (req, res) => {
       targetUser = await User.findOne({ username: recipientId.toLowerCase() }).select('name username avatarUrl role status isAi');
     }
 
+    if (!targetUser && (recipientId === 'ai' || recipientUsername === 'ai')) {
+      try {
+        const aiService = require('../services/aiService');
+        targetUser = await aiService.ensureAiUser();
+      } catch (aiInitErr) {
+        console.warn('ensureAiUser in startConversation notice:', aiInitErr.message);
+      }
+    }
+
     if (!targetUser) {
       return res.status(404).json({ message: 'Recipient member not found.' });
     }

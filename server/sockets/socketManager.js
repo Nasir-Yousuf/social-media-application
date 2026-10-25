@@ -355,16 +355,18 @@ function initSocket(server) {
               broadcastTypingStatus(conv._id, targetRecipientId, true, userId);
 
               const history = await Message.find({ conversation: conv._id })
-                .sort({ createdAt: 1 })
+                .sort({ createdAt: -1 })
                 .limit(10)
                 .populate('sender', 'name username role isAi');
+
+              const chronologicalHistory = history.reverse();
 
               const senderUser = await User.findById(userId);
 
               const aiReplyText = await aiService.generateDirectChatReply({
                 user: senderUser || { name: 'User' },
                 conversation: conv,
-                recentMessages: history,
+                recentMessages: chronologicalHistory,
                 userMessage: trimmedText,
               });
 

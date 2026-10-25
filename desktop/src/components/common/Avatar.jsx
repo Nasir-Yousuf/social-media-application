@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FacultyBadge } from './ClearfeedIcons';
 import { getBaseUrl } from '../../api/client';
 
@@ -54,8 +54,9 @@ export const resolveAvatarUrl = (url) => {
   const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   const base = rawBase || (typeof getBaseUrl === 'function' ? getBaseUrl() : '') || '';
   const apiBase = base.replace(/\/api\/?$/, '');
+  const origin = apiBase || 'https://clearfeed518.up.railway.app';
   const cleanUrl = url.startsWith('/') ? url : `/${url}`;
-  return `${apiBase}${cleanUrl}`;
+  return `${origin}${cleanUrl}`;
 };
 
 export const Avatar = ({
@@ -68,6 +69,7 @@ export const Avatar = ({
   showRoleBadge = false,
   role = 'student',
 }) => {
+  const [imgFailed, setImgFailed] = useState(false);
   const effectiveSrc = src || user?.avatarUrl;
   const effectiveName = name || user?.name || user?.username || '';
   const effectiveRole = user?.role || role;
@@ -79,17 +81,24 @@ export const Avatar = ({
   const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(effectiveName || 'user')}&backgroundColor=1d9bf0,00ba7c,7856ff,f91880&textColor=ffffff&fontSize=40`;
   const resolvedSrc = resolveAvatarUrl(effectiveSrc);
 
+  useEffect(() => {
+    setImgFailed(false);
+  }, [resolvedSrc]);
+
   return (
     <div className={`relative inline-block shrink-0 select-none ${className}`}>
-      {resolvedSrc ? (
+      {resolvedSrc && !imgFailed ? (
         <img
           key={resolvedSrc}
           src={resolvedSrc}
           alt={alt}
           className={`${sizeClasses} rounded-full object-cover ring-1 ring-neutral-200 dark:ring-neutral-800 transition-opacity duration-200 hover:opacity-90 shadow-2xs`}
           onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = defaultAvatar;
+            if (e.target.src !== defaultAvatar) {
+              e.target.src = defaultAvatar;
+            } else {
+              setImgFailed(true);
+            }
           }}
         />
       ) : (
