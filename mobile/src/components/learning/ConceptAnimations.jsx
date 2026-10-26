@@ -780,6 +780,602 @@ export const MobileMemoryHierarchy = ({ lang = 'both' }) => {
 };
 
 // ============================================================================
+// 6. Mobile Bus Highway Simulator (Address, Data, Control Bus)
+// ============================================================================
+export const MobileBusHighwaySimulator = ({ lang = 'both' }) => {
+  const { colors: themeColors } = useTheme();
+  const styles = getStyles(themeColors);
+
+  const [bits, setBits] = useState(16);
+  const [activeSignal, setActiveSignal] = useState(null); // 'READ' | 'WRITE' | null
+  const [packetPos] = useState(new Animated.Value(0));
+
+  const maxAddress = bits === 16 ? '64 KB (65,536 bytes)' : bits === 32 ? '4 GB (4,294,967,296 bytes)' : '16 EB (18.4 Quintillion bytes)';
+  const maxAddressBn = bits === 16 ? '৬৪ কিলোবাইট (৬৫,৫৩৬ লোকেশন)' : bits === 32 ? '৪ গিগাবাইট (৪ বিলিয়ন লোকেশন)' : '১৬ এক্সাবাইট (১৮.৪ কুইন্টিলিয়ন)';
+
+  const triggerPulse = (type) => {
+    setActiveSignal(type);
+    packetPos.setValue(0);
+    Animated.sequence([
+      Animated.timing(packetPos, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: false,
+      }),
+      Animated.delay(300),
+      Animated.timing(packetPos, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start(() => setActiveSignal(null));
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.badgeRow}>
+          <MaterialCommunityIcons name="transit-connection-variant" size={16} color="#38bdf8" />
+          <Text style={[styles.headerBadge, { color: '#38bdf8' }]}>Bus Highway Visualizer</Text>
+        </View>
+        <Text style={styles.headerTitle}>System Bus Architecture (৩-লেন হাইওয়ে)</Text>
+        <Text style={styles.headerSubtitle}>
+          {lang === 'bn'
+            ? 'এড্রেস, ডেটা এবং কন্ট্রোল বাসের সিগন্যাল প্রবাহ'
+            : 'Address, Data & Control Bus Electrical Pathways'}
+        </Text>
+      </View>
+
+      {/* Bit Width Selector */}
+      <View style={styles.selectorRow}>
+        {[16, 32, 64].map((b) => (
+          <TouchableOpacity
+            key={b}
+            style={[styles.selectorBtn, bits === b && styles.selectorBtnActive]}
+            onPress={() => setBits(b)}
+          >
+            <Text style={[styles.selectorBtnText, bits === b && styles.selectorBtnTextActive]}>
+              {b}-Bit Bus
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Bus Highway Visualization */}
+      <View style={{ backgroundColor: '#090d16', borderRadius: 14, padding: 12, marginVertical: 8, borderWidth: 1, borderColor: '#1e293b' }}>
+        {/* Address Bus Lane */}
+        <View style={{ marginBottom: 10, backgroundColor: '#0369a118', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#0284c744' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="arrow-forward" size={14} color="#38bdf8" />
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#38bdf8', marginLeft: 4 }}>
+                1. Address Bus (Unidirectional ➔)
+              </Text>
+            </View>
+            <Text style={{ fontSize: 10, color: '#94a3b8' }}>{bits} lines (2^{bits})</Text>
+          </View>
+          <Text style={{ fontSize: 11, color: '#cbd5e1', marginTop: 4 }}>
+            {lang === 'bn'
+              ? `সিপিইউ মেমোরি এড্রেস পাঠায়। সর্বোচ্চ ধারণক্ষমতা: ${maxAddressBn}`
+              : `Carries location indices from CPU. Max RAM: ${maxAddress}`}
+          </Text>
+        </View>
+
+        {/* Data Bus Lane */}
+        <View style={{ marginBottom: 10, backgroundColor: '#04785718', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#05966944' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="swap-horizontal" size={14} color="#34d399" />
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#34d399', marginLeft: 4 }}>
+                2. Data Bus (Bidirectional ⇄)
+              </Text>
+            </View>
+            <Text style={{ fontSize: 10, color: '#94a3b8' }}>8/16/32/64 bits wide</Text>
+          </View>
+          <Text style={{ fontSize: 11, color: '#cbd5e1', marginTop: 4 }}>
+            {lang === 'bn'
+              ? 'আসল তথ্য বা ডেটা আদান-প্রদান করে (Read এ CPU পায়, Write এ মেমোরিতে যায়)'
+              : 'Transfers actual payload data back and forth between CPU & RAM'}
+          </Text>
+        </View>
+
+        {/* Control Bus Lane */}
+        <View style={{ backgroundColor: '#b4530918', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#d9770644' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="flash-outline" size={14} color="#fbbf24" />
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#fbbf24', marginLeft: 4 }}>
+                3. Control Bus (Timing & Command Signals)
+              </Text>
+            </View>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: activeSignal ? '#10b981' : '#64748b' }} />
+          </View>
+          <Text style={{ fontSize: 11, color: '#cbd5e1', marginTop: 4 }}>
+            {lang === 'bn'
+              ? 'সিপিইউর আদেশ সিগন্যাল (যেমন: Read, Write, Clock Pulse, Interrupt)'
+              : 'Synchronizes system clock & command signals (Read/Write pulses)'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Trigger Buttons */}
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+        <TouchableOpacity
+          style={[styles.selectorBtn, { backgroundColor: '#0369a133', borderColor: '#38bdf8' }]}
+          onPress={() => triggerPulse('READ')}
+        >
+          <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#38bdf8' }}>
+            ⚡ Trigger READ Cycle
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.selectorBtn, { backgroundColor: '#b4530933', borderColor: '#fbbf24' }]}
+          onPress={() => triggerPulse('WRITE')}
+        >
+          <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#fbbf24' }}>
+            💾 Trigger WRITE Cycle
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeSignal && (
+        <View style={{ marginTop: 8, padding: 8, backgroundColor: '#10b98122', borderRadius: 8, borderWidth: 1, borderColor: '#10b981' }}>
+          <Text style={{ fontSize: 11, color: '#10b981', fontWeight: 'bold', textAlign: 'center' }}>
+            Active: Control Bus fired [{activeSignal}] Strobe ➔ Bus lines decoded!
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ============================================================================
+// 7. Mobile RISC vs CISC Architecture Race Simulator
+// ============================================================================
+export const MobileRiscCiscSimulator = ({ lang = 'both' }) => {
+  const { colors: themeColors } = useTheme();
+  const styles = getStyles(themeColors);
+
+  const [racing, setRacing] = useState(false);
+  const [riscProgress, setRiscProgress] = useState(0);
+  const [ciscProgress, setCiscProgress] = useState(0);
+  const [winner, setWinner] = useState(null);
+
+  const startRace = () => {
+    if (racing) return;
+    setRacing(true);
+    setWinner(null);
+    setRiscProgress(0);
+    setCiscProgress(0);
+
+    let tick = 0;
+    const interval = setInterval(() => {
+      tick += 1;
+      setRiscProgress((prev) => Math.min(100, prev + 25)); // 4 cycles to complete 100%
+      setCiscProgress((prev) => Math.min(100, prev + 12.5)); // 8 cycles to complete 100%
+
+      if (tick >= 8) {
+        clearInterval(interval);
+        setRacing(false);
+        setWinner('RISC');
+      }
+    }, 300);
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.badgeRow}>
+          <FontAwesome5 name="tachometer-alt" size={14} color="#f59e0b" />
+          <Text style={[styles.headerBadge, { color: '#f59e0b' }]}>Processor Race</Text>
+        </View>
+        <Text style={styles.headerTitle}>RISC vs CISC Architecture Showdown</Text>
+        <Text style={styles.headerSubtitle}>
+          {lang === 'bn'
+            ? '১-ক্লক সাইকেল (স্মার্টফোন ARM) বনাম মাল্টি-সাইকেল (ইন্টেল x86)'
+            : 'Single-cycle pipelined vs Multi-cycle microcode execution'}
+        </Text>
+      </View>
+
+      {/* Progress Bars */}
+      <View style={{ backgroundColor: '#090d16', borderRadius: 12, padding: 12, marginVertical: 8, borderWidth: 1, borderColor: '#1e293b' }}>
+        {/* RISC Bar */}
+        <View style={{ marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#10b981' }}>
+              🚀 RISC (ARM / Smartphone / Apple Silicon)
+            </Text>
+            <Text style={{ fontSize: 11, color: '#94a3b8' }}>{riscProgress}% (4 Cycles)</Text>
+          </View>
+          <View style={{ height: 10, backgroundColor: '#1e293b', borderRadius: 5, overflow: 'hidden' }}>
+            <View style={{ height: '100%', width: `${riscProgress}%`, backgroundColor: '#10b981', borderRadius: 5 }} />
+          </View>
+          <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+            Simple &lt;200 fixed-length instructions • 1 clock tick per instruction
+          </Text>
+        </View>
+
+        {/* CISC Bar */}
+        <View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#38bdf8' }}>
+              ⚙️ CISC (x86 / Intel Core / AMD Ryzen)
+            </Text>
+            <Text style={{ fontSize: 11, color: '#94a3b8' }}>{ciscProgress}% (8 Cycles)</Text>
+          </View>
+          <View style={{ height: 10, backgroundColor: '#1e293b', borderRadius: 5, overflow: 'hidden' }}>
+            <View style={{ height: '100%', width: `${ciscProgress}%`, backgroundColor: '#38bdf8', borderRadius: 5 }} />
+          </View>
+          <Text style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+            Complex 200–300 variable instructions • Multi-step microcode hardware
+          </Text>
+        </View>
+      </View>
+
+      {/* Race Trigger Button */}
+      <TouchableOpacity
+        style={[styles.selectorBtn, { backgroundColor: '#10b98133', borderColor: '#10b981', marginTop: 4 }]}
+        onPress={startRace}
+        disabled={racing}
+      >
+        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#10b981', textAlign: 'center' }}>
+          {racing ? '⏳ Executing Pipeline Instructions...' : '▶ Start Instruction Cycle Race'}
+        </Text>
+      </TouchableOpacity>
+
+      {winner && (
+        <View style={{ marginTop: 8, padding: 8, backgroundColor: '#10b98122', borderRadius: 8, borderWidth: 1, borderColor: '#10b981' }}>
+          <Text style={{ fontSize: 11, color: '#10b981', textAlign: 'center', fontWeight: 'bold' }}>
+            {lang === 'bn'
+              ? '🏆 RISC জয়ী! পাইপলাইনিংয়ের কারণে প্রতি ক্লকে ১টি নির্দেশ শেষ হয়।'
+              : '🏆 RISC finishes first! Fixed-length instructions execute 1-per-cycle with low power.'}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ============================================================================
+// 8. Mobile Memory Units Ladder Simulator (Bit to Exabyte)
+// ============================================================================
+export const MobileMemoryLadderSimulator = ({ lang = 'both' }) => {
+  const { colors: themeColors } = useTheme();
+  const styles = getStyles(themeColors);
+
+  const [selectedIdx, setSelectedIdx] = useState(2); // Default: Byte
+
+  const UNITS = [
+    { name: 'Bit (b)', bytes: '1/8 Byte', analogy: 'Single binary switch (0 or 1)', analogyBn: 'একটি বৈদ্যুতিক সুইচ (০ বা ১)' },
+    { name: 'Nibble', bytes: '1/2 Byte (4 bits)', analogy: 'One hexadecimal digit (0 to F)', analogyBn: '৪টি বিটের দল বা ১টি হেক্সাডেসিমেল ডিজিট' },
+    { name: 'Byte (B)', bytes: '1 Byte (8 bits)', analogy: 'Single ASCII character (e.g. letter "A")', analogyBn: '১টি সাধারণ বর্ণ বা ক্যারেক্টার (যেমন "A")' },
+    { name: 'Kilobyte (KB)', bytes: '1,024 Bytes', analogy: '1-page text essay file', analogyBn: '১ পৃষ্ঠার সাধারণ টেক্সট ডকুমেন্ট' },
+    { name: 'Megabyte (MB)', bytes: '1,024 KB', analogy: '1 high-res smartphone photo or 1 MP3 song', analogyBn: '১টি সুন্দর ফটো বা ১টি এমপিথ্রি গান' },
+    { name: 'Gigabyte (GB)', bytes: '1,024 MB', analogy: '1 full HD Bollywood movie or 250 songs', analogyBn: '১টি ফুল এইচডি মুভি বা ১ ঘণ্টার ভিডিও' },
+    { name: 'Terabyte (TB)', bytes: '1,024 GB', analogy: '250,000 photos or 1,000 HD movies', analogyBn: 'ল্যাপটপের হার্ডডিস্ক (লাখ লাখ ছবি ও ভিডিও)' },
+    { name: 'Petabyte (PB)', bytes: '1,024 TB', analogy: 'Google processing 24 PB of search data daily', analogyBn: 'গুগল বা ফেসবুকের বিশাল সার্ভার ক্লাস্টার' },
+    { name: 'Exabyte (EB)', bytes: '1,024 PB', analogy: 'All words ever spoken by humans throughout history', analogyBn: 'সমগ্র মানবজাতির ইতিহাসের সমস্ত কথার সমান ডেটা' },
+  ];
+
+  const current = UNITS[selectedIdx];
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.badgeRow}>
+          <MaterialCommunityIcons name="ladder" size={16} color="#ec4899" />
+          <Text style={[styles.headerBadge, { color: '#ec4899' }]}>Capacity Ladder</Text>
+        </View>
+        <Text style={styles.headerTitle}>Memory Units: Bit to Exabyte</Text>
+        <Text style={styles.headerSubtitle}>
+          {lang === 'bn'
+            ? 'বাইনারি গুণক (১০২৪ গুণ) এবং বাস্তব জীবনের উপমা'
+            : '1024x Binary Multipliers & Real-World Scales'}
+        </Text>
+      </View>
+
+      {/* Horizontal Pill Selector */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {UNITS.map((u, idx) => (
+            <TouchableOpacity
+              key={u.name}
+              style={[
+                styles.selectorBtn,
+                { paddingHorizontal: 10, minWidth: 60 },
+                selectedIdx === idx && { backgroundColor: '#ec489933', borderColor: '#ec4899' },
+              ]}
+              onPress={() => setSelectedIdx(idx)}
+            >
+              <Text style={[styles.selectorBtnText, selectedIdx === idx && { color: '#ec4899', fontWeight: 'bold' }]}>
+                {u.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* Capacity Card */}
+      <View style={{ backgroundColor: '#090d16', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#ec489944' }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#ec4899' }}>{current.name}</Text>
+        <Text style={{ fontSize: 12, color: '#cbd5e1', marginTop: 4 }}>
+          📐 <Text style={{ fontWeight: 'bold' }}>Exact Binary Size:</Text> {current.bytes}
+        </Text>
+        <View style={{ marginTop: 8, padding: 8, backgroundColor: '#1e293b', borderRadius: 8 }}>
+          <Text style={{ fontSize: 11, color: '#fbcfe8', fontStyle: 'italic' }}>
+            💡 <Text style={{ fontWeight: 'bold' }}>Analogy:</Text>{' '}
+            {lang === 'bn' ? current.analogyBn : current.analogy}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// ============================================================================
+// 9. Mobile Keyboard IRQ Interrupt Simulator
+// ============================================================================
+export const MobileKeyboardIrqSimulator = ({ lang = 'both' }) => {
+  const { colors: themeColors } = useTheme();
+  const styles = getStyles(themeColors);
+
+  const [activeKey, setActiveKey] = useState(null);
+  const [irqFired, setIrqFired] = useState(false);
+  const [buffer, setBuffer] = useState(['C', 'P', 'U']);
+
+  const KEYS = [
+    { label: 'A', scanCode: '0x1E', ascii: 65 },
+    { label: 'B', scanCode: '0x30', ascii: 66 },
+    { label: 'Enter', scanCode: '0x1C', ascii: 13 },
+    { label: 'Space', scanCode: '0x39', ascii: 32 },
+  ];
+
+  const pressKey = (keyObj) => {
+    setActiveKey(keyObj);
+    setIrqFired(true);
+    setBuffer((prev) => [keyObj.label, ...prev.slice(0, 3)]);
+
+    setTimeout(() => {
+      setIrqFired(false);
+    }, 700);
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.badgeRow}>
+          <Ionicons name="hardware-chip-outline" size={16} color="#ef4444" />
+          <Text style={[styles.headerBadge, { color: '#ef4444' }]}>Hardware Interrupt</Text>
+        </View>
+        <Text style={styles.headerTitle}>Keyboard Controller & IRQ 1 Line</Text>
+        <Text style={styles.headerSubtitle}>
+          {lang === 'bn'
+            ? 'কী প্রেস ➔ স্ক্যান কোড ➔ বাফার ➔ IRQ 1 ইন্টারাপ্ট'
+            : 'Key Press ➔ Scan Code ➔ Buffer ➔ IRQ 1 Interrupt Request'}
+        </Text>
+      </View>
+
+      {/* Mini Virtual Keypad */}
+      <View style={{ flexDirection: 'row', gap: 6, marginVertical: 8 }}>
+        {KEYS.map((k) => (
+          <TouchableOpacity
+            key={k.label}
+            style={[styles.selectorBtn, { flex: 1, backgroundColor: '#1e293b', borderColor: '#475569' }]}
+            onPress={() => pressKey(k)}
+          >
+            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#f8fafc', textAlign: 'center' }}>
+              [{k.label}]
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Flow & IRQ Alert */}
+      <View style={{ backgroundColor: '#090d16', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1e293b' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 11, color: '#94a3b8' }}>Circular 16-byte Buffer:</Text>
+          <Text style={{ fontSize: 11, fontFamily: 'monospace', color: '#38bdf8' }}>
+            [{buffer.join(', ')}]
+          </Text>
+        </View>
+
+        <View style={{ marginTop: 8, padding: 8, borderRadius: 8, backgroundColor: irqFired ? '#dc262622' : '#1e293b', borderWidth: 1, borderColor: irqFired ? '#ef4444' : '#334155' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: irqFired ? '#ef4444' : '#64748b', marginRight: 8 }} />
+            <Text style={{ fontSize: 11, fontWeight: 'bold', color: irqFired ? '#ef4444' : '#94a3b8' }}>
+              {irqFired ? '⚡ IRQ 1 Signal Sent to CPU Interrupt Controller!' : 'IRQ 1 Line: Listening for Keypress...'}
+            </Text>
+          </View>
+          {activeKey && (
+            <Text style={{ fontSize: 10, color: '#cbd5e1', marginTop: 4 }}>
+              Make Scan Code: <Text style={{ fontFamily: 'monospace', color: '#f59e0b' }}>{activeKey.scanCode}</Text> • ASCII: <Text style={{ fontFamily: 'monospace', color: '#10b981' }}>{activeKey.ascii}</Text>
+            </Text>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// ============================================================================
+// 10. Mobile Print Spooler Simulator (SPOOL Buffer)
+// ============================================================================
+export const MobilePrintSpoolerSimulator = ({ lang = 'both' }) => {
+  const { colors: themeColors } = useTheme();
+  const styles = getStyles(themeColors);
+
+  const [spoolingOn, setSpoolingOn] = useState(true);
+  const [printing, setPrinting] = useState(false);
+  const [pagesLeft, setPagesLeft] = useState(0);
+
+  const sendJob = () => {
+    if (printing) return;
+    setPrinting(true);
+    setPagesLeft(5);
+
+    let count = 5;
+    const interval = setInterval(() => {
+      count -= 1;
+      setPagesLeft(count);
+      if (count <= 0) {
+        clearInterval(interval);
+        setPrinting(false);
+      }
+    }, spoolingOn ? 600 : 1200);
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.badgeRow}>
+          <Ionicons name="print-outline" size={16} color="#8b5cf6" />
+          <Text style={[styles.headerBadge, { color: '#8b5cf6' }]}>Print Spooler</Text>
+        </View>
+        <Text style={styles.headerTitle}>SPOOLing Buffer vs Direct Printing</Text>
+        <Text style={styles.headerSubtitle}>
+          {lang === 'bn'
+            ? 'Simultaneous Peripheral Operations On-Line (ডিস্কে বাফার রাখা)'
+            : 'Decoupling Fast CPU from Slow Mechanical Print Head'}
+        </Text>
+      </View>
+
+      {/* Mode Toggle */}
+      <View style={styles.selectorRow}>
+        <TouchableOpacity
+          style={[styles.selectorBtn, spoolingOn && styles.selectorBtnActive]}
+          onPress={() => setSpoolingOn(true)}
+        >
+          <Text style={[styles.selectorBtnText, spoolingOn && styles.selectorBtnTextActive]}>
+            ✅ SPOOL Buffer (Modern OS)
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.selectorBtn, !spoolingOn && { backgroundColor: '#ef444422', borderColor: '#ef4444' }]}
+          onPress={() => setSpoolingOn(false)}
+        >
+          <Text style={[styles.selectorBtnText, !spoolingOn && { color: '#ef4444', fontWeight: 'bold' }]}>
+            ❌ No SPOOL (CPU Frozen)
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Status Box */}
+      <View style={{ backgroundColor: '#090d16', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1e293b', marginVertical: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 11, color: '#94a3b8' }}>CPU Responsiveness:</Text>
+          <Text style={{ fontSize: 11, fontWeight: 'bold', color: spoolingOn ? '#10b981' : printing ? '#ef4444' : '#10b981' }}>
+            {spoolingOn ? '🟢 100% Free & Interactive' : printing ? '🔴 0% Frozen (Waiting on Printer)' : '🟢 Idle'}
+          </Text>
+        </View>
+        {printing && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ fontSize: 11, color: '#cbd5e1' }}>Printing mechanical pages: {pagesLeft} pages left...</Text>
+          </View>
+        )}
+      </View>
+
+      <TouchableOpacity
+        style={[styles.selectorBtn, { backgroundColor: '#8b5cf633', borderColor: '#8b5cf6' }]}
+        onPress={sendJob}
+        disabled={printing}
+      >
+        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#c084fc', textAlign: 'center' }}>
+          {printing ? '🖨️ Printer Working...' : '📄 Send 5-Page Document to Print'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+// ============================================================================
+// 11. Mobile OS Scheduler & Defrag Simulator
+// ============================================================================
+export const MobileOsSchedulerSimulator = ({ lang = 'both' }) => {
+  const { colors: themeColors } = useTheme();
+  const styles = getStyles(themeColors);
+
+  const [activeTask, setActiveTask] = useState(0);
+  const [fragmented, setFragmented] = useState(true);
+
+  const TASKS = ['Music Player', 'Web Browser', 'Code Editor'];
+
+  const switchTask = () => {
+    setActiveTask((prev) => (prev + 1) % TASKS.length);
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.headerRow}>
+        <View style={styles.badgeRow}>
+          <MaterialCommunityIcons name="cog-sync" size={16} color="#14b8a6" />
+          <Text style={[styles.headerBadge, { color: '#14b8a6' }]}>OS Multitasking</Text>
+        </View>
+        <Text style={styles.headerTitle}>Round-Robin Scheduling & Disk Defrag</Text>
+        <Text style={styles.headerSubtitle}>
+          {lang === 'bn'
+            ? 'সিপিইউ টাইম-স্লাইস সুইচিং এবং ডিস্ক ক্লাস্টার বিন্যাস'
+            : 'CPU Time-Slicing Multitasking & Disk Optimization'}
+        </Text>
+      </View>
+
+      {/* Task Slices */}
+      <View style={{ backgroundColor: '#090d16', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1e293b' }}>
+        <Text style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Round-Robin CPU Quantum (10ms slices):</Text>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {TASKS.map((t, idx) => (
+            <View
+              key={t}
+              style={[
+                styles.selectorBtn,
+                { flex: 1, paddingVertical: 6 },
+                activeTask === idx && { backgroundColor: '#14b8a633', borderColor: '#14b8a6' },
+              ]}
+            >
+              <Text style={[styles.selectorBtnText, activeTask === idx && { color: '#14b8a6', fontWeight: 'bold' }]}>
+                {t}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.selectorBtn, { backgroundColor: '#1e293b', marginTop: 8, paddingVertical: 6 }]}
+          onPress={switchTask}
+        >
+          <Text style={{ fontSize: 11, color: '#38bdf8', textAlign: 'center' }}>
+            🔄 Next CPU Time-Slice (Context Switch)
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Disk Defrag Section */}
+      <View style={{ marginTop: 10, padding: 10, backgroundColor: '#090d16', borderRadius: 12, borderWidth: 1, borderColor: '#1e293b' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#cbd5e1' }}>Disk Clusters:</Text>
+          <Text style={{ fontSize: 10, color: fragmented ? '#ef4444' : '#10b981' }}>
+            {fragmented ? '⚠️ Fragmented (Slow Seek Time)' : '✅ Defragmented (Contiguous)'}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 4, marginVertical: 8 }}>
+          {(fragmented ? ['#ef4444', '#38bdf8', '#ef4444', '#10b981', '#38bdf8', '#10b981'] : ['#38bdf8', '#38bdf8', '#10b981', '#10b981', '#ef4444', '#ef4444']).map((col, i) => (
+            <View key={i} style={{ flex: 1, height: 16, backgroundColor: col, borderRadius: 3 }} />
+          ))}
+        </View>
+        <TouchableOpacity
+          style={[styles.selectorBtn, { backgroundColor: fragmented ? '#10b98122' : '#334155', borderColor: fragmented ? '#10b981' : '#475569', paddingVertical: 6 }]}
+          onPress={() => setFragmented(!fragmented)}
+        >
+          <Text style={{ fontSize: 11, color: fragmented ? '#10b981' : '#94a3b8', textAlign: 'center', fontWeight: 'bold' }}>
+            {fragmented ? '🧹 Run Disk Defragmenter' : 'Scatter Clusters (Simulate Usage)'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// ============================================================================
 // Styles
 // ============================================================================
 const getStyles = (themeColors) =>
@@ -1156,4 +1752,10 @@ export default {
   MobileFiveUnitsVisualizer,
   MobileDeskBookshelfSimulator,
   MobileMemoryHierarchy,
+  MobileBusHighwaySimulator,
+  MobileRiscCiscSimulator,
+  MobileMemoryLadderSimulator,
+  MobileKeyboardIrqSimulator,
+  MobilePrintSpoolerSimulator,
+  MobileOsSchedulerSimulator,
 };

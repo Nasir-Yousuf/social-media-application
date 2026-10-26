@@ -1299,4 +1299,232 @@ export const TRACK_FINAL_EXAMS = {
       },
     ],
   },
+
+  // ==========================================
+  // COMPUTER BASICS (WEB-101 FULL CURRICULUM)
+  // ==========================================
+  'cb-intro-to-computers': {
+    title: 'Lesson 1 Quiz: Computer Working Principles',
+    passingScore: 2,
+    xpReward: 25,
+    questions: [
+      {
+        id: 'cb1_q1',
+        prompt: 'Where does the word "computer" come from?',
+        promptBn: '"Computer" শব্দটি কোন শব্দ থেকে এসেছে?',
+        options: [
+          'From Greek "compute" (to calculate)',
+          'From Latin "computare" (to reckon)',
+          'From English "computational"',
+          'From Charles Babbage\'s code',
+        ],
+        correctIndex: 0,
+        explanation: 'The word Computer comes from the Greek root "compute", meaning to calculate or reckon.',
+        explanationBn: 'কম্পিউটার শব্দটি গ্রিক শব্দ "Compute" থেকে এসেছে যার অর্থ গণনা করা।',
+      },
+      {
+        id: 'cb1_q2',
+        prompt: 'What are the three fundamental working steps of any typical computer?',
+        promptBn: 'যেকোনো সাধারণ কম্পিউটারের তিনটি মূল কাজের ধাপ কী কী?',
+        options: [
+          'Download, Browse, Render',
+          'Accepts input, Processes according to instructions, Stores or displays output',
+          'Compile, Link, Run',
+          'Read, Refresh, Shutdown',
+        ],
+        correctIndex: 1,
+        explanation: 'The IPO cycle: Accepts input, Processes data via CPU, and Stores/Displays output results.',
+        explanationBn: 'ইনপুট গ্রহণ, নির্দেশ অনুযায়ী প্রসেসিং এবং ফলাফল সংরক্ষণ বা আউটপুটে প্রদর্শন।',
+      },
+    ],
+  },
+
+  'cb-bus-architecture': {
+    title: 'Lesson 11 Quiz: System Bus Architecture',
+    passingScore: 2,
+    xpReward: 25,
+    questions: [
+      {
+        id: 'cb11_q1',
+        prompt: 'Which bus is unidirectional (one-way only from CPU to devices)?',
+        promptBn: 'কোন বাসটি একমাত্রিক বা একমুখী (শুধুমাত্র CPU থেকে বের হয়)?',
+        options: ['Data Bus', 'Address Bus', 'Power Bus', 'USB Cable'],
+        correctIndex: 1,
+        explanation: 'The Address Bus is strictly unidirectional: only the CPU issues memory and I/O device addresses.',
+        explanationBn: 'এড্রেস বাস একমুখী (Unidirectional), কারণ কেবল সিপিইউ মেমোরির নির্দিষ্ট ঠিকানা নির্ধারণ করে।',
+      },
+      {
+        id: 'cb11_q2',
+        prompt: 'How many unique memory locations can a 16-bit address bus access?',
+        promptBn: 'একটি ১৬-বিট এড্রেস বাস সর্বোচ্চ কতগুলো মেমোরি লোকেশন এড্রেস করতে পারে?',
+        options: ['16,000 bytes', '65,536 bytes (64 KB)', '1,048,576 bytes (1 MB)', '4,294,967,296 bytes (4 GB)'],
+        correctIndex: 1,
+        explanation: '2^16 = 65,536 bytes (or 64 Kilobytes).',
+        explanationBn: '২ এর ঘাত ১৬ = ৬৫,৫৩৬ বাইট বা ৬৪ কিলোবাইট।',
+      },
+    ],
+  },
+
+  'cb-memory-units': {
+    title: 'Lesson 14 Quiz: Memory Units & Capacity',
+    passingScore: 2,
+    xpReward: 25,
+    questions: [
+      {
+        id: 'cb14_q1',
+        prompt: 'What is a "Nibble" in computer architecture?',
+        promptBn: 'কম্পিউটার আর্কিটেকচারে "নিবল" (Nibble) বলতে কী বোঝায়?',
+        options: ['1 bit', '4 bits (half a byte)', '8 bits', '1024 bytes'],
+        correctIndex: 1,
+        explanation: 'A Nibble is a group of 4 binary bits, which is exactly half of a byte.',
+        explanationBn: 'নিবল হলো ৪টি বিটের একটি দল, যা এক বাইটের ঠিক অর্ধেক (1/2 Byte)।',
+      },
+      {
+        id: 'cb14_q2',
+        prompt: 'In binary computer memory, 1 Gigabyte (GB) equals how many Megabytes (MB)?',
+        promptBn: 'বাইনারি মেমোরি হিসাব অনুযায়ী ১ গিগাবাইট (GB) সমান কত মেগাবাইট (MB)?',
+        options: ['1000 MB', '1024 MB', '512 MB', '2048 MB'],
+        correctIndex: 1,
+        explanation: '1 GB = 1024 MB (2^10 multiplier).',
+        explanationBn: '১ গিগাবাইট = ১০২৪ মেগাবাইট (২ এর ঘাত ১০)।',
+      },
+    ],
+  },
+
+  'cb-keyboard-internals': {
+    title: 'Lesson 19 Quiz: Keyboard & Interrupt Mechanics',
+    passingScore: 2,
+    xpReward: 25,
+    questions: [
+      {
+        id: 'cb19_q1',
+        prompt: 'Which hardware interrupt line is dedicated to the keyboard controller?',
+        promptBn: 'কীবোর্ড কন্ট্রোলারের জন্য মাদারবোর্ডের কোন হার্ডওয়্যার ইন্টারাপ্ট লাইনটি নির্দিষ্ট?',
+        options: ['IRQ 0', 'IRQ 1', 'IRQ 7', 'IRQ 15'],
+        correctIndex: 1,
+        explanation: 'IRQ 1 (Interrupt Request 1) is the standard hardware line reserved for the keyboard controller.',
+        explanationBn: 'IRQ 1 হলো কীবোর্ডের জন্য নির্দিষ্ট হার্ডওয়্যার ইন্টারাপ্ট লাইন।',
+      },
+      {
+        id: 'cb19_q2',
+        prompt: 'When a key is pressed down, what does the keyboard controller generate first?',
+        promptBn: 'কীবোর্ডে কোনো কী চাপ দিলে কীবোর্ড কন্ট্রোলার প্রথমে কী তৈরি করে?',
+        options: ['ASCII letter directly to monitor', 'Make Scan Code', 'Break Scan Code', 'Power voltage drop'],
+        correctIndex: 1,
+        explanation: 'Pressing a key generates a "Make Scan Code" which is placed in the keyboard buffer.',
+        explanationBn: 'কী চাপলে প্রথমে একটি "মেক স্ক্যান কোড" (Make Scan Code) তৈরি হয়ে বাফারে জমা হয়।',
+      },
+    ],
+  },
+
+  'cb-printer-technologies': {
+    title: 'Lesson 24 Quiz: Printers & Spooling',
+    passingScore: 2,
+    xpReward: 25,
+    questions: [
+      {
+        id: 'cb24_q1',
+        prompt: 'What does the acronym SPOOL stand for in operating systems?',
+        promptBn: 'অপারেটিং সিস্টেমে SPOOL-এর পূর্ণরূপ কী?',
+        options: [
+          'Simultaneous Peripheral Operations On-Line',
+          'Serial Port Output Ordering Logic',
+          'System Print Offline Optimization Link',
+          'Synchronous Page Operations Over Line',
+        ],
+        correctIndex: 0,
+        explanation: 'SPOOL stands for Simultaneous Peripheral Operations On-Line.',
+        explanationBn: 'SPOOL মানে হলো Simultaneous Peripheral Operations On-Line, যা প্রিন্ট ডেটা সাময়িকভাবে ডিস্কে জমা রেখে সিপিইউকে মুক্ত করে দেয়।',
+      },
+      {
+        id: 'cb24_q2',
+        prompt: 'Which of the following is an example of an IMPACT printer?',
+        promptBn: 'নিচের কোনটি ইমপ্যাক্ট (Impact) প্রিন্টারের উদাহরণ?',
+        options: ['Laser Printer', 'Dot-matrix Printer', 'Inkjet Printer', 'Thermal Photo Printer'],
+        correctIndex: 1,
+        explanation: 'Dot-matrix printers physically strike pins against an ink ribbon onto the paper, making them impact printers.',
+        explanationBn: 'ডট-ম্যাট্রিক্স প্রিন্টারে পিন সরাসরি ফিতা ও কাগজের উপর আঘাত করে ছাপ ফেলে, তাই এটি ইমপ্যাক্ট প্রিন্টার।',
+      },
+    ],
+  },
+
+  'cb-os-overview': {
+    title: 'Lesson 27 Quiz: Operating System Functions',
+    passingScore: 2,
+    xpReward: 25,
+    questions: [
+      {
+        id: 'cb27_q1',
+        prompt: 'What are the two primary objectives of an Operating System?',
+        promptBn: 'একটি অপারেটিং সিস্টেমের প্রধান দুটি উদ্দেশ্য কী কী?',
+        options: [
+          'High resolution and 3D gaming',
+          'Convenience (user-friendly interface) and Efficiency (hardware sharing)',
+          'Low price and small disk usage',
+          'Compiler generation and assembly debugging',
+        ],
+        correctIndex: 1,
+        explanation: 'An OS aims for Convenience (making computers easy to use) and Efficiency (managing CPU, memory, and devices smoothly).',
+        explanationBn: 'অপারেটিং সিস্টেমের দুটি মূল উদ্দেশ্য: সুবিধা (সহজ ব্যবহার) এবং দক্ষতা (হার্ডওয়্যার সম্পদের সর্বোচ্চ সদ্ব্যবহার)।',
+      },
+      {
+        id: 'cb27_q2',
+        prompt: 'What is the continuously resident core of an operating system called?',
+        promptBn: 'অপারেটিং সিস্টেমের যে মূল অংশটি সবসময় র‍্যামে অবস্থান করে তাকে কী বলে?',
+        options: ['The Shell', 'The Kernel (Nucleus)', 'The BIOS', 'The Device Driver'],
+        correctIndex: 1,
+        explanation: 'The Kernel is the core nucleus that remains permanently in RAM from system boot until shutdown.',
+        explanationBn: 'কার্নেল (Kernel) হলো ওএস-এর মূল কেন্দ্র যা বুট হওয়া থেকে বন্ধ হওয়া পর্যন্ত সার্বক্ষণিকভাবে প্রধান মেমোরিতে থাকে।',
+      },
+    ],
+  },
+
+  'cb-capstone-exam': {
+    title: 'Lesson 32 Capstone: Web-101 Final Certification Exam',
+    passingScore: 3,
+    xpReward: 100,
+    questions: [
+      {
+        id: 'cb_fe1',
+        prompt: 'Which type of RAM retains its data without needing periodic electrical refresh cycles and is used in CPU cache?',
+        promptBn: 'কোন ধরনের র‍্যামের রিফ্রেশ সাইকেলের প্রয়োজন হয় না এবং এটি অত্যন্ত দ্রুতগতির হওয়ায় সিপিইউ ক্যাশে ব্যবহৃত হয়?',
+        options: ['DRAM', 'SRAM (Static RAM)', 'SDRAM', 'Flash ROM'],
+        correctIndex: 1,
+        explanation: 'SRAM (Static RAM) uses flip-flop circuits and retains data as long as power is applied without refreshing.',
+        explanationBn: 'SRAM ফ্লিপ-ফ্লপ দিয়ে তৈরি হওয়ায় এর রিফ্রেশ লাগে না, তাই এটি ক্যাশ মেমোরি তৈরিতে ব্যবহৃত হয়।',
+      },
+      {
+        id: 'cb_fe2',
+        prompt: 'What is the recommended minimum refresh rate for CRT monitors to prevent eye strain and visible flicker?',
+        promptBn: 'চোখের ক্লান্তি এবং ফ্লিকার দূর করতে CRT মনিটরের সর্বনিম্ন রিফ্রেশ রেট কত হওয়া উচিত?',
+        options: ['30 Hz', '50 Hz', '72 Hz or higher', '120 Hz'],
+        correctIndex: 2,
+        explanation: 'Lecture standards require CRT monitors to operate at 72 Hz or higher to eliminate visible flicker.',
+        explanationBn: 'চোখের চাপ দূর করতে সিআরটি মনিটরের রিফ্রেশ রেট অন্তত ৭২ হার্জ (72 Hz) বা তার বেশি হওয়া প্রয়োজন।',
+      },
+      {
+        id: 'cb_fe3',
+        prompt: 'Which metric measures the total elapsed time from job submission until complete execution finishes?',
+        promptBn: 'কোনো কাজ শুরু করার নির্দেশ দেওয়া থেকে সম্পন্ন হওয়া পর্যন্ত মোট অতিবাহিত সময়কে কী বলে?',
+        options: ['Throughput', 'Turnaround Time', 'Response Time', 'Clock Latency'],
+        correctIndex: 1,
+        explanation: 'Turnaround Time is the total elapsed duration from submission to completion.',
+        explanationBn: 'টার্নঅ্যারাউন্ড টাইম (Turnaround Time) হলো একটি কাজ জমা দেওয়া থেকে পুরোপুরি শেষ হওয়া পর্যন্ত মোট সময়।',
+      },
+      {
+        id: 'cb_fe4',
+        prompt: 'What was the major breakthrough of USB (Universal Serial Bus) introduced to personal computing?',
+        promptBn: 'ইউএসবি (USB) প্রযুক্তির সবচেয়ে বড় বৈপ্লবিক সুবিধা কী ছিল?',
+        options: [
+          'Replaced the CPU completely',
+          'Hot-swappable plug-and-play supporting up to 127 daisy-chained devices',
+          'Required computer restart for every device',
+          'Only worked for monochrome monitors',
+        ],
+        correctIndex: 1,
+        explanation: 'USB enables hot-swappable connectivity for up to 127 devices on a single controller tree without rebooting.',
+        explanationBn: 'ইউএসবি কম্পিউটার রিবুট না করেই প্লাগ-অ্যান্ড-প্লে সুবিধা দেয় এবং সর্বোচ্চ ১২৭টি ডিভাইস সংযুক্ত করতে পারে।',
+      },
+    ],
+  },
 };

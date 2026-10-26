@@ -126,6 +126,110 @@ export const ComputerBasicsQuiz = ({
       explanation:
         'Correct! In the conceptual architecture model, data NEVER travels straight from an Input Device into the ALU. It must always be buffered into Memory first; only then does the ALU fetch the operands from Memory under Control Unit supervision.',
     },
+    {
+      id: 'q9',
+      question: 'Which architecture feature is characteristic of a RISC (Reduced Instruction Set Computer) processor compared to CISC?',
+      options: [
+        'Variable-length instructions that take multiple clock cycles to complete in microcode.',
+        'Over 300 complex instructions executed directly against RAM memory.',
+        'Fewer than 200 simple, fixed-length instructions designed to execute in a single clock cycle with pipelining.',
+        'Inability to run in battery-powered devices like smartphones and tablets.',
+      ],
+      correctIndex: 2,
+      explanation:
+        'Correct! RISC architectures (like ARM in smartphones and Apple Silicon) utilize less than 200 fixed-length, uniform instructions that execute in a single clock cycle, enabling efficient pipelining and low power consumption.',
+    },
+    {
+      id: 'q10',
+      question: 'Why is the Address Bus unidirectional (one-way), while the Data Bus is bidirectional (two-way)?',
+      options: [
+        'The Address Bus sends physical power to RAM, which never returns to the CPU.',
+        'Only the CPU determines memory locations to access (CPU → Memory/I/O), whereas data must travel in both directions during Read and Write cycles (CPU ⇄ Memory).',
+        'Data buses are only 16-bit, so they require alternating lanes to prevent signal collision.',
+        'Both buses are bidirectional; the lecture text marks it as unidirectional by mistake.',
+      ],
+      correctIndex: 1,
+      explanation:
+        'Correct! Only the CPU specifies the memory address to target, sending it unidirectionally outwards (CPU → Memory). But during a Read cycle, data flows from Memory into the CPU; during a Write cycle, data flows from the CPU into Memory, making the Data Bus bidirectional (CPU ⇄ Memory).',
+    },
+    {
+      id: 'q11',
+      question: 'How many Gigabytes (GB) are there in exactly 1 Terabyte (TB), and how many Terabytes are in 1 Petabyte (PB)?',
+      options: [
+        '1,000 GB in a TB, and 1,000 TB in a PB (decimal metric).',
+        '1,024 GB in a TB, and 1,024 TB in a PB (binary 2¹⁰ multiplier).',
+        '512 GB in a TB, and 512 TB in a PB.',
+        '2,048 GB in a TB, and 2,048 TB in a PB.',
+      ],
+      correctIndex: 1,
+      explanation:
+        'Correct! Computer memory units follow binary powers of 2 ($2^{10} = 1024$). Therefore, $1\\text{ KB} = 1024\\text{ B}$, $1\\text{ MB} = 1024\\text{ KB}$, $1\\text{ GB} = 1024\\text{ MB}$, $1\\text{ TB} = 1024\\text{ GB}$, and $1\\text{ PB} = 1024\\text{ TB}$.',
+    },
+    {
+      id: 'q12',
+      question: 'What is the critical physical operational difference between SRAM (Static RAM) and DRAM (Dynamic RAM)?',
+      options: [
+        'SRAM requires periodic electrical refreshing thousands of times per second, while DRAM uses flip-flops.',
+        'SRAM is constructed with flip-flop circuits and retains data without refreshing as long as power is applied (used in CPU Cache), while DRAM uses capacitors that leak charge and require constant refreshing (used in Main RAM).',
+        'SRAM is magnetic, while DRAM is optical laser storage.',
+        'SRAM is non-volatile and preserves files after shutdown, while DRAM loses data immediately.',
+      ],
+      correctIndex: 1,
+      explanation:
+        'Correct! SRAM uses 6-transistor flip-flops; it does not need refreshing, making it blazingly fast but expensive (used in CPU L1/L2/L3 Cache). DRAM stores bits as tiny electrical charges in capacitors that leak away within milliseconds, requiring constant refreshing cycles.',
+    },
+    {
+      id: 'q13',
+      question: 'When a user presses a key on a standard keyboard, how does the system notify the CPU that a character is ready?',
+      options: [
+        'The key directly drives the monitor pixels through the HDMI cable.',
+        'The keyboard controller sends a Make scan code into a 16-byte buffer and triggers an Interrupt Request (IRQ 1) line to alert the CPU.',
+        'The CPU constantly freezes all programs every second to manually inspect all 104 key switches.',
+        'The key sends an audio ultrasound click that the microphone picks up.',
+      ],
+      correctIndex: 1,
+      explanation:
+        'Correct! When a key is pressed, the keyboard matrix sends a Make scan code to the internal keyboard controller, which buffers it and raises hardware Interrupt Request line 1 (IRQ 1). The CPU pauses its current task to run the Keyboard Interrupt Handler.',
+    },
+    {
+      id: 'q14',
+      question: 'Which specialized input technology uses magnetic ink to encode routing and account numbers on banking cheques for fraud-proof automated processing?',
+      options: [
+        'OMR (Optical Mark Reader)',
+        'OCR (Optical Character Recognition)',
+        'MICR (Magnetic Ink Character Recognition)',
+        'Barcode / QR Code scanner',
+      ],
+      correctIndex: 2,
+      explanation:
+        'Correct! MICR (Magnetic Ink Character Recognition) reads characters printed in specialized iron oxide magnetic ink at the bottom of bank cheques, ensuring rapid, tamper-resistant processing by bank clearance systems.',
+    },
+    {
+      id: 'q15',
+      question: 'What does SPOOL (Print Spooling) stand for, and what problem does it solve?',
+      options: [
+        'Serial Port Operating On-Line; it allows printers to connect via serial COM cables.',
+        'Simultaneous Peripheral Operations On-Line; it buffers print jobs to high-speed disk storage so the CPU is immediately released instead of waiting for a slow mechanical printer.',
+        'System Protection Over Output Lines; it protects the printer from power surges.',
+        'Standard Page Optimization Online; it compresses image resolution to save ink.',
+      ],
+      correctIndex: 1,
+      explanation:
+        'Correct! SPOOL (Simultaneous Peripheral Operations On-Line) intercepts print output and streams it into a spool directory on disk in milliseconds. The operating system background daemon then feeds the slow mechanical printer while the user and CPU are free to keep working.',
+    },
+    {
+      id: 'q16',
+      question: 'What is the difference between the OS Kernel and Transient OS utility programs?',
+      options: [
+        'The Kernel is stored on floppy disks, while transient programs are built into ROM.',
+        'The Kernel is the core nucleus of the OS that remains continuously resident in RAM from bootup, while transient programs are auxiliary utilities loaded from disk only when requested.',
+        'The Kernel only handles games, while transient programs manage device memory.',
+        'There is no distinction; all OS components must stay in RAM permanently.',
+      ],
+      correctIndex: 1,
+      explanation:
+        'Correct! The Kernel (nucleus) is the master control component that loads during system boot and remains permanently in RAM to manage memory, scheduling, and device drivers. Transient programs (e.g., Disk Defragmenter, Format, Backup) are loaded into RAM only when the user invokes them.',
+    },
   ];
 
   // Sorting items for Hardware vs Software drill
@@ -171,6 +275,27 @@ export const ComputerBasicsQuiz = ({
         'Because they combine high-power electrical systems (like electric motors, heating elements, and high-voltage transformers that convert electrical energy into work or heat) with digital electronic microcontroller circuits (semiconductor microchips, digital displays, and sensors that measure temperature and execute programmed control logic).',
       examPoints: ['Contains high-power energy conversion parts (electrical)', 'Contains semiconductor sensor/microprocessor logic (electronic)', 'Overlaps to form an automated hybrid system'],
     },
+    {
+      id: 'sq4',
+      question: 'Explain how SPOOLing (Simultaneous Peripheral Operations On-Line) prevents the CPU from slowing down during printing.',
+      modelAnswer:
+        'CPUs execute billions of instructions per second, while mechanical printers can only output a few pages per minute. Without SPOOLing, the CPU would be frozen waiting for each page to physically print. With SPOOLing, the OS writes the entire print job into a temporary buffer on high-speed disk in milliseconds, immediately unblocking the CPU for the user, while a background print spooler process slowly feeds pages to the printer.',
+      examPoints: ['Bridges the speed mismatch between fast CPU and slow mechanical printer', 'Buffers print output onto high-speed disk storage', 'Allows the CPU to immediately return to user applications'],
+    },
+    {
+      id: 'sq5',
+      question: 'Differentiate between Upward (Forward) Compatibility and Downward (Backward) Compatibility in processor and software design.',
+      modelAnswer:
+        'Upward (Forward) Compatibility means older software or hardware is capable of running successfully on future, newer generations of processors without modification (e.g. MS-DOS code running on a modern 64-bit Intel x86 CPU). Downward (Backward) Compatibility means a newly engineered processor or software environment can successfully run legacy software designed for predecessor systems.',
+      examPoints: ['Older programs running on newer hardware (Upward/Forward)', 'New hardware/software supporting older predecessor formats (Downward/Backward)', 'Protects customer software investment across generations'],
+    },
+    {
+      id: 'sq6',
+      question: 'Compare CUI (Command User Interface) and GUI (Graphical User Interface) across usability, resource usage, and multitasking.',
+      modelAnswer:
+        'CUI (e.g., MS-DOS, early Unix) requires users to type exact text commands at a prompt; it has very low memory/CPU overhead and is lightning-fast, but requires memorizing syntax. GUI (e.g., Windows, macOS) represents files and programs as icons, windows, menus, and pointers; it requires higher memory and graphics hardware, but is intuitive, beginner-friendly, and naturally supports visual multitasking.',
+      examPoints: ['CUI: Text prompt, requires memorized commands, very low hardware overhead', 'GUI: WIMP (Windows, Icons, Menus, Pointer), intuitive, higher memory/CPU requirements', 'Multitasking: GUI offers visual side-by-side app switching; CUI typically ran single-tasking in early PCs'],
+    },
   ];
 
   const handleSelectAnswer = (qId, optionIdx) => {
@@ -196,7 +321,7 @@ export const ComputerBasicsQuiz = ({
 
   const score = calculateScore();
   const allAnswered = Object.keys(selectedAnswers).length === MCQS.length;
-  const isPassing = score >= 6; // 6 out of 8
+  const isPassing = score >= Math.ceil(MCQS.length * 0.7); // 70% passing grade
 
   return (
     <div className="space-y-6">

@@ -28,6 +28,12 @@ import {
   MobileFiveUnitsVisualizer,
   MobileDeskBookshelfSimulator,
   MobileMemoryHierarchy,
+  MobileBusHighwaySimulator,
+  MobileRiscCiscSimulator,
+  MobileMemoryLadderSimulator,
+  MobileKeyboardIrqSimulator,
+  MobilePrintSpoolerSimulator,
+  MobileOsSchedulerSimulator,
 } from '../components/learning/ConceptAnimations';
 
 const getLessonCode = (les) => {
@@ -428,6 +434,58 @@ export const LessonDetailScreen = ({ route, navigation }) => {
               <View style={{ marginVertical: 4 }}>
                 <MobileDeskBookshelfSimulator lang={lang} />
                 <MobileMemoryHierarchy lang={lang} />
+              </View>
+            )}
+
+            {/* System Bus & CPU-Memory Simulator */}
+            {(lesson?.interactiveType === 'cpu-bus-highway-simulation' ||
+              lesson?.interactiveType === 'cpu-memory-cycle-simulator' ||
+              lesson?.id === 'cb-bus-architecture' ||
+              lesson?.id === 'cb-memory-rw-cycles') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileBusHighwaySimulator lang={lang} />
+              </View>
+            )}
+
+            {/* RISC vs CISC Architecture Race */}
+            {(lesson?.interactiveType === 'risc-vs-cisc-benchmark' ||
+              lesson?.id === 'cb-risc-vs-cisc') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileRiscCiscSimulator lang={lang} />
+              </View>
+            )}
+
+            {/* Memory Units Capacity Ladder */}
+            {(lesson?.interactiveType === 'memory-ladder-capacity-simulation' ||
+              lesson?.id === 'cb-memory-units') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileMemoryLadderSimulator lang={lang} />
+              </View>
+            )}
+
+            {/* Keyboard Hardware Interrupt (IRQ 1) */}
+            {(lesson?.interactiveType === 'keyboard-interrupt-simulation' ||
+              lesson?.id === 'cb-keyboard-internals') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileKeyboardIrqSimulator lang={lang} />
+              </View>
+            )}
+
+            {/* Print Spooler Simulator */}
+            {(lesson?.interactiveType === 'print-spooler-simulation' ||
+              lesson?.id === 'cb-printer-technologies') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobilePrintSpoolerSimulator lang={lang} />
+              </View>
+            )}
+
+            {/* OS Scheduler & Disk Defragmenter */}
+            {(lesson?.interactiveType === 'os-scheduler-defragmenter-simulation' ||
+              lesson?.id === 'cb-os-efficiency-metrics' ||
+              lesson?.id === 'cb-os-kernel-transient' ||
+              lesson?.id === 'cb-os-utilities-security') && (
+              <View style={{ marginVertical: 4 }}>
+                <MobileOsSchedulerSimulator lang={lang} />
               </View>
             )}
 

@@ -20,6 +20,16 @@ import GuiVsCliInteractiveConsole from './GuiVsCliInteractiveConsole';
 import SystemFeedbackLoopSimulator from './SystemFeedbackLoopSimulator';
 import EducationalContentRenderer from './EducationalContentRenderer';
 
+// Brand New Interactive Simulators for Modules 2, 3, 4, 5, 6
+import CpuBusSystemSimulator from './CpuBusSystemSimulator';
+import RiscVsCiscComparator from './RiscVsCiscComparator';
+import MemoryUnitsLadderSimulator from './MemoryUnitsLadderSimulator';
+import CpuMemoryCycleSimulator from './CpuMemoryCycleSimulator';
+import KeyboardInterruptSimulator from './KeyboardInterruptSimulator';
+import PrintSpoolerSimulator from './PrintSpoolerSimulator';
+import DisplayTechComparator from './DisplayTechComparator';
+import OsSchedulerAndDefragSimulator from './OsSchedulerAndDefragSimulator';
+
 export const LessonContent = ({
   lesson,
   lang = 'both',
@@ -38,7 +48,7 @@ export const LessonContent = ({
         <div className="relative z-10 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              Web-101 Lecture 01 · Lesson {lesson.order} of 8
+              Web-101 · Lesson {lesson.order} of 32
             </span>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-neutral-300">
               {lesson.difficulty}
@@ -61,51 +71,51 @@ export const LessonContent = ({
             {lang === 'bn'
               ? lesson.subtitle?.bn
               : lang === 'both'
-              ? `${lesson.subtitle?.en} — ${lesson.subtitle?.bn}`
+              ? `${lesson.subtitle?.en} · ${lesson.subtitle?.bn}`
               : lesson.subtitle?.en}
           </p>
         </div>
       </div>
 
       {/* Key Takeaways Card */}
-      {lesson.keyTakeaways && (
-        <div className="rounded-3xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 sm:p-6 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+      {((lesson.keyTakeaways && lesson.keyTakeaways.length > 0) ||
+        (lesson.keyTakeawaysBn && lesson.keyTakeawaysBn.length > 0)) && (
+        <div className="rounded-3xl border border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-950/20 p-5 sm:p-6 space-y-3">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
             <Sparkles className="w-4 h-4 text-emerald-500" />
-            <span>
-              {lang === 'bn'
-                ? 'মূল শিক্ষণীয় বিষয়সমূহ (Key Takeaways)'
-                : lang === 'both'
-                ? 'Key Takeaways / মূল শিক্ষণীয় বিষয়সমূহ'
-                : 'Key Takeaways (Quick & Simple)'}
-            </span>
+            <span>Key Takeaways / মূল শিক্ষণীয় বিষয়সমূহ</span>
           </div>
 
-          {/* If Both: Pair English with Bengali bullet */}
           {lang === 'both' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {lesson.keyTakeaways.map((item, idx) => {
-                const bnItem = lesson.keyTakeawaysBn?.[idx];
-                return (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-2xl bg-white/80 dark:bg-neutral-900/60 border border-emerald-100 dark:border-emerald-900/40 space-y-1.5"
-                  >
-                    <div className="flex items-start gap-2 text-neutral-800 dark:text-neutral-200 font-semibold leading-relaxed">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </div>
-                    {bnItem && (
-                      <p className="text-[11.5px] text-emerald-700 dark:text-emerald-400 pl-6 leading-relaxed">
-                        {bnItem}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
+              {/* English List */}
+              <ul className="space-y-2 text-neutral-700 dark:text-neutral-300">
+                <li className="text-[11px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400 border-b border-sky-500/20 pb-1">
+                  🇺🇸 English Summary
+                </li>
+                {lesson.keyTakeaways?.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* Bangla List */}
+              <ul className="space-y-2 text-neutral-700 dark:text-neutral-300">
+                <li className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 border-b border-emerald-500/20 pb-1">
+                  🇧🇩 সারসংক্ষেপ (বাংলা)
+                </li>
+                {(lesson.keyTakeawaysBn || lesson.keyTakeaways)?.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2 leading-relaxed">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : (
-            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs text-neutral-700 dark:text-neutral-300">
+            <ul className="space-y-2 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300">
               {(lang === 'bn' && lesson.keyTakeawaysBn
                 ? lesson.keyTakeawaysBn
                 : lesson.keyTakeaways
@@ -123,7 +133,7 @@ export const LessonContent = ({
       {/* ========================================================
           INTERACTIVE ANIMATIONS & SUITES (1 to 2 PER LESSON)
          ======================================================== */}
-      {/* LESSON 1 SUITE: IPO Conveyor + Speed Race */}
+      {/* LESSON 1, 23, 26 SUITE: IPO Conveyor + Speed Race */}
       {lesson.interactiveType === 'lesson1-suite' && (
         <div className="space-y-6">
           <IPOMachineSimulator />
@@ -131,7 +141,7 @@ export const LessonContent = ({
         </div>
       )}
 
-      {/* LESSON 2 SUITE: 5 Functional Units Communication Hub */}
+      {/* LESSON 2, 9, 20 SUITE: 5 Functional Units Communication Hub */}
       {lesson.interactiveType === 'lesson2-suite' && (
         <div className="space-y-6">
           <FiveUnitsHubVisualizer lang={lang} />
@@ -167,7 +177,7 @@ export const LessonContent = ({
         </div>
       )}
 
-      {/* LESSON 5 SUITE: Desk vs Bookshelf (RAM vs SSD) + Hierarchy Pyramid */}
+      {/* LESSON 5, 15, 16, 17 SUITE: Desk vs Bookshelf (RAM vs SSD) + Hierarchy Pyramid */}
       {lesson.interactiveType === 'lesson5-suite' && (
         <div className="space-y-6">
           <DeskVsBookshelfSimulator />
@@ -175,7 +185,7 @@ export const LessonContent = ({
         </div>
       )}
 
-      {/* LESSON 6 SUITE: GUI vs CLI Interactive Console */}
+      {/* LESSON 6, 27, 29, 30 SUITE: GUI vs CLI Interactive Console */}
       {lesson.interactiveType === 'lesson6-suite' && (
         <div className="space-y-6">
           <GuiVsCliInteractiveConsole />
@@ -189,7 +199,63 @@ export const LessonContent = ({
         </div>
       )}
 
-      {/* LESSON 8 SUITE: Revision Assessment & Sorting Drills */}
+      {/* LESSON 10, 13 SUITE: RISC vs CISC Architecture Race */}
+      {lesson.interactiveType === 'lesson10-suite' && (
+        <div className="space-y-6">
+          <RiscVsCiscComparator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 11, 12 SUITE: Computer Bus 3-Lane Highway Simulator */}
+      {lesson.interactiveType === 'lesson11-suite' && (
+        <div className="space-y-6">
+          <CpuBusSystemSimulator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 14 SUITE: Digital Memory Units Ladder & Scale */}
+      {lesson.interactiveType === 'lesson14-suite' && (
+        <div className="space-y-6">
+          <MemoryUnitsLadderSimulator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 18 SUITE: CPU Memory Read & Write Cycle Micro-Stepper */}
+      {lesson.interactiveType === 'lesson18-suite' && (
+        <div className="space-y-6">
+          <CpuMemoryCycleSimulator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 19, 21, 22 SUITE: Keyboard Mechanics, Buffers & IRQ 1 Interrupt */}
+      {lesson.interactiveType === 'lesson19-suite' && (
+        <div className="space-y-6">
+          <KeyboardInterruptSimulator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 24 SUITE: Printers & Print Spooling (SPOOL) */}
+      {lesson.interactiveType === 'lesson24-suite' && (
+        <div className="space-y-6">
+          <PrintSpoolerSimulator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 25 SUITE: Display Technologies (CRT vs LCD) */}
+      {lesson.interactiveType === 'lesson25-suite' && (
+        <div className="space-y-6">
+          <DisplayTechComparator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 28, 31 SUITE: OS Scheduler & Disk Defragmenter */}
+      {(lesson.interactiveType === 'lesson28-suite' || lesson.interactiveType === 'lesson31-suite') && (
+        <div className="space-y-6">
+          <OsSchedulerAndDefragSimulator lang={lang} />
+        </div>
+      )}
+
+      {/* LESSON 8, 32 SUITE: Revision Assessment & Sorting Drills */}
       {lesson.interactiveType === 'comprehensive-quiz-and-drills' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
