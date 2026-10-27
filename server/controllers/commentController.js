@@ -66,10 +66,8 @@ exports.getCommentsByPost = async (req, res) => {
 
     const enriched = mergedList.map((c) => {
       const obj = typeof c.toObject === 'function' ? c.toObject() : { ...c };
-      if (!isAdmin) {
-        delete obj.ipAddress;
-        delete obj.userAgent;
-      }
+      delete obj.ipAddress;
+      delete obj.userAgent;
       return {
         ...obj,
         isOwner: currentUserId ? obj.author && (obj.author._id?.equals?.(currentUserId) || obj.author._id === currentUserId) : false,
@@ -271,10 +269,8 @@ exports.createComment = async (req, res) => {
     }
 
     const commentObj = comment.toObject();
-    if (!isAdmin) {
-      delete commentObj.ipAddress;
-      delete commentObj.userAgent;
-    }
+    delete commentObj.ipAddress;
+    delete commentObj.userAgent;
 
     return res.status(201).json({
       message: 'Comment added.',

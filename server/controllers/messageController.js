@@ -1,13 +1,41 @@
+const mongoose = require('mongoose');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { sendPushToUser } = require('../services/pushNotificationService');
+const aiService = require('../services/aiService');
 const {
   broadcastChatMessage,
   broadcastTypingStatus,
   broadcastMessageReaction,
   broadcastMessageDeleted,
 } = require('../sockets/socketManager');
+
+// Helper to safely read unread count regardless of Map or plain Object serialization
+const getUnreadForUser = (unreadCounts, userId) => {
+  if (!unreadCounts || !userId) return 0;
+  const key = userId.toString();
+  if (typeof unreadCounts.get === 'function') {
+    return unreadCounts.get(key) || 0;
+  }
+  return unreadCounts[key] || 0;
+};
+
+// Helper to safely write unread count
+const setUnreadForUser = (conversation, userId, count) => {
+  if (!conversation || !userId) return;
+  const key = userId.toString();
+  if (!conversation.unreadCounts) {
+    conversation.unreadCounts = new Map([[key, count]]);
+    return;
+  }
+  if (typeof conversation.unreadCounts.set === 'function') {
+    conversation.unreadCounts.set(key, count);
+  } else {
+    conversation.unreadCounts[key] = count;
+  }
+};
 
 // Get all conversations for current user
 exports.getConversations = async (req, res) => {
@@ -18,16 +46,17 @@ exports.getConversations = async (req, res) => {
       participants: currentUserId,
     })
       .sort({ updatedAt: -1 })
-      .populate('participants', 'name username avatarUrl role status')
+      .populate('participants', 'name username avatarUrl role status isAi')
       .populate('lastMessage.sender', 'name username');
 
     const formatted = conversations.map((conv) => {
-      // Find the other participant
-      const otherUser = conv.participants.find(
-        (p) => !p._id.equals(currentUserId)
-      ) || conv.participants[0];
+      // Find the other participant safely
+      const validParticipants = (conv.participants || []).filter(Boolean);
+      const otherUser = validParticipants.find(
+        (p) => p._id && !p._id.equals(currentUserId)
+      ) || validParticipants[0] || null;
 
-      const unreadCount = conv.unreadCounts?.get(currentUserId.toString()) || 0;
+      const unreadCount = getUnreadForUser(conv.unreadCounts, currentUserId);
       const isAi = otherUser?.username === 'ai' || otherUser?.role === 'ai' || otherUser?.isAi;
       const customAiName = isAi && conv.customAiSettings?.customName ? conv.customAiSettings.customName : null;
 
@@ -82,11 +111,9 @@ exports.getMessages = async (req, res) => {
     }
 
     // Mark unread messages sent to current user as read only if unread messages exist
-    const currentUnread = conversation.unreadCounts?.get(currentUserId.toString()) || 0;
+    const currentUnread = getUnreadForUser(conversation.unreadCounts, currentUserId);
     if (currentUnread > 0) {
-      if (conversation.unreadCounts) {
-        conversation.unreadCounts.set(currentUserId.toString(), 0);
-      }
+      setUnreadForUser(conversation, currentUserId, 0);
       await Promise.all([
         Message.updateMany(
           {
@@ -223,7 +250,7 @@ exports.startConversation = async (req, res) => {
           isAi: Boolean(isAi),
         },
         lastMessage: conversation.lastMessage,
-        unreadCount: conversation.unreadCounts?.get(currentUserId.toString()) || 0,
+        unreadCount: getUnreadForUser(conversation.unreadCounts, currentUserId),
         customAiSettings: conversation.customAiSettings || null,
       },
     });
@@ -327,10 +354,8 @@ exports.sendMessage = async (req, res) => {
     };
 
     const recipientKey = targetRecipientId.toString();
-    const currentUnread = conversation.unreadCounts?.get(recipientKey) || 0;
-    if (conversation.unreadCounts) {
-      conversation.unreadCounts.set(recipientKey, currentUnread + 1);
-    }
+    const currentUnread = getUnreadForUser(conversation.unreadCounts, targetRecipientId);
+    setUnreadForUser(conversation, targetRecipientId, currentUnread + 1);
 
     // Create notification for recipient
     const notification = new Notification({
@@ -414,11 +439,8 @@ exports.sendMessage = async (req, res) => {
             sender: targetRecipientId,
             createdAt: aiCreatedAt,
           };
-          const userKey = currentUserId.toString();
-          const unread = conversation.unreadCounts?.get(userKey) || 0;
-          if (conversation.unreadCounts) {
-            conversation.unreadCounts.set(userKey, unread + 1);
-          }
+          const aiUnread = getUnreadForUser(conversation.unreadCounts, currentUserId);
+          setUnreadForUser(conversation, currentUserId, aiUnread + 1);
           await conversation.save();
 
           // 6. Turn off typing indicator & broadcast message
@@ -442,40 +464,6 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
-// Total unread messages count for navbar badge with latest unread message details
-exports.getUnreadTotal = async (req, res) => {
-  try {
-    const currentUserId = req.user._id;
-    const count = await Message.countDocuments({
-      recipient: currentUserId,
-      isRead: false,
-    });
-
-    const latestUnread = count > 0
-      ? await Message.findOne({
-          recipient: currentUserId,
-          isRead: false,
-        })
-          .sort({ createdAt: -1 })
-          .populate('sender', 'name username avatarUrl')
-      : null;
-
-    return res.status(200).json({
-      unreadTotal: count,
-      latestUnread: latestUnread
-        ? {
-            _id: latestUnread._id,
-            sender: latestUnread.sender,
-            text: latestUnread.text || (latestUnread.codeSnippet?.code ? 'Shared a code snippet' : 'Sent a message'),
-            conversation: latestUnread.conversation,
-            createdAt: latestUnread.createdAt,
-          }
-        : null,
-    });
-  } catch (err) {
-    return res.status(500).json({ message: 'Error counting unread messages.' });
-  }
-};
 
 // Delete a specific individual message
 exports.deleteMessage = async (req, res) => {

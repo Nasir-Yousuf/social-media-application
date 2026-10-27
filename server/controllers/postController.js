@@ -132,10 +132,9 @@ const canUserReplyToPost = async (post, currentUserId, isAdmin = false) => {
 // Helper to ensure post IP and excludedAudience information is protected
 const sanitizePostForViewer = (postObj, currentUserId = null, isAdmin = false) => {
   if (!postObj) return postObj;
-  if (!isAdmin) {
-    delete postObj.ipAddress;
-    delete postObj.userAgent;
-  }
+  // Post author IP and user-agent are reserved exclusively for the Admin Dashboard (Moderation/Logs)
+  delete postObj.ipAddress;
+  delete postObj.userAgent;
   const authorId = postObj.author?._id ? postObj.author._id.toString() : postObj.author?.toString();
   const isAuthor = currentUserId && authorId === currentUserId.toString();
   if (!isAuthor && !isAdmin) {
