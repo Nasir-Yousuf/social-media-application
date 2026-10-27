@@ -211,13 +211,16 @@ exports.startConversation = async (req, res) => {
       return res.status(404).json({ message: 'Recipient member not found.' });
     }
 
-    if (targetUser._id.equals(currentUserId)) {
+    const targetUserIdStr = targetUser._id ? targetUser._id.toString() : String(targetUser);
+    const currentUserIdStr = currentUserId ? currentUserId.toString() : String(req.user._id);
+
+    if (targetUserIdStr === currentUserIdStr) {
       return res.status(400).json({ message: 'Cannot start a direct message with yourself.' });
     }
 
     // Look for existing conversation between these 2 users
     let conversation = await Conversation.findOne({
-      participants: { $all: [currentUserId, targetUser._id], $size: 2 },
+      participants: { $all: [currentUserId, targetUser._id] },
     }).populate('participants', 'name username avatarUrl role status isAi');
 
     if (!conversation) {
@@ -229,8 +232,8 @@ exports.startConversation = async (req, res) => {
           createdAt: new Date(),
         },
         unreadCounts: new Map([
-          [currentUserId.toString(), 0],
-          [targetUser._id.toString(), 0],
+          [currentUserIdStr, 0],
+          [targetUserIdStr, 0],
         ]),
       });
       await conversation.save();
@@ -239,12 +242,13 @@ exports.startConversation = async (req, res) => {
 
     const isAi = targetUser?.username === 'ai' || targetUser?.role === 'ai' || targetUser?.isAi;
     const customAiName = isAi && conversation.customAiSettings?.customName ? conversation.customAiSettings.customName : null;
+    const targetUserObj = typeof targetUser.toObject === 'function' ? targetUser.toObject() : targetUser;
 
     return res.status(200).json({
       conversation: {
         _id: conversation._id,
         otherUser: {
-          ...targetUser.toObject(),
+          ...targetUserObj,
           name: customAiName || targetUser.name,
           originalName: targetUser.name,
           isAi: Boolean(isAi),
@@ -256,7 +260,10 @@ exports.startConversation = async (req, res) => {
     });
   } catch (err) {
     console.error('startConversation error:', err);
-    return res.status(500).json({ message: 'Failed to initiate conversation.' });
+    return res.status(500).json({
+      message: err.message ? `Failed to initiate conversation: ${err.message}` : 'Failed to initiate conversation.',
+      error: err.message,
+    });
   }
 };
 
