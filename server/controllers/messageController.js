@@ -52,9 +52,10 @@ exports.getConversations = async (req, res) => {
     const formatted = conversations.map((conv) => {
       // Find the other participant safely
       const validParticipants = (conv.participants || []).filter(Boolean);
-      const otherUser = validParticipants.find(
-        (p) => p._id && !p._id.equals(currentUserId)
-      ) || validParticipants[0] || null;
+      const otherUser = validParticipants.find((p) => {
+        const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+        return pid && pid !== currentUserId.toString();
+      }) || validParticipants[0] || null;
 
       const unreadCount = getUnreadForUser(conv.unreadCounts, currentUserId);
       const isAi = otherUser?.username === 'ai' || otherUser?.role === 'ai' || otherUser?.isAi;
@@ -103,9 +104,10 @@ exports.getMessages = async (req, res) => {
       return res.status(404).json({ message: 'Conversation not found.' });
     }
 
-    const isParticipant = conversation.participants.some((p) =>
-      p._id.equals(currentUserId)
-    );
+    const isParticipant = conversation.participants.some((p) => {
+      const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+      return pid === currentUserId.toString();
+    });
     if (!isParticipant) {
       return res.status(403).json({ message: 'Not authorized to view these messages.' });
     }
@@ -145,9 +147,10 @@ exports.getMessages = async (req, res) => {
       .populate('reactions.user', 'name username avatarUrl')
       .populate('typingChallenge');
 
-    const otherUser = conversation.participants.find(
-      (p) => !p._id.equals(currentUserId)
-    ) || conversation.participants[0];
+    const otherUser = conversation.participants.find((p) => {
+      const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+      return pid !== currentUserId.toString();
+    }) || conversation.participants[0];
 
     const isAi = otherUser?.username === 'ai' || otherUser?.role === 'ai' || otherUser?.isAi;
     const customAiName = isAi && conversation.customAiSettings?.customName ? conversation.customAiSettings.customName : null;
@@ -299,7 +302,7 @@ exports.sendMessage = async (req, res) => {
 
       if (targetId && mongoose.Types.ObjectId.isValid(targetId)) {
         conversation = await Conversation.findOne({
-          participants: { $all: [currentUserId, targetId], $size: 2 },
+          participants: { $all: [currentUserId, targetId] },
         });
         if (!conversation) {
           conversation = new Conversation({
@@ -319,9 +322,10 @@ exports.sendMessage = async (req, res) => {
     }
 
     // Determine target recipient
-    const targetRecipientId = conversation.participants.find(
-      (p) => !p.equals(currentUserId)
-    );
+    const targetRecipientId = conversation.participants.find((p) => {
+      const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+      return pid && pid !== currentUserId.toString();
+    });
 
     if (!targetRecipientId) {
       return res.status(400).json({ message: 'Invalid conversation participants.' });
@@ -558,7 +562,10 @@ exports.deleteConversation = async (req, res) => {
       return res.status(404).json({ message: 'Conversation not found.' });
     }
 
-    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    const isParticipant = conversation.participants.some((p) => {
+      const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+      return pid === currentUserId.toString();
+    });
     if (!isParticipant) {
       return res.status(403).json({ message: 'Not authorized to delete this conversation.' });
     }
@@ -600,7 +607,10 @@ exports.clearConversation = async (req, res) => {
       return res.status(404).json({ message: 'Conversation not found.' });
     }
 
-    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    const isParticipant = conversation.participants.some((p) => {
+      const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+      return pid === currentUserId.toString();
+    });
     if (!isParticipant) {
       return res.status(403).json({ message: 'Not authorized to clear this conversation.' });
     }
@@ -617,7 +627,7 @@ exports.clearConversation = async (req, res) => {
 
     if (conversation.unreadCounts) {
       conversation.participants.forEach((p) => {
-        conversation.unreadCounts.set(p.toString(), 0);
+        setUnreadForUser(conversation, p, 0);
       });
     }
 
@@ -657,7 +667,10 @@ exports.reactToMessage = async (req, res) => {
       return res.status(404).json({ message: 'Conversation not found.' });
     }
 
-    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    const isParticipant = conversation.participants.some((p) => {
+      const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+      return pid === currentUserId.toString();
+    });
     if (!isParticipant) {
       return res.status(403).json({ message: 'You are not authorized to react to this message.' });
     }
@@ -667,8 +680,8 @@ exports.reactToMessage = async (req, res) => {
     }
 
     const existingIdx = message.reactions.findIndex((r) => {
-      const uId = r.user?._id || r.user;
-      return uId && currentUserId.equals(uId);
+      const uId = r.user?._id ? r.user._id.toString() : r.user ? r.user.toString() : '';
+      return uId === currentUserId.toString();
     });
 
     let action = 'added';
@@ -746,11 +759,8 @@ exports.getUnreadTotal = async (req, res) => {
     ]);
 
     let unreadTotal = 0;
-    const userIdStr = currentUserId.toString();
     for (const conv of conversations) {
-      if (conv.unreadCounts) {
-        unreadTotal += conv.unreadCounts.get(userIdStr) || 0;
-      }
+      unreadTotal += getUnreadForUser(conv.unreadCounts, currentUserId);
     }
 
     return res.status(200).json({
@@ -775,7 +785,10 @@ exports.updateAiSettings = async (req, res) => {
       return res.status(404).json({ message: 'Conversation not found.' });
     }
 
-    const isParticipant = conversation.participants.some((p) => p.equals(currentUserId));
+    const isParticipant = conversation.participants.some((p) => {
+      const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
+      return pid === currentUserId.toString();
+    });
     if (!isParticipant) {
       return res.status(403).json({ message: 'Not authorized to modify this conversation.' });
     }

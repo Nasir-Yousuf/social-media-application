@@ -58,7 +58,7 @@ app.get(['/api/health', '/health'], (req, res) => {
   res.status(200).json({
     status: 'ok',
     message: 'Clearfeed API is running.',
-    version: '2.2.2',
+    version: '2.2.3',
     deployedAt: new Date().toISOString(),
     endpoints: ['/api/typing', '/api/learning', '/api/posts', '/api/auth', '/api/users'],
   });

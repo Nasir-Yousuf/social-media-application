@@ -19,6 +19,32 @@ const groupCallRooms = new Map();
 
 const { isOriginAllowed } = require('../config/security');
 
+const getUnreadForUser = (unreadCounts, userId) => {
+  if (!unreadCounts || !userId) return 0;
+  const uid = userId.toString();
+  if (typeof unreadCounts.get === 'function') {
+    return unreadCounts.get(uid) || 0;
+  }
+  return unreadCounts[uid] || 0;
+};
+
+const setUnreadForUser = (conv, userId, val) => {
+  if (!conv || !userId) return;
+  const uid = userId.toString();
+  if (!conv.unreadCounts) {
+    conv.unreadCounts = new Map([[uid, val]]);
+    return;
+  }
+  if (typeof conv.unreadCounts.set === 'function') {
+    conv.unreadCounts.set(uid, val);
+  } else {
+    conv.unreadCounts[uid] = val;
+    if (typeof conv.markModified === 'function') {
+      conv.markModified('unreadCounts');
+    }
+  }
+};
+
 function initSocket(server) {
   const io = new Server(server, {
     cors: {
@@ -253,7 +279,7 @@ function initSocket(server) {
           conv = await Conversation.findById(conversationId);
         } else if (recipientId) {
           conv = await Conversation.findOne({
-            participants: { $all: [userId, recipientId], $size: 2 },
+            participants: { $all: [userId, recipientId] },
           });
           if (!conv) {
             conv = new Conversation({
@@ -311,11 +337,8 @@ function initSocket(server) {
           createdAt: new Date(),
         };
 
-        const recipientKey = targetRecipientId.toString();
-        const currentUnread = conv.unreadCounts?.get(recipientKey) || 0;
-        if (conv.unreadCounts) {
-          conv.unreadCounts.set(recipientKey, currentUnread + 1);
-        }
+        const currentUnread = getUnreadForUser(conv.unreadCounts, targetRecipientId);
+        setUnreadForUser(conv, targetRecipientId, currentUnread + 1);
         await conv.save();
 
         const populatedMsg = await Message.findById(newMsg._id)
@@ -416,11 +439,8 @@ function initSocket(server) {
                 sender: targetRecipientId,
                 createdAt: new Date(),
               };
-              const uKey = userId.toString();
-              const curUnread = conv.unreadCounts?.get(uKey) || 0;
-              if (conv.unreadCounts) {
-                conv.unreadCounts.set(uKey, curUnread + 1);
-              }
+              const curUnread = getUnreadForUser(conv.unreadCounts, userId);
+              setUnreadForUser(conv, userId, curUnread + 1);
               await conv.save();
 
               broadcastTypingStatus(conv._id, targetRecipientId, false, userId);
