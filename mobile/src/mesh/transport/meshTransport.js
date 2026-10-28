@@ -1,4 +1,5 @@
 import socketService from '../../services/socket';
+import bleMeshBridge from './bleMeshBridge';
 
 export const TransportState = {
   INITIALIZING: 'INITIALIZING',
@@ -19,19 +20,37 @@ class MeshTransportManager {
     this.isBluetoothEnabled = true;
     this.hasPermissions = true;
     this.isSocketBound = false;
+    this.bleConnectedCount = 0;
   }
 
   /**
-   * Initialize platform transport capabilities
+   * Initialize platform transport capabilities (Bluetooth LE + LAN Dual Transport)
    */
   async initialize() {
     try {
+      // 1. Initialize Bluetooth LE Mesh subsystem (BitChat protocol compatible)
+      bleMeshBridge.onPacket((envelope) => {
+        if (envelope && envelope.magic === 'CFM1') {
+          this.emitIncomingPacket(envelope);
+        }
+      });
+
+      bleMeshBridge.onPeersUpdated((peers) => {
+        this.bleConnectedCount = peers.length;
+        if (this.bleConnectedCount > 0) {
+          this.currentState = TransportState.CONNECTED_PEERS;
+        } else {
+          this.currentState = TransportState.READY_OFFLINE;
+        }
+        this.notifyState();
+      });
+
+      bleMeshBridge.start().catch(() => {});
+
+      // 2. Bind local Wi-Fi / socket transport for dual-layer fallback
       if (!this.isSocketBound) {
         this.isSocketBound = true;
-        // Connect socket immediately so all devices on Wi-Fi link together for mesh
-        socketService.connect().catch((err) => {
-          console.warn('[MeshTransport] Socket connection notice:', err?.message);
-        });
+        socketService.connect().catch(() => {});
         socketService.on('mesh:packet', (envelope) => {
           if (envelope && envelope.magic === 'CFM1') {
             this.emitIncomingPacket(envelope);
@@ -86,14 +105,26 @@ class MeshTransportManager {
 
   /**
    * Transmit packet over supported local wireless & LAN transport
+   * Dual-layer: Transmits over Bluetooth LE GATT and local Wi-Fi Socket simultaneously
    */
   async broadcastPacket(envelope) {
+    let sent = false;
+
+    // 1. Physical Bluetooth Low Energy Radio (works with Wi-Fi completely turned OFF)
+    try {
+      const bleResult = await bleMeshBridge.broadcastEnvelope(envelope);
+      if (bleResult) sent = true;
+    } catch (err) {
+      console.warn('[MeshTransport] BLE broadcast notice:', err?.message);
+    }
+
+    // 2. Local Wi-Fi / LAN Socket (for connected LAN fallback)
     try {
       socketService.emit('mesh:packet', envelope);
-    } catch (err) {
-      console.warn('[MeshTransport] Broadcast packet error:', err.message);
-    }
-    return true;
+      sent = true;
+    } catch (err) {}
+
+    return sent;
   }
 
   async sendDirect(peerPubkey, envelope) {

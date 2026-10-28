@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, NavLink, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   ThumbsUp,
@@ -17,17 +17,20 @@ import {
   Save,
   X,
   Sparkles,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import api from '../../../api/client';
-import Avatar from '../../../components/common/Avatar';
-import TwitterSpinner from '../../../components/common/TwitterSpinner';
-import Button from '../../../components/common/Button';
-import MarkdownRenderer from '../../../components/posts/MarkdownRenderer';
-import { useAuth } from '../../../context/AuthContext';
-import { useNotifications } from '../../../context/NotificationContext';
-import { useMentionAutocomplete, MentionDropdown } from '../../../components/common/MentionAutocomplete';
-import ConfirmDeleteModal from '../../../components/common/ConfirmDeleteModal';
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import api from "../../../api/client";
+import Avatar from "../../../components/common/Avatar";
+import TwitterSpinner from "../../../components/common/TwitterSpinner";
+import Button from "../../../components/common/Button";
+import MarkdownRenderer from "../../../components/posts/MarkdownRenderer";
+import { useAuth } from "../../../context/AuthContext";
+import { useNotifications } from "../../../context/NotificationContext";
+import {
+  useMentionAutocomplete,
+  MentionDropdown,
+} from "../../../components/common/MentionAutocomplete";
+import ConfirmDeleteModal from "../../../components/common/ConfirmDeleteModal";
 
 export const QuestionDetail = () => {
   const { id } = useParams();
@@ -42,21 +45,25 @@ export const QuestionDetail = () => {
 
   // Question edit & delete state
   const [editingQuestion, setEditingQuestion] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDescription, setEditDescription] = useState('');
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [showDeleteQuestionModal, setShowDeleteQuestionModal] = useState(false);
   const [isDeletingQuestion, setIsDeletingQuestion] = useState(false);
 
   // Answer edit & delete state
   const [editingAnswerId, setEditingAnswerId] = useState(null);
-  const [editAnswerText, setEditAnswerText] = useState('');
+  const [editAnswerText, setEditAnswerText] = useState("");
   const [deletingAnswerId, setDeletingAnswerId] = useState(null);
   const [isDeletingAnswer, setIsDeletingAnswer] = useState(false);
 
   // New answer form
-  const [newAnswer, setNewAnswer] = useState('');
+  const [newAnswer, setNewAnswer] = useState("");
   const [includeCode, setIncludeCode] = useState(false);
-  const [answerCode, setAnswerCode] = useState({ html: '', css: '', javascript: '' });
+  const [answerCode, setAnswerCode] = useState({
+    html: "",
+    css: "",
+    javascript: "",
+  });
   const [submitting, setSubmitting] = useState(false);
   const [askingAi, setAskingAi] = useState(false);
 
@@ -80,10 +87,13 @@ export const QuestionDetail = () => {
       await api.delete(`/learning/questions/${id}`).catch(async () => {
         await api.delete(`/posts/${id}`);
       });
-      showToast('Question deleted successfully.', 'success');
-      navigate('/learn/questions');
+      showToast("Question deleted successfully.", "success");
+      navigate("/learn/questions");
     } catch (err) {
-      showToast(err.response?.data?.message || 'Could not delete question.', 'error');
+      showToast(
+        err.response?.data?.message || "Could not delete question.",
+        "error",
+      );
     } finally {
       setIsDeletingQuestion(false);
       setShowDeleteQuestionModal(false);
@@ -91,27 +101,36 @@ export const QuestionDetail = () => {
   };
 
   const handleStartQuestionEdit = () => {
-    setEditTitle(question?.title || '');
-    setEditDescription(question?.description || '');
+    setEditTitle(question?.title || "");
+    setEditDescription(question?.description || "");
     setEditingQuestion(true);
   };
 
   const handleSaveQuestionEdit = async () => {
     if (!editTitle.trim() || !editDescription.trim()) return;
     try {
-      await api.patch(`/learning/questions/${id}`, {
+      await api
+        .patch(`/learning/questions/${id}`, {
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+        })
+        .catch(async () => {
+          await api.patch(`/posts/${id}`, {
+            content: `❓ **Question:** ${editTitle.trim()}\n\n${editDescription.trim()}`,
+          });
+        });
+      setQuestion((prev) => ({
+        ...prev,
         title: editTitle.trim(),
         description: editDescription.trim(),
-      }).catch(async () => {
-        await api.patch(`/posts/${id}`, {
-          content: `❓ **Question:** ${editTitle.trim()}\n\n${editDescription.trim()}`,
-        });
-      });
-      setQuestion((prev) => ({ ...prev, title: editTitle.trim(), description: editDescription.trim() }));
+      }));
       setEditingQuestion(false);
-      showToast('Question updated successfully!', 'success');
+      showToast("Question updated successfully!", "success");
     } catch (err) {
-      showToast(err.response?.data?.message || 'Could not update question.', 'error');
+      showToast(
+        err.response?.data?.message || "Could not update question.",
+        "error",
+      );
     }
   };
 
@@ -123,19 +142,30 @@ export const QuestionDetail = () => {
     if (!deletingAnswerId) return;
     setIsDeletingAnswer(true);
     try {
-      await api.delete(`/learning/answers/${deletingAnswerId}`).catch(async () => {
-        await api.delete(`/comments/${deletingAnswerId}`);
-      });
+      await api
+        .delete(`/learning/answers/${deletingAnswerId}`)
+        .catch(async () => {
+          await api.delete(`/comments/${deletingAnswerId}`);
+        });
       setAnswers((prev) => prev.filter((a) => a._id !== deletingAnswerId));
-      setQuestion((prev) => ({ ...prev, answersCount: Math.max(0, (prev?.answersCount || 1) - 1) }));
+      setQuestion((prev) => ({
+        ...prev,
+        answersCount: Math.max(0, (prev?.answersCount || 1) - 1),
+      }));
       const cacheKey = `clearfeed_answers_${id}`;
       try {
-        const cur = JSON.parse(localStorage.getItem(cacheKey) || '[]');
-        localStorage.setItem(cacheKey, JSON.stringify(cur.filter((a) => a._id !== deletingAnswerId)));
+        const cur = JSON.parse(localStorage.getItem(cacheKey) || "[]");
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify(cur.filter((a) => a._id !== deletingAnswerId)),
+        );
       } catch {}
-      showToast('Answer deleted successfully.', 'success');
+      showToast("Answer deleted successfully.", "success");
     } catch (err) {
-      showToast(err.response?.data?.message || 'Could not delete answer.', 'error');
+      showToast(
+        err.response?.data?.message || "Could not delete answer.",
+        "error",
+      );
     } finally {
       setIsDeletingAnswer(false);
       setDeletingAnswerId(null);
@@ -144,22 +174,33 @@ export const QuestionDetail = () => {
 
   const handleStartAnswerEdit = (answer) => {
     setEditingAnswerId(answer._id);
-    setEditAnswerText(answer.content || '');
+    setEditAnswerText(answer.content || "");
   };
 
   const handleSaveAnswerEdit = async (answerId) => {
     if (!editAnswerText.trim()) return;
     try {
-      await api.patch(`/learning/answers/${answerId}`, { content: editAnswerText.trim() }).catch(async () => {
-        await api.patch(`/comments/${answerId}`, { content: editAnswerText.trim() });
-      });
+      await api
+        .patch(`/learning/answers/${answerId}`, {
+          content: editAnswerText.trim(),
+        })
+        .catch(async () => {
+          await api.patch(`/comments/${answerId}`, {
+            content: editAnswerText.trim(),
+          });
+        });
       setAnswers((prev) =>
-        prev.map((a) => (a._id === answerId ? { ...a, content: editAnswerText.trim() } : a))
+        prev.map((a) =>
+          a._id === answerId ? { ...a, content: editAnswerText.trim() } : a,
+        ),
       );
       setEditingAnswerId(null);
-      showToast('Answer updated successfully!', 'success');
+      showToast("Answer updated successfully!", "success");
     } catch (err) {
-      showToast(err.response?.data?.message || 'Could not update answer.', 'error');
+      showToast(
+        err.response?.data?.message || "Could not update answer.",
+        "error",
+      );
     }
   };
 
@@ -186,28 +227,44 @@ export const QuestionDetail = () => {
             const postRes = await api.get(`/posts/${id}`);
             const post = postRes.data.post;
             if (post) {
-              const firstLine = post.content?.split('\n')[0] || '';
-              const title = firstLine.replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim() || 'Community Question';
-              const description = post.content?.split('\n').slice(1).join('\n').trim() || post.content;
+              const firstLine = post.content?.split("\n")[0] || "";
+              const title =
+                firstLine.replace(/^❓\s*\*\*Question:\*\*\s*/i, "").trim() ||
+                "Community Question";
+              const description =
+                post.content?.split("\n").slice(1).join("\n").trim() ||
+                post.content;
 
               qData = {
                 _id: post._id,
                 title,
                 description,
-                track: 'general',
+                track: "general",
                 tags: post.tags || [],
                 author: post.author,
                 codeSnippet: post.codeSnippet
                   ? {
                       html:
-                        post.codeSnippet.files?.find((f) => f.name === 'index.html')?.code ||
-                        (post.codeSnippet.language === 'html' ? post.codeSnippet.code : ''),
+                        post.codeSnippet.files?.find(
+                          (f) => f.name === "index.html",
+                        )?.code ||
+                        (post.codeSnippet.language === "html"
+                          ? post.codeSnippet.code
+                          : ""),
                       css:
-                        post.codeSnippet.files?.find((f) => f.name === 'styles.css')?.code ||
-                        (post.codeSnippet.language === 'css' ? post.codeSnippet.code : ''),
+                        post.codeSnippet.files?.find(
+                          (f) => f.name === "styles.css",
+                        )?.code ||
+                        (post.codeSnippet.language === "css"
+                          ? post.codeSnippet.code
+                          : ""),
                       javascript:
-                        post.codeSnippet.files?.find((f) => f.name === 'script.js')?.code ||
-                        (post.codeSnippet.language === 'javascript' ? post.codeSnippet.code : ''),
+                        post.codeSnippet.files?.find(
+                          (f) => f.name === "script.js",
+                        )?.code ||
+                        (post.codeSnippet.language === "javascript"
+                          ? post.codeSnippet.code
+                          : ""),
                     }
                   : null,
                 upvotesCount: post.likesCount || 0,
@@ -240,13 +297,13 @@ export const QuestionDetail = () => {
       }
 
       if (!qData) {
-        setError('Question not found.');
+        setError("Question not found.");
       } else {
         // Merge server answers with local persistence cache to guarantee zero loss on refresh
         const cacheKey = `clearfeed_answers_${id}`;
         let localAnswers = [];
         try {
-          localAnswers = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+          localAnswers = JSON.parse(localStorage.getItem(cacheKey) || "[]");
         } catch {}
 
         const mergedMap = new Map();
@@ -255,7 +312,7 @@ export const QuestionDetail = () => {
         });
         localAnswers.forEach((la) => {
           const hasDup = Array.from(mergedMap.values()).some(
-            (existing) => existing.content?.trim() === la.content?.trim()
+            (existing) => existing.content?.trim() === la.content?.trim(),
           );
           if (!hasDup && la && la._id) {
             mergedMap.set(la._id, la);
@@ -265,13 +322,16 @@ export const QuestionDetail = () => {
         const combinedAnswers = Array.from(mergedMap.values());
         setQuestion({
           ...qData,
-          answersCount: Math.max(qData.answersCount || 0, combinedAnswers.length),
+          answersCount: Math.max(
+            qData.answersCount || 0,
+            combinedAnswers.length,
+          ),
         });
         setAnswers(combinedAnswers);
       }
     } catch (err) {
-      console.warn('Remote question fetch error:', err?.message);
-      setError('Could not load question.');
+      console.warn("Remote question fetch error:", err?.message);
+      setError("Could not load question.");
     } finally {
       setLoading(false);
     }
@@ -283,7 +343,7 @@ export const QuestionDetail = () => {
 
   const handleUpvoteQuestion = async () => {
     if (!user) {
-      showToast('Please sign in or continue as guest to upvote', 'info');
+      showToast("Please sign in or continue as guest to upvote", "info");
       return;
     }
     try {
@@ -300,7 +360,9 @@ export const QuestionDetail = () => {
         return {
           ...prev,
           isUpvoted: nextUpvoted,
-          upvotesCount: nextUpvoted ? (prev.upvotesCount || 0) + 1 : Math.max(0, (prev.upvotesCount || 1) - 1),
+          upvotesCount: nextUpvoted
+            ? (prev.upvotesCount || 0) + 1
+            : Math.max(0, (prev.upvotesCount || 1) - 1),
         };
       });
     }
@@ -308,7 +370,7 @@ export const QuestionDetail = () => {
 
   const handleUpvoteAnswer = async (answerId) => {
     if (!user) {
-      showToast('Please sign in or continue as guest to upvote', 'info');
+      showToast("Please sign in or continue as guest to upvote", "info");
       return;
     }
     try {
@@ -316,9 +378,13 @@ export const QuestionDetail = () => {
       setAnswers((prev) =>
         prev.map((a) =>
           a._id === answerId
-            ? { ...a, isUpvoted: res.data.isUpvoted, upvotesCount: res.data.upvotesCount }
-            : a
-        )
+            ? {
+                ...a,
+                isUpvoted: res.data.isUpvoted,
+                upvotesCount: res.data.upvotesCount,
+              }
+            : a,
+        ),
       );
     } catch {
       setAnswers((prev) =>
@@ -328,11 +394,13 @@ export const QuestionDetail = () => {
             return {
               ...a,
               isUpvoted: nextUpvoted,
-              upvotesCount: nextUpvoted ? (a.upvotesCount || 0) + 1 : Math.max(0, (a.upvotesCount || 1) - 1),
+              upvotesCount: nextUpvoted
+                ? (a.upvotesCount || 0) + 1
+                : Math.max(0, (a.upvotesCount || 1) - 1),
             };
           }
           return a;
-        })
+        }),
       );
     }
   };
@@ -340,35 +408,43 @@ export const QuestionDetail = () => {
   const handleAcceptAnswer = async (answerId) => {
     try {
       await api.post(`/learning/questions/${id}/answers/${answerId}/accept`);
-      setQuestion((prev) => ({ ...prev, isSolved: true, acceptedAnswer: answerId }));
+      setQuestion((prev) => ({
+        ...prev,
+        isSolved: true,
+        acceptedAnswer: answerId,
+      }));
       setAnswers((prev) =>
         prev.map((a) => ({
           ...a,
           isAccepted: a._id === answerId,
-        }))
+        })),
       );
-      showToast('Marked as best solution!', 'success');
+      showToast("Marked as best solution!", "success");
     } catch (err) {
       // Local optimistic accept
-      setQuestion((prev) => ({ ...prev, isSolved: true, acceptedAnswer: answerId }));
+      setQuestion((prev) => ({
+        ...prev,
+        isSolved: true,
+        acceptedAnswer: answerId,
+      }));
       setAnswers((prev) =>
         prev.map((a) => ({
           ...a,
           isAccepted: a._id === answerId,
-        }))
+        })),
       );
-      showToast('Marked as best solution!', 'success');
+      showToast("Marked as best solution!", "success");
     }
   };
 
   const handleSubmitAnswer = async (e) => {
     e.preventDefault();
     if (!user) {
-      showToast('Please sign in or continue as guest to post answers', 'info');
+      showToast("Please sign in or continue as guest to post answers", "info");
       return;
     }
     if (!newAnswer.trim()) {
-      showToast('Answer text cannot be empty', 'error');
+      showToast("Answer text cannot be empty", "error");
       return;
     }
 
@@ -394,8 +470,11 @@ export const QuestionDetail = () => {
           createdAnswer = {
             _id: comment?._id || Date.now().toString(),
             content: newAnswer.trim(),
-            codeSnippet: includeCode ? answerCode : { html: '', css: '', javascript: '' },
-            author: comment?.author || user || { name: 'Guest User', username: 'guest' },
+            codeSnippet: includeCode
+              ? answerCode
+              : { html: "", css: "", javascript: "" },
+            author: comment?.author ||
+              user || { name: "Guest User", username: "guest" },
             upvotes: [],
             upvotesCount: 0,
             isUpvoted: false,
@@ -410,30 +489,48 @@ export const QuestionDetail = () => {
       setAnswers((prev) => [...prev, createdAnswer]);
       setQuestion((prev) => ({
         ...prev,
-        answersCount: typeof updatedAnswersCount === 'number' ? updatedAnswersCount : (prev?.answersCount || 0) + 1,
+        answersCount:
+          typeof updatedAnswersCount === "number"
+            ? updatedAnswersCount
+            : (prev?.answersCount || 0) + 1,
       }));
       const cacheKey = `clearfeed_answers_${id}`;
       try {
-        const cur = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+        const cur = JSON.parse(localStorage.getItem(cacheKey) || "[]");
         localStorage.setItem(cacheKey, JSON.stringify([...cur, createdAnswer]));
       } catch {}
-      setNewAnswer('');
+      setNewAnswer("");
       setIncludeCode(false);
-      setAnswerCode({ html: '', css: '', javascript: '' });
-      showToast('Your answer was posted! Thanks for helping!', 'success');
+      setAnswerCode({ html: "", css: "", javascript: "" });
+      showToast("Your answer was posted! Thanks for helping!", "success");
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to post answer. Please try again.', 'error');
+      showToast(
+        err.response?.data?.message ||
+          "Failed to post answer. Please try again.",
+        "error",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const generateFallbackMentorExplanation = ({ title = '', description = '', track = 'general', codeSnippet, languagePref = 'both' }) => {
-    const textLower = (title + ' ' + description).toLowerCase();
-    const isBn = languagePref === 'bangla';
+  const generateFallbackMentorExplanation = ({
+    title = "",
+    description = "",
+    track = "general",
+    codeSnippet,
+    languagePref = "both",
+  }) => {
+    const textLower = (title + " " + description).toLowerCase();
+    const isBn = languagePref === "bangla";
 
     // 1. Topic: Bits and Bytes / Binary / Computer Representation of Information
-    if (textLower.includes('bit') || textLower.includes('byte') || textLower.includes('binary') || textLower.includes('represent information')) {
+    if (
+      textLower.includes("bit") ||
+      textLower.includes("byte") ||
+      textLower.includes("binary") ||
+      textLower.includes("represent information")
+    ) {
       if (isBn) {
         return `কম্পিউটার কেন বিট এবং বাইট ব্যবহার করে—এই প্রশ্নটার উত্তর আসলে গণিতে নয়, বরং পদার্থবিজ্ঞান ও হার্ডওয়্যারে।
 
@@ -480,20 +577,24 @@ The computer hardware doesn't actually know what text, songs, or images are. It 
     // 2. Generic Technical Explanation (Professional, Natural Tone)
     return `To understand this clearly, it helps to examine how the runtime or environment handles this under the hood.
 
-${title ? `### Core Concept\n${title}\n` : ''}
-${description ? `${description}\n` : ''}
+${title ? `### Core Concept\n${title}\n` : ""}
+${description ? `${description}\n` : ""}
 
 ### Execution & Architecture
 1. **Context & Execution Flow:** Code in this environment executes sequentially within its specific scope. Keeping state changes isolated and avoiding unnecessary side-effects prevents subtle bugs.
 2. **Separation of Concerns:** Break the problem down into distinct inputs, transformation logic, and the resulting output.
 3. **Edge Cases:** Pay attention to unhandled boundary conditions, such as null/undefined values or asynchronous race conditions.
 
-${codeSnippet?.html || codeSnippet?.javascript || codeSnippet?.css ? `
+${
+  codeSnippet?.html || codeSnippet?.javascript || codeSnippet?.css
+    ? `
 ### Reference Implementation
-\`\`\`${codeSnippet.javascript ? 'javascript' : codeSnippet.html ? 'html' : 'css'}
-${(codeSnippet.javascript || codeSnippet.html || codeSnippet.css || '').trim().slice(0, 450)}
+\`\`\`${codeSnippet.javascript ? "javascript" : codeSnippet.html ? "html" : "css"}
+${(codeSnippet.javascript || codeSnippet.html || codeSnippet.css || "").trim().slice(0, 450)}
 \`\`\`
-` : ''}
+`
+    : ""
+}
 
 If you encounter any specific error stack trace or unexpected return values while testing, sharing the exact behavior will help isolate the cause immediately.`;
   };
@@ -501,8 +602,14 @@ If you encounter any specific error stack trace or unexpected return values whil
   const handleAskAiMentor = async () => {
     setAskingAi(true);
     try {
-      const storedLang = localStorage.getItem('clearfeed_learning_lang') || 'both';
-      const langPref = storedLang === 'bn' ? 'bangla' : storedLang === 'en' ? 'english' : 'both';
+      const storedLang =
+        localStorage.getItem("clearfeed_learning_lang") || "both";
+      const langPref =
+        storedLang === "bn"
+          ? "bangla"
+          : storedLang === "en"
+            ? "english"
+            : "both";
 
       let answerObj = null;
       let newCount = undefined;
@@ -525,19 +632,20 @@ If you encounter any specific error stack trace or unexpected return values whil
         } catch (err2) {
           // 3. Resilient fallback: Clear, articulate engineer answer
           const explanation = generateFallbackMentorExplanation({
-            title: question?.title || '',
-            description: question?.description || '',
-            track: question?.track || 'general',
+            title: question?.title || "",
+            description: question?.description || "",
+            track: question?.track || "general",
             codeSnippet: question?.codeSnippet,
             languagePref: langPref,
           });
 
           const aiAuthor = {
-            _id: 'clearfeed-ai-mentor',
-            name: 'Clearfeed AI',
-            username: 'ai',
-            role: 'ai',
-            avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=ClearfeedAI&backgroundColor=7c8a6b,6b7c5e&textColor=ffffff',
+            _id: "clearfeed-ai-mentor",
+            name: "Clearfeed AI",
+            username: "ai",
+            role: "ai",
+            avatarUrl:
+              "https://api.dicebear.com/7.x/bottts/svg?seed=ClearfeedAI&backgroundColor=7c8a6b,6b7c5e&textColor=ffffff",
           };
 
           // Try persisting remotely so it remains permanently in the database
@@ -545,12 +653,14 @@ If you encounter any specific error stack trace or unexpected return values whil
             await api.post(`/posts/${id}/comments`, { content: explanation });
           } catch {
             try {
-              await api.post(`/learning/questions/${id}/answers`, { content: explanation });
+              await api.post(`/learning/questions/${id}/answers`, {
+                content: explanation,
+              });
             } catch {}
           }
 
           answerObj = {
-            _id: 'ai-ans-' + Date.now(),
+            _id: "ai-ans-" + Date.now(),
             content: explanation,
             author: aiAuthor,
             upvotesCount: 0,
@@ -566,19 +676,26 @@ If you encounter any specific error stack trace or unexpected return values whil
         // Sync to local persistent cache
         const cacheKey = `clearfeed_answers_${id}`;
         try {
-          const cur = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+          const cur = JSON.parse(localStorage.getItem(cacheKey) || "[]");
           localStorage.setItem(cacheKey, JSON.stringify([...cur, answerObj]));
         } catch {}
 
         setAnswers((prev) => [...prev, answerObj]);
         setQuestion((prev) => ({
           ...prev,
-          answersCount: typeof newCount === 'number' ? newCount : (prev?.answersCount || 0) + 1,
+          answersCount:
+            typeof newCount === "number"
+              ? newCount
+              : (prev?.answersCount || 0) + 1,
         }));
-        showToast('Answer added to discussion.', 'success');
+        showToast("Answer added to discussion.", "success");
       }
     } catch (err) {
-      showToast(err.response?.data?.message || 'AI Mentor is currently busy. Please try again.', 'error');
+      showToast(
+        err.response?.data?.message ||
+          "AI Mentor is currently busy. Please try again.",
+        "error",
+      );
     } finally {
       setAskingAi(false);
     }
@@ -588,7 +705,7 @@ If you encounter any specific error stack trace or unexpected return values whil
     try {
       return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
     } catch {
-      return 'recently';
+      return "recently";
     }
   };
 
@@ -608,7 +725,9 @@ If you encounter any specific error stack trace or unexpected return values whil
         <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
           Question Not Found
         </h2>
-        <p className="text-xs text-neutral-500">{error || 'This question does not exist.'}</p>
+        <p className="text-xs text-neutral-500">
+          {error || "This question does not exist."}
+        </p>
         <NavLink
           to="/learn/questions"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-500 text-white text-xs font-bold"
@@ -619,13 +738,13 @@ If you encounter any specific error stack trace or unexpected return values whil
     );
   }
 
-  const isQuestionOwner = user && (
-    question.author?._id === user._id ||
-    question.author === user._id ||
-    question.author?._id?.toString() === user._id?.toString() ||
-    question.author?.toString() === user._id?.toString()
-  );
-  const canManageQuestion = user && (isQuestionOwner || user.role === 'admin');
+  const isQuestionOwner =
+    user &&
+    (question.author?._id === user._id ||
+      question.author === user._id ||
+      question.author?._id?.toString() === user._id?.toString() ||
+      question.author?.toString() === user._id?.toString());
+  const canManageQuestion = user && (isQuestionOwner || user.role === "admin");
 
   return (
     <div className="space-y-6 font-sans">
@@ -653,13 +772,15 @@ If you encounter any specific error stack trace or unexpected return values whil
             onClick={handleUpvoteQuestion}
             className={`flex flex-col items-center justify-center w-12 py-2.5 rounded-2xl border text-xs font-bold transition-all shrink-0 cursor-pointer ${
               question.isUpvoted
-                ? 'bg-sky-500/10 border-sky-500 text-sky-600 dark:text-sky-400'
-                : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-sky-500/30'
+                ? "bg-sky-500/10 border-sky-500 text-sky-600 dark:text-sky-400"
+                : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-sky-500/30"
             }`}
             title="Upvote this question"
           >
             <ThumbsUp className="w-4 h-4" />
-            <span className="mt-1 text-xs font-mono">{question.upvotesCount || 0}</span>
+            <span className="mt-1 text-xs font-mono">
+              {question.upvotesCount || 0}
+            </span>
           </button>
 
           <div className="flex-1 min-w-0">
@@ -768,7 +889,9 @@ If you encounter any specific error stack trace or unexpected return values whil
 
             {/* Attached Code Snippet */}
             {question.codeSnippet &&
-              (question.codeSnippet.html || question.codeSnippet.css || question.codeSnippet.javascript) && (
+              (question.codeSnippet.html ||
+                question.codeSnippet.css ||
+                question.codeSnippet.javascript) && (
                 <div className="mt-4 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden bg-neutral-900 text-neutral-100 text-xs font-mono p-3">
                   <div className="text-[11px] font-bold text-neutral-400 mb-2 flex items-center gap-1">
                     <Code2 className="w-3.5 h-3.5 text-sky-400" />
@@ -776,7 +899,9 @@ If you encounter any specific error stack trace or unexpected return values whil
                   </div>
                   {question.codeSnippet.html && (
                     <div className="mb-2">
-                      <span className="text-[10px] text-orange-400 font-bold block mb-0.5">HTML:</span>
+                      <span className="text-[10px] text-orange-400 font-bold block mb-0.5">
+                        HTML:
+                      </span>
                       <pre className="p-2 bg-black/40 rounded overflow-x-auto">
                         {question.codeSnippet.html}
                       </pre>
@@ -784,7 +909,9 @@ If you encounter any specific error stack trace or unexpected return values whil
                   )}
                   {question.codeSnippet.css && (
                     <div>
-                      <span className="text-[10px] text-sky-400 font-bold block mb-0.5">CSS:</span>
+                      <span className="text-[10px] text-sky-400 font-bold block mb-0.5">
+                        CSS:
+                      </span>
                       <pre className="p-2 bg-black/40 rounded overflow-x-auto">
                         {question.codeSnippet.css}
                       </pre>
@@ -816,7 +943,7 @@ If you encounter any specific error stack trace or unexpected return values whil
           <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-sky-500" />
             <span>
-              {answers.length} {answers.length === 1 ? 'Answer' : 'Answers'}
+              {answers.length} {answers.length === 1 ? "Answer" : "Answers"}
             </span>
           </h2>
 
@@ -828,13 +955,16 @@ If you encounter any specific error stack trace or unexpected return values whil
             title="Get an instant kind breakdown from Clearfeed AI Classmate"
           >
             <Sparkles className="w-3.5 h-3.5 text-sky-500 animate-pulse" />
-            <span>{askingAi ? 'AI Mentor Thinking...' : '✨ Ask AI Classmate'}</span>
+            <span>
+              {askingAi ? "AI Mentor Thinking..." : "✨ Ask AI Classmate"}
+            </span>
           </button>
         </div>
 
         {answers.length === 0 ? (
           <div className="p-8 text-center rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519] text-xs text-neutral-500">
-            No answers yet. Share your knowledge and write the first response below!
+            No answers yet. Share your knowledge and write the first response
+            below!
           </div>
         ) : (
           <div className="space-y-3">
@@ -843,8 +973,8 @@ If you encounter any specific error stack trace or unexpected return values whil
                 key={answer._id}
                 className={`p-5 rounded-2xl border transition-all ${
                   answer.isAccepted
-                    ? 'border-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-950/10 shadow-xs'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519]'
+                    ? "border-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-950/10 shadow-xs"
+                    : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#121519]"
                 }`}
               >
                 {/* Accepted banner */}
@@ -862,12 +992,14 @@ If you encounter any specific error stack trace or unexpected return values whil
                     onClick={() => handleUpvoteAnswer(answer._id)}
                     className={`flex flex-col items-center justify-center w-10 py-2 rounded-xl border text-xs font-bold transition-all shrink-0 cursor-pointer ${
                       answer.isUpvoted
-                        ? 'bg-sky-500/10 border-sky-500 text-sky-600 dark:text-sky-400'
-                        : 'bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-sky-500/30'
+                        ? "bg-sky-500/10 border-sky-500 text-sky-600 dark:text-sky-400"
+                        : "bg-neutral-50 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-sky-500/30"
                     }`}
                   >
                     <ThumbsUp className="w-3.5 h-3.5" />
-                    <span className="mt-0.5 text-[11px] font-mono">{answer.upvotesCount || 0}</span>
+                    <span className="mt-0.5 text-[11px] font-mono">
+                      {answer.upvotesCount || 0}
+                    </span>
                   </button>
 
                   <div className="flex-1 min-w-0">
@@ -883,7 +1015,8 @@ If you encounter any specific error stack trace or unexpected return values whil
                           <span className="text-xs font-bold text-neutral-900 dark:text-neutral-100">
                             {answer.author.name}
                           </span>
-                          {(answer.author?.username === 'ai' || answer.author?.role === 'ai') ? (
+                          {answer.author?.username === "ai" ||
+                          answer.author?.role === "ai" ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30 flex items-center gap-1">
                               <Sparkles className="w-2.5 h-2.5 text-sky-500" />
                               <span>AI Mentor</span>
@@ -901,26 +1034,31 @@ If you encounter any specific error stack trace or unexpected return values whil
                           {formatTime(answer.createdAt)}
                         </span>
 
-                        {user && (user.role === 'admin' || answer.author?._id === user._id || answer.author === user._id || answer.author?._id?.toString() === user._id?.toString()) && (
-                          <div className="flex items-center gap-1 shrink-0 ml-1">
-                            <button
-                              type="button"
-                              onClick={() => handleStartAnswerEdit(answer)}
-                              className="p-1 rounded-lg text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10 transition-colors cursor-pointer"
-                              title="Edit answer (Owner / Admin)"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteAnswer(answer._id)}
-                              className="p-1 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                              title="Delete answer (Owner / Admin)"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
+                        {user &&
+                          (user.role === "admin" ||
+                            answer.author?._id === user._id ||
+                            answer.author === user._id ||
+                            answer.author?._id?.toString() ===
+                              user._id?.toString()) && (
+                            <div className="flex items-center gap-1 shrink-0 ml-1">
+                              <button
+                                type="button"
+                                onClick={() => handleStartAnswerEdit(answer)}
+                                className="p-1 rounded-lg text-neutral-400 hover:text-sky-500 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                                title="Edit answer (Owner / Admin)"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAnswer(answer._id)}
+                                className="p-1 rounded-lg text-neutral-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                title="Delete answer (Owner / Admin)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                       </div>
                     </div>
 
@@ -958,9 +1096,13 @@ If you encounter any specific error stack trace or unexpected return values whil
 
                     {/* Answer Code Snippet */}
                     {answer.codeSnippet &&
-                      (answer.codeSnippet.html || answer.codeSnippet.css || answer.codeSnippet.javascript) && (
+                      (answer.codeSnippet.html ||
+                        answer.codeSnippet.css ||
+                        answer.codeSnippet.javascript) && (
                         <pre className="mt-3 p-3 rounded-xl bg-neutral-900 text-neutral-100 text-xs font-mono overflow-x-auto">
-                          {answer.codeSnippet.html || answer.codeSnippet.css || answer.codeSnippet.javascript}
+                          {answer.codeSnippet.html ||
+                            answer.codeSnippet.css ||
+                            answer.codeSnippet.javascript}
                         </pre>
                       )}
 
@@ -998,8 +1140,8 @@ If you encounter any specific error stack trace or unexpected return values whil
                 const cursorPos = input.selectionStart || newAnswer.length;
                 const before = newAnswer.slice(0, cursorPos);
                 const after = newAnswer.slice(cursorPos);
-                const needsSpace = before.length > 0 && !before.endsWith(' ');
-                const nextText = `${before}${needsSpace ? ' ' : ''}@${after}`;
+                const needsSpace = before.length > 0 && !before.endsWith(" ");
+                const nextText = `${before}${needsSpace ? " " : ""}@${after}`;
                 setNewAnswer(nextText);
                 setTimeout(() => {
                   input.focus();
@@ -1062,7 +1204,7 @@ If you encounter any specific error stack trace or unexpected return values whil
                 disabled={submitting || !newAnswer.trim()}
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{submitting ? 'Posting...' : 'Post Answer'}</span>
+                <span>{submitting ? "Posting..." : "Post Answer"}</span>
               </Button>
             </div>
 
@@ -1075,7 +1217,11 @@ If you encounter any specific error stack trace or unexpected return values whil
                   rows={3}
                   value={answerCode.html || answerCode.javascript}
                   onChange={(e) =>
-                    setAnswerCode({ ...answerCode, [question.track === 'css' ? 'css' : 'html']: e.target.value })
+                    setAnswerCode({
+                      ...answerCode,
+                      [question.track === "css" ? "css" : "html"]:
+                        e.target.value,
+                    })
                   }
                   placeholder="Paste your example solution code here..."
                   className="w-full p-2.5 font-mono text-xs rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black text-neutral-900 dark:text-neutral-100 focus:outline-none"

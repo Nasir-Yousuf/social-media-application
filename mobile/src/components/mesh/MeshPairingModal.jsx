@@ -47,26 +47,30 @@ export const MeshPairingModal = ({
   }, [visible, activeTab]);
 
   // Parse QR or direct payload
+  // Robust parser for QR code strings, links and raw public keys without relying on WHATWG URL
   const parsePeerString = (raw) => {
     if (!raw) return null;
-    const trimmed = raw.trim();
+    const trimmed = String(raw).trim();
 
-    // Case 1: cfm1://peer?pk=<64hex>&nick=<name>
-    if (trimmed.startsWith('cfm1://')) {
-      try {
-        const dummyUrl = trimmed.replace('cfm1://', 'http://cfm1/');
-        const url = new URL(dummyUrl);
-        const pk = url.searchParams.get('pk') || '';
-        const nick = url.searchParams.get('nick') || undefined;
-        if (/^[a-fA-F0-9]{64}$/.test(pk)) {
-          return { pubkey: pk.toLowerCase(), nickname: nick };
-        }
-      } catch {}
-    }
-
-    // Case 2: Plain 64-hex string
+    // 1. Exact 64-hex string
     if (/^[a-fA-F0-9]{64}$/.test(trimmed)) {
       return { pubkey: trimmed.toLowerCase() };
+    }
+
+    // 2. cfm1://peer?pk=<64hex>&nick=<name> or standard query params
+    const pkMatch = trimmed.match(/[?&]pk=([a-fA-F0-9]{64})/i) || trimmed.match(/([a-fA-F0-9]{64})/);
+    if (pkMatch) {
+      const pubkey = pkMatch[1].toLowerCase();
+      let nickname = undefined;
+      const nickMatch = trimmed.match(/[?&]nick=([^&#\s]+)/i);
+      if (nickMatch) {
+        try {
+          nickname = decodeURIComponent(nickMatch[1].replace(/\+/g, ' '));
+        } catch {
+          nickname = nickMatch[1];
+        }
+      }
+      return { pubkey, nickname };
     }
 
     return null;
@@ -385,7 +389,7 @@ export const MeshPairingModal = ({
                                 style={{
                                   width: run.count * pixelSize,
                                   height: pixelSize,
-                                  backgroundColor: run.dark ? '#052e16' : '#ffffff',
+                                  backgroundColor: run.dark ? '#000000' : '#ffffff',
                                 }}
                               />
                             ))}
