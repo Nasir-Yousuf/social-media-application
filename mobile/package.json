@@ -34,6 +34,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build:apk": "eas build -p android --profile preview",
+    "build:status": "eas build:list",
     "test:mesh": "node src/mesh/__tests__/mesh.test.js --input-type=module"
   },
   "private": true
