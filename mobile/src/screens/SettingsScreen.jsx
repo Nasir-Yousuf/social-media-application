@@ -20,7 +20,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
 import Avatar from "../components/Avatar";
-import { getBaseUrl, setBaseUrl } from "../api/client";
+import { getBaseUrl, setBaseUrl, CLOUD_URL, LOCAL_DEV_URL } from "../api/client";
 import socketService from "../services/socket";
 
 const THEME_ICONS = {
@@ -493,7 +493,7 @@ export const SettingsScreen = ({ navigation }) => {
                 },
               ]}
               onPress={() =>
-                handleSelectServer("https://clearfeed518.up.railway.app/api")
+                handleSelectServer(CLOUD_URL)
               }
               activeOpacity={0.8}
             >
@@ -514,16 +514,16 @@ export const SettingsScreen = ({ navigation }) => {
               style={[
                 styles.presetChip,
                 {
-                  backgroundColor: serverUrl.includes("192.168.")
+                  backgroundColor: (serverUrl.includes("192.168.") || serverUrl.includes("localhost"))
                     ? currentColors.accent
                     : currentColors.elevated,
-                  borderColor: serverUrl.includes("192.168.")
+                  borderColor: (serverUrl.includes("192.168.") || serverUrl.includes("localhost"))
                     ? currentColors.accent
                     : currentColors.border,
                 },
               ]}
               onPress={() =>
-                handleSelectServer("http://192.168.0.246:5180/api")
+                handleSelectServer(LOCAL_DEV_URL)
               }
               activeOpacity={0.8}
             >

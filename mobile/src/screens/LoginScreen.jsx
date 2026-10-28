@@ -15,7 +15,7 @@ import colors from '../theme/colors';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { getBaseUrl, setBaseUrl } from '../api/client';
+import { getBaseUrl, setBaseUrl, CLOUD_URL, LOCAL_DEV_URL } from '../api/client';
 import { ClearfeedLogo, VerifiedBadge } from '../components/TwitterIcons';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -271,7 +271,7 @@ export const LoginScreen = ({ navigation }) => {
                   styles.presetBtn,
                   serverUrl.includes('railway') && styles.presetBtnActive,
                 ]}
-                onPress={() => handleSelectPreset('https://clearfeed518.up.railway.app/api')}
+                onPress={() => handleSelectPreset(CLOUD_URL)}
               >
                 <Text style={styles.presetBtnText}>☁️ Cloud</Text>
               </TouchableOpacity>
@@ -279,9 +279,9 @@ export const LoginScreen = ({ navigation }) => {
               <TouchableOpacity
                 style={[
                   styles.presetBtn,
-                  serverUrl.includes('192.168.') && styles.presetBtnActive,
+                  (serverUrl.includes('192.168.') || serverUrl.includes('localhost')) && styles.presetBtnActive,
                 ]}
-                onPress={() => handleSelectPreset('http://192.168.0.246:5180/api')}
+                onPress={() => handleSelectPreset(LOCAL_DEV_URL)}
               >
                 <Text style={styles.presetBtnText}>💻 Phone Wi-Fi</Text>
               </TouchableOpacity>
