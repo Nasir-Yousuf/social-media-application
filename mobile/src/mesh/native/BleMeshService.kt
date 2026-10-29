@@ -90,7 +90,7 @@ class BleMeshService(private val context: Context) {
             override fun onCharacteristicWriteRequest(
                 device: BluetoothDevice,
                 requestId: Int,
-                characteristic: BluetoothCharacteristic,
+                characteristic: BluetoothGattCharacteristic,
                 preparedWrite: Boolean,
                 responseNeeded: Boolean,
                 offset: Int,
