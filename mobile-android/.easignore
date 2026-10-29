@@ -1,0 +1,8 @@
+# EAS ignore for ClearFeed Mobile Android
+node_modules
+.expo
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
