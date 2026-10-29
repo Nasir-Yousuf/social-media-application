@@ -1,0 +1,8 @@
+{
+  "name": "clearfeed-ble-mesh",
+  "platforms": ["android"],
+  "android": {
+    "package": "com.clearfeed.mesh",
+    "modules": ["com.clearfeed.mesh.ClearFeedBleMeshModule"]
+  }
+}

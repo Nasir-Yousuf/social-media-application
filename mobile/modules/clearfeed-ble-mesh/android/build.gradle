@@ -1,0 +1,29 @@
+﻿apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'com.clearfeed.mesh'
+version = '1.0.0'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+
+android {
+  compileSdkVersion project.hasProperty('compileSdkVersion') ? project.compileSdkVersion : 35
+
+  defaultConfig {
+    minSdkVersion project.hasProperty('minSdkVersion') ? project.minSdkVersion : 24
+    targetSdkVersion project.hasProperty('targetSdkVersion') ? project.targetSdkVersion : 35
+    versionCode 1
+    versionName "1.0.0"
+  }
+
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  implementation "org.jetbrains.kotlin:kotlin-stdlib"
+}

@@ -7,6 +7,7 @@
  */
 
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
+import ClearFeedBleMesh, { BleMeshEventEmitter } from '../../../modules/clearfeed-ble-mesh';
 
 export const BLE_SERVICE_UUID = 'F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C';
 export const BLE_CHARACTERISTIC_UUID = 'A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D';
@@ -15,8 +16,8 @@ export const MAX_FRAGMENT_PAYLOAD = 469; // BitChat fragment ceiling
 class BleMeshBridge {
   constructor() {
     this.isNativeAvailable = false;
-    this.nativeModule = NativeModules.ClearFeedBleMesh || NativeModules.ExpoBleMesh;
-    this.eventEmitter = null;
+    this.nativeModule = ClearFeedBleMesh || NativeModules.ClearFeedBleMesh || NativeModules.ExpoBleMesh;
+    this.eventEmitter = BleMeshEventEmitter;
     this.fragmentBuffer = new Map(); // fragmentId -> { total, received, chunks: [], createdAt }
     this.seenPacketIds = new Set();
     this.listeners = new Set();
@@ -25,19 +26,22 @@ class BleMeshBridge {
 
     if (this.nativeModule) {
       this.isNativeAvailable = true;
-      try {
-        this.eventEmitter = new NativeEventEmitter(this.nativeModule);
-        this.setupNativeListeners();
-      } catch (err) {
-        console.warn('[BleMeshBridge] Native event emitter setup warning:', err.message);
+      if (!this.eventEmitter) {
+        try {
+          this.eventEmitter = new NativeEventEmitter(this.nativeModule);
+        } catch (err) {
+          console.warn('[BleMeshBridge] Native event emitter setup warning:', err.message);
+        }
       }
+      this.setupNativeListeners();
     }
   }
 
   setupNativeListeners() {
     if (!this.eventEmitter) return;
 
-    this.eventEmitter.addListener('onMeshPacketReceived', (rawString) => {
+    this.eventEmitter.addListener('onMeshPacketReceived', (event) => {
+      const rawString = typeof event === 'string' ? event : (event?.raw || '');
       this.handleIncomingRaw(rawString);
     });
 
@@ -52,9 +56,12 @@ class BleMeshBridge {
       }
     });
 
-    this.eventEmitter.addListener('onPeerLost', (peerId) => {
-      this.activePeers.delete(peerId);
-      this.notifyPeers();
+    this.eventEmitter.addListener('onPeerLost', (data) => {
+      const peerId = typeof data === 'string' ? data : (data?.peerId || '');
+      if (peerId) {
+        this.activePeers.delete(peerId);
+        this.notifyPeers();
+      }
     });
   }
 
@@ -182,52 +189,45 @@ class BleMeshBridge {
           });
         }
 
-        const entry = this.fragmentBuffer.get(fid);
-        if (!entry.chunks[idx]) {
-          entry.chunks[idx] = chunk;
-          entry.received++;
+        const buffer = this.fragmentBuffer.get(fid);
+        if (!buffer.chunks[idx]) {
+          buffer.chunks[idx] = chunk;
+          buffer.received++;
         }
 
-        if (entry.received === entry.total) {
-          const fullString = entry.chunks.join('');
+        // All fragments received: assemble complete packet
+        if (buffer.received === buffer.total) {
+          const assembledString = buffer.chunks.join('');
           this.fragmentBuffer.delete(fid);
-          const envelope = JSON.parse(fullString);
+          const envelope = JSON.parse(assembledString);
           this.dispatchEnvelope(envelope);
         }
       }
     } catch (err) {
-      console.warn('[BleMeshBridge] Raw packet parse error:', err.message);
-    }
-
-    // Prune stale fragments (>30s)
-    const now = Date.now();
-    for (const [fid, entry] of this.fragmentBuffer.entries()) {
-      if (now - entry.createdAt > 30000) {
-        this.fragmentBuffer.delete(fid);
-      }
+      console.warn('[BleMeshBridge] Inbound packet parsing warning:', err.message);
     }
   }
 
   dispatchEnvelope(envelope) {
     if (!envelope || !envelope.id) return;
     if (this.seenPacketIds.has(envelope.id)) return;
+
     this.seenPacketIds.add(envelope.id);
 
-    // Limit seen cache size
+    // Bound seen cache to 2000 entries
     if (this.seenPacketIds.size > 2000) {
-      const first = this.seenPacketIds.values().next().value;
-      this.seenPacketIds.delete(first);
+      const firstEntry = this.seenPacketIds.values().next().value;
+      this.seenPacketIds.delete(firstEntry);
     }
 
     for (const listener of this.listeners) {
       try {
         listener(envelope);
       } catch (err) {
-        console.warn('[BleMeshBridge] Listener error:', err.message);
+        console.error('[BleMeshBridge] Listener error:', err);
       }
     }
   }
 }
 
 export const bleMeshBridge = new BleMeshBridge();
-export default bleMeshBridge;
