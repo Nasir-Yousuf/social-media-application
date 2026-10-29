@@ -1,16 +1,21 @@
 package com.bitchat.android.clearfeed.ui.theme
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 object ClearFeedColors {
     val Background = Color(0xFF000000)
     val Surface = Color(0xFF16181C)
     val SurfaceVariant = Color(0xFF1E2024)
+    val SurfaceHighlight = Color(0xFF1E2024)
     val Border = Color(0xFF2F3336)
     
     val PrimaryEmerald = Color(0xFF00BA7C)
+    val AccentGreen = Color(0xFF00BA7C)
     val AccentCyan = Color(0xFF00A6F4)
+    val AccentBlue = Color(0xFF1D9BF0)
     val ErrorRed = Color(0xFFFF453A)
 
     val TextPrimary = Color(0xFFE7E9EA)
@@ -32,3 +37,13 @@ val ClearFeedDarkColorScheme = darkColorScheme(
     outline = ClearFeedColors.Border,
     error = ClearFeedColors.ErrorRed
 )
+
+@Composable
+fun ClearFeedTheme(
+    content: @Composable () -> Unit
+) {
+    MaterialTheme(
+        colorScheme = ClearFeedDarkColorScheme,
+        content = content
+    )
+}
