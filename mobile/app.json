@@ -45,7 +45,11 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "extraGradleProperties": {
+              "android.newDsl": "false",
+              "android.suppressUnsupportedCompileSdk": "37"
+            }
           }
         }
       ],
