@@ -9,6 +9,7 @@ apply from: expoModulesCorePlugin
 applyKotlinExpoModulesCorePlugin()
 
 android {
+  namespace 'com.clearfeed.mesh'
   compileSdkVersion project.hasProperty('compileSdkVersion') ? project.compileSdkVersion : 35
 
   defaultConfig {
