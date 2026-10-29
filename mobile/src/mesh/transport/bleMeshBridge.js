@@ -6,7 +6,7 @@
  * - Fragment MTU: 469 bytes
  */
 
-import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
+import { NativeModules, NativeEventEmitter, Platform, PermissionsAndroid } from 'react-native';
 import ClearFeedBleMesh, { BleMeshEventEmitter } from '../../../modules/clearfeed-ble-mesh';
 
 export const BLE_SERVICE_UUID = 'F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C';
@@ -66,9 +66,60 @@ class BleMeshBridge {
   }
 
   /**
+   * Request Bluetooth permissions for Android 12+ (Nearby Devices) and older versions
+   */
+  async requestBlePermissions() {
+    if (Platform.OS !== 'android') return true;
+    try {
+      const apiLevel = Platform.Version;
+      if (apiLevel >= 31) {
+        const permissions = [
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+        ];
+        const results = await PermissionsAndroid.requestMultiple(permissions);
+        const granted =
+          results[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED &&
+          results[PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE] === PermissionsAndroid.RESULTS.GRANTED &&
+          results[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED;
+        return granted;
+      } else {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Nearby Bluetooth Devices',
+            message: 'ClearFeed requires Bluetooth permission to connect with nearby peers offline without Wi-Fi.',
+            buttonPositive: 'Allow',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+    } catch (err) {
+      console.warn('[BleMeshBridge] Permissions request warning:', err.message);
+      return false;
+    }
+  }
+
+  /**
+   * Check if Bluetooth radio is enabled
+   */
+  async isBluetoothEnabled() {
+    if (this.isNativeAvailable && this.nativeModule.isBluetoothEnabled) {
+      try {
+        return await this.nativeModule.isBluetoothEnabled();
+      } catch (err) {}
+    }
+    return true;
+  }
+
+  /**
    * Start Bluetooth Low Energy Advertising & Scanning
    */
   async start(nodeIdHex = '') {
+    if (Platform.OS === 'android') {
+      await this.requestBlePermissions();
+    }
     if (this.isNativeAvailable && this.nativeModule.startMesh) {
       try {
         return await this.nativeModule.startMesh(nodeIdHex, BLE_SERVICE_UUID, BLE_CHARACTERISTIC_UUID);

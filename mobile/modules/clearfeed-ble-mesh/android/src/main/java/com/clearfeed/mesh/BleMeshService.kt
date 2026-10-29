@@ -1,4 +1,4 @@
-﻿package com.clearfeed.mesh
+package com.clearfeed.mesh
 
 import android.bluetooth.*
 import android.bluetooth.le.*
@@ -107,8 +107,15 @@ class BleMeshService(private val context: Context) {
             }
 
             override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
-                if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    onPeerLost?.invoke(device.address)
+                val address = device.address
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    val peerName = try { device.name ?: "Nearby Node" } catch (e: SecurityException) { "Nearby Node" }
+                    onPeerDiscovered?.invoke(address, peerName)
+                    if (!connectedPeers.containsKey(address)) {
+                        connectToPeer(device)
+                    }
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    onPeerLost?.invoke(address)
                 }
             }
         }
@@ -228,8 +235,11 @@ class BleMeshService(private val context: Context) {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     connectedPeers[address] = gatt
-                    onPeerDiscovered?.invoke(address, device.name ?: "Nearby Node")
-                    gatt.discoverServices()
+                    val peerName = try { device.name ?: "Nearby Node" } catch (e: SecurityException) { "Nearby Node" }
+                    onPeerDiscovered?.invoke(address, peerName)
+                    try {
+                        gatt.discoverServices()
+                    } catch (e: SecurityException) {}
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     connectedPeers.remove(address)
                     onPeerLost?.invoke(address)
@@ -243,14 +253,20 @@ class BleMeshService(private val context: Context) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     // Request 512-byte MTU for high-speed fragment transport (matching BitChat)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        gatt.requestMtu(512)
+                        try {
+                            gatt.requestMtu(512)
+                        } catch (e: SecurityException) {}
                     }
                 }
             }
         }
 
         try {
-            device.connectGatt(context, false, gattCallback)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            } else {
+                device.connectGatt(context, false, gattCallback)
+            }
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException connecting to device: ${e.message}")
         }
@@ -273,9 +289,16 @@ class BleMeshService(private val context: Context) {
                 val characteristic = service?.getCharacteristic(CHARACTERISTIC_UUID)
                 if (characteristic != null) {
                     characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-                    characteristic.value = bytes
-                    val ok = gatt.writeCharacteristic(characteristic)
-                    if (ok) anySuccess = true
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        val res = gatt.writeCharacteristic(characteristic, bytes, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+                        if (res == 0) anySuccess = true
+                    } else {
+                        @Suppress("DEPRECATION")
+                        characteristic.value = bytes
+                        @Suppress("DEPRECATION")
+                        val ok = gatt.writeCharacteristic(characteristic)
+                        if (ok) anySuccess = true
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Error writing to GATT peer: ${e.message}")
@@ -283,6 +306,10 @@ class BleMeshService(private val context: Context) {
         }
 
         return anySuccess
+    }
+
+    fun isBluetoothEnabled(): Boolean {
+        return bluetoothAdapter?.isEnabled ?: false
     }
 }
 

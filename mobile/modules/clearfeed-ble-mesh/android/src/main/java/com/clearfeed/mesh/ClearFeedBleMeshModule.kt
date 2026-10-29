@@ -1,4 +1,4 @@
-﻿package com.clearfeed.mesh
+package com.clearfeed.mesh
 
 import android.os.Handler
 import android.os.Looper
@@ -51,6 +51,10 @@ class ClearFeedBleMeshModule : Module() {
 
         AsyncFunction("sendBlePacket") { payloadString: String ->
             meshService?.sendPacket(payloadString) ?: false
+        }
+
+        AsyncFunction("isBluetoothEnabled") {
+            meshService?.isBluetoothEnabled() ?: false
         }
     }
 }
