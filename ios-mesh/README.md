@@ -1,4 +1,4 @@
-﻿# ClearFeed Mesh (iOS Swift Native Application)
+# ClearFeed Mesh (iOS Swift Native Application)
 
 > **Decentralized Bluetooth Low Energy (BLE) Mesh Messaging for ClearFeed**  
 > Adapted directly from the [BitChat](https://github.com/permissionlesstech/bitchat.git) protocol architecture.

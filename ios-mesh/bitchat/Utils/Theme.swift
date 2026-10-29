@@ -1,4 +1,4 @@
-﻿//
+//
 // Theme.swift
 // ClearFeed Mesh (adapted from bitchat)
 //

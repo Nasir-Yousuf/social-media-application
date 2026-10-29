@@ -1,4 +1,4 @@
-﻿import SwiftUI
+import SwiftUI
 
 /// The sheet behind the "bitchat/" logo: a segmented Settings/Info surface.
 /// Settings gathers every user preference (appearance, voice, connectivity

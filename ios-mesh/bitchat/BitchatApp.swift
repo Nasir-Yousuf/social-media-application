@@ -1,4 +1,4 @@
-﻿//
+//
 // BitchatApp.swift
 // bitchat
 //

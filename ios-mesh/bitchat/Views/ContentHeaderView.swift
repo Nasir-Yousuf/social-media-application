@@ -1,4 +1,4 @@
-﻿import SwiftUI
+import SwiftUI
 
 struct ContentHeaderView: View {
     @EnvironmentObject private var appChromeModel: AppChromeModel
