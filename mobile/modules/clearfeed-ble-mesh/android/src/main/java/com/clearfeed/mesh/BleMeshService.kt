@@ -9,6 +9,7 @@ import android.util.Log
 import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 
 /**
  * ClearFeed Android BLE Mesh Service
@@ -16,8 +17,9 @@ import java.util.concurrent.ConcurrentHashMap
  * Implements BitChat-compatible Dual-Role (Peripheral + Central) Bluetooth Low Energy Mesh
  * - Service UUID: F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C
  * - Characteristic UUID: A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D
+ * - CCCD Descriptor UUID: 00002902-0000-1000-8000-00805f9b34fb
  * 
- * Works 100% OFFLINE with Wi-Fi turned OFF.
+ * Works 100% OFFLINE with Wi-Fi and Cellular Data turned OFF.
  */
 class BleMeshService(private val context: Context) {
 
@@ -25,6 +27,7 @@ class BleMeshService(private val context: Context) {
         private const val TAG = "CF_BleMesh"
         val SERVICE_UUID: UUID = UUID.fromString("F47B5E2D-4A9E-4C5A-9B3F-8E1D2C3A4B5C")
         val CHARACTERISTIC_UUID: UUID = UUID.fromString("A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D")
+        val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         const val MAX_FRAGMENT_PAYLOAD = 469
     }
 
@@ -34,6 +37,8 @@ class BleMeshService(private val context: Context) {
 
     // Peripheral Role (GATT Server + Advertising)
     private var gattServer: BluetoothGattServer? = null
+    private var gattServerCharacteristic: BluetoothGattCharacteristic? = null
+    private val serverConnectedDevices = CopyOnWriteArraySet<BluetoothDevice>()
     private var advertiser: BluetoothLeAdvertiser? = null
     private var advertiseCallback: AdvertiseCallback? = null
 
@@ -75,10 +80,12 @@ class BleMeshService(private val context: Context) {
 
         for (gatt in connectedPeers.values) {
             try {
+                gatt.disconnect()
                 gatt.close()
             } catch (e: Exception) {}
         }
         connectedPeers.clear()
+        serverConnectedDevices.clear()
         Log.i(TAG, "ClearFeed BLE Mesh stopped")
     }
 
@@ -102,44 +109,86 @@ class BleMeshService(private val context: Context) {
                 }
 
                 if (responseNeeded) {
-                    gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+                    try {
+                        gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+                    } catch (e: SecurityException) {
+                        Log.e(TAG, "SecurityException sending write response: ${e.message}")
+                    }
+                }
+            }
+
+            override fun onDescriptorWriteRequest(
+                device: BluetoothDevice,
+                requestId: Int,
+                descriptor: BluetoothGattDescriptor,
+                preparedWrite: Boolean,
+                responseNeeded: Boolean,
+                offset: Int,
+                value: ByteArray?
+            ) {
+                if (descriptor.uuid == CCCD_UUID) {
+                    serverConnectedDevices.add(device)
+                    val address = device.address
+                    val peerName = try { device.name ?: "Nearby Node" } catch (e: SecurityException) { "Nearby Node" }
+                    onPeerDiscovered?.invoke(address, peerName)
+                }
+
+                if (responseNeeded) {
+                    try {
+                        gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value)
+                    } catch (e: SecurityException) {
+                        Log.e(TAG, "SecurityException sending descriptor response: ${e.message}")
+                    }
                 }
             }
 
             override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
                 val address = device.address
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    serverConnectedDevices.add(device)
                     val peerName = try { device.name ?: "Nearby Node" } catch (e: SecurityException) { "Nearby Node" }
                     onPeerDiscovered?.invoke(address, peerName)
-                    if (!connectedPeers.containsKey(address)) {
-                        connectToPeer(device)
-                    }
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    serverConnectedDevices.remove(device)
                     onPeerLost?.invoke(address)
                 }
             }
         }
 
-        gattServer = bluetoothManager?.openGattServer(context, gattServerCallback)
-        val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
+        try {
+            gattServer = bluetoothManager?.openGattServer(context, gattServerCallback)
+            val service = BluetoothGattService(SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY)
 
-        val characteristic = BluetoothGattCharacteristic(
-            CHARACTERISTIC_UUID,
-            BluetoothGattCharacteristic.PROPERTY_READ or
-                    BluetoothGattCharacteristic.PROPERTY_WRITE or
-                    BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE or
-                    BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-            BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE
-        )
+            val characteristic = BluetoothGattCharacteristic(
+                CHARACTERISTIC_UUID,
+                BluetoothGattCharacteristic.PROPERTY_READ or
+                        BluetoothGattCharacteristic.PROPERTY_WRITE or
+                        BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE or
+                        BluetoothGattCharacteristic.PROPERTY_NOTIFY,
+                BluetoothGattCharacteristic.PERMISSION_READ or BluetoothGattCharacteristic.PERMISSION_WRITE
+            )
 
-        service.addCharacteristic(characteristic)
-        gattServer?.addService(service)
+            // Add CCCD descriptor for notifications
+            val cccd = BluetoothGattDescriptor(
+                CCCD_UUID,
+                BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
+            )
+            characteristic.addDescriptor(cccd)
+
+            service.addCharacteristic(characteristic)
+            gattServer?.addService(service)
+            gattServerCharacteristic = characteristic
+            Log.d(TAG, "GATT Server and Service registered successfully")
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException starting GATT server: ${e.message}")
+        }
     }
 
     private fun stopGattServer() {
         try {
             gattServer?.close()
             gattServer = null
+            gattServerCharacteristic = null
         } catch (e: Exception) {}
     }
 
@@ -151,7 +200,7 @@ class BleMeshService(private val context: Context) {
         if (advertiser == null) return
 
         val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
             .setConnectable(true)
             .setTimeout(0)
             .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
@@ -165,7 +214,7 @@ class BleMeshService(private val context: Context) {
 
         advertiseCallback = object : AdvertiseCallback() {
             override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
-                Log.d(TAG, "BLE Mesh advertising started successfully")
+                Log.d(TAG, "BLE Mesh advertising started successfully (LOW_LATENCY)")
             }
 
             override fun onStartFailure(errorCode: Int) {
@@ -188,36 +237,51 @@ class BleMeshService(private val context: Context) {
     }
 
     // ==========================================
-    // 3. CENTRAL ROLE: BLE Scanner
+    // 3. CENTRAL ROLE: BLE Scanner (Software Filtered)
     // ==========================================
     private fun startScanning() {
         scanner = bluetoothAdapter?.bluetoothLeScanner
         if (scanner == null) return
 
-        val scanFilter = ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(SERVICE_UUID))
-            .build()
-
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setReportDelay(0)
             .build()
 
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult?) {
-                result?.device?.let { device ->
-                    val address = device.address
-                    if (!connectedPeers.containsKey(address)) {
-                        connectToPeer(device)
-                    }
-                }
+                handleScanResult(result)
+            }
+
+            override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+                results?.forEach { handleScanResult(it) }
+            }
+
+            override fun onScanFailed(errorCode: Int) {
+                Log.w(TAG, "BLE Scan failed with error code: $errorCode")
             }
         }
 
         try {
-            scanner?.startScan(listOf(scanFilter), scanSettings, scanCallback)
-            Log.d(TAG, "BLE Scanner active for Service UUID: $SERVICE_UUID")
+            // Note: Scan without hardware filters to avoid OEM hardware filter drop issues
+            scanner?.startScan(null, scanSettings, scanCallback)
+            Log.d(TAG, "BLE Scanner active (software filtered for Service UUID: $SERVICE_UUID)")
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException during BLE scan: ${e.message}")
+        }
+    }
+
+    private fun handleScanResult(result: ScanResult?) {
+        val record = result?.scanRecord ?: return
+        val uuids = record.serviceUuids
+        val matchesService = uuids?.any { it.uuid == SERVICE_UUID } == true
+        if (!matchesService) return
+
+        result.device?.let { device ->
+            val address = device.address
+            if (!connectedPeers.containsKey(address)) {
+                connectToPeer(device)
+            }
         }
     }
 
@@ -251,12 +315,55 @@ class BleMeshService(private val context: Context) {
 
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
+                    val service = gatt.getService(SERVICE_UUID)
+                    val characteristic = service?.getCharacteristic(CHARACTERISTIC_UUID)
+                    if (characteristic != null) {
+                        try {
+                            gatt.setCharacteristicNotification(characteristic, true)
+                            val cccd = characteristic.getDescriptor(CCCD_UUID)
+                            if (cccd != null) {
+                                if (Build.VERSION.SDK_INT >= 33) {
+                                    gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                    @Suppress("DEPRECATION")
+                                    gatt.writeDescriptor(cccd)
+                                }
+                            }
+                        } catch (e: SecurityException) {
+                            Log.w(TAG, "Failed to enable notifications on characteristic: ${e.message}")
+                        }
+                    }
+
                     // Request 512-byte MTU for high-speed fragment transport (matching BitChat)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         try {
                             gatt.requestMtu(512)
                         } catch (e: SecurityException) {}
                     }
+                }
+            }
+
+            @Suppress("DEPRECATION")
+            override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                if (characteristic.uuid == CHARACTERISTIC_UUID) {
+                    val value = characteristic.value
+                    if (value != null) {
+                        val rawPayload = String(value, StandardCharsets.UTF_8)
+                        onPacketReceived?.invoke(rawPayload)
+                    }
+                }
+            }
+
+            override fun onCharacteristicChanged(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                value: ByteArray
+            ) {
+                if (characteristic.uuid == CHARACTERISTIC_UUID) {
+                    val rawPayload = String(value, StandardCharsets.UTF_8)
+                    onPacketReceived?.invoke(rawPayload)
                 }
             }
         }
@@ -273,16 +380,13 @@ class BleMeshService(private val context: Context) {
     }
 
     // ==========================================
-    // 4. PACKET TRANSMISSION (Write Without Response)
+    // 4. PACKET TRANSMISSION (Dual Role: Write to Servers + Notify Clients)
     // ==========================================
     fun sendPacket(payloadString: String): Boolean {
-        if (connectedPeers.isEmpty()) {
-            return false
-        }
-
         val bytes = payloadString.toByteArray(StandardCharsets.UTF_8)
         var anySuccess = false
 
+        // Role 1: Send to peers we are connected to as Central (Client Write)
         for ((_, gatt) in connectedPeers) {
             try {
                 val service = gatt.getService(SERVICE_UUID)
@@ -305,6 +409,28 @@ class BleMeshService(private val context: Context) {
             }
         }
 
+        // Role 2: Send to peers connected to our GATT Server (Server Notification)
+        val serverChar = gattServerCharacteristic
+        val server = gattServer
+        if (server != null && serverChar != null && serverConnectedDevices.isNotEmpty()) {
+            for (device in serverConnectedDevices) {
+                try {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        val res = server.notifyCharacteristicChanged(device, serverChar, false, bytes)
+                        if (res == 0) anySuccess = true
+                    } else {
+                        @Suppress("DEPRECATION")
+                        serverChar.value = bytes
+                        @Suppress("DEPRECATION")
+                        val ok = server.notifyCharacteristicChanged(device, serverChar, false)
+                        if (ok) anySuccess = true
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error notifying GATT client device: ${e.message}")
+                }
+            }
+        }
+
         return anySuccess
     }
 
@@ -312,4 +438,3 @@ class BleMeshService(private val context: Context) {
         return bluetoothAdapter?.isEnabled ?: false
     }
 }
-

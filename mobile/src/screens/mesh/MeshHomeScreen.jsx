@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { useNotifications } from '../../context/NotificationContext';
 import { useMesh } from '../../mesh/context/MeshContext';
 import { MeshPairingModal } from '../../components/mesh/MeshPairingModal';
 import { BROADCAST_PUBKEY } from '../../mesh/protocol/wireProtocol';
+import bleMeshBridge from '../../mesh/transport/bleMeshBridge';
+import meshTransport from '../../mesh/transport/meshTransport';
 
 export const MeshHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -32,6 +34,15 @@ export const MeshHomeScreen = ({ navigation }) => {
 
   const [showPairModal, setShowPairModal] = useState(false);
   const activePeerCount = peers.filter((p) => p.status !== 'blocked').length;
+
+  useEffect(() => {
+    // Ensure Bluetooth Low Energy Mesh engine is active whenever user opens Mesh Chat
+    meshTransport.initialize();
+    if (identity?.publicKeyHex) {
+      bleMeshBridge.start(identity.publicKeyHex).catch(() => {});
+    }
+    broadcastBeacon();
+  }, [identity?.publicKeyHex]);
 
   return (
     <View
