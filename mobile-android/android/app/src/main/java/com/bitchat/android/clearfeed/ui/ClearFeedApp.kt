@@ -57,6 +57,33 @@ fun ClearFeedApp(
     var currentTab by remember { mutableStateOf(ClearFeedTab.FEED) }
     var isMeshChatActive by remember { mutableStateOf(false) }
     var currentTheme by remember { mutableStateOf(ThemePreset.LIGHTS_OUT) }
+    // Proactively start BLE mesh services so that discovery and messaging are always active
+    LaunchedEffect(Unit) {
+        try {
+            val unified = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(context)
+            unified.delegate = chatViewModel
+            unified.startServices()
+            chatViewModel.meshService.startServices()
+            chatViewModel.meshService.sendBroadcastAnnounce()
+        } catch (e: Exception) {
+            android.util.Log.e("ClearFeedApp", "Error activating mesh on app launch: " + e.message)
+        }
+    }
+
+    LaunchedEffect(currentTab, isMeshChatActive) {
+        if (currentTab == ClearFeedTab.BEECHAT || isMeshChatActive) {
+            try {
+                val unified = com.bitchat.android.service.MeshServiceHolder.getUnifiedOrCreate(context)
+                unified.delegate = chatViewModel
+                unified.startServices()
+                chatViewModel.meshService.startServices()
+                chatViewModel.meshService.sendBroadcastAnnounce()
+            } catch (e: Exception) {
+                android.util.Log.e("ClearFeedApp", "Error activating mesh on BeeChat tab: " + e.message)
+            }
+        }
+    }
+
 
     ClearFeedTheme(selectedTheme = currentTheme) {
         if (!isLoggedIn && !isMeshChatActive) {

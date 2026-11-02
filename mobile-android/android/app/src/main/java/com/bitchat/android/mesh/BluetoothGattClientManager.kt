@@ -27,7 +27,8 @@ class BluetoothGattClientManager(
     private val connectionTracker: BluetoothConnectionTracker,
     private val permissionManager: BluetoothPermissionManager,
     private val powerManager: PowerManager,
-    private val delegate: BluetoothConnectionManagerDelegate?
+    private val delegate: BluetoothConnectionManagerDelegate?,
+    private val myPeerID: String
 ) {
     
     companion object {
@@ -42,8 +43,10 @@ class BluetoothGattClientManager(
     // Core Bluetooth components
     private val bluetoothManager: BluetoothManager = 
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
-    private val bleScanner: BluetoothLeScanner? = bluetoothAdapter?.bluetoothLeScanner
+    private val bluetoothAdapter: BluetoothAdapter?
+        get() = bluetoothManager.adapter
+    private val bleScanner: BluetoothLeScanner?
+        get() = bluetoothAdapter?.bluetoothLeScanner
 
     private fun isBleTransportEnabled(): Boolean {
         return try {
@@ -121,7 +124,8 @@ class BluetoothGattClientManager(
             return false
         }
         
-        if (bleScanner == null) {
+        val scanner = bleScanner
+        if (scanner == null) {
             Log.e(TAG, "BLE scanner not available")
             return false
         }
@@ -185,7 +189,8 @@ class BluetoothGattClientManager(
     private fun startScanning() {
         // Respect debug setting
         val enabled = isClientRoleEnabled()
-        if (!permissionManager.hasBluetoothPermissions() || bleScanner == null || !isActive || !enabled) return
+        val scanner = bleScanner
+        if (!permissionManager.hasBluetoothPermissions() || scanner == null || !isActive || !enabled) return
         
         // Rate limit scan starts to prevent "scanning too frequently" errors
         val currentTime = System.currentTimeMillis()
@@ -208,14 +213,8 @@ class BluetoothGattClientManager(
             return
         }
         
-        val scanFilter = ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
-            .build()
-        
-        val scanFilterByData = ScanFilter.Builder()
-            .setServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID), ByteArray(0), ByteArray(0))
-            .build()
-        val scanFilters = listOf(scanFilter, scanFilterByData)
+        // Use an open ScanFilter with software filtering to avoid chip-level 128-bit hardware filter bugs
+        val scanFilters = listOf(ScanFilter.Builder().build())
 
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -268,7 +267,7 @@ class BluetoothGattClientManager(
             lastScanStartTime = currentTime
             isCurrentlyScanning = true
             
-            bleScanner.startScan(scanFilters, powerManager.getScanSettings(), scanCallback)
+            scanner.startScan(scanFilters, powerManager.getScanSettings(), scanCallback)
             Log.i(TAG, "BLE scan started")
         } catch (e: Exception) {
             Log.e(TAG, "Exception starting scan: ${e.message}")
@@ -281,12 +280,13 @@ class BluetoothGattClientManager(
      */
     @Suppress("DEPRECATION")
     private fun stopScanning() {
-        if (!permissionManager.hasBluetoothPermissions() || bleScanner == null) return
+        val scanner = bleScanner
+        if (!permissionManager.hasBluetoothPermissions() || scanner == null) return
         
         if (isCurrentlyScanning) {
             try {
                 scanCallback?.let {
-                    bleScanner.stopScan(it)
+                    scanner.stopScan(it)
                     Log.i(TAG, "BLE scan stopped")
                 }
             } catch (e: Exception) {
@@ -397,8 +397,11 @@ class BluetoothGattClientManager(
         }
 
         if (peerID != null) {
+            if (peerID.equals(myPeerID, ignoreCase = true)) {
+                return // Do not attempt to connect to self
+            }
             if (connectionTracker.isPeerConnected(peerID)) {
-                 return
+                return
             }
         }
 

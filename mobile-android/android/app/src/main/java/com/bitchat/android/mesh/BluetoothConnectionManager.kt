@@ -27,7 +27,8 @@ class BluetoothConnectionManager(
     // Core Bluetooth components
     private val bluetoothManager: BluetoothManager = 
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
+    private val bluetoothAdapter: BluetoothAdapter?
+        get() = bluetoothManager.adapter
     
     // Power management
     private val powerManager = PowerManager.getInstance(context.applicationContext)
@@ -89,7 +90,7 @@ class BluetoothConnectionManager(
         context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
     )
     private val clientManager = BluetoothGattClientManager(
-        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate
+        context, connectionScope, connectionTracker, permissionManager, powerManager, componentDelegate, myPeerID
     )
     
     // Service state

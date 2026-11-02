@@ -192,7 +192,23 @@ class PermissionManager(private val context: Context) {
     }
 
     fun areRequiredPermissionsGranted(): Boolean {
-        return getRequiredPermissions().all { isPermissionGranted(it) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val hasScan = isPermissionGranted(Manifest.permission.BLUETOOTH_SCAN)
+            val hasConnect = isPermissionGranted(Manifest.permission.BLUETOOTH_CONNECT)
+            val hasAdvertise = isPermissionGranted(Manifest.permission.BLUETOOTH_ADVERTISE)
+            if (!hasScan || !hasConnect || !hasAdvertise) return false
+        } else {
+            val hasBt = isPermissionGranted(Manifest.permission.BLUETOOTH) &&
+                isPermissionGranted(Manifest.permission.BLUETOOTH_ADMIN)
+            if (!hasBt) return false
+        }
+
+        // Location: either coarse or fine is sufficient (handles users choosing Approximate)
+        val hasCoarse = isPermissionGranted(Manifest.permission.ACCESS_COARSE_LOCATION)
+        val hasFine = isPermissionGranted(Manifest.permission.ACCESS_FINE_LOCATION)
+        if (!hasCoarse && !hasFine) return false
+
+        return true
     }
 
     /**

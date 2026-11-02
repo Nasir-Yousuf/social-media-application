@@ -750,6 +750,16 @@ class MainActivity : OrientationAwareActivity() {
         // Revoke stale live-location work before any resumed UI can use cached channels.
         LocationChannelManager.getInstance(applicationContext).syncPermissionState()
 
+        // Ensure mesh service is running when resumed if permissions are granted and BT enabled
+        if (permissionManager.areRequiredPermissionsGranted() && bluetoothStatusManager.checkBluetoothStatus() == BluetoothStatus.ENABLED) {
+            try {
+                unifiedMeshService.delegate = chatViewModel
+                unifiedMeshService.startServices()
+            } catch (e: Exception) {
+                Log.w("MainActivity", "Error ensuring mesh running on resume: " + e.message)
+            }
+        }
+
         // Check Bluetooth and Location status on resume and handle accordingly
         if (mainViewModel.onboardingState.value == OnboardingState.COMPLETE) {
             // Reattach mesh delegate to new ChatViewModel instance after Activity recreation
