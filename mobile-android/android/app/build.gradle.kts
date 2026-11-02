@@ -96,7 +96,7 @@ android {
 
     splits {
         abi {
-            isEnable = enableSplits
+            isEnable = true
             reset()
             include("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
             isUniversalApk = true  // For F-Droid and fallback
@@ -180,7 +180,7 @@ dependencies {
 
     // WebSocket
     implementation(libs.okhttp)
-
+    
     // WorkManager for background APK downloads
     implementation(libs.androidx.work.runtime.ktx)
 

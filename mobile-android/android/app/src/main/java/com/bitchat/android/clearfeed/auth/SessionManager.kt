@@ -24,7 +24,7 @@ class SessionManager(context: Context) {
         private const val KEY_TOKEN = "jwt_token"
         private const val KEY_USER = "user_json"
         private const val KEY_SERVER_URL = "server_base_url"
-        const val DEFAULT_SERVER_URL = "http://10.0.2.2:5000" // Standard Android emulator localhost
+        const val DEFAULT_SERVER_URL = "https://clearfeed518.up.railway.app/api" // Production Railway Cloud
 
         @Volatile
         private var instance: SessionManager? = null
@@ -67,7 +67,13 @@ class SessionManager(context: Context) {
 
     fun isLoggedIn(): Boolean = !getToken().isNullOrBlank()
 
-    fun getServerUrl(): String = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
+    fun getServerUrl(): String {
+        val saved = prefs.getString(KEY_SERVER_URL, null)
+        if (saved.isNullOrBlank() || saved.contains("10.0.2.2")) {
+            return DEFAULT_SERVER_URL
+        }
+        return saved
+    }
 
     fun setServerUrl(url: String) {
         val cleanUrl = url.trim().removeSuffix("/")

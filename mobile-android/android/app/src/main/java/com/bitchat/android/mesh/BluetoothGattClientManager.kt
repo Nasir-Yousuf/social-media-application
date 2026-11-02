@@ -212,7 +212,10 @@ class BluetoothGattClientManager(
             .setServiceUuid(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID))
             .build()
         
-        val scanFilters = listOf(scanFilter)
+        val scanFilterByData = ScanFilter.Builder()
+            .setServiceData(ParcelUuid(AppConstants.Mesh.Gatt.SERVICE_UUID), ByteArray(0), ByteArray(0))
+            .build()
+        val scanFilters = listOf(scanFilter, scanFilterByData)
 
         scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -375,7 +378,8 @@ class BluetoothGattClientManager(
         val scanRecord = result.scanRecord
         
         // CRITICAL: Only process devices that have our service UUID
-        val hasOurService = scanRecord?.serviceUuids?.any { it.uuid == AppConstants.Mesh.Gatt.SERVICE_UUID } == true
+        val hasOurService = scanRecord?.serviceUuids?.any { it.uuid == AppConstants.Mesh.Gatt.SERVICE_UUID } == true ||
+            scanRecord?.serviceData?.keys?.any { it.uuid == AppConstants.Mesh.Gatt.SERVICE_UUID } == true
         if (!hasOurService) {
             return
         }
@@ -539,8 +543,14 @@ class BluetoothGattClientManager(
                             gatt.setCharacteristicNotification(characteristic, true)
                             val descriptor = characteristic.getDescriptor(AppConstants.Mesh.Gatt.DESCRIPTOR_UUID)
                             if (descriptor != null) {
-                                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                                gatt.writeDescriptor(descriptor)
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                    gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                    @Suppress("DEPRECATION")
+                                    gatt.writeDescriptor(descriptor)
+                                }
                                 
                                 connectionScope.launch {
                                     delay(200)
@@ -565,14 +575,37 @@ class BluetoothGattClientManager(
                 }
             }
             
+            override fun onCharacteristicChanged(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                value: ByteArray
+            ) {
+                handleIncomingGattPacket(gatt, characteristic, value)
+            }
+
+            @Deprecated("Deprecated in Java")
             override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                @Suppress("DEPRECATION")
                 val value = characteristic.value
-                val packet = BitchatPacket.fromBinaryData(value)
-                if (packet != null) {
-                    val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
-                    delegate?.onPacketReceived(packet, peerID, gatt.device, linkID)
-                } else {
-                    Log.d(TAG, "Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
+
+                if (value != null && value.isNotEmpty()) {
+                    handleIncomingGattPacket(gatt, characteristic, value)
+                }
+            }
+
+            private fun handleIncomingGattPacket(
+                gatt: BluetoothGatt,
+                characteristic: BluetoothGattCharacteristic,
+                value: ByteArray
+            ) {
+                if (characteristic.uuid == AppConstants.Mesh.Gatt.CHARACTERISTIC_UUID) {
+                    val packet = BitchatPacket.fromBinaryData(value)
+                    if (packet != null) {
+                        val peerID = packet.senderID.take(8).toByteArray().joinToString("") { "%02x".format(it) }
+                        delegate?.onPacketReceived(packet, peerID, gatt.device, linkID)
+                    } else {
+                        Log.d(TAG, "Failed to parse packet from ${gatt.device.address}, size: ${value.size} bytes")
+                    }
                 }
             }
 

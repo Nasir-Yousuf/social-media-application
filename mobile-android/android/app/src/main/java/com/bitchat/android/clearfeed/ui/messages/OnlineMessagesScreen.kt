@@ -1,15 +1,18 @@
 package com.bitchat.android.clearfeed.ui.messages
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -28,6 +31,7 @@ import com.bitchat.android.clearfeed.data.AiSettings
 import com.bitchat.android.clearfeed.data.Conversation
 import com.bitchat.android.clearfeed.data.OnlineMessage
 import com.bitchat.android.clearfeed.ui.components.AiSettingsDialog
+import com.bitchat.android.clearfeed.ui.components.ClearFeedAvatar
 import com.bitchat.android.clearfeed.ui.components.CodeSnippetBlock
 import com.bitchat.android.clearfeed.ui.theme.ClearFeedColors
 import kotlinx.coroutines.delay
@@ -36,6 +40,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnlineMessagesScreen(
+    onNavigateToMesh: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -49,7 +54,10 @@ fun OnlineMessagesScreen(
     var messages by remember { mutableStateOf<List<OnlineMessage>>(emptyList()) }
     var inputText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
+    var isStartingAi by remember { mutableStateOf(false) }
     var showAiSettingsDialog by remember { mutableStateOf(false) }
+
+    val listState = rememberLazyListState()
 
     fun loadConversations() {
         scope.launch {
@@ -79,9 +87,17 @@ fun OnlineMessagesScreen(
     // Auto-poll messages when active conversation is open
     LaunchedEffect(activeConversation?.id) {
         val convId = activeConversation?.id ?: return@LaunchedEffect
+        loadMessages(convId)
         while (true) {
+            delay(2500)
             loadMessages(convId)
-            delay(2000)
+        }
+    }
+
+    // Scroll to bottom when new messages arrive
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
         }
     }
 
@@ -96,35 +112,44 @@ fun OnlineMessagesScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = if (isAiChat) "Clearfeed AI ✨" else (other?.name ?: "Chat"),
-                                    color = ClearFeedColors.TextPrimary,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                if (isAiChat) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(ClearFeedColors.AccentCyan)
-                                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("Gemini", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ClearFeedAvatar(
+                                name = if (isAiChat) "Clearfeed AI" else (other?.name ?: "User"),
+                                avatarUrl = other?.avatarUrl,
+                                size = 38.dp,
+                                isAi = isAiChat
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (isAiChat) "Clearfeed AI ✨" else (other?.name ?: "Chat"),
+                                        color = ClearFeedColors.TextPrimary,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (isAiChat) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(ClearFeedColors.AccentCyan)
+                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Gemini", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                        }
                                     }
                                 }
+                                Text(
+                                    text = if (isAiChat) "Google Gemini Companion" else "@${other?.username ?: ""}",
+                                    color = ClearFeedColors.TextSecondary,
+                                    fontSize = 11.sp
+                                )
                             }
-                            Text(
-                                text = if (isAiChat) "Google Gemini Companion" else "@${other?.username ?: ""}",
-                                color = ClearFeedColors.TextSecondary,
-                                fontSize = 11.sp
-                            )
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { activeConversation = null }) {
+                        IconButton(onClick = { activeConversation = null; loadConversations() }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = ClearFeedColors.TextPrimary)
                         }
                     },
@@ -189,6 +214,7 @@ fun OnlineMessagesScreen(
             }
         ) { padding ->
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
@@ -196,7 +222,7 @@ fun OnlineMessagesScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(messages, key = { it.id }) { msg ->
-                    val isMe = msg.sender?.id == currentUserId
+                    val isMe = msg.isSentBy(currentUserId)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
@@ -218,14 +244,17 @@ fun OnlineMessagesScreen(
                                     modifier = Modifier.padding(bottom = 4.dp)
                                 )
                             }
-                            Text(
-                                text = msg.text,
-                                color = if (isMe) Color.White else ClearFeedColors.TextPrimary,
-                                fontSize = 14.sp,
-                                lineHeight = 19.sp
-                            )
+                            val displayText = msg.displayText
+                            if (displayText.isNotBlank()) {
+                                Text(
+                                    text = displayText,
+                                    color = if (isMe) Color.White else ClearFeedColors.TextPrimary,
+                                    fontSize = 14.sp,
+                                    lineHeight = 19.sp
+                                )
+                            }
                             msg.codeSnippet?.let { snippet ->
-                                if (snippet.code.isNotBlank()) {
+                                if (snippet.displayCode.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     CodeSnippetBlock(snippet = snippet)
                                 }
@@ -237,7 +266,7 @@ fun OnlineMessagesScreen(
 
             if (showAiSettingsDialog) {
                 AiSettingsDialog(
-                    currentSettings = conv.aiSettings,
+                    currentSettings = conv.customAiSettings,
                     onDismiss = { showAiSettingsDialog = false },
                     onSave = { newSettings ->
                         scope.launch {
@@ -255,7 +284,34 @@ fun OnlineMessagesScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Text("Online Messages", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Messages", color = Color.White, fontWeight = FontWeight.Bold)
+                    },
+                    actions = {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF0D2818))
+                                .border(1.dp, Color(0xFF00BA7C), RoundedCornerShape(8.dp))
+                                .clickable { onNavigateToMesh() }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Bluetooth,
+                                    contentDescription = "BeeChat Mesh",
+                                    tint = Color(0xFF00BA7C),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "BeeChat",
+                                    color = Color(0xFF00BA7C),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = ClearFeedColors.Surface)
                 )
@@ -274,10 +330,16 @@ fun OnlineMessagesScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .background(ClearFeedColors.SurfaceVariant)
                         .border(1.dp, ClearFeedColors.PrimaryEmerald, RoundedCornerShape(14.dp))
-                        .clickable {
+                        .clickable(enabled = !isStartingAi) {
+                            isStartingAi = true
                             scope.launch {
                                 val res = apiClient.startAiConversation()
-                                res.onSuccess { activeConversation = it }
+                                isStartingAi = false
+                                res.onSuccess {
+                                    activeConversation = it
+                                }.onFailure { e ->
+                                    Toast.makeText(context, "Could not open AI companion: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                         .padding(14.dp),
@@ -290,7 +352,11 @@ fun OnlineMessagesScreen(
                             .background(ClearFeedColors.PrimaryEmerald),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = "Gemini AI", tint = Color.White)
+                        if (isStartingAi) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "Gemini AI", tint = Color.White)
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
@@ -328,12 +394,13 @@ fun OnlineMessagesScreen(
                     }
                 } else if (conversations.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No online conversations yet", color = ClearFeedColors.TextSecondary)
+                        Text("No online conversations yet. Tap above to chat with Gemini!", color = ClearFeedColors.TextSecondary)
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(conversations, key = { it.id }) { conv ->
                             val other = conv.getOtherUser(currentUserId)
+                            val isAi = conv.isAiChat || other?.isAi == true || other?.username == "ai"
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -341,32 +408,24 @@ fun OnlineMessagesScreen(
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(if (conv.isAiChat || other?.isAi == true) ClearFeedColors.AccentCyan else ClearFeedColors.PrimaryEmerald),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = (other?.name?.firstOrNull() ?: 'U').uppercase(),
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp
-                                    )
-                                }
+                                ClearFeedAvatar(
+                                    name = if (isAi) "Clearfeed AI" else (other?.name ?: "User"),
+                                    avatarUrl = other?.avatarUrl,
+                                    size = 44.dp,
+                                    isAi = isAi
+                                )
 
                                 Spacer(modifier = Modifier.width(12.dp))
 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = other?.name ?: "User",
+                                        text = if (isAi) "Clearfeed AI ✨" else (other?.name ?: "User"),
                                         color = ClearFeedColors.TextPrimary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp
                                     )
                                     Text(
-                                        text = conv.lastMessage?.text ?: "No messages yet",
+                                        text = conv.lastMessage?.displayText?.ifBlank { "Conversation active" } ?: "No messages yet",
                                         color = ClearFeedColors.TextSecondary,
                                         fontSize = 13.sp,
                                         maxLines = 1

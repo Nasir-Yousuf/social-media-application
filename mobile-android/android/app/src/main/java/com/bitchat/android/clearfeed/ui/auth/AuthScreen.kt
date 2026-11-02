@@ -2,16 +2,21 @@ package com.bitchat.android.clearfeed.ui.auth
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.CompassCalibration
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,12 +32,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bitchat.android.clearfeed.api.ClearFeedApiClient
 import com.bitchat.android.clearfeed.auth.SessionManager
+import com.bitchat.android.clearfeed.data.User
 import com.bitchat.android.clearfeed.ui.theme.ClearFeedColors
 import kotlinx.coroutines.launch
 
 @Composable
 fun AuthScreen(
     onAuthSuccess: () -> Unit,
+    onOpenMeshChat: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -40,17 +47,15 @@ fun AuthScreen(
     val sessionManager = remember { SessionManager.getInstance(context) }
     val scope = rememberCoroutineScope()
 
-    var isLoginTab by remember { mutableStateOf(true) }
+    var isSignUpMode by remember { mutableStateOf(false) }
     var loginInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
     var nameInput by remember { mutableStateOf("") }
-    var usernameInput by remember { mutableStateOf("") }
     var emailInput by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var showServerConfigDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -60,315 +65,371 @@ fun AuthScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // App Brand
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Clear",
-                    color = Color.White,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    text = "feed",
-                    color = ClearFeedColors.PrimaryEmerald,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Black
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Pulse Logo matching Screenshot 2
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .border(3.dp, ClearFeedColors.AccentCyan, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(ClearFeedColors.AccentCyan)
                 )
             }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Clearfeed Logo & Tagline
             Text(
-                text = "Minimalist social network for text & code",
-                color = ClearFeedColors.TextSecondary,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 6.dp, bottom = 24.dp)
+                text = "Clearfeed",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black
             )
 
-            // Tabs
-            Row(
+            Text(
+                text = "The Anti-Algorithm Minimalist Social Network",
+                color = ClearFeedColors.TextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 4.dp, bottom = 28.dp)
+            )
+
+            // Auth Card matching Screenshot 2
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(ClearFeedColors.Surface)
-                    .padding(4.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFF16181C))
+                    .border(1.dp, Color(0xFF2F3336), RoundedCornerShape(18.dp))
+                    .padding(20.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isLoginTab) ClearFeedColors.PrimaryEmerald else Color.Transparent)
-                        .clickable { isLoginTab = true }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Column {
                     Text(
-                        text = "Sign In",
-                        color = if (isLoginTab) Color.White else ClearFeedColors.TextSecondary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        text = if (isSignUpMode) "Create an account" else "Sign in to Clearfeed",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                }
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (!isLoginTab) ClearFeedColors.PrimaryEmerald else Color.Transparent)
-                        .clickable { isLoginTab = false }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Register",
-                        color = if (!isLoginTab) Color.White else ClearFeedColors.TextSecondary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                }
-            }
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(20.dp))
+                    if (isSignUpMode) {
+                        OutlinedTextField(
+                            value = nameInput,
+                            onValueChange = { nameInput = it },
+                            placeholder = { Text("Full Name", color = ClearFeedColors.TextSecondary) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFF0D1117),
+                                unfocusedContainerColor = Color(0xFF0D1117),
+                                focusedBorderColor = ClearFeedColors.AccentCyan,
+                                unfocusedBorderColor = Color(0xFF2F3336),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
 
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage!!,
-                    color = ClearFeedColors.ErrorRed,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-            }
+                        OutlinedTextField(
+                            value = emailInput,
+                            onValueChange = { emailInput = it },
+                            placeholder = { Text("Email", color = ClearFeedColors.TextSecondary) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFF0D1117),
+                                unfocusedContainerColor = Color(0xFF0D1117),
+                                focusedBorderColor = ClearFeedColors.AccentCyan,
+                                unfocusedBorderColor = Color(0xFF2F3336),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
 
-            if (isLoginTab) {
-                OutlinedTextField(
-                    value = loginInput,
-                    onValueChange = { loginInput = it },
-                    label = { Text("Username or Email") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = ClearFeedColors.TextPrimary,
-                        unfocusedTextColor = ClearFeedColors.TextPrimary,
-                        focusedBorderColor = ClearFeedColors.PrimaryEmerald,
-                        unfocusedBorderColor = ClearFeedColors.Border
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = passwordInput,
-                    onValueChange = { passwordInput = it },
-                    label = { Text("Password") },
-                    singleLine = true,
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = "Toggle password",
-                                tint = ClearFeedColors.TextSecondary
+                    // Email or Username
+                    OutlinedTextField(
+                        value = loginInput,
+                        onValueChange = { loginInput = it },
+                        placeholder = {
+                            Text(
+                                if (isSignUpMode) "Username" else "Email or Username",
+                                color = ClearFeedColors.TextSecondary
                             )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = ClearFeedColors.TextPrimary,
-                        unfocusedTextColor = ClearFeedColors.TextPrimary,
-                        focusedBorderColor = ClearFeedColors.PrimaryEmerald,
-                        unfocusedBorderColor = ClearFeedColors.Border
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF0D1117),
+                            unfocusedContainerColor = Color(0xFF0D1117),
+                            focusedBorderColor = ClearFeedColors.AccentCyan,
+                            unfocusedBorderColor = Color(0xFF2F3336),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(10.dp)
                     )
-                )
-            } else {
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it },
-                    label = { Text("Full Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = ClearFeedColors.TextPrimary,
-                        unfocusedTextColor = ClearFeedColors.TextPrimary,
-                        focusedBorderColor = ClearFeedColors.PrimaryEmerald,
-                        unfocusedBorderColor = ClearFeedColors.Border
-                    )
-                )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedTextField(
-                    value = usernameInput,
-                    onValueChange = { usernameInput = it },
-                    label = { Text("Username") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = ClearFeedColors.TextPrimary,
-                        unfocusedTextColor = ClearFeedColors.TextPrimary,
-                        focusedBorderColor = ClearFeedColors.PrimaryEmerald,
-                        unfocusedBorderColor = ClearFeedColors.Border
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = emailInput,
-                    onValueChange = { emailInput = it },
-                    label = { Text("Email Address") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = ClearFeedColors.TextPrimary,
-                        unfocusedTextColor = ClearFeedColors.TextPrimary,
-                        focusedBorderColor = ClearFeedColors.PrimaryEmerald,
-                        unfocusedBorderColor = ClearFeedColors.Border
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = passwordInput,
-                    onValueChange = { passwordInput = it },
-                    label = { Text("Password (min 6 characters)") },
-                    singleLine = true,
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = "Toggle password",
-                                tint = ClearFeedColors.TextSecondary
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = ClearFeedColors.TextPrimary,
-                        unfocusedTextColor = ClearFeedColors.TextPrimary,
-                        focusedBorderColor = ClearFeedColors.PrimaryEmerald,
-                        unfocusedBorderColor = ClearFeedColors.Border
-                    )
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Button(
-                onClick = {
-                    isLoading = true
-                    errorMessage = null
-                    scope.launch {
-                        if (isLoginTab) {
-                            val res = apiClient.login(loginInput.trim(), passwordInput.trim())
-                            res.onSuccess {
-                                isLoading = false
-                                onAuthSuccess()
-                            }.onFailure { err ->
-                                isLoading = false
-                                errorMessage = err.message ?: "Authentication failed"
+                    // Password
+                    OutlinedTextField(
+                        value = passwordInput,
+                        onValueChange = { passwordInput = it },
+                        placeholder = { Text("Password", color = ClearFeedColors.TextSecondary) },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null,
+                                    tint = ClearFeedColors.TextSecondary
+                                )
                             }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFF0D1117),
+                            unfocusedContainerColor = Color(0xFF0D1117),
+                            focusedBorderColor = ClearFeedColors.AccentCyan,
+                            unfocusedBorderColor = Color(0xFF2F3336),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    if (errorMessage != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = errorMessage ?: "",
+                            color = Color(0xFFFF453A),
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Primary Action Button (Log In / Create Account)
+                    Button(
+                        onClick = {
+                            if (loginInput.isBlank() || passwordInput.isBlank()) {
+                                errorMessage = "Please enter your credentials"
+                                return@Button
+                            }
+                            isLoading = true
+                            errorMessage = null
+                            scope.launch {
+                                val result = if (isSignUpMode) {
+                                    apiClient.register(
+                                        name = nameInput.ifBlank { loginInput },
+                                        username = loginInput.trim(),
+                                        email = emailInput.ifBlank { "${loginInput.trim()}@clearfeed.local" },
+                                        pass = passwordInput
+                                    )
+                                } else {
+                                    apiClient.login(loginInput.trim(), passwordInput)
+                                }
+
+                                isLoading = false
+                                result.onSuccess {
+                                    onAuthSuccess()
+                                }.onFailure { e ->
+                                    errorMessage = e.message ?: "Authentication failed"
+                                }
+                            }
+                        },
+                        enabled = !isLoading,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ClearFeedColors.AccentCyan,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
                         } else {
-                            val res = apiClient.register(
-                                name = nameInput.trim(),
-                                username = usernameInput.trim(),
-                                email = emailInput.trim(),
-                                pass = passwordInput.trim()
+                            Text(
+                                text = if (isSignUpMode) "Sign Up" else "Log In",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
                             )
-                            res.onSuccess {
-                                isLoading = false
-                                onAuthSuccess()
-                            }.onFailure { err ->
-                                isLoading = false
-                                errorMessage = err.message ?: "Registration failed"
+                        }
+                    }
+
+                    // Divider with "OR"
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Divider(modifier = Modifier.weight(1f), color = Color(0xFF2F3336))
+                        Text(
+                            text = "  OR  ",
+                            color = ClearFeedColors.TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Divider(modifier = Modifier.weight(1f), color = Color(0xFF2F3336))
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Continue as Guest Button matching Screenshot 2
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF202327))
+                            .clickable(enabled = !isLoading) {
+                                isLoading = true
+                                errorMessage = null
+                                scope.launch {
+                                    val res = apiClient.guestLogin()
+                                    isLoading = false
+                                    res.onSuccess {
+                                        onAuthSuccess()
+                                    }.onFailure { e ->
+                                        errorMessage = e.message ?: "Guest login failed"
+                                        Toast.makeText(context, "Guest login failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Explore,
+                                contentDescription = null,
+                                tint = ClearFeedColors.AccentCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Continue as Guest",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Open Mesh Chat (Offline) matching Screenshot 2
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF071A0E))
+                            .border(1.dp, Color(0xFF00BA7C), RoundedCornerShape(12.dp))
+                            .clickable { onOpenMeshChat() }
+                            .padding(vertical = 12.dp, horizontal = 14.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bluetooth,
+                                contentDescription = "BeeChat Bluetooth",
+                                tint = Color(0xFF00BA7C),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Open BeeChat (Bluetooth Mesh)",
+                                    color = Color(0xFF00BA7C),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Connect nearby without Wi-Fi, internet, or account",
+                                    color = ClearFeedColors.TextSecondary,
+                                    fontSize = 11.sp
+                                )
                             }
                         }
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(containerColor = ClearFeedColors.PrimaryEmerald)
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(
-                        text = if (isLoginTab) "Sign In" else "Create Account",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = Color.White
-                    )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-            OutlinedButton(
-                onClick = {
-                    isLoading = true
-                    scope.launch {
-                        val res = apiClient.guestLogin()
-                        res.onSuccess {
-                            isLoading = false
-                            onAuthSuccess()
-                        }.onFailure { err ->
-                            isLoading = false
-                            errorMessage = err.message ?: "Guest login failed"
-                        }
+                    // Don't have an account? Create one
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = if (isSignUpMode) "Already have an account? " else "Don't have an account? ",
+                            color = ClearFeedColors.TextSecondary,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = if (isSignUpMode) "Sign In" else "Create one",
+                            color = ClearFeedColors.AccentCyan,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                isSignUpMode = !isSignUpMode
+                                errorMessage = null
+                            }
+                        )
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-            ) {
-                Text("Explore as Guest", color = ClearFeedColors.AccentCyan)
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            TextButton(
-                onClick = { showServerConfigDialog = true }
+            // Server Connection selector pill at bottom
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable {
+                        val current = sessionManager.getServerUrl()
+                        if (current.contains("railway")) {
+                            sessionManager.setServerUrl("http://10.0.2.2:5180")
+                            Toast.makeText(context, "Switched to Local (10.0.2.2:5180)", Toast.LENGTH_SHORT).show()
+                        } else {
+                            sessionManager.setServerUrl("https://clearfeed518.up.railway.app/api")
+                            Toast.makeText(context, "Switched to Railway Cloud", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .padding(8.dp)
             ) {
-                Icon(Icons.Default.Settings, contentDescription = "Server URL", tint = ClearFeedColors.TextSecondary, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Server Host: ${sessionManager.getServerUrl()}", color = ClearFeedColors.TextSecondary, fontSize = 11.sp)
-            }
-        }
-    }
-
-    if (showServerConfigDialog) {
-        var tempUrl by remember { mutableStateOf(sessionManager.getServerUrl()) }
-        AlertDialog(
-            onDismissRequest = { showServerConfigDialog = false },
-            title = { Text("ClearFeed Server URL", color = ClearFeedColors.TextPrimary) },
-            text = {
-                OutlinedTextField(
-                    value = tempUrl,
-                    onValueChange = { tempUrl = it },
-                    label = { Text("Backend URL") },
-                    placeholder = { Text("http://10.0.2.2:5000") }
+                Text(
+                    text = "⚙️ Server Connection (☁️ Cloud) ⌄",
+                    color = ClearFeedColors.TextSecondary,
+                    fontSize = 12.sp
                 )
-            },
-            confirmButton = {
-                Button(onClick = {
-                    sessionManager.setServerUrl(tempUrl)
-                    showServerConfigDialog = false
-                    Toast.makeText(context, "Server URL updated", Toast.LENGTH_SHORT).show()
-                }) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showServerConfigDialog = false }) {
-                    Text("Cancel")
-                }
             }
-        )
+
+            Spacer(modifier = Modifier.height(30.dp))
+        }
     }
 }
