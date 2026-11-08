@@ -2,31 +2,38 @@ import axios from 'axios';
 
 const PRODUCTION_BACKEND_URL = 'https://social-media-application-production-e75d.up.railway.app/api';
 
+const sanitizeApiUrl = (url) => {
+  if (!url) return '';
+  const trimmed = url.trim().replace(/\/+$/, '');
+  // Automatically purge obsolete/expired Railway deployment URLs
+  if (trimmed.includes('clearfeed518.up.railway.app')) {
+    return '';
+  }
+  return trimmed;
+};
+
 const getBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('pulse518_api_url');
-    if (custom) return custom.endsWith('/api') ? custom : `${custom}/api`;
+    if (custom) {
+      const sanitized = sanitizeApiUrl(custom);
+      if (!sanitized) {
+        localStorage.removeItem('pulse518_api_url');
+      } else {
+        return sanitized.endsWith('/api') ? sanitized : `${sanitized}/api`;
+      }
+    }
   }
-  const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+  const rawUrl = sanitizeApiUrl(import.meta.env.VITE_API_URL || '');
   if (rawUrl) {
     return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
   }
-  // When running locally on localhost or LAN IP, use local /api
+  // When running in the browser on Vercel or locally, prefer relative /api so requests
+  // are routed through Vercel's rewrite proxy without any CORS issues.
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('172.') ||
-      hostname.endsWith('.local')
-    ) {
-      return '/api';
-    }
-    return PRODUCTION_BACKEND_URL;
+    return '/api';
   }
-  return '/api';
+  return PRODUCTION_BACKEND_URL;
 };
 
 const api = axios.create({

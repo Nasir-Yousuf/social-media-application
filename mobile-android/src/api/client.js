@@ -39,7 +39,12 @@ let customBaseUrl = null;
 
 // Eagerly hydrate customBaseUrl from storage if present
 AsyncStorage.getItem('cf_api_base_url').then((saved) => {
-  if (saved) customBaseUrl = saved;
+  if (saved && saved.includes('clearfeed518.up.railway.app')) {
+    AsyncStorage.removeItem('cf_api_base_url').catch(() => {});
+    customBaseUrl = null;
+  } else if (saved) {
+    customBaseUrl = saved;
+  }
 }).catch(() => {});
 
 export const setBaseUrl = async (url) => {

@@ -6,10 +6,16 @@ export const LOCAL_BACKEND_URL = 'http://localhost:5180/api';
 export const getBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('pulse518_api_url');
-    if (custom) return custom.endsWith('/api') ? custom : `${custom}/api`;
+    if (custom) {
+      if (custom.includes('clearfeed518.up.railway.app')) {
+        localStorage.removeItem('pulse518_api_url');
+      } else {
+        return custom.endsWith('/api') ? custom : `${custom}/api`;
+      }
+    }
   }
   const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-  if (rawUrl) {
+  if (rawUrl && !rawUrl.includes('clearfeed518.up.railway.app')) {
     return rawUrl.endsWith('/api') ? rawUrl : `${rawUrl}/api`;
   }
   // Default to production cloud backend so Desktop & Mobile communicate on the same network bridge

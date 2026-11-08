@@ -11,10 +11,16 @@ class SocketService {
   getSocketServerUrl() {
     if (typeof window !== 'undefined') {
       const custom = localStorage.getItem('pulse518_api_url');
-      if (custom) return custom.replace(/\/api\/?$/, '');
+      if (custom) {
+        if (custom.includes('clearfeed518.up.railway.app')) {
+          localStorage.removeItem('pulse518_api_url');
+        } else {
+          return custom.replace(/\/api\/?$/, '');
+        }
+      }
     }
     const rawUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-    if (rawUrl) {
+    if (rawUrl && !rawUrl.includes('clearfeed518.up.railway.app')) {
       return rawUrl.replace(/\/api\/?$/, '');
     }
     if (typeof window !== 'undefined') {
