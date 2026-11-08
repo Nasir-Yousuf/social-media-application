@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const PRODUCTION_BACKEND_URL = 'https://clearfeed518.up.railway.app/api';
+export const PRODUCTION_BACKEND_URL = 'https://social-media-application-production-e75d.up.railway.app/api';
 export const LOCAL_BACKEND_URL = 'http://localhost:5180/api';
 
 export const getBaseUrl = (): string => {

@@ -28,8 +28,8 @@ const getDevHostIp = () => {
 
 const DEV_IP = getDevHostIp();
 
-export const CLOUD_URL = 'https://clearfeed518.up.railway.app/api';
-export const CLOUD_ORIGIN = 'https://clearfeed518.up.railway.app';
+export const CLOUD_URL = 'https://social-media-application-production-e75d.up.railway.app/api';
+export const CLOUD_ORIGIN = 'https://social-media-application-production-e75d.up.railway.app';
 export const LOCAL_DEV_URL = `http://${DEV_IP}:5180/api`;
 export const LOCAL_DEV_ORIGIN = `http://${DEV_IP}:5180`;
 

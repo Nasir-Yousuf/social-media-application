@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const PRODUCTION_BACKEND_URL = 'https://clearfeed518.up.railway.app/api';
+const PRODUCTION_BACKEND_URL = 'https://social-media-application-production-e75d.up.railway.app/api';
 
 const getBaseUrl = () => {
   if (typeof window !== 'undefined') {

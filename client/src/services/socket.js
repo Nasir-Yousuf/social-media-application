@@ -36,7 +36,7 @@ class SocketService {
       ) {
         return `http://${hostname}:5180`;
       }
-      return 'https://clearfeed518.up.railway.app';
+      return 'https://social-media-application-production-e75d.up.railway.app';
     }
     return 'http://localhost:5180';
   }

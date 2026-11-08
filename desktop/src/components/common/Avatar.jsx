@@ -54,7 +54,7 @@ export const resolveAvatarUrl = (url) => {
   const rawBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   const base = rawBase || (typeof getBaseUrl === 'function' ? getBaseUrl() : '') || '';
   const apiBase = base.replace(/\/api\/?$/, '');
-  const origin = apiBase || 'https://clearfeed518.up.railway.app';
+  const origin = apiBase || 'https://social-media-application-production-e75d.up.railway.app';
   const cleanUrl = url.startsWith('/') ? url : `/${url}`;
   return `${origin}${cleanUrl}`;
 };

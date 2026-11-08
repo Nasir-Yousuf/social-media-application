@@ -23,7 +23,7 @@ class SocketService {
     if (__DEV__) {
       return LOCAL_DEV_ORIGIN;
     }
-    return 'https://clearfeed518.up.railway.app';
+    return 'https://social-media-application-production-e75d.up.railway.app';
   }
 
   async connect(explicitToken = null) {

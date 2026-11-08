@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-clearfeed--web.vercel.app-10b981?style=for-the-badge&logo=vercel&logoColor=white)](https://clearfeed-web.vercel.app/)
-[![Backend Status](https://img.shields.io/badge/API-Railway%20Live-0ea5e9?style=for-the-badge&logo=railway&logoColor=white)](https://clearfeed518.up.railway.app)
+[![Backend Status](https://img.shields.io/badge/API-Railway%20Live-0ea5e9?style=for-the-badge&logo=railway&logoColor=white)](https://social-media-application-production-e75d.up.railway.app)
 [![React 19](https://img.shields.io/badge/React-19.0-61dafb?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-Express%205-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose%208-47a248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
@@ -544,7 +544,7 @@ Clearfeed includes a native mobile client in the [`mobile/`](./mobile) directory
 - **Twitter "Lights Out" Aesthetic**: Deep AMOLED black `#000000`, surface card `#16181c`, borders `#2f3336`, and Twitter blue `#1d9bf0`.
 - **VS Code CodeBlock Component**: Multi-file tabbed code viewer with line numbers and 1-tap copy to clipboard via `expo-clipboard`.
 - **Gesture-Driven UX**: Pull-to-refresh (`RefreshControl`), smooth tab switching, and native OS share sheets.
-- **Configurable Backend Target**: 1-tap host switcher to seamlessly toggle between production (`clearfeed518.up.railway.app`), local Wi-Fi, or Android emulator (`10.0.2.2`).
+- **Configurable Backend Target**: 1-tap host switcher to seamlessly toggle between production (`social-media-application-production-e75d.up.railway.app`), local Wi-Fi, or Android emulator (`10.0.2.2`).
 
 ```bash
 # Start Expo development server:
@@ -617,7 +617,7 @@ GEMINI_MODEL=gemini-3.5-flash-lite
 **Frontend (`client/.env`):**
 
 ```env
-VITE_API_URL=https://clearfeed518.up.railway.app
+VITE_API_URL=https://social-media-application-production-e75d.up.railway.app
 ```
 
 ---
