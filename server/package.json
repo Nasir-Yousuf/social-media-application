@@ -8,13 +8,14 @@
     "dev": "nodemon server.js",
     "clean": "node scripts/cleanData.js",
     "seed": "node seeds/seedData.js",
-    "test": "node scripts/verifySecurity.js && node scripts/verifyProxySecurity.js && node scripts/verifySanitizationAndErrors.js && node scripts/verifyCursorPagination.js && node scripts/verifyMessaging.js && node scripts/verifyMessageDeduplication.js",
+    "test": "node scripts/verifySecurity.js && node scripts/verifyProxySecurity.js && node scripts/verifySanitizationAndErrors.js && node scripts/verifyCursorPagination.js && node scripts/verifyMessaging.js && node scripts/verifyMessageDeduplication.js && node scripts/verifyCallStateMachine.js",
     "test:security": "node scripts/verifySecurity.js",
     "test:proxy": "node scripts/verifyProxySecurity.js",
     "test:sanitize": "node scripts/verifySanitizationAndErrors.js",
     "test:cursor": "node scripts/verifyCursorPagination.js",
     "test:messaging": "node scripts/verifyMessaging.js",
-    "test:deduplication": "node scripts/verifyMessageDeduplication.js"
+    "test:deduplication": "node scripts/verifyMessageDeduplication.js",
+    "test:call-state": "node scripts/verifyCallStateMachine.js"
   },
   "keywords": [],
   "author": "",

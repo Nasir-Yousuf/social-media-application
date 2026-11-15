@@ -1,5 +1,5 @@
-import React from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Minimize2, Maximize2, Radio } from 'lucide-react';
+import React, { useState } from 'react';
+import { Phone, PhoneOff, Mic, MicOff, Minimize2, Maximize2, Radio, Settings } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
@@ -7,6 +7,7 @@ import AudioVisualizerWave from './AudioVisualizerWave';
 
 export const CallModal = () => {
   const { user: currentUser } = useAuth();
+  const [showDeviceSettings, setShowDeviceSettings] = useState(false);
   const {
     callState,
     activeCall,
@@ -16,6 +17,13 @@ export const CallModal = () => {
     isMinimized,
     localAudioStream,
     speakingUsers,
+    audioInputDevices,
+    audioOutputDevices,
+    selectedAudioInput,
+    selectedAudioOutput,
+    changeAudioInput,
+    changeAudioOutput,
+    refreshAudioDevices,
     acceptCall,
     rejectCall,
     endCall,
@@ -98,21 +106,85 @@ export const CallModal = () => {
         <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-sky-600/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Top Header controls */}
-        {isConnected && (
-          <div className="w-full flex justify-between items-center mb-4">
+        <div className="w-full flex justify-between items-center mb-3">
+          {isConnected ? (
             <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Connected
             </span>
+          ) : (
+            <span className="text-[11px] font-mono text-neutral-400">Clearfeed Voice</span>
+          )}
 
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={toggleMinimize}
-              className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
-              title="Minimize to PIP"
+              onClick={() => {
+                refreshAudioDevices();
+                setShowDeviceSettings((prev) => !prev);
+              }}
+              className={`p-1.5 rounded-full transition-colors ${
+                showDeviceSettings
+                  ? 'bg-sky-500/20 text-sky-500'
+                  : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+              }`}
+              title="Audio Devices"
+              aria-label="Audio devices"
             >
-              <Minimize2 className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </button>
+
+            {isConnected && (
+              <button
+                type="button"
+                onClick={toggleMinimize}
+                className="p-1.5 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                title="Minimize to PIP"
+              >
+                <Minimize2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Audio Device Selection Tray */}
+        {showDeviceSettings && (
+          <div className="w-full my-2 p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-900/90 border border-neutral-200 dark:border-neutral-800 text-left animate-fade-in text-xs space-y-2.5">
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 mb-1">
+                Microphone (Input)
+              </label>
+              <select
+                value={selectedAudioInput}
+                onChange={(e) => changeAudioInput(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                <option value="">Default Microphone</option>
+                {audioInputDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 mb-1">
+                Speaker / Headset (Output)
+              </label>
+              <select
+                value={selectedAudioOutput}
+                onChange={(e) => changeAudioOutput(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white text-xs outline-none focus:ring-1 focus:ring-sky-500"
+              >
+                <option value="">Default Output Device</option>
+                {audioOutputDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 

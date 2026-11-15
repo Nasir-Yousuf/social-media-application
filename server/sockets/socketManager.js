@@ -5,14 +5,13 @@ const User = require('../models/User');
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const Notification = require('../models/Notification');
+const callSessionManager = require('../services/callSessionManager');
 
 let ioInstance = null;
 
 // Track online users: userId -> { user: Object, socketIds: Set<string> }
 const onlineUsers = new Map();
 
-// Track active 1-on-1 calls: callId -> { caller, recipient, callType, status, createdAt }
-const activeCalls = new Map();
 
 // Track group call rooms: roomId -> Map<userId, { user: Object, isMuted: boolean, joinedAt: Date }>
 const groupCallRooms = new Map();
@@ -64,6 +63,7 @@ function initSocket(server) {
   });
 
   ioInstance = io;
+  callSessionManager.setIO(io);
 
   // Authentication Middleware
   io.use(async (socket, next) => {
@@ -137,29 +137,19 @@ function initSocket(server) {
     }));
     socket.emit('presence:online_users', onlineList);
 
-    // Check for any pending incoming calls waiting for this user ('calling' state -> transition to 'ringing')
-    for (const [callId, call] of activeCalls.entries()) {
-      const isTarget =
-        call.targetUserId === uId ||
-        (uname && call.targetUserId === uname) ||
-        call.targetId === uId ||
-        (uname && call.targetUsername === uname);
+    // Reconnection Grace handler: Cancel pending disconnect grace timer if user reconnected within 15s
+    callSessionManager.handleSocketReconnect(uId);
 
-      if (isTarget && call.status === 'calling') {
-        call.status = 'ringing';
-        // Notify caller that call is now ringing
-        const callerId = call.caller?._id || call.caller;
-        if (callerId) {
-          ioInstance?.to(`user:${callerId}`).emit('call:ringing', {
-            callId: call.callId,
-            targetUserId: uId,
-          });
-        }
+    // Check for any pending incoming calls waiting for this user in callSessionManager
+    for (const [callId, session] of callSessionManager.sessions.entries()) {
+      const isTarget = session.calleeId === uId;
+      if (isTarget && session.status === 'initiated') {
+        callSessionManager.setRinging(callId);
         // Ring recipient who just came online
         socket.emit('call:incoming', {
-          callId: call.callId,
-          caller: call.caller,
-          callType: call.callType,
+          callId: session.callId,
+          caller: session.callerInfo,
+          callType: session.callType,
         });
       }
     }
@@ -601,26 +591,6 @@ function initSocket(server) {
         createdAt: new Date(),
       };
 
-      // Set timeout for unanswered call (45 seconds)
-      const timeoutTimer = setTimeout(() => {
-        const pendingCall = activeCalls.get(callId);
-        if (pendingCall && pendingCall.status !== 'connected') {
-          activeCalls.delete(callId);
-          io.to(`user:${effectiveCallerId}`).emit('call:ended', {
-            callId,
-            reason: 'no_answer',
-            message: 'No answer',
-          });
-          io.to(`user:${normTargetUserId}`).emit('call:ended', {
-            callId,
-            reason: 'no_answer',
-          });
-        }
-      }, 45000);
-
-      callData.timeoutTimer = timeoutTimer;
-      activeCalls.set(callId, callData);
-
       // Resolve target user by ObjectId or by username
       let targetUserDoc = null;
       try {
@@ -639,138 +609,181 @@ function initSocket(server) {
       callData.targetId = targetId;
       callData.targetUsername = targetUsername;
 
-      // Check if target user has active sockets in room or in online presence
-      const targetIdRoom = io.sockets.adapter.rooms.get(`user:${targetId}`);
-      const targetUserRoom = targetUsername ? io.sockets.adapter.rooms.get(`user:${targetUsername}`) : null;
-      const rawTargetRoom = normTargetUserId !== targetId ? io.sockets.adapter.rooms.get(`user:${normTargetUserId}`) : null;
-      const idSockets = targetIdRoom ? targetIdRoom.size : 0;
-      const userSockets = targetUserRoom ? targetUserRoom.size : 0;
-      const rawSockets = rawTargetRoom ? rawTargetRoom.size : 0;
-      const hasActiveSockets = idSockets > 0 || userSockets > 0 || rawSockets > 0;
-      const isOnline = onlineUsers.has(targetId) || (targetUsername && onlineUsers.has(targetUsername)) || hasActiveSockets;
-
-      if (isOnline) {
-        callData.status = 'ringing';
-        socket.emit('call:ringing', { callId, targetUserId: targetId });
-      }
-
-      // ALWAYS emit call:incoming to all valid candidate rooms for this recipient
-      const incomingPayload = {
-        callId,
-        caller: callerPayload,
-        callType,
-      };
-
-      const recipientRooms = new Set([`user:${targetId}`]);
-      if (targetUsername) recipientRooms.add(`user:${targetUsername}`);
-      if (normTargetUserId) recipientRooms.add(`user:${normTargetUserId}`);
-
-      for (const room of recipientRooms) {
-        io.to(room).emit('call:incoming', incomingPayload);
-      }
-
-      console.log(`📞 [Call Started] from ${effectiveCallerId} to ${targetId} (@${targetUsername || 'unknown'}) (callId: ${callId}, online: ${isOnline}, sockets: ${idSockets}/${userSockets})`);
-
-      // Wake mobile device via push notification if backgrounded
       try {
-        const { sendPushToUser } = require('../services/pushNotificationService');
-        sendPushToUser(targetId, {
-          title: `📞 Incoming Call from ${callerPayload.name || callerPayload.username}`,
-          body: `Tap to answer incoming ${callType} call`,
-          data: {
-            type: 'incoming_call',
+        // Delegate to Server-Authoritative Call Session Manager
+        const initResult = await callSessionManager.initiateCall({
+          callId,
+          callerId: effectiveCallerId,
+          calleeId: targetId,
+          callerInfo: callerPayload,
+          calleeInfo: targetUserDoc
+            ? {
+                _id: targetId,
+                name: targetUserDoc.name,
+                username: targetUserDoc.username,
+                avatarUrl: targetUserDoc.avatarUrl,
+              }
+            : { _id: targetId, name: 'Callee' },
+          callType,
+          socket,
+        });
+
+        if (initResult.error) {
+          if (initResult.error === 'glare_superseded') {
+            console.log(`⚔️ [Glare Superseded] ${effectiveCallerId} -> ${targetId}, winning call: ${initResult.winningCallId}`);
+            socket.emit('call:busy', {
+              callId,
+              reason: 'glare_superseded',
+              winningCallId: initResult.winningCallId,
+            });
+            return;
+          }
+
+          if (initResult.error === 'busy') {
+            socket.emit('call:busy', {
+              callId,
+              reason: initResult.reason || 'callee_busy',
+              targetUserId: targetId,
+            });
+            socket.emit('call:rejected', {
+              callId,
+              reason: 'busy',
+            });
+            return;
+          }
+
+          socket.emit('call:ended', {
             callId,
-            caller: callerPayload,
-            callType,
-          },
-        }).catch(() => {});
-      } catch {}
-    });
-
-    // Accept Call
-    socket.on('call:accept', ({ callId, targetUserId }) => {
-      const call = activeCalls.get(callId);
-      if (call) {
-        if (call.timeoutTimer) {
-          clearTimeout(call.timeoutTimer);
-          call.timeoutTimer = null;
+            reason: initResult.error,
+          });
+          return;
         }
-        call.status = 'connected';
-        call.connectedAt = new Date();
-      }
 
-      // Join the responder to the call room
-      if (callId) {
-        socket.join(`call:${callId}`);
-      }
+        if (initResult.duplicate) {
+          return;
+        }
 
-      const responderId = (socket.userId || socket.user?._id || '').toString();
-      const callerId = call?.caller?._id?.toString() || targetUserId;
+        // Check if target user has active sockets in room or in online presence
+        const targetIdRoom = io.sockets.adapter.rooms.get(`user:${targetId}`);
+        const targetUserRoom = targetUsername ? io.sockets.adapter.rooms.get(`user:${targetUsername}`) : null;
+        const rawTargetRoom = normTargetUserId !== targetId ? io.sockets.adapter.rooms.get(`user:${normTargetUserId}`) : null;
+        const idSockets = targetIdRoom ? targetIdRoom.size : 0;
+        const userSockets = targetUserRoom ? targetUserRoom.size : 0;
+        const rawSockets = rawTargetRoom ? rawTargetRoom.size : 0;
+        const hasActiveSockets = idSockets > 0 || userSockets > 0 || rawSockets > 0;
+        const isOnline = onlineUsers.has(targetId) || (targetUsername && onlineUsers.has(targetUsername)) || hasActiveSockets;
 
-      const acceptPayload = {
-        callId,
-        responder: {
-          _id: responderId,
-          name: socket.user?.name,
-          username: socket.user?.username,
-          avatarUrl: socket.user?.avatarUrl,
-        },
-      };
+        if (isOnline) {
+          callSessionManager.setRinging(callId);
+        }
 
-      if (callerId) {
-        io.to(`user:${callerId}`).emit('call:accepted', acceptPayload);
+        // ALWAYS emit call:incoming to all valid candidate rooms for this recipient
+        const incomingPayload = {
+          callId,
+          caller: callerPayload,
+          callType,
+        };
+
+        const recipientRooms = new Set([`user:${targetId}`]);
+        if (targetUsername) recipientRooms.add(`user:${targetUsername}`);
+        if (normTargetUserId) recipientRooms.add(`user:${normTargetUserId}`);
+
+        for (const room of recipientRooms) {
+          io.to(room).emit('call:incoming', incomingPayload);
+        }
+
+        console.log(`📞 [Call Started] from ${effectiveCallerId} to ${targetId} (@${targetUsername || 'unknown'}) (callId: ${callId}, online: ${isOnline}, sockets: ${idSockets}/${userSockets})`);
+
+        // Wake mobile device via push notification if backgrounded
+        try {
+          const { sendPushToUser } = require('../services/pushNotificationService');
+          sendPushToUser(targetId, {
+            title: `📞 Incoming Call from ${callerPayload.name || callerPayload.username}`,
+            body: `Tap to answer incoming ${callType} call`,
+            data: {
+              type: 'incoming_call',
+              callId,
+              caller: callerPayload,
+              callType,
+            },
+          }).catch(() => {});
+        } catch {}
+      } catch (err) {
+        console.error('Call initiate error:', err.message);
+        socket.emit('call:ended', { callId, reason: 'internal_error' });
       }
-      if (callId) {
-        socket.to(`call:${callId}`).emit('call:accepted', acceptPayload);
-      }
-      console.log(`📞 [Call Accepted] ${callId} by ${responderId} -> caller ${callerId}`);
     });
 
-    // Reject / Decline Call
-    socket.on('call:reject', ({ callId, targetUserId, reason = 'declined' }) => {
-      const call = activeCalls.get(callId);
-      if (call && call.timeoutTimer) {
-        clearTimeout(call.timeoutTimer);
-      }
-      activeCalls.delete(callId);
+    // Cancel Call (Caller cancels before answer)
+    socket.on('call:cancel', async ({ callId, targetUserId, reason = 'cancelled' } = {}) => {
+      const callerId = (socket.userId || socket.user?._id || '').toString();
       if (callId) {
         socket.leave(`call:${callId}`);
       }
-      const callerId = call?.caller?._id?.toString() || targetUserId;
+      await callSessionManager.cancelCall({ callId, callerId, reason });
+      console.log(`📞 [Call Cancelled] ${callId} by caller ${callerId}`);
+    });
+
+    // Accept Call
+    socket.on('call:accept', async ({ callId, targetUserId }) => {
+      if (callId) {
+        socket.join(`call:${callId}`);
+      }
+      const responderId = (socket.userId || socket.user?._id || '').toString();
+      await callSessionManager.acceptCall({
+        callId,
+        responderId,
+        socketId: socket.id,
+        socket,
+      });
+      console.log(`📞 [Call Accepted] ${callId} by ${responderId}`);
+    });
+
+    // Reject / Decline Call
+    socket.on('call:reject', async ({ callId, targetUserId, reason = 'declined' } = {}) => {
+      if (callId) {
+        socket.leave(`call:${callId}`);
+      }
+      const responderId = (socket.userId || socket.user?._id || '').toString();
+      const session = callSessionManager.sessions.get(callId);
+      const callerId = session ? session.callerId : targetUserId;
+
+      await callSessionManager.rejectCall({
+        callId,
+        responderId,
+        reason,
+      });
+
+      // Also emit call:rejected for legacy listeners
       if (callerId) {
         io.to(`user:${callerId}`).emit('call:rejected', {
           callId,
           reason,
         });
       }
-      console.log(`📞 [Call Rejected] ${callId} reason: ${reason} -> caller ${callerId}`);
+      console.log(`📞 [Call Rejected] ${callId} reason: ${reason} by ${responderId}`);
     });
 
     // End / Hangup Call
-    socket.on('call:end', ({ callId, targetUserId }) => {
-      const call = activeCalls.get(callId);
-      if (call && call.timeoutTimer) {
-        clearTimeout(call.timeoutTimer);
-      }
-      activeCalls.delete(callId);
+    socket.on('call:end', async ({ callId, targetUserId, reason = 'completed' } = {}) => {
       if (callId) {
         socket.leave(`call:${callId}`);
       }
       const endedById = (socket.userId || socket.user?._id || '').toString();
-      const otherId = targetUserId || (call?.caller?._id?.toString() === endedById ? call?.targetUserId : call?.caller?._id?.toString());
-      if (otherId) {
-        io.to(`user:${otherId}`).emit('call:ended', {
-          callId,
-          endedBy: endedById,
-        });
+      await callSessionManager.endCall({
+        callId,
+        endedById,
+        reason,
+      });
+      console.log(`📞 [Call Ended] ${callId} endedBy: ${endedById}`);
+    });
+
+    // Heartbeat Ping from client (5s interval while call is active)
+    socket.on('call:heartbeat', ({ callId }) => {
+      const uId = socket.userId || socket.user?._id;
+      if (callId && uId) {
+        callSessionManager.recordHeartbeat(callId, uId);
       }
-      if (callId) {
-        socket.to(`call:${callId}`).emit('call:ended', {
-          callId,
-          endedBy: endedById,
-        });
-      }
-      console.log(`📞 [Call Ended] ${callId} endedBy: ${endedById} -> other ${otherId}`);
     });
 
     // WebRTC Signaling Relay (SDP Offer, SDP Answer, ICE Candidates)
@@ -778,7 +791,13 @@ function initSocket(server) {
       if (!signal) return;
       const fromId = (fromUserId || socket.userId || socket.user?._id || '').toString();
 
-      console.log(`📡 [WebRTC Signal] callId: ${callId}, from: ${fromId}, to: ${targetUserId}, type: ${signal?.type}`);
+      // Track ICE restart count if signal indicates ice restart
+      if (signal.type === 'offer' && signal.sdp?.sdp?.includes('ice-restart') && callId) {
+        const session = callSessionManager.sessions.get(callId);
+        if (session) {
+          session.iceRestartCount = (session.iceRestartCount || 0) + 1;
+        }
+      }
 
       // 1. Relay through the dedicated call room (excluding sender)
       if (callId) {
@@ -1091,25 +1110,10 @@ function initSocket(server) {
         }
       }
 
-      // Cleanup any active calls this socket was engaged in ONLY if user has no remaining sockets online
+      // Hand off socket disconnect to CallSessionManager (handles 15s grace period or immediate cancel)
       const hasRemainingSockets = currentUserId && onlineUsers.has(currentUserId) && onlineUsers.get(currentUserId).socketIds.size > 0;
-      if (!hasRemainingSockets) {
-        for (const [callId, call] of activeCalls.entries()) {
-          if (call.caller?._id?.toString() === currentUserId || call.targetUserId === currentUserId || call.targetId === currentUserId) {
-            if (call.timeoutTimer) {
-              clearTimeout(call.timeoutTimer);
-            }
-            const otherUserId =
-              call.caller?._id?.toString() === currentUserId ? (call.targetId || call.targetUserId) : call.caller?._id?.toString();
-            if (otherUserId) {
-              io.to(`user:${otherUserId}`).emit('call:ended', {
-                callId,
-                reason: 'disconnected',
-              });
-            }
-            activeCalls.delete(callId);
-          }
-        }
+      if (!hasRemainingSockets && currentUserId) {
+        callSessionManager.handleSocketDisconnect(currentUserId, socket.id);
       }
 
       // Cleanup group calls

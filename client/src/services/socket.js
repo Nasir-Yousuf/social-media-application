@@ -170,6 +170,10 @@ class SocketService {
     this.emit('call:accept', { callId, targetUserId });
   }
 
+  cancelCall({ callId, targetUserId, reason = 'cancelled' }) {
+    this.emit('call:cancel', { callId, targetUserId, reason });
+  }
+
   rejectCall({ callId, targetUserId, reason = 'declined' }) {
     this.emit('call:reject', { callId, targetUserId, reason });
   }
