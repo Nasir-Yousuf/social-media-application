@@ -338,6 +338,40 @@ export const MeshConversationScreen = ({ route, navigation }) => {
                   style={{ marginLeft: 4 }}
                 />
               )}
+              {!isBroadcast && (
+                <View
+                  style={{
+                    marginLeft: 6,
+                    paddingHorizontal: 6,
+                    paddingVertical: 1,
+                    borderRadius: 4,
+                    borderWidth: 1,
+                    borderColor:
+                      currentPeer?.activeTransport === 'LAN' || currentPeer?.transports?.includes('LAN')
+                        ? '#10B981'
+                        : '#38BDF8',
+                    backgroundColor:
+                      currentPeer?.activeTransport === 'LAN' || currentPeer?.transports?.includes('LAN')
+                        ? 'rgba(16,185,129,0.15)'
+                        : 'rgba(56,189,248,0.15)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '800',
+                      color:
+                        currentPeer?.activeTransport === 'LAN' || currentPeer?.transports?.includes('LAN')
+                          ? '#10B981'
+                          : '#38BDF8',
+                    }}
+                  >
+                    {currentPeer?.transports && currentPeer?.transports.length > 1
+                      ? currentPeer.transports.join(' · ')
+                      : currentPeer?.activeTransport || 'BLE'}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text
               style={[styles.headerFingerprint, { color: currentColors.textSecondary }]}

@@ -10,6 +10,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 
 class ClearFeedBleMeshModule : Module() {
     private var meshService: BleMeshService? = null
+    private var lanService: LanWifiMeshService? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun definition() = ModuleDefinition {
@@ -21,14 +22,20 @@ class ClearFeedBleMeshModule : Module() {
             "onPeerLost",
             "onChunkReceived",
             "onNeighborWriteComplete",
-            "onTransportStateChanged"
+            "onTransportStateChanged",
+            "onLanPeerDiscovered",
+            "onLanPeerLost",
+            "onTcpFrameReceived",
+            "onLanTransportStateChanged"
         )
 
         OnCreate {
             val ctx = appContext.reactContext ?: appContext.currentActivity?.applicationContext
             if (ctx != null) {
                 meshService = BleMeshService(ctx)
+                lanService = LanWifiMeshService(ctx)
 
+                // 1. BLE Event Callbacks
                 meshService?.onPeerDiscovered = { peerId, peerAddress, rssi, nickname, mtu, truncatedPubkey ->
                     mainHandler.post {
                         sendEvent("onPeerDiscovered", mapOf(
@@ -87,9 +94,51 @@ class ClearFeedBleMeshModule : Module() {
                         sendEvent("onMeshPacketReceived", mapOf("raw" to rawString))
                     }
                 }
+
+                // 2. High-Speed LAN & Wi-Fi Direct Event Callbacks
+                lanService?.onLanPeerDiscovered = { peerId, ip, port, pubKeyPrefix, nickname, transport ->
+                    mainHandler.post {
+                        sendEvent("onLanPeerDiscovered", mapOf(
+                            "peerId" to peerId,
+                            "ip" to ip,
+                            "port" to port,
+                            "pubKeyPrefix" to pubKeyPrefix,
+                            "nickname" to nickname,
+                            "transport" to transport
+                        ))
+                    }
+                }
+
+                lanService?.onLanPeerLost = { peerId ->
+                    mainHandler.post {
+                        sendEvent("onLanPeerLost", mapOf("peerId" to peerId))
+                    }
+                }
+
+                lanService?.onTcpFrameReceived = { remoteIp, remotePort, frameHex ->
+                    mainHandler.post {
+                        sendEvent("onTcpFrameReceived", mapOf(
+                            "remoteIp" to remoteIp,
+                            "remotePort" to remotePort,
+                            "frameHex" to frameHex
+                        ))
+                    }
+                }
+
+                lanService?.onLanTransportStateChanged = { isServerRunning, port, peerCount, isWifiDirectActive ->
+                    mainHandler.post {
+                        sendEvent("onLanTransportStateChanged", mapOf(
+                            "isServerRunning" to isServerRunning,
+                            "port" to port,
+                            "peerCount" to peerCount,
+                            "isWifiDirectActive" to isWifiDirectActive
+                        ))
+                    }
+                }
             }
         }
 
+        // --- BLE Functions ---
         AsyncFunction("startMesh") { nodeId: String, truncatedPubkeyHex: String?, syncHashHex: String? ->
             meshService?.start(nodeId, truncatedPubkeyHex ?: "", syncHashHex ?: "") ?: false
         }
@@ -108,7 +157,6 @@ class ClearFeedBleMeshModule : Module() {
         }
 
         AsyncFunction("sendBlePacket") { payloadString: String ->
-            // Legacy wrapper: sends string payload
             val hex = payloadString.toByteArray().joinToString("") { "%02x".format(it) }
             meshService?.sendChunk(null, hex) ?: false
         }
@@ -121,6 +169,7 @@ class ClearFeedBleMeshModule : Module() {
             meshService?.getConnectedPeersList() ?: emptyList<Map<String, Any>>()
         }
 
+        // --- Foreground Service Functions ---
         AsyncFunction("startForegroundService") { title: String?, body: String? ->
             val ctx = appContext.reactContext ?: appContext.currentActivity?.applicationContext
             if (ctx != null) {
@@ -139,6 +188,42 @@ class ClearFeedBleMeshModule : Module() {
             } else {
                 false
             }
+        }
+
+        // --- High-Speed Local LAN (mDNS + TCP/UDP) Functions ---
+        AsyncFunction("startLanTransport") { nodeId: String, pubKeyPrefix: String, port: Int? ->
+            val targetPort = port ?: LanWifiMeshService.DEFAULT_LAN_PORT
+            lanService?.start(nodeId, pubKeyPrefix, targetPort) ?: false
+        }
+
+        AsyncFunction("stopLanTransport") {
+            lanService?.stop()
+            true
+        }
+
+        AsyncFunction("startWifiDirect") { nodeId: String, pubKeyPrefix: String, port: Int? ->
+            val targetPort = port ?: LanWifiMeshService.DEFAULT_LAN_PORT
+            lanService?.startWifiDirect(nodeId, pubKeyPrefix, targetPort) ?: false
+        }
+
+        AsyncFunction("stopWifiDirect") {
+            lanService?.stopWifiDirect()
+            true
+        }
+
+        AsyncFunction("sendTcpFrame") { peerIp: String, port: Int, frameHex: String ->
+            if (frameHex.length % 2 != 0) return@AsyncFunction false
+            val bytes = frameHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            lanService?.sendTcpFrame(peerIp, port, bytes) ?: false
+        }
+
+        AsyncFunction("broadcastLanBeacon") {
+            lanService?.broadcastLanBeacon()
+            true
+        }
+
+        AsyncFunction("getLanPeers") {
+            lanService?.getDiscoveredPeersList() ?: emptyList<Map<String, Any>>()
         }
     }
 }

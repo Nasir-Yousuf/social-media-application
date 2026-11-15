@@ -1,5 +1,6 @@
 import { MeshEnvelope } from '../protocol/wireProtocol';
 import socketService from '../../services/socket';
+import desktopLanTransport, { CFM1_LAN_PORT, CFM1_MDNS_SERVICE_TYPE } from './lanTransport';
 
 export enum TransportState {
   INITIALIZING = 'INITIALIZING',
@@ -18,6 +19,7 @@ class DesktopMeshTransportManager {
   private packetListeners: Set<(envelope: MeshEnvelope) => void> = new Set();
   private broadcastChannel: BroadcastChannel | null = null;
   private isSocketBound = false;
+  private lanPeerCount = 0;
 
   constructor() {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -41,6 +43,21 @@ class DesktopMeshTransportManager {
         });
       }
     } catch {}
+
+    // Integrate High-Speed LAN Transport
+    desktopLanTransport.onPacket((envelope: MeshEnvelope) => {
+      this.emitIncomingPacket(envelope);
+    });
+
+    desktopLanTransport.onPeers((peers) => {
+      this.lanPeerCount = peers.length;
+      if (this.lanPeerCount > 0) {
+        this.currentState = TransportState.CONNECTED_PEERS;
+      } else if (this.currentState === TransportState.CONNECTED_PEERS) {
+        this.currentState = TransportState.READY_OFFLINE;
+      }
+      this.notifyState();
+    });
   }
 
   public async initialize(): Promise<void> {
@@ -58,7 +75,10 @@ class DesktopMeshTransportManager {
       } catch (err: any) {
         console.warn('[DesktopMeshTransport] Socket connect notice:', err?.message);
       }
-      this.currentState = TransportState.READY_OFFLINE;
+
+      await desktopLanTransport.start();
+
+      this.currentState = this.lanPeerCount > 0 ? TransportState.CONNECTED_PEERS : TransportState.READY_OFFLINE;
       this.notifyState();
     } catch {
       this.currentState = TransportState.UNSUPPORTED;
@@ -111,6 +131,15 @@ class DesktopMeshTransportManager {
     } catch (err: any) {
       console.warn('[DesktopMeshTransport] Socket emit warning:', err?.message);
     }
+
+    // High-speed LAN transmission to local subnet peers
+    try {
+      const diag = desktopLanTransport.getDiagnostics();
+      for (const peer of diag.connectedLanPeers) {
+        desktopLanTransport.sendTcpFrame(peer.ip, peer.port, envelope).catch(() => {});
+      }
+    } catch {}
+
     return true;
   }
 
@@ -129,7 +158,7 @@ class DesktopMeshTransportManager {
       case TransportState.PERMISSIONS_NEEDED:
         return 'Nearby device permissions are required to discover and connect to local Mesh peers.';
       case TransportState.CONNECTED_PEERS:
-        return 'Connected to nearby mesh peers. Offline encrypted communication active.';
+        return `Connected to nearby mesh peers (${this.lanPeerCount} active on LAN / hotspot). Offline encrypted communication active.`;
       case TransportState.UNSUPPORTED:
         return 'Direct Bluetooth mesh transport is currently unavailable on this desktop system. Protocol core active.';
       default:

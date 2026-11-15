@@ -1,6 +1,8 @@
 export const CFM1_SERVICE_UUID = '0000CFM1-0000-1000-8000-00805F9B34FB';
 export const CFM1_TX_RX_FRAME_CHAR = '0000CFM2-0000-1000-8000-00805F9B34FB';
 export const CFM1_PEER_IDENTITY_CHAR = '0000CFM3-0000-1000-8000-00805F9B34FB';
+export const CFM1_MDNS_SERVICE_TYPE = '_clearfeed-mesh._tcp.';
+export const CFM1_DEFAULT_LAN_PORT = 49152;
 
 class MockEventEmitter {
   constructor() {
@@ -54,6 +56,15 @@ export const mockBleMesh = {
   getConnectedPeers: async () => [],
   startForegroundService: async () => true,
   stopForegroundService: async () => true,
+
+  // High-Speed LAN & Wi-Fi Direct methods
+  startLanTransport: async (nodeId, pubKeyPrefix, port) => true,
+  stopLanTransport: async () => true,
+  startWifiDirect: async (nodeId, pubKeyPrefix, port) => true,
+  stopWifiDirect: async () => true,
+  sendTcpFrame: async (peerIp, port, frameHex) => true,
+  broadcastLanBeacon: async () => true,
+  getLanPeers: async () => [],
 };
 
 const activeModule = NativeBleMesh || mockBleMesh;

@@ -262,6 +262,38 @@ export const MeshHomeScreen = ({ navigation }) => {
                   <Text style={[styles.radarNick, { color: currentColors.text }]} numberOfLines={1}>
                     {peer.nickname}
                   </Text>
+                  <View
+                    style={{
+                      paddingHorizontal: 5,
+                      paddingVertical: 1,
+                      borderRadius: 3,
+                      borderWidth: 1,
+                      marginTop: 2,
+                      borderColor:
+                        peer.activeTransport === 'LAN' || peer.transports?.includes('LAN')
+                          ? '#10B981'
+                          : '#38BDF8',
+                      backgroundColor:
+                        peer.activeTransport === 'LAN' || peer.transports?.includes('LAN')
+                          ? 'rgba(16,185,129,0.15)'
+                          : 'rgba(56,189,248,0.15)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 9,
+                        fontWeight: '800',
+                        color:
+                          peer.activeTransport === 'LAN' || peer.transports?.includes('LAN')
+                            ? '#10B981'
+                            : '#38BDF8',
+                      }}
+                    >
+                      {peer.transports && peer.transports.length > 1
+                        ? peer.transports.join(' · ')
+                        : peer.activeTransport || 'BLE'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))
             )}

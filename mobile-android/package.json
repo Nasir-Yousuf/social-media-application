@@ -51,7 +51,8 @@
     "test:calling": "node test/androidCalling.test.js --input-type=module",
     "test:spaces": "node test/androidSpaces.test.js --input-type=module",
     "test:ble": "node test/androidBleGatt.test.js --input-type=module",
-    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling && npm run test:spaces && npm run test:ble"
+    "test:lan": "node test/androidLanWifiMesh.test.js --input-type=module",
+    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling && npm run test:spaces && npm run test:ble && npm run test:lan"
   },
   "private": true
 }
