@@ -1,0 +1,40 @@
+{
+  "description": "Clearfeed Mesh (CFM1) Canonical Test Vectors",
+  "version": "1.0.0",
+  "nodes": {
+    "alice": {
+      "secretSeedHex": "0101010101010101010101010101010101010101010101010101010101010101",
+      "ed25519PublicKeyHex": "8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c"
+    },
+    "bob": {
+      "secretSeedHex": "0202020202020202020202020202020202020202020202020202020202020202",
+      "ed25519PublicKeyHex": "8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394"
+    },
+    "charlie": {
+      "secretSeedHex": "0303030303030303030303030303030303030303030303030303030303030303",
+      "ed25519PublicKeyHex": "dcbb406c646ef7d3910385eaec5f8ae9097782877a16f8efb9da2979ce9fca37"
+    }
+  },
+  "safetyNumber": {
+    "aliceBobFormatted": "73748 62420 42747 58671 75757 01637 08183 25217 00409 37261 55021 53760",
+    "aliceBobRawDigits": "737486242042747586717575701637081832521700409372615502153760",
+    "qrPayload": "cfm1:verify?a=8139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394&b=8a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c&sn=737486242042747586717575701637081832521700409372615502153760"
+  },
+  "sessionKeyDerivation": {
+    "aliceEphemeralSecretHex": "1010101010101010101010101010101010101010101010101010101010101010",
+    "bobEphemeralSecretHex": "2020202020202020202020202020202020202020202020202020202020202020",
+    "initiatorToResponderKeyHex": "89b2d3bd7c3b9de95f36edc209e7ad84082475f2bf9655c805c911c59f34e9a7",
+    "responderToInitiatorKeyHex": "5aacf33bbfd0103e610cf3e1aad27feb16f33e726d85f908dda71fa5ea7160e0"
+  },
+  "directEncryptedFrame": {
+    "plaintextUtf8": "Hello Clearfeed Mesh!",
+    "nonceHex": "070707070707070707070707",
+    "ciphertextHex": "3c3ed772b82b954059e20edf542e9bc0f04556f241",
+    "poly1305TagHex": "f8bc4540cce0faaff4036c9880dbfd8a",
+    "packetIdHex": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "timestampMs": "1700000000000",
+    "ttl": 5,
+    "hopCount": 0,
+    "ed25519SignatureHex": "24a71b829a955c8c6b2a80105acd89bb03284fd6453984a57d5cca380add25d329a04c3e94f12911d1d15538fb2d4469b10d47a8ee1c9f6e51024ce33e6dbf09"
+  }
+}
