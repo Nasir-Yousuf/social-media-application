@@ -770,6 +770,7 @@ export const CallProvider = ({ children }) => {
 
       ClearFeedTelecom.startCallAudio().catch(() => {});
       ClearFeedTelecom.setSpeakerphoneOn(true).catch(() => {});
+      ClearFeedTelecom.startCallForegroundService('Clearfeed Live Space', roomName).catch(() => {});
 
       socketService.joinGroupCall({
         roomId: finalRoomId,
@@ -790,6 +791,7 @@ export const CallProvider = ({ children }) => {
     if (groupCall) {
       socketService.leaveGroupCall({ roomId: groupCall.roomId });
     }
+    ClearFeedTelecom.stopCallForegroundService().catch(() => {});
     ClearFeedTelecom.stopCallAudio().catch(() => {});
     setCallState('idle');
     setGroupCall(null);

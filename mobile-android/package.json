@@ -48,7 +48,8 @@
     "test:shell": "node test/androidShellAndParity.test.js --input-type=module",
     "test:outbox": "node test/offlineOutbox.test.js --input-type=module",
     "test:calling": "node test/androidCalling.test.js --input-type=module",
-    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling"
+    "test:spaces": "node test/androidSpaces.test.js --input-type=module",
+    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling && npm run test:spaces"
   },
   "private": true
 }

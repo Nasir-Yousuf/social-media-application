@@ -109,6 +109,46 @@ class DesktopSocketService {
       this.socket.emit(event, data, callback);
     }
   }
+
+  // Spaces Live Audio Rooms
+  public joinSpace(data: { spaceId: string; user?: any }): void {
+    this.emit('spaces:join', data);
+    this.emit('space:join', data);
+  }
+
+  public leaveSpace(data: { spaceId: string }): void {
+    this.emit('spaces:leave', data);
+    this.emit('space:leave', data);
+  }
+
+  public raiseHand(data: { spaceId: string; raised: boolean }): void {
+    this.emit('spaces:request_speak', data);
+    this.emit('space:raise_hand', data);
+  }
+
+  public setRole(data: { spaceId: string; targetUserId: string; role: string }): void {
+    this.emit('space:set_role', data);
+  }
+
+  public toggleSpaceMute(data: { spaceId: string; isMuted: boolean }): void {
+    this.emit('spaces:toggle_mute', data);
+    this.emit('space:toggle_mute', data);
+  }
+
+  public sendSpeakingState(data: { spaceId: string; isSpeaking: boolean }): void {
+    this.emit('spaces:speaking_state', data);
+    this.emit('space:speaking_state', data);
+  }
+
+  public sendReaction(data: { spaceId: string; emoji: string; username?: string }): void {
+    this.emit('spaces:reaction', data);
+    this.emit('space:reaction', data);
+  }
+
+  public sendSpaceSignal(data: { spaceId: string; targetUserId: string; signal: any }): void {
+    this.emit('spaces:signal', data);
+    this.emit('space:signal', data);
+  }
 }
 
 export const socketService = new DesktopSocketService();

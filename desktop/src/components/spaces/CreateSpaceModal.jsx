@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Radio, X, Sparkles, Hash, Mic } from 'lucide-react';
+import { Radio, X, Sparkles, Hash, Mic, Globe, Lock, Users } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
 
 const TOPIC_PRESETS = [
@@ -16,7 +16,9 @@ const TOPIC_PRESETS = [
 export const CreateSpaceModal = ({ isOpen, onClose }) => {
   const { createSpace } = useCall();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [topic, setTopic] = useState('Tech & Code');
+  const [visibility, setVisibility] = useState('public');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -27,8 +29,15 @@ export const CreateSpaceModal = ({ isOpen, onClose }) => {
 
     try {
       setIsSubmitting(true);
-      await createSpace({ title: title.trim(), topic });
+      await createSpace({
+        title: title.trim(),
+        description: description.trim(),
+        topic,
+        topicTags: [topic],
+        visibility,
+      });
       setTitle('');
+      setDescription('');
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -38,10 +47,8 @@ export const CreateSpaceModal = ({ isOpen, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
       <div className="relative w-full max-w-md rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl p-6 overflow-hidden">
-        {/* Ambient Top Glow */}
         <div className="absolute -top-20 -right-20 w-52 h-52 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-sky-50 dark:bg-sky-500/10 text-sky-500 flex items-center justify-center">
@@ -67,7 +74,6 @@ export const CreateSpaceModal = ({ isOpen, onClose }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Space Title Input */}
           <div>
             <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
               What do you want to talk about?
@@ -88,13 +94,70 @@ export const CreateSpaceModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Topic Category Select / Chips */}
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+              Description (Optional)
+            </label>
+            <textarea
+              rows={2}
+              maxLength={200}
+              placeholder="Brief summary of room topics and rules..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-4 py-2 rounded-2xl bg-neutral-100 dark:bg-[#16181c] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white placeholder-neutral-500 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all text-xs resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-1.5">
+              Room Visibility
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setVisibility('public')}
+                className={`py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                  visibility === 'public'
+                    ? 'bg-sky-500/15 border-sky-500 text-sky-500'
+                    : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Public</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibility('community')}
+                className={`py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                  visibility === 'community'
+                    ? 'bg-sky-500/15 border-sky-500 text-sky-500'
+                    : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Community</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibility('private')}
+                className={`py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                  visibility === 'private'
+                    ? 'bg-sky-500/15 border-sky-500 text-sky-500'
+                    : 'border-neutral-200 dark:border-neutral-800 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Private</span>
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-neutral-700 dark:text-neutral-300 mb-2 flex items-center gap-1.5">
               <Hash className="w-3.5 h-3.5 text-sky-500" />
               <span>Select Category</span>
             </label>
-            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
               {TOPIC_PRESETS.map((t) => (
                 <button
                   type="button"
@@ -112,15 +175,13 @@ export const CreateSpaceModal = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Host Permissions Note */}
           <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-800 text-xs text-neutral-600 dark:text-neutral-400">
             <Mic className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-              Anyone with access can tune in as a listener. As host, you control mic permissions, invite speakers, and manage the stage.
+              Anyone with access can tune in as a listener. As host, you control mic permissions, approve hand-raises, and manage the stage.
             </p>
           </div>
 
-          {/* Submit Button */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"

@@ -188,14 +188,53 @@ class SocketService {
 
   // Audio Spaces
   joinSpace({ spaceId, user }) {
+    this.emit('spaces:join', { spaceId, user });
     this.emit('space:join', { spaceId, user });
   }
 
   leaveSpace({ spaceId }) {
+    this.emit('spaces:leave', { spaceId });
     this.emit('space:leave', { spaceId });
   }
 
+  requestSpeak({ spaceId }) {
+    this.emit('spaces:request_speak', { spaceId });
+  }
+
+  cancelRequest({ spaceId }) {
+    this.emit('spaces:cancel_request', { spaceId });
+  }
+
+  approveSpeak({ spaceId, targetUserId }) {
+    this.emit('spaces:approve_speak', { spaceId, targetUserId });
+  }
+
+  rejectSpeak({ spaceId, targetUserId }) {
+    this.emit('spaces:reject_speak', { spaceId, targetUserId });
+  }
+
+  forceMute({ spaceId, targetUserId }) {
+    this.emit('spaces:force_mute', { spaceId, targetUserId });
+  }
+
+  demoteToListener({ spaceId, targetUserId }) {
+    this.emit('spaces:demote_to_listener', { spaceId, targetUserId });
+  }
+
+  promoteCoHost({ spaceId, targetUserId }) {
+    this.emit('spaces:promote_cohost', { spaceId, targetUserId });
+  }
+
+  transferHost({ spaceId, newHostId }) {
+    this.emit('spaces:transfer_host', { spaceId, newHostId });
+  }
+
+  kickParticipant({ spaceId, targetUserId }) {
+    this.emit('spaces:kick_participant', { spaceId, targetUserId });
+  }
+
   raiseHand({ spaceId, raised }) {
+    this.emit('spaces:request_speak', { spaceId, raised });
     this.emit('space:raise_hand', { spaceId, raised });
   }
 
@@ -204,18 +243,22 @@ class SocketService {
   }
 
   toggleSpaceMute({ spaceId, isMuted }) {
+    this.emit('spaces:toggle_mute', { spaceId, isMuted });
     this.emit('space:toggle_mute', { spaceId, isMuted });
   }
 
   sendSpeakingState({ spaceId, isSpeaking }) {
+    this.emit('spaces:speaking_state', { spaceId, isSpeaking });
     this.emit('space:speaking_state', { spaceId, isSpeaking });
   }
 
   sendReaction({ spaceId, emoji, username }) {
+    this.emit('spaces:reaction', { spaceId, emoji, username });
     this.emit('space:reaction', { spaceId, emoji, username });
   }
 
   sendSpaceSignal({ spaceId, targetUserId, signal }) {
+    this.emit('spaces:signal', { spaceId, targetUserId, signal });
     this.emit('space:signal', { spaceId, targetUserId, signal });
   }
 

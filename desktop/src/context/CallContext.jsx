@@ -911,6 +911,51 @@ export const CallProvider = ({ children }) => {
       },
     );
 
+    const unsubSpeakerPromoted = socketService.on("spaces:speaker_promoted", () => {
+      setIsSpaceMuted(true);
+      showToast("You have been promoted to Speaker! Tap Unmute to speak.", "success");
+    });
+
+    const unsubSpeakRejected = socketService.on("spaces:speak_rejected", () => {
+      setIsHandRaised(false);
+      showToast("Your speak request was declined by a moderator.", "info");
+    });
+
+    const unsubForceMuted = socketService.on("spaces:force_muted", () => {
+      setIsSpaceMuted(true);
+      if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = false));
+      }
+      showToast("You have been muted by a moderator.", "info");
+    });
+
+    const unsubDemoted = socketService.on("spaces:demoted", () => {
+      setIsSpaceMuted(true);
+      if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = false));
+      }
+      showToast("You have been demoted back to Listeners.", "info");
+    });
+
+    const unsubKicked = socketService.on("spaces:kicked", () => {
+      setActiveSpace(null);
+      setIsSpacesModalOpen(false);
+      setIsSpaceMuted(true);
+      showToast("You were removed from this Space by a moderator.", "error");
+    });
+
+    const unsubHostDisconnected = socketService.on("space:host_disconnected", ({ graceRemainingSeconds }) => {
+      showToast(`Host disconnected. Co-hosts active; room grace: ${graceRemainingSeconds || 180}s`, "warning");
+    });
+
+    const unsubHostReconnected = socketService.on("space:host_reconnected", () => {
+      showToast("Room Host has reconnected!", "success");
+    });
+
+    const unsubHostTransferred = socketService.on("space:host_transferred", () => {
+      showToast("Room host privileges transferred.", "info");
+    });
+
     return () => {
       unsubIncoming();
       unsubRinging();
@@ -934,6 +979,14 @@ export const CallProvider = ({ children }) => {
       unsubSpaceEnded();
       unsubSpeaking();
       unsubReaction();
+      unsubSpeakerPromoted?.();
+      unsubSpeakRejected?.();
+      unsubForceMuted?.();
+      unsubDemoted?.();
+      unsubKicked?.();
+      unsubHostDisconnected?.();
+      unsubHostReconnected?.();
+      unsubHostTransferred?.();
     };
   }, [
     currentUser,
@@ -1312,6 +1365,90 @@ export const CallProvider = ({ children }) => {
     [activeSpace],
   );
 
+  const approveSpeak = useCallback(
+    (targetUserId) => {
+      if (!activeSpace) return;
+      socketService.emit("spaces:approve_speak", {
+        spaceId: activeSpace.id,
+        targetUserId,
+      });
+      showToast("Speaker approved", "success");
+    },
+    [activeSpace, showToast],
+  );
+
+  const rejectSpeak = useCallback(
+    (targetUserId) => {
+      if (!activeSpace) return;
+      socketService.emit("spaces:reject_speak", {
+        spaceId: activeSpace.id,
+        targetUserId,
+      });
+      showToast("Speaker request declined", "info");
+    },
+    [activeSpace, showToast],
+  );
+
+  const forceMuteSpeaker = useCallback(
+    (targetUserId) => {
+      if (!activeSpace) return;
+      socketService.emit("spaces:force_mute", {
+        spaceId: activeSpace.id,
+        targetUserId,
+      });
+      showToast("Force-muted participant", "info");
+    },
+    [activeSpace, showToast],
+  );
+
+  const demoteToListener = useCallback(
+    (targetUserId) => {
+      if (!activeSpace) return;
+      socketService.emit("spaces:demote_to_listener", {
+        spaceId: activeSpace.id,
+        targetUserId,
+      });
+      showToast("Demoted participant to listener", "info");
+    },
+    [activeSpace, showToast],
+  );
+
+  const promoteCoHost = useCallback(
+    (targetUserId) => {
+      if (!activeSpace) return;
+      socketService.emit("spaces:promote_cohost", {
+        spaceId: activeSpace.id,
+        targetUserId,
+      });
+      showToast("Promoted participant to Co-Host", "success");
+    },
+    [activeSpace, showToast],
+  );
+
+  const transferHost = useCallback(
+    (newHostId) => {
+      if (!activeSpace) return;
+      socketService.emit("spaces:transfer_host", {
+        spaceId: activeSpace.id,
+        newHostId,
+      });
+      showToast("Transferred room ownership", "info");
+    },
+    [activeSpace, showToast],
+  );
+
+  const kickParticipant = useCallback(
+    (targetUserId) => {
+      if (!activeSpace) return;
+      socketService.emit("spaces:kick_participant", {
+        spaceId: activeSpace.id,
+        targetUserId,
+      });
+      showToast("Removed participant from space", "info");
+    },
+    [activeSpace, showToast],
+  );
+
   const sendSpaceReaction = useCallback(
     (emoji) => {
       if (!activeSpace) return;
@@ -1324,11 +1461,37 @@ export const CallProvider = ({ children }) => {
     [activeSpace, currentUser],
   );
 
-  const isHost = activeSpace?.host?._id === currentUser?._id;
+  const isHost =
+    activeSpace?.host?._id === currentUser?._id ||
+    activeSpace?.hostId === currentUser?._id;
+
+  const isCoHost = Boolean(
+    activeSpace?.speakers?.some(
+      (s) =>
+        s.user?._id === currentUser?._id &&
+        (s.role === "CO_HOST" || s.role === "co-host"),
+    ),
+  );
+
+  const isModerator =
+    isHost ||
+    isCoHost ||
+    Boolean(
+      activeSpace?.speakers?.some(
+        (s) =>
+          s.user?._id === currentUser?._id &&
+          (s.role === "MODERATOR" || s.role === "moderator"),
+      ),
+    );
+
   const isSpeaker =
     isHost ||
-    (activeSpace?.speakers &&
-      activeSpace.speakers.some((s) => s.user?._id === currentUser?._id));
+    isCoHost ||
+    isModerator ||
+    Boolean(
+      activeSpace?.speakers &&
+        activeSpace.speakers.some((s) => s.user?._id === currentUser?._id),
+    );
 
   return (
     <CallContext.Provider
@@ -1385,6 +1548,8 @@ export const CallProvider = ({ children }) => {
         speakingUsers,
         spaceReactions,
         isHost,
+        isCoHost,
+        isModerator,
         isSpeaker,
         refreshSpaces,
         createSpace,
@@ -1393,6 +1558,13 @@ export const CallProvider = ({ children }) => {
         toggleSpaceMute,
         raiseHand,
         setParticipantRole,
+        approveSpeak,
+        rejectSpeak,
+        forceMuteSpeaker,
+        demoteToListener,
+        promoteCoHost,
+        transferHost,
+        kickParticipant,
         sendSpaceReaction,
       }}
     >

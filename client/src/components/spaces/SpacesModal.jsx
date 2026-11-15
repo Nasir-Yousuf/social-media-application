@@ -10,7 +10,13 @@ import {
   Maximize2,
   Users,
   Crown,
+  Shield,
+  ShieldCheck,
   LogOut,
+  Check,
+  UserX,
+  MoreVertical,
+  AlertTriangle,
 } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
 import { useAuth } from '../../context/AuthContext';
@@ -28,18 +34,28 @@ export const SpacesModal = () => {
     isSpaceMuted,
     isHandRaised,
     localAudioStream,
-    speakingUsers,
-    spaceReactions,
+    speakingUsers = new Set(),
+    spaceReactions = [],
     isHost,
+    isCoHost,
+    isModerator,
     isSpeaker,
     leaveSpace,
     toggleSpaceMute,
     raiseHand,
-    setParticipantRole,
+    approveSpeak,
+    rejectSpeak,
+    forceMuteSpeaker,
+    demoteToListener,
+    promoteCoHost,
+    transferHost,
+    kickParticipant,
     sendSpaceReaction,
   } = useCall();
 
   const [isMinimized, setIsMinimized] = useState(false);
+  const [showQueueDrawer, setShowQueueDrawer] = useState(false);
+  const [selectedUserMenu, setSelectedUserMenu] = useState(null); // userId
 
   if (!isSpacesModalOpen || !activeSpace) {
     return null;
@@ -48,6 +64,7 @@ export const SpacesModal = () => {
   const host = activeSpace.host || {};
   const speakers = activeSpace.speakers || [];
   const listeners = activeSpace.listeners || [];
+  const handRaiseQueue = activeSpace.handRaiseQueue || [];
   const totalCount = 1 + speakers.length + listeners.length;
   const isHostSpeaking = speakingUsers.has(host._id);
 
@@ -116,7 +133,7 @@ export const SpacesModal = () => {
   // 2. Full Audio Stage Interface
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
-      <div className="relative w-full max-w-2xl max-h-[90vh] rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-2xl max-h-[92vh] rounded-3xl bg-white dark:bg-[#121519] border border-neutral-200 dark:border-neutral-800 text-neutral-900 dark:text-white shadow-2xl flex flex-col overflow-hidden">
         {/* Background Ambient Lighting */}
         <div className="absolute -top-32 -left-32 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-sky-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -133,6 +150,16 @@ export const SpacesModal = () => {
             </div>
           ))}
         </div>
+
+        {/* Host Disconnected Grace Countdown Banner */}
+        {activeSpace.isHostDisconnected && (
+          <div className="bg-amber-500/20 border-b border-amber-500/30 px-6 py-2.5 flex items-center justify-between text-xs text-amber-500 font-semibold">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Host disconnected. Co-hosts active (180s reconnection grace window).
+            </span>
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/80 dark:bg-black/30 backdrop-blur-sm shrink-0">
@@ -152,16 +179,42 @@ export const SpacesModal = () => {
                   <Users className="w-3.5 h-3.5" />
                   {totalCount} participating
                 </span>
+                {activeSpace.mediaMode && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 uppercase font-semibold">
+                    {activeSpace.mediaMode === 'sfu' ? 'SFU' : 'P2P Mesh'}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Moderator Hand-Raise Queue Drawer Trigger */}
+            {isModerator && (
+              <button
+                type="button"
+                onClick={() => setShowQueueDrawer(!showQueueDrawer)}
+                className={`relative p-2 rounded-full transition-colors cursor-pointer ${
+                  showQueueDrawer || handRaiseQueue.length > 0
+                    ? 'bg-amber-500/20 text-amber-500'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400'
+                }`}
+                title="Hand-Raise Queue"
+              >
+                <Hand className="w-4 h-4" />
+                {handRaiseQueue.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-black flex items-center justify-center">
+                    {handRaiseQueue.length}
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsMinimized(true)}
               className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
-              title="Minimize to PIP"
+              title="Minimize to Floating Bar"
             >
               <Minimize2 className="w-4 h-4" />
             </button>
@@ -175,6 +228,74 @@ export const SpacesModal = () => {
             </button>
           </div>
         </div>
+
+        {/* Hand-Raise Queue Drawer (Visible for Host / Co-Host / Moderator) */}
+        {showQueueDrawer && isModerator && (
+          <div className="px-6 py-3 bg-amber-500/10 border-b border-amber-500/20 flex flex-col gap-2 max-h-48 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Hand className="w-3.5 h-3.5" />
+                Hand-Raise Queue ({handRaiseQueue.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowQueueDrawer(false)}
+                className="text-[11px] text-neutral-400 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+
+            {handRaiseQueue.length === 0 ? (
+              <p className="text-xs text-neutral-400 italic py-2">No pending speaker requests.</p>
+            ) : (
+              <div className="space-y-2">
+                {handRaiseQueue.map((reqUserId) => {
+                  const requester = listeners.find((l) => l.user?._id === reqUserId)?.user || {
+                    _id: reqUserId,
+                    name: 'Listener',
+                    username: 'user',
+                  };
+
+                  return (
+                    <div
+                      key={reqUserId}
+                      className="flex items-center justify-between p-2 rounded-xl bg-white/70 dark:bg-neutral-900/80 border border-neutral-200 dark:border-neutral-800"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar src={requester.avatarUrl} name={requester.name} size="sm" />
+                        <div>
+                          <p className="text-xs font-bold text-neutral-900 dark:text-white leading-none">
+                            {requester.name}
+                          </p>
+                          <p className="text-[10px] text-neutral-500">@{requester.username}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => approveSpeak(reqUserId)}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1"
+                        >
+                          <Check className="w-3 h-3" />
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectSpeak(reqUserId)}
+                          className="px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-rose-500/20 hover:text-rose-500 text-[11px] font-bold"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stage & Listeners Scroll Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
@@ -199,13 +320,13 @@ export const SpacesModal = () => {
                 <div className="relative mb-2">
                   {/* Glowing speaking ring */}
                   {isHostSpeaking && (
-                    <div className="absolute -inset-2 rounded-full bg-sky-500/30 animate-pulse blur-xs" />
+                    <div className="absolute -inset-2 rounded-full bg-emerald-500/30 animate-pulse blur-xs" />
                   )}
 
                   <div
                     className={`relative rounded-full ${
                       isHostSpeaking
-                        ? 'ring-3 ring-sky-500'
+                        ? 'ring-3 ring-emerald-500'
                         : 'ring-2 ring-neutral-200 dark:ring-neutral-700'
                     }`}
                   >
@@ -223,11 +344,10 @@ export const SpacesModal = () => {
                 <span className="text-xs font-bold text-neutral-900 dark:text-white truncate max-w-[110px]">
                   {host.name}
                 </span>
-                <span className="text-[10px] text-sky-500 font-bold uppercase tracking-wide">
+                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wide">
                   Host
                 </span>
 
-                {/* Real-time Audio Wave Effect for Host */}
                 <div className="mt-2.5 w-full flex justify-center h-6">
                   <AudioVisualizerWave
                     stream={isHost ? localAudioStream : null}
@@ -245,11 +365,12 @@ export const SpacesModal = () => {
                 const isSpeaking = speakingUsers.has(spkUser._id);
                 const isMe = spkUser._id === currentUser?._id;
                 const userMuted = isMe ? isSpaceMuted : spk.isMuted;
+                const role = spk.role || 'SPEAKER';
 
                 return (
                   <div
                     key={spkUser._id}
-                    className={`p-3.5 rounded-2xl border flex flex-col items-center text-center transition-all ${
+                    className={`relative p-3.5 rounded-2xl border flex flex-col items-center text-center transition-all ${
                       isSpeaking
                         ? 'bg-sky-50 dark:bg-sky-950/20 border-sky-500 shadow-md shadow-sky-500/10'
                         : 'bg-neutral-50 dark:bg-[#16181c] border-neutral-200 dark:border-neutral-800'
@@ -257,13 +378,13 @@ export const SpacesModal = () => {
                   >
                     <div className="relative mb-2">
                       {isSpeaking && (
-                        <div className="absolute -inset-2 rounded-full bg-sky-500/30 animate-pulse blur-xs" />
+                        <div className="absolute -inset-2 rounded-full bg-emerald-500/30 animate-pulse blur-xs" />
                       )}
 
                       <div
                         className={`relative rounded-full ${
                           isSpeaking
-                            ? 'ring-3 ring-sky-500'
+                            ? 'ring-3 ring-emerald-500'
                             : 'ring-2 ring-neutral-200 dark:ring-neutral-700'
                         }`}
                       >
@@ -278,16 +399,24 @@ export const SpacesModal = () => {
                       >
                         {userMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
                       </span>
+
+                      {role === 'CO_HOST' && (
+                        <span
+                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center shadow"
+                          title="Co-Host"
+                        >
+                          <ShieldCheck className="w-3 h-3" />
+                        </span>
+                      )}
                     </div>
 
                     <span className="text-xs font-bold text-neutral-900 dark:text-white truncate max-w-[110px]">
                       {spkUser.name} {isMe && '(You)'}
                     </span>
-                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-semibold uppercase">
-                      Speaker
+                    <span className="text-[10px] text-sky-500 dark:text-sky-400 font-semibold uppercase">
+                      {role === 'CO_HOST' ? 'Co-Host' : 'Speaker'}
                     </span>
 
-                    {/* Dynamic Audio Wave Effect for Speakers */}
                     <div className="mt-2.5 w-full flex justify-center h-6">
                       <AudioVisualizerWave
                         stream={isMe ? localAudioStream : null}
@@ -298,15 +427,88 @@ export const SpacesModal = () => {
                       />
                     </div>
 
-                    {/* Host action: demote speaker */}
-                    {isHost && spkUser._id !== currentUser?._id && (
-                      <button
-                        type="button"
-                        onClick={() => setParticipantRole(spkUser._id, 'listener')}
-                        className="mt-1.5 text-[10px] text-neutral-500 hover:text-rose-500 transition-colors"
-                      >
-                        Make Listener
-                      </button>
+                    {/* Moderator Action Menu Button */}
+                    {isModerator && !isMe && (
+                      <div className="mt-2 relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedUserMenu(selectedUserMenu === spkUser._id ? null : spkUser._id)
+                          }
+                          className="p-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-400"
+                        >
+                          <MoreVertical className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {selectedUserMenu === spkUser._id && (
+                          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 w-40 rounded-xl bg-white dark:bg-[#1a1d24] border border-neutral-200 dark:border-neutral-800 shadow-xl p-1 text-left text-xs font-medium space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                forceMuteSpeaker(spkUser._id);
+                                setSelectedUserMenu(null);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center gap-2"
+                            >
+                              <MicOff className="w-3.5 h-3.5 text-rose-500" />
+                              Mute Speaker
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                demoteToListener(spkUser._id);
+                                setSelectedUserMenu(null);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center gap-2"
+                            >
+                              <Users className="w-3.5 h-3.5 text-amber-500" />
+                              Make Listener
+                            </button>
+
+                            {isHost && role !== 'CO_HOST' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  promoteCoHost(spkUser._id);
+                                  setSelectedUserMenu(null);
+                                }}
+                                className="w-full px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sky-500 flex items-center gap-2"
+                              >
+                                <Shield className="w-3.5 h-3.5" />
+                                Make Co-Host
+                              </button>
+                            )}
+
+                            {isHost && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  transferHost(spkUser._id);
+                                  setSelectedUserMenu(null);
+                                }}
+                                className="w-full px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-amber-500 flex items-center gap-2"
+                              >
+                                <Crown className="w-3.5 h-3.5" />
+                                Transfer Host
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                kickParticipant(spkUser._id);
+                                setSelectedUserMenu(null);
+                              }}
+                              className="w-full px-2.5 py-1.5 rounded-lg hover:bg-rose-500/10 text-rose-500 flex items-center gap-2"
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                              Kick User
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 );
@@ -325,13 +527,13 @@ export const SpacesModal = () => {
 
             {listeners.length === 0 ? (
               <div className="py-6 text-center text-xs text-neutral-500 italic">
-                No listeners currently tuned in. Invite classmates to join the space!
+                No listeners currently tuned in. Share room link to invite listeners!
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                 {listeners.map((lst) => {
                   const lstUser = lst.user || {};
-                  const hasHandRaised = lst.raisedHand;
+                  const hasHandRaised = handRaiseQueue.includes(lstUser._id) || lst.raisedHandAt;
 
                   return (
                     <div key={lstUser._id} className="flex flex-col items-center text-center group">
@@ -352,18 +554,14 @@ export const SpacesModal = () => {
                         {lstUser.name}
                       </span>
 
-                      {/* Host can invite raised hand listener to stage */}
-                      {isHost && (
+                      {/* Moderator can invite raised hand listener to stage */}
+                      {isModerator && hasHandRaised && (
                         <button
                           type="button"
-                          onClick={() => setParticipantRole(lstUser._id, 'speaker')}
-                          className={`mt-1 text-[10px] px-2 py-0.5 rounded-full font-bold transition-all ${
-                            hasHandRaised
-                              ? 'bg-sky-500 hover:bg-sky-400 text-white animate-pulse'
-                              : 'text-neutral-500 hover:text-sky-500'
-                          }`}
+                          onClick={() => approveSpeak(lstUser._id)}
+                          className="mt-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-sky-500 hover:bg-sky-400 text-white animate-pulse"
                         >
-                          Invite
+                          Approve
                         </button>
                       )}
                     </div>

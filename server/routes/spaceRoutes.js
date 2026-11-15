@@ -7,5 +7,6 @@ router.get('/', optionalAuth, spaceController.getActiveSpaces);
 router.post('/', optionalAuth, spaceController.createSpace);
 router.get('/:id', optionalAuth, spaceController.getSpaceById);
 router.delete('/:id', optionalAuth, spaceController.endSpace);
+router.post('/:id/token', optionalAuth, spaceController.getSpaceToken);
 
 module.exports = router;

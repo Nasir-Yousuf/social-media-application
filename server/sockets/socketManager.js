@@ -6,6 +6,7 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const Notification = require('../models/Notification');
 const callSessionManager = require('../services/callSessionManager');
+const { spaceSessionManager, SpaceRole } = require('../services/spaceSessionManager');
 
 let ioInstance = null;
 
@@ -941,157 +942,244 @@ function initSocket(server) {
     });
 
     // ==========================================
-    // 4. TWITTER-STYLE LIVE AUDIO SPACES
+    // 4. SPACES LIVE SERVER-AUTHORITATIVE ENGINE
     // ==========================================
-    socket.on('space:join', ({ spaceId, user }) => {
+    const handleSpaceJoin = ({ spaceId, user }) => {
       const finalUserId = userId || user?._id || socket.id;
-      const { activeSpacesMap, formatSpace } = require('../controllers/spaceController');
-      const space = activeSpacesMap.get(spaceId);
-      if (!space) {
-        socket.emit('space:error', { message: 'Space not found' });
-        return;
-      }
+      try {
+        const userInfo = user || {
+          _id: finalUserId,
+          name: socket.user?.name || 'Visitor',
+          username: socket.user?.username || 'visitor',
+          avatarUrl: socket.user?.avatarUrl,
+        };
 
-      const userInfo = user || {
-        _id: finalUserId,
-        name: socket.user?.name || 'Visitor',
-        username: socket.user?.username || 'visitor',
-        avatarUrl: socket.user?.avatarUrl,
-      };
+        const result = spaceSessionManager.joinSpace(spaceId, userInfo, socket.id);
+        socket.join(`space:${spaceId}`);
 
-      socket.join(`space:${spaceId}`);
-
-      // If user is host or existing speaker, put in speakers map
-      if (space.host._id === finalUserId || space.speakers.has(finalUserId)) {
-        space.speakers.set(finalUserId, {
-          user: userInfo,
-          isMuted: false,
-          role: space.host._id === finalUserId ? 'host' : 'speaker',
-          socketId: socket.id,
+        socket.emit('spaces:joined', {
+          space: result.space,
+          participant: result.participant,
+          mediaToken: result.mediaToken,
         });
-      } else {
-        space.listeners.set(finalUserId, {
-          user: userInfo,
-          socketId: socket.id,
-        });
+
+        io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
+        io.emit('spaces:updated', { spaces: spaceSessionManager.getActiveSpaces() });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
       }
+    };
+    socket.on('spaces:join', handleSpaceJoin);
+    socket.on('space:join', handleSpaceJoin);
 
-      // Broadcast update to space room and globally
-      io.to(`space:${spaceId}`).emit('space:state_change', { space: formatSpace(space) });
-      io.emit('spaces:updated', { spaces: Array.from(activeSpacesMap.values()).map(formatSpace) });
-    });
-
-    socket.on('space:leave', ({ spaceId }) => {
+    const handleSpaceLeave = ({ spaceId }) => {
       const finalUserId = userId || socket.id;
-      const { activeSpacesMap, formatSpace } = require('../controllers/spaceController');
-      const space = activeSpacesMap.get(spaceId);
-      if (!space) return;
-
       socket.leave(`space:${spaceId}`);
-
-      // If host leaves, end space
-      if (space.host._id === finalUserId) {
-        activeSpacesMap.delete(spaceId);
-        io.to(`space:${spaceId}`).emit('space:ended', { spaceId });
-        io.emit('spaces:updated', { spaces: Array.from(activeSpacesMap.values()).map(formatSpace) });
-        return;
+      const updatedSpace = spaceSessionManager.leaveSpace(spaceId, finalUserId, socket.id, io);
+      if (updatedSpace) {
+        io.to(`space:${spaceId}`).emit('space:state_change', { space: updatedSpace });
       }
+      io.emit('spaces:updated', { spaces: spaceSessionManager.getActiveSpaces() });
+    };
+    socket.on('spaces:leave', handleSpaceLeave);
+    socket.on('space:leave', handleSpaceLeave);
 
-      space.speakers.delete(finalUserId);
-      space.listeners.delete(finalUserId);
-      space.handRaised.delete(finalUserId);
-
-      io.to(`space:${spaceId}`).emit('space:state_change', { space: formatSpace(space) });
-      io.emit('spaces:updated', { spaces: Array.from(activeSpacesMap.values()).map(formatSpace) });
-    });
-
-    socket.on('space:raise_hand', ({ spaceId, raised }) => {
+    const handleRequestSpeak = ({ spaceId, raised }) => {
       const finalUserId = userId || socket.id;
-      const { activeSpacesMap, formatSpace } = require('../controllers/spaceController');
-      const space = activeSpacesMap.get(spaceId);
-      if (!space) return;
-
-      if (raised) {
-        space.handRaised.add(finalUserId);
-      } else {
-        space.handRaised.delete(finalUserId);
+      try {
+        let space;
+        if (raised === false) {
+          space = spaceSessionManager.cancelRequest(spaceId, finalUserId);
+        } else {
+          space = spaceSessionManager.requestSpeak(spaceId, finalUserId);
+        }
+        io.to(`space:${spaceId}`).emit('space:state_change', { space });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
       }
+    };
+    socket.on('spaces:request_speak', handleRequestSpeak);
+    socket.on('spaces:cancel_request', ({ spaceId }) => handleRequestSpeak({ spaceId, raised: false }));
+    socket.on('space:raise_hand', handleRequestSpeak);
 
-      io.to(`space:${spaceId}`).emit('space:state_change', { space: formatSpace(space) });
+    socket.on('spaces:approve_speak', ({ spaceId, targetUserId }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const result = spaceSessionManager.approveSpeak(spaceId, finalUserId, targetUserId);
+        io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
+        io.to(`user:${targetUserId}`).emit('spaces:speaker_promoted', {
+          spaceId,
+          mediaToken: result.mediaToken,
+        });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
     });
 
+    socket.on('spaces:reject_speak', ({ spaceId, targetUserId }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const space = spaceSessionManager.rejectSpeak(spaceId, finalUserId, targetUserId);
+        io.to(`space:${spaceId}`).emit('space:state_change', { space });
+        io.to(`user:${targetUserId}`).emit('spaces:speak_rejected', { spaceId });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
+    });
+
+    const handleToggleMute = ({ spaceId, isMuted }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const space = spaceSessionManager.toggleMute(spaceId, finalUserId, isMuted);
+        io.to(`space:${spaceId}`).emit('space:state_change', { space });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
+    };
+    socket.on('spaces:toggle_mute', handleToggleMute);
+    socket.on('space:toggle_mute', handleToggleMute);
+
+    socket.on('spaces:force_mute', ({ spaceId, targetUserId }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const space = spaceSessionManager.forceMute(spaceId, finalUserId, targetUserId);
+        io.to(`space:${spaceId}`).emit('space:state_change', { space });
+        io.to(`user:${targetUserId}`).emit('spaces:force_muted', { spaceId });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
+    });
+
+    socket.on('spaces:demote_to_listener', ({ spaceId, targetUserId }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const result = spaceSessionManager.demoteToListener(spaceId, finalUserId, targetUserId);
+        io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
+        io.to(`user:${targetUserId}`).emit('spaces:demoted', {
+          spaceId,
+          mediaToken: result.mediaToken,
+        });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
+    });
+
+    socket.on('spaces:promote_cohost', ({ spaceId, targetUserId }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const result = spaceSessionManager.promoteCoHost(spaceId, finalUserId, targetUserId);
+        io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
+        io.to(`user:${targetUserId}`).emit('spaces:promoted_cohost', {
+          spaceId,
+          mediaToken: result.mediaToken,
+        });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
+    });
+
+    socket.on('spaces:transfer_host', ({ spaceId, newHostId }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const space = spaceSessionManager.transferHost(spaceId, finalUserId, newHostId);
+        io.to(`space:${spaceId}`).emit('space:host_transferred', {
+          spaceId,
+          newHostId,
+          reason: 'manual_transfer',
+        });
+        io.to(`space:${spaceId}`).emit('space:state_change', { space });
+        io.emit('spaces:updated', { spaces: spaceSessionManager.getActiveSpaces() });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
+    });
+
+    socket.on('spaces:kick_participant', ({ spaceId, targetUserId }) => {
+      const finalUserId = userId || socket.id;
+      try {
+        const result = spaceSessionManager.kickParticipant(spaceId, finalUserId, targetUserId);
+        for (const sId of result.kickedSocketIds) {
+          const s = io.sockets.sockets.get(sId);
+          if (s) {
+            s.leave(`space:${spaceId}`);
+            s.emit('spaces:kicked', { spaceId });
+          }
+        }
+        io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
+        io.emit('spaces:updated', { spaces: spaceSessionManager.getActiveSpaces() });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
+      }
+    });
+
+    // Backward compatibility helper
     socket.on('space:set_role', ({ spaceId, targetUserId, role }) => {
       const finalUserId = userId || socket.id;
-      const { activeSpacesMap, formatSpace } = require('../controllers/spaceController');
-      const space = activeSpacesMap.get(spaceId);
-      if (!space) return;
-
-      // Only host or admin can change roles
-      if (space.host._id !== finalUserId && socket.user?.role !== 'admin') return;
-
-      if (role === 'speaker') {
-        const listener = space.listeners.get(targetUserId);
-        if (listener) {
-          space.listeners.delete(targetUserId);
-          space.handRaised.delete(targetUserId);
-          space.speakers.set(targetUserId, {
-            user: listener.user,
-            isMuted: false,
-            role: 'speaker',
-            socketId: listener.socketId,
+      try {
+        if (role === 'speaker') {
+          const result = spaceSessionManager.approveSpeak(spaceId, finalUserId, targetUserId);
+          io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
+          io.to(`user:${targetUserId}`).emit('spaces:speaker_promoted', {
+            spaceId,
+            mediaToken: result.mediaToken,
+          });
+        } else if (role === 'listener') {
+          const result = spaceSessionManager.demoteToListener(spaceId, finalUserId, targetUserId);
+          io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
+          io.to(`user:${targetUserId}`).emit('spaces:demoted', {
+            spaceId,
+            mediaToken: result.mediaToken,
           });
         }
-      } else if (role === 'listener') {
-        const speaker = space.speakers.get(targetUserId);
-        if (speaker && space.host._id !== targetUserId) {
-          space.speakers.delete(targetUserId);
-          space.listeners.set(targetUserId, {
-            user: speaker.user,
-            socketId: speaker.socketId,
-          });
-        }
-      }
-
-      io.to(`space:${spaceId}`).emit('space:state_change', { space: formatSpace(space) });
-    });
-
-    socket.on('space:toggle_mute', ({ spaceId, isMuted }) => {
-      const finalUserId = userId || socket.id;
-      const { activeSpacesMap, formatSpace } = require('../controllers/spaceController');
-      const space = activeSpacesMap.get(spaceId);
-      if (!space) return;
-
-      if (space.speakers.has(finalUserId)) {
-        space.speakers.get(finalUserId).isMuted = Boolean(isMuted);
-        io.to(`space:${spaceId}`).emit('space:state_change', { space: formatSpace(space) });
+      } catch (err) {
+        socket.emit('space:error', { message: err.message });
       }
     });
 
-    socket.on('space:speaking_state', ({ spaceId, isSpeaking }) => {
+    const handleSpeakingState = ({ spaceId, isSpeaking }) => {
       const finalUserId = userId || socket.id;
+      spaceSessionManager.setSpeakingState(spaceId, finalUserId, isSpeaking);
       io.to(`space:${spaceId}`).emit('space:user_speaking', {
         spaceId,
         userId: finalUserId,
         isSpeaking: Boolean(isSpeaking),
       });
-    });
+    };
+    socket.on('spaces:speaking_state', handleSpeakingState);
+    socket.on('space:speaking_state', handleSpeakingState);
 
-    socket.on('space:reaction', ({ spaceId, emoji, username }) => {
+    const handleReaction = ({ spaceId, emoji, username }) => {
       io.to(`space:${spaceId}`).emit('space:reaction', {
         spaceId,
         emoji,
         username: username || socket.user?.name || 'Someone',
       });
-    });
+    };
+    socket.on('spaces:reaction', handleReaction);
+    socket.on('space:reaction', handleReaction);
 
-    socket.on('space:signal', ({ spaceId, targetUserId, signal }) => {
+    const handleSignal = ({ spaceId, targetUserId, signal }) => {
       const finalUserId = userId || socket.id;
+      const session = spaceSessionManager.sessions.get(spaceId);
+      if (!session) return;
+
+      // SECURITY CONSTRAINT: Listeners must NEVER be able to publish audio
+      if (signal?.type === 'offer') {
+        const sender = session.participants.get(finalUserId.toString());
+        if (!sender || sender.role === SpaceRole.LISTENER) {
+          socket.emit('space:error', { message: 'Listeners are not authorized to publish media' });
+          return;
+        }
+      }
+
       io.to(`user:${targetUserId}`).emit('space:signal', {
         spaceId,
         fromUserId: finalUserId,
         signal,
       });
-    });
+    };
+    socket.on('spaces:signal', handleSignal);
+    socket.on('space:signal', handleSignal);
 
     // ==========================================
     // 5. DISCONNECTION & CLEANUP
@@ -1130,23 +1218,10 @@ function initSocket(server) {
         }
       }
 
-      // Cleanup Spaces
-      try {
-        const { activeSpacesMap, formatSpace } = require('../controllers/spaceController');
-        for (const [spaceId, space] of activeSpacesMap.entries()) {
-          if (space.host._id === currentUserId) {
-            activeSpacesMap.delete(spaceId);
-            io.to(`space:${spaceId}`).emit('space:ended', { spaceId });
-            io.emit('spaces:updated', { spaces: Array.from(activeSpacesMap.values()).map(formatSpace) });
-          } else if (space.speakers.has(currentUserId) || space.listeners.has(currentUserId)) {
-            space.speakers.delete(currentUserId);
-            space.listeners.delete(currentUserId);
-            space.handRaised.delete(currentUserId);
-            io.to(`space:${spaceId}`).emit('space:state_change', { space: formatSpace(space) });
-            io.emit('spaces:updated', { spaces: Array.from(activeSpacesMap.values()).map(formatSpace) });
-          }
-        }
-      } catch {}
+      // Cleanup Spaces Authoritative Engine (handles 180s Host grace window & Co-Host survivability)
+      if (currentUserId) {
+        spaceSessionManager.handleSocketDisconnect(currentUserId, socket.id, io);
+      }
     });
   });
 

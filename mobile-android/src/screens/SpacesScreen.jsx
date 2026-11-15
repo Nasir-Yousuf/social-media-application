@@ -79,9 +79,12 @@ export const SpacesScreen = ({ navigation }) => {
     }
     setCreating(true);
     try {
+      const selectedTopic = newRoomTopic.trim() || 'General Discussion';
       const res = await api.post('/spaces', {
         title: newRoomTitle.trim(),
-        topic: newRoomTopic.trim() || 'General Discussion',
+        topic: selectedTopic,
+        topicTags: [selectedTopic],
+        visibility: 'public',
       });
       const created = res.data?.space || res.data;
       setShowCreateModal(false);
@@ -90,9 +93,10 @@ export const SpacesScreen = ({ navigation }) => {
       showToast('Space created! Starting broadcast...', 'success');
       fetchSpaces();
 
-      // Launch group call via CallContext
-      if (created?.roomId || created?._id) {
-        startGroupAudioCall(created.roomId || created._id, created.title || 'Live Space');
+      // Launch live audio room via CallContext with foreground service
+      const rId = created?.roomId || created?.id || created?._id;
+      if (rId) {
+        startGroupAudioCall(rId, created.title || 'Live Space');
       }
     } catch (err) {
       showToast(err.message || 'Failed to create Space', 'error');
@@ -106,7 +110,7 @@ export const SpacesScreen = ({ navigation }) => {
       showToast('You are already on an active call or Space', 'info');
       return;
     }
-    const roomId = space.roomId || space._id;
+    const roomId = space.roomId || space.id || space._id;
     startGroupAudioCall(roomId, space.title || 'Live Space');
   };
 
