@@ -64,13 +64,15 @@ exports.getCommentsByPost = async (req, res, next) => {
 
     const comments = await Comment.find({ post: postId })
       .populate('author', 'name username avatarUrl role status')
-      .sort({ createdAt: 1, _id: 1 });
+      .sort({ createdAt: 1, _id: 1 })
+      .lean();
 
     // Also fetch any LearningAnswer linked to this question / post ID
     const LearningAnswer = require('../models/LearningAnswer');
     let answers = await LearningAnswer.find({ question: postId })
       .populate('author', 'name username avatarUrl role status')
-      .sort({ createdAt: 1, _id: 1 });
+      .sort({ createdAt: 1, _id: 1 })
+      .lean();
 
     // Check if there is an associated LearningQuestion
     const LearningQuestion = require('../models/LearningQuestion');
@@ -79,11 +81,12 @@ exports.getCommentsByPost = async (req, res, next) => {
         { feedPost: postId },
         { title: (post.content || '').split('\n')[0].replace(/^❓\s*\*\*Question:\*\*\s*/i, '').trim() }
       ]
-    });
+    }).lean();
     if (matchedQ) {
       const qAnswers = await LearningAnswer.find({ question: matchedQ._id })
         .populate('author', 'name username avatarUrl role status')
-        .sort({ createdAt: 1, _id: 1 });
+        .sort({ createdAt: 1, _id: 1 })
+        .lean();
       answers = [...answers, ...qAnswers];
     }
 

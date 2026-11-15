@@ -169,6 +169,14 @@ class ClearFeedBleMeshModule : Module() {
             meshService?.getConnectedPeersList() ?: emptyList<Map<String, Any>>()
         }
 
+        AsyncFunction("setScanTier") { tier: String ->
+            meshService?.setScanTier(tier) ?: false
+        }
+
+        AsyncFunction("getScanTier") {
+            meshService?.getScanTier() ?: "FOREGROUND"
+        }
+
         // --- Foreground Service Functions ---
         AsyncFunction("startForegroundService") { title: String?, body: String? ->
             val ctx = appContext.reactContext ?: appContext.currentActivity?.applicationContext

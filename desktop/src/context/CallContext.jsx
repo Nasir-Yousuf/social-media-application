@@ -246,17 +246,6 @@ export const CallProvider = ({ children }) => {
     refreshAudioDevices();
   }, [refreshAudioDevices]);
 
-  // Deterministic teardown on window unload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      cleanupCallResources();
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [cleanupCallResources]);
-
   const cleanupGroupCallResources = useCallback(() => {
     stopGroupTimer();
     sounds.stopRingtone();
@@ -274,6 +263,20 @@ export const CallProvider = ({ children }) => {
     setIsGroupMuted(false);
     setGroupCallDuration(0);
   }, [stopGroupTimer, callState, activeSpace]);
+
+  // Deterministic teardown on window unload or component unmount
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      cleanupCallResources();
+      cleanupGroupCallResources();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      cleanupCallResources();
+      cleanupGroupCallResources();
+    };
+  }, [cleanupCallResources, cleanupGroupCallResources]);
 
   // Voice Activity Detection (VAD) to trigger real-time sound waves
   useEffect(() => {

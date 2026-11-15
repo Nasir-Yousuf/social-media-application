@@ -54,6 +54,8 @@ export const mockBleMesh = {
   sendBlePacket: async (payload) => true,
   isBluetoothEnabled: async () => true,
   getConnectedPeers: async () => [],
+  setScanTier: async (tier) => true,
+  getScanTier: async () => 'FOREGROUND',
   startForegroundService: async () => true,
   stopForegroundService: async () => true,
 

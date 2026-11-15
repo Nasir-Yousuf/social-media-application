@@ -62,6 +62,7 @@ export const initDatabase = async () => {
     try {
       dbInstance = SQLite.openDatabaseSync(DB_NAME);
       runMigrations(dbInstance);
+      vacuumAndPruneDatabase(null, dbInstance).catch(() => {});
       return dbInstance;
     } catch (e) {
       console.warn('[OfflineDB] openDatabaseSync failed, trying async fallback:', e?.message);
@@ -71,7 +72,8 @@ export const initDatabase = async () => {
   if (SQLite && typeof SQLite.openDatabaseAsync === 'function') {
     try {
       dbInstance = await SQLite.openDatabaseAsync(DB_NAME);
-      runMigrationsAsync(dbInstance);
+      await runMigrationsAsync(dbInstance);
+      vacuumAndPruneDatabase(null, dbInstance).catch(() => {});
       return dbInstance;
     } catch (e) {
       console.warn('[OfflineDB] openDatabaseAsync failed, falling back to AsyncStorage:', e?.message);
@@ -80,6 +82,7 @@ export const initDatabase = async () => {
 
   // Fallback to AsyncStorage backed memory store
   await hydrateMemoryStore();
+  vacuumAndPruneDatabase(null, null).catch(() => {});
   return null;
 };
 
@@ -313,10 +316,10 @@ export const cachePosts = async (posts = []) => {
     memoryStore.posts.set(id, p);
   });
   try {
-    const top50 = Array.from(memoryStore.posts.values())
+    const top500 = Array.from(memoryStore.posts.values())
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 50);
-    await AsyncStorage.setItem('@cf_offline_posts', JSON.stringify(top50));
+      .slice(0, 500);
+    await AsyncStorage.setItem('@cf_offline_posts', JSON.stringify(top500));
   } catch {}
 };
 
@@ -513,6 +516,7 @@ export const addToStoreAndForwardQueue = async (packet) => {
   const rawHex = packet.rawHex || '';
   const sizeBytes = packet.sizeBytes || Math.ceil(rawHex.length / 2) || 188;
   const timestampMs = packet.timestampMs || now;
+  const createdAt = packet.createdAt || packet.created_at || now;
   const ttl = packet.ttl || 3;
   const hopCount = packet.hopCount || 0;
 
@@ -550,7 +554,7 @@ export const addToStoreAndForwardQueue = async (packet) => {
         `INSERT OR REPLACE INTO store_and_forward_queue 
         (packet_id, sender_pubkey, recipient_pubkey, packet_type, priority, raw_hex, size_bytes, timestamp_ms, ttl, hop_count, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [packetId, senderPubkey, recipientPubkey, packetType, priority, rawHex, sizeBytes, timestampMs, ttl, hopCount, now]
+        [packetId, senderPubkey, recipientPubkey, packetType, priority, rawHex, sizeBytes, timestampMs, ttl, hopCount, createdAt]
       );
     }
   } catch {}
@@ -588,7 +592,7 @@ export const addToStoreAndForwardQueue = async (packet) => {
     timestampMs,
     ttl,
     hopCount,
-    createdAt: now,
+    createdAt,
   });
 
   return true;
@@ -664,8 +668,89 @@ export const getStoreAndForwardStats = async () => {
   };
 };
 
+/**
+ * Automatic SQLite PRAGMA incremental_vacuum / TTL pruning on startup:
+ * - Purges expired (>48h) Mesh store-and-forward packets.
+ * - Trims cached feed items beyond the most recent 500 posts.
+ * - Executes PRAGMA incremental_vacuum(50) / VACUUM to reclaim storage.
+ */
+export const vacuumAndPruneDatabase = async (customNowMs = null, passedDb = null) => {
+  const now = customNowMs || Date.now();
+  const ttlCutoff = now - MAX_PACKET_AGE_MS;
+  let prunedPackets = 0;
+  let prunedPosts = 0;
+
+  try {
+    const db = passedDb || (await initDatabase());
+    if (db) {
+      if (typeof db.runSync === 'function') {
+        const sfRes = db.runSync(`DELETE FROM store_and_forward_queue WHERE created_at < ?`, [ttlCutoff]);
+        prunedPackets += sfRes?.changes || 0;
+
+        const postRes = db.runSync(
+          `DELETE FROM posts WHERE id NOT IN (SELECT id FROM posts ORDER BY created_at DESC LIMIT 500)`
+        );
+        prunedPosts += postRes?.changes || 0;
+
+        try {
+          db.execSync('PRAGMA incremental_vacuum(50);');
+        } catch {
+          try {
+            db.execSync('VACUUM;');
+          } catch {}
+        }
+      } else if (typeof db.runAsync === 'function') {
+        const sfRes = await db.runAsync(`DELETE FROM store_and_forward_queue WHERE created_at < ?`, [ttlCutoff]);
+        prunedPackets += sfRes?.changes || 0;
+
+        const postRes = await db.runAsync(
+          `DELETE FROM posts WHERE id NOT IN (SELECT id FROM posts ORDER BY created_at DESC LIMIT 500)`
+        );
+        prunedPosts += postRes?.changes || 0;
+
+        try {
+          await db.execAsync('PRAGMA incremental_vacuum(50);');
+        } catch {
+          try {
+            await db.execAsync('VACUUM;');
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[OfflineDB] vacuumAndPruneDatabase SQL notice:', err?.message);
+  }
+
+  // Also prune in fallback memory store
+  try {
+    for (const [key, item] of memoryStore.store_and_forward_queue.entries()) {
+      const itemCreatedAt = item.createdAt || item.created_at || item.timestampMs || item.timestamp_ms || 0;
+      if (itemCreatedAt < ttlCutoff) {
+        memoryStore.store_and_forward_queue.delete(key);
+        prunedPackets++;
+      }
+    }
+
+    if (memoryStore.posts.size > 500) {
+      const sortedPosts = Array.from(memoryStore.posts.entries()).sort((a, b) => {
+        const aTime = new Date(a[1].createdAt || a[1].created_at || 0).getTime();
+        const bTime = new Date(b[1].createdAt || b[1].created_at || 0).getTime();
+        return bTime - aTime;
+      });
+      const toRemove = sortedPosts.slice(500);
+      for (const [postId] of toRemove) {
+        memoryStore.posts.delete(postId);
+        prunedPosts++;
+      }
+    }
+  } catch {}
+
+  return { prunedPackets, prunedPosts };
+};
+
 export default {
   initDatabase,
+  vacuumAndPruneDatabase,
   cachePosts,
   getCachedPosts,
   cacheLearnLesson,

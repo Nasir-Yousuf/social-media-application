@@ -151,6 +151,13 @@ export const CallProvider = ({ children }) => {
     setIsMinimized(false);
   }, [stopTimer, stopHeartbeat, stopRingingVibration]);
 
+  // Teardown resources on CallProvider unmount
+  useEffect(() => {
+    return () => {
+      cleanupCallResources();
+    };
+  }, [cleanupCallResources]);
+
   // Telecom event listeners (audio focus, route changes, notification action clicks)
   useEffect(() => {
     const routeSub = TelecomEventEmitter.addListener('onAudioRouteChanged', ({ route }) => {

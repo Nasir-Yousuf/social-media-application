@@ -8,6 +8,7 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const mongoSanitize = require('./middleware/mongoSanitize');
 const morgan = require('morgan');
 const { connectDB, disconnectDB } = require('./config/db');
@@ -35,6 +36,17 @@ app.use(
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+// High-performance HTTP compression (Gzip / Deflate)
+app.use(
+  compression({
+    threshold: 1024, // Only compress responses exceeding 1 KB
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    },
   })
 );
 

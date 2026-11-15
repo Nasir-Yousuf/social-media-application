@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { AppState } from 'react-native';
 import meshStorage from '../storage/meshStorage.js';
 import meshIdentityService from '../identity/meshIdentityService.js';
 import meshTransport, { TransportState } from '../transport/meshTransport.js';
 import meshRouter, { DeliveryState } from '../routing/meshRouter.js';
+import adaptiveBleScheduler, { SCAN_TIERS } from '../transport/adaptiveBleScheduler.js';
 import { useNotifications } from '../../context/NotificationContext';
 
 const MeshContext = createContext(null);
@@ -12,6 +14,7 @@ export const MeshProvider = ({ children }) => {
   const [identity, setIdentity] = useState(null);
   const [loading, setLoading] = useState(true);
   const [transportState, setTransportState] = useState(TransportState.INITIALIZING);
+  const [scanTier, setScanTier] = useState(adaptiveBleScheduler.currentTier);
   const [peers, setPeers] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [settings, setSettings] = useState({
@@ -81,7 +84,22 @@ export const MeshProvider = ({ children }) => {
       refreshMeshState();
     });
 
+    // Adaptive Battery-Efficient BLE Scan Lifecycle Binding
+    adaptiveBleScheduler.onTierChanged = (newTier) => {
+      setScanTier(newTier);
+    };
+
+    let unsubLifecycle = () => {};
+    try {
+      let Battery = null;
+      try {
+        Battery = require('expo-battery');
+      } catch {}
+      unsubLifecycle = adaptiveBleScheduler.attachLifecycle(AppState, Battery);
+    } catch {}
+
     return () => {
+      unsubLifecycle();
       unsubTransport();
       unsubMessages();
       unsubDelivery();
@@ -190,6 +208,9 @@ export const MeshProvider = ({ children }) => {
         peers,
         conversations,
         settings,
+        scanTier,
+        scanTiers: SCAN_TIERS,
+        setMeshScreenActive: (active) => adaptiveBleScheduler.setMeshScreenActive(active),
         updateNickname,
         resetIdentity,
         updateSettings,

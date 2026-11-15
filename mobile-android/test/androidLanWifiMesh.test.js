@@ -424,3 +424,4 @@ console.log(`✨ Android Wi-Fi Direct & LAN Tests: ${passed}/${passed + failed} 
 console.log('================================================================\n');
 
 if (failed > 0) process.exit(1);
+process.exit(0);

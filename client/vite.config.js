@@ -13,12 +13,24 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('learningCurriculum')) {
+            return 'curriculum-data';
+          }
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
               return 'vendor-react';
             }
             if (id.includes('lucide-react')) {
               return 'vendor-icons';
+            }
+            if (id.includes('@noble')) {
+              return 'vendor-crypto';
+            }
+            if (id.includes('socket.io-client') || id.includes('livekit-client')) {
+              return 'vendor-realtime';
+            }
+            if (id.includes('prismjs') || id.includes('highlight') || id.includes('monaco')) {
+              return 'vendor-syntax';
             }
             return 'vendor-libs';
           }

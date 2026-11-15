@@ -73,7 +73,17 @@ class BleMeshService(private val context: Context) {
     private val isWriting = AtomicBoolean(false)
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    // Duty-cycle scanning handler
+    // 3-Tier Adaptive Battery-Efficient Scan Scheduler:
+    // Tier 1 (Active Mesh Screen): SCAN_MODE_LOW_LATENCY (5s scan / 2s pause)
+    // Tier 2 (Foreground / Recent <5min): SCAN_MODE_BALANCED (3s scan / 12s pause)
+    // Tier 3 (Background or Battery <20%): SCAN_MODE_LOW_POWER (2s scan / 28s pause)
+    enum class ScanTier(val scanMode: Int, val scanActiveMs: Long, val scanPauseMs: Long) {
+        ACTIVE_MESH(ScanSettings.SCAN_MODE_LOW_LATENCY, 5000L, 2000L),
+        FOREGROUND(ScanSettings.SCAN_MODE_BALANCED, 3000L, 12000L),
+        BACKGROUND_LOW_POWER(ScanSettings.SCAN_MODE_LOW_POWER, 2000L, 28000L)
+    }
+
+    private var currentScanTier: ScanTier = ScanTier.FOREGROUND
     private var dutyCycleHandler: Handler? = null
     private var isDutyCycleScanning = false
 
@@ -362,7 +372,7 @@ class BleMeshService(private val context: Context) {
         val filters = listOf(scanFilter)
 
         val scanSettings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+            .setScanMode(currentScanTier.scanMode)
             .setReportDelay(0)
             .build()
 
@@ -407,10 +417,36 @@ class BleMeshService(private val context: Context) {
             // Duty cycle restart
             dutyCycleHandler?.postDelayed({
                 if (isRunning) {
-                    triggerScanCycle(filters, scanSettings)
+                    val activeSettings = ScanSettings.Builder()
+                        .setScanMode(currentScanTier.scanMode)
+                        .setReportDelay(0)
+                        .build()
+                    triggerScanCycle(filters, activeSettings)
                 }
-            }, SCAN_DUTY_CYCLE_PAUSE_MS)
-        }, SCAN_DUTY_CYCLE_ACTIVE_MS)
+            }, currentScanTier.scanPauseMs)
+        }, currentScanTier.scanActiveMs)
+    }
+
+    fun setScanTier(tierName: String): Boolean {
+        val newTier = when (tierName.uppercase()) {
+            "ACTIVE_MESH", "LOW_LATENCY", "TIER_1" -> ScanTier.ACTIVE_MESH
+            "BACKGROUND", "LOW_POWER", "TIER_3", "BACKGROUND_LOW_POWER" -> ScanTier.BACKGROUND_LOW_POWER
+            else -> ScanTier.FOREGROUND
+        }
+
+        if (currentScanTier != newTier) {
+            currentScanTier = newTier
+            Log.i(TAG, "Adaptive BLE Scan Tier switched to ${newTier.name} (Scan: ${newTier.scanActiveMs}ms, Pause: ${newTier.scanPauseMs}ms, Mode: ${newTier.scanMode})")
+            if (isRunning) {
+                stopDutyCycledScanning()
+                startDutyCycledScanning()
+            }
+        }
+        return true
+    }
+
+    fun getScanTier(): String {
+        return currentScanTier.name
     }
 
     private fun stopDutyCycledScanning() {

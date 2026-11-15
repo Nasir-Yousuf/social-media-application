@@ -249,15 +249,21 @@ async function runMessagingChecks() {
     Conversation.find = () => ({
       sort: () => ({
         populate: () => ({
-          populate: () => Promise.resolve([
-            {
-              _id: convId,
-              participants: [userADoc, userBDoc],
-              lastMessage: { text: 'Here is the fix:', sender: userBDoc },
-              unreadCounts: new Map([[userAId.toString(), 1]]),
-              updatedAt: new Date(),
-            },
-          ]),
+          populate: () => {
+            const data = [
+              {
+                _id: convId,
+                participants: [userADoc, userBDoc],
+                lastMessage: { text: 'Here is the fix:', sender: userBDoc },
+                unreadCounts: new Map([[userAId.toString(), 1]]),
+                updatedAt: new Date(),
+              },
+            ];
+            return {
+              lean: () => Promise.resolve(data),
+              then: (resolve) => resolve(data),
+            };
+          },
         }),
       }),
     });

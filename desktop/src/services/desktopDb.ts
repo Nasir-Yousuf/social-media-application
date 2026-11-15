@@ -137,6 +137,36 @@ export const desktopDb = {
       localStorage.setItem('clearfeed_learn_progress', JSON.stringify(map));
     } catch {}
   },
+
+  /**
+   * Compact SQLite storage and purge stale/expired records (>48h SF packets and posts beyond 500)
+   */
+  async vacuumAndPruneDatabase(): Promise<{ pruned_packets: number; pruned_posts: number; success: boolean }> {
+    try {
+      const invoke = await getTauriInvoke();
+      if (invoke) {
+        return (await invoke('cmd_db_vacuum_and_prune')) as {
+          pruned_packets: number;
+          pruned_posts: number;
+          success: boolean;
+        };
+      }
+    } catch (err) {
+      console.warn('[DesktopDB] Vacuum & prune notice:', err);
+    }
+
+    try {
+      const raw = localStorage.getItem('clearfeed_cached_posts');
+      if (raw) {
+        const posts = JSON.parse(raw);
+        if (Array.isArray(posts) && posts.length > 500) {
+          localStorage.setItem('clearfeed_cached_posts', JSON.stringify(posts.slice(0, 500)));
+        }
+      }
+    } catch {}
+
+    return { pruned_packets: 0, pruned_posts: 0, success: true };
+  },
 };
 
 export default desktopDb;

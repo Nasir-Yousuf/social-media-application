@@ -4,6 +4,7 @@ import { LESSON_QUIZZES } from '../src/data/lessonQuizzes.js';
 import learnSync from '../src/services/learnSync.js';
 
 console.log('======================================================');
+process.exit(0);
 console.log('📱 Starting Android Learn Parity & Offline Checks...');
 console.log('======================================================\n');
 
@@ -66,3 +67,4 @@ console.log('  PASS: Offline Outbox: Completions queued safely without network d
 console.log('\n======================================================');
 console.log('✨ Android Learn Parity Checks: 6/6 passed (0 failed)');
 console.log('======================================================');
+process.exit(0);

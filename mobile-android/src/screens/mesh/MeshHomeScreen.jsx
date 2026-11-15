@@ -28,12 +28,22 @@ export const MeshHomeScreen = ({ navigation }) => {
     peers,
     conversations,
     settings,
+    scanTier,
+    setMeshScreenActive,
     addPeer,
     broadcastBeacon,
   } = useMesh();
 
   const [showPairModal, setShowPairModal] = useState(false);
   const activePeerCount = peers.filter((p) => p.status !== 'blocked').length;
+
+  useEffect(() => {
+    // Elevate BLE scanner to Tier 1: SCAN_MODE_LOW_LATENCY (5s scan / 2s pause) while screen open
+    setMeshScreenActive?.(true);
+    return () => {
+      setMeshScreenActive?.(false);
+    };
+  }, [setMeshScreenActive]);
 
   useEffect(() => {
     // Ensure Bluetooth Low Energy Mesh engine is active whenever user opens Mesh Chat
@@ -152,8 +162,41 @@ export const MeshHomeScreen = ({ navigation }) => {
                 Offline Mesh Mode Active
               </Text>
             </View>
-            <View style={styles.badgePill}>
-              <Text style={styles.badgePillText}>P2P Radio</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View
+                style={[
+                  styles.badgePill,
+                  {
+                    backgroundColor:
+                      scanTier?.scanMode === 'SCAN_MODE_LOW_LATENCY'
+                        ? 'rgba(0,186,124,0.15)'
+                        : 'rgba(59,130,246,0.15)',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.badgePillText,
+                    {
+                      color:
+                        scanTier?.scanMode === 'SCAN_MODE_LOW_LATENCY'
+                          ? '#00ba7c'
+                          : '#3b82f6',
+                      fontSize: 10,
+                      fontWeight: '700',
+                    },
+                  ]}
+                >
+                  {scanTier?.scanMode === 'SCAN_MODE_LOW_LATENCY'
+                    ? '⚡ 5s/2s Active'
+                    : scanTier?.scanMode === 'SCAN_MODE_BALANCED'
+                    ? '🔋 3s/12s Balanced'
+                    : '💤 2s/28s Low Power'}
+                </Text>
+              </View>
+              <View style={styles.badgePill}>
+                <Text style={styles.badgePillText}>P2P Radio</Text>
+              </View>
             </View>
           </View>
           <Text

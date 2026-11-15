@@ -7,10 +7,12 @@ import { ConfirmProvider } from './context/ConfirmContext';
 import { CallProvider } from './context/CallContext';
 import AppLayout from './components/layout/AppLayout';
 import ThemeModal from './components/common/ThemeModal';
-import CallModal from './components/calling/CallModal';
-import GroupCallModal from './components/calling/GroupCallModal';
-import NewCallModal from './components/calling/NewCallModal';
-import SpacesModal from './components/spaces/SpacesModal';
+
+// Modals lazy-loaded on demand to keep initial bootstrap bundle minimal
+const CallModal = lazy(() => import('./components/calling/CallModal'));
+const GroupCallModal = lazy(() => import('./components/calling/GroupCallModal'));
+const NewCallModal = lazy(() => import('./components/calling/NewCallModal'));
+const SpacesModal = lazy(() => import('./components/spaces/SpacesModal'));
 
 // Automatically scrolls window to top whenever the route or lesson URL changes
 const ScrollToTop = () => {
@@ -99,10 +101,12 @@ export function App() {
                   </Routes>
                 </Suspense>
                 <ThemeModal />
-                <CallModal />
-                <GroupCallModal />
-                <SpacesModal />
-                <NewCallModal />
+                <Suspense fallback={null}>
+                  <CallModal />
+                  <GroupCallModal />
+                  <SpacesModal />
+                  <NewCallModal />
+                </Suspense>
               </CallProvider>
             </ConfirmProvider>
           </NotificationProvider>

@@ -55,7 +55,9 @@
     "test:multihop": "node test/meshMultiHopStoreForward.test.js --input-type=module",
     "test:learn": "node test/androidLearnParity.test.js --input-type=module",
     "test:ai": "node test/androidAiCompanionParity.test.js --input-type=module",
-    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling && npm run test:spaces && npm run test:ble && npm run test:lan && npm run test:multihop && npm run test:learn && npm run test:ai"
+    "test:dutycycle": "node test/adaptiveBleDutyCycle.test.js --input-type=module",
+    "test:compaction": "node test/sqliteStorageCompaction.test.js --input-type=module",
+    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling && npm run test:spaces && npm run test:ble && npm run test:lan && npm run test:multihop && npm run test:learn && npm run test:ai && npm run test:dutycycle && npm run test:compaction"
   },
   "private": true
 }

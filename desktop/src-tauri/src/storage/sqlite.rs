@@ -45,6 +45,7 @@ impl DesktopDatabase {
 
         let db = Self { conn_path };
         db.init_schema()?;
+        let _ = db.vacuum_and_prune();
         Ok(db)
     }
 
@@ -219,5 +220,37 @@ impl DesktopDatabase {
         .map_err(|e| e.to_string())?;
 
         Ok(())
+    }
+
+    pub fn vacuum_and_prune(&self) -> Result<(usize, usize), String> {
+        let conn = self.get_connection()?;
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as i64;
+        let ttl_cutoff = now_ms - (48 * 3600 * 1000); // 48 hours
+
+        // 1. Purge expired store-and-forward packets (>48 hours)
+        let pruned_packets = conn
+            .execute(
+                "DELETE FROM store_and_forward_packets WHERE created_at < ?1",
+                params![ttl_cutoff],
+            )
+            .unwrap_or(0);
+
+        // 2. Trim cached posts beyond the most recent 500 posts
+        let pruned_posts = conn
+            .execute(
+                "DELETE FROM cached_posts WHERE id NOT IN (
+                    SELECT id FROM cached_posts ORDER BY updated_at DESC LIMIT 500
+                )",
+                [],
+            )
+            .unwrap_or(0);
+
+        // 3. Compact database pages
+        let _ = conn.execute_batch("PRAGMA incremental_vacuum(50);");
+
+        Ok((pruned_packets, pruned_posts))
     }
 }

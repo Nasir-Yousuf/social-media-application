@@ -43,12 +43,14 @@ exports.getConversations = async (req, res) => {
   try {
     const currentUserId = req.user._id;
 
-    const conversations = await Conversation.find({
+    const convQuery = Conversation.find({
       participants: currentUserId,
     })
       .sort({ updatedAt: -1 })
       .populate('participants', 'name username avatarUrl role status isAi')
       .populate('lastMessage.sender', 'name username');
+
+    const conversations = typeof convQuery.lean === 'function' ? await convQuery.lean() : await convQuery;
 
     const formatted = conversations.map((conv) => {
       // Find the other participant safely
@@ -177,6 +179,7 @@ exports.getMessages = async (req, res) => {
         .select('sender recipient text codeSnippet typingChallenge replyTo isRead deliveryStatus deliveredAt readAt mediaUrl clientMessageId reactions createdAt updatedAt')
         .populate('reactions.user', 'name username avatarUrl')
         .populate('typingChallenge')
+        .lean()
         .exec();
 
       hasMore = probeItems.length > limit;

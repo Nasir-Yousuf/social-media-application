@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -10,23 +10,23 @@ import DesktopLayout from './components/layout/DesktopLayout';
 import { Toast } from './components/common/Toast';
 
 import HomeView from './views/HomeView';
-import LearnView from './views/LearnView';
-import TypingArenaView from './views/TypingArenaView';
-import CodePracticeView from './views/CodePracticeView';
-import CodeHubView from './views/CodeHubView';
-import LeaderboardView from './views/LeaderboardView';
-import MessagesView from './views/MessagesView';
-import MeshView from './views/MeshView';
-import NotificationsView from './views/NotificationsView';
-import BookmarksView from './views/BookmarksView';
-import MembersView from './views/MembersView';
-import ExploreView from './views/ExploreView';
-import SearchView from './views/SearchView';
-import ProfileView from './views/ProfileView';
-import PostDetailView from './views/PostDetailView';
-import SettingsView from './views/SettingsView';
-import AdminView from './views/AdminView';
-import AuthView from './views/AuthView';
+const LearnView = lazy(() => import('./views/LearnView'));
+const TypingArenaView = lazy(() => import('./views/TypingArenaView'));
+const CodePracticeView = lazy(() => import('./views/CodePracticeView'));
+const CodeHubView = lazy(() => import('./views/CodeHubView'));
+const LeaderboardView = lazy(() => import('./views/LeaderboardView'));
+const MessagesView = lazy(() => import('./views/MessagesView'));
+const MeshView = lazy(() => import('./views/MeshView'));
+const NotificationsView = lazy(() => import('./views/NotificationsView'));
+const BookmarksView = lazy(() => import('./views/BookmarksView'));
+const MembersView = lazy(() => import('./views/MembersView'));
+const ExploreView = lazy(() => import('./views/ExploreView'));
+const SearchView = lazy(() => import('./views/SearchView'));
+const ProfileView = lazy(() => import('./views/ProfileView'));
+const PostDetailView = lazy(() => import('./views/PostDetailView'));
+const SettingsView = lazy(() => import('./views/SettingsView'));
+const AdminView = lazy(() => import('./views/AdminView'));
+const AuthView = lazy(() => import('./views/AuthView'));
 import { User } from './types';
 
 const DesktopContent: React.FC = () => {
@@ -96,61 +96,63 @@ const DesktopContent: React.FC = () => {
   return (
     <DesktopLayout currentSection={currentSection} onNavigate={handleNavigate}>
       <div className="h-full w-full overflow-y-auto">
-        <Routes>
-          <Route path="/" element={<HomeView onNavigate={handleNavigate} />} />
-          <Route path="/home" element={<HomeView onNavigate={handleNavigate} />} />
-          <Route path="/learn" element={<LearnView />} />
-          <Route path="/learn/questions" element={<LearnView />} />
-          <Route path="/learn/questions/:id" element={<LearnView />} />
-          <Route path="/learn/:track" element={<LearnView />} />
-          <Route path="/learn/:track/:lessonId" element={<LearnView />} />
-          <Route path="/learn/:track/lesson/:lessonId" element={<LearnView />} />
-          <Route path="/learn/*" element={<LearnView />} />
-          <Route path="/typing" element={<TypingArenaView />} />
-          <Route path="/code-practice" element={<CodePracticeView />} />
-          <Route path="/code-practice/typing" element={<TypingArenaView />} />
-          <Route path="/code" element={<CodeHubView />} />
-          <Route path="/leaderboard" element={<LeaderboardView />} />
-          <Route
-            path="/messages"
-            element={
-              isAuthenticated ? (
-                <MessagesView />
-              ) : (
-                <AuthView onContinueOffline={() => navigate('/mesh')} />
-              )
-            }
-          />
-          <Route path="/mesh" element={<MeshView />} />
-          <Route path="/notifications" element={<NotificationsView />} />
-          <Route path="/bookmarks" element={<BookmarksView />} />
-          <Route
-            path="/members"
-            element={<MembersView onStartChat={handleStartChat} />}
-          />
-          <Route path="/explore" element={<ExploreView />} />
-          <Route path="/search" element={<SearchView />} />
-          <Route path="/profile/:username" element={<ProfileView />} />
-          <Route path="/profile" element={<ProfileView />} />
-          <Route
-            path="/admin"
-            element={
-              isAuthenticated ? (
-                <AdminView />
-              ) : (
-                <AuthView onContinueOffline={() => navigate('/mesh')} />
-              )
-            }
-          />
-          <Route path="/posts/:id" element={<PostDetailView />} />
-          <Route path="/post/:id" element={<PostDetailView />} />
-          <Route path="/settings" element={<SettingsView />} />
-          <Route path="/auth" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
-          <Route path="/login" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
-          <Route path="/register" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
-          {/* Catch-all */}
-          <Route path="*" element={<HomeView onNavigate={handleNavigate} />} />
-        </Routes>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-8 h-8 rounded-full border-3 border-sky-400 border-t-transparent animate-spin" /></div>}>
+          <Routes>
+            <Route path="/" element={<HomeView onNavigate={handleNavigate} />} />
+            <Route path="/home" element={<HomeView onNavigate={handleNavigate} />} />
+            <Route path="/learn" element={<LearnView />} />
+            <Route path="/learn/questions" element={<LearnView />} />
+            <Route path="/learn/questions/:id" element={<LearnView />} />
+            <Route path="/learn/:track" element={<LearnView />} />
+            <Route path="/learn/:track/:lessonId" element={<LearnView />} />
+            <Route path="/learn/:track/lesson/:lessonId" element={<LearnView />} />
+            <Route path="/learn/*" element={<LearnView />} />
+            <Route path="/typing" element={<TypingArenaView />} />
+            <Route path="/code-practice" element={<CodePracticeView />} />
+            <Route path="/code-practice/typing" element={<TypingArenaView />} />
+            <Route path="/code" element={<CodeHubView />} />
+            <Route path="/leaderboard" element={<LeaderboardView />} />
+            <Route
+              path="/messages"
+              element={
+                isAuthenticated ? (
+                  <MessagesView />
+                ) : (
+                  <AuthView onContinueOffline={() => navigate('/mesh')} />
+                )
+              }
+            />
+            <Route path="/mesh" element={<MeshView />} />
+            <Route path="/notifications" element={<NotificationsView />} />
+            <Route path="/bookmarks" element={<BookmarksView />} />
+            <Route
+              path="/members"
+              element={<MembersView onStartChat={handleStartChat} />}
+            />
+            <Route path="/explore" element={<ExploreView />} />
+            <Route path="/search" element={<SearchView />} />
+            <Route path="/profile/:username" element={<ProfileView />} />
+            <Route path="/profile" element={<ProfileView />} />
+            <Route
+              path="/admin"
+              element={
+                isAuthenticated ? (
+                  <AdminView />
+                ) : (
+                  <AuthView onContinueOffline={() => navigate('/mesh')} />
+                )
+              }
+            />
+            <Route path="/posts/:id" element={<PostDetailView />} />
+            <Route path="/post/:id" element={<PostDetailView />} />
+            <Route path="/settings" element={<SettingsView />} />
+            <Route path="/auth" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
+            <Route path="/login" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
+            <Route path="/register" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
+            {/* Catch-all */}
+            <Route path="*" element={<HomeView onNavigate={handleNavigate} />} />
+          </Routes>
+        </Suspense>
       </div>
     </DesktopLayout>
   );

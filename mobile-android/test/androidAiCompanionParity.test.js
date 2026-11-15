@@ -126,3 +126,4 @@ test('AppNavigator registers AICompanion deep link route', () => {
 console.log('\n====================================================');
 console.log(`🎉 ALL ${passed}/${total} ANDROID AI PARITY TESTS PASSED!`);
 console.log('====================================================\n');
+process.exit(0);

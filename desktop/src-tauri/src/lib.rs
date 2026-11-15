@@ -126,6 +126,23 @@ async fn cmd_db_save_learn_progress(
     }
 }
 
+#[tauri::command]
+async fn cmd_db_vacuum_and_prune(
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let db_lock = state.db.lock().await;
+    if let Some(db) = db_lock.as_ref() {
+        let (pruned_packets, pruned_posts) = db.vacuum_and_prune()?;
+        Ok(serde_json::json!({
+            "pruned_packets": pruned_packets,
+            "pruned_posts": pruned_posts,
+            "success": true
+        }))
+    } else {
+        Err("Database not initialized".to_string())
+    }
+}
+
 // --- IPC: NATIVE CLEARFEED MESH NETWORKING ---
 #[tauri::command]
 async fn mesh_start(
@@ -243,6 +260,7 @@ pub fn run() {
             cmd_db_cache_lessons,
             cmd_db_get_lesson,
             cmd_db_save_learn_progress,
+            cmd_db_vacuum_and_prune,
             mesh_start,
             mesh_stop,
             mesh_get_peers,

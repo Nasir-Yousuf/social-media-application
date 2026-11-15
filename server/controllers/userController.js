@@ -261,7 +261,8 @@ exports.getFollowers = async (req, res) => {
       follower: { $in: validUserIds },
     })
       .populate('follower', 'name username bio avatarUrl role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const currentUserId = req.user._id;
     const users = await Promise.all(
@@ -273,9 +274,9 @@ exports.getFollowers = async (req, res) => {
           getAuthenticFollowCounts(u._id, validUserIds),
         ]);
         return {
-          ...u.toObject(),
+          ...(typeof u.toObject === 'function' ? u.toObject() : u),
           isFollowing: !!isFollowing,
-          isSelf: currentUserId.equals(u._id),
+          isSelf: currentUserId ? currentUserId.toString() === u._id?.toString() : false,
           followersCount: counts.followersCount,
           followingCount: counts.followingCount,
         };
@@ -301,7 +302,8 @@ exports.getFollowing = async (req, res) => {
       following: { $in: validUserIds },
     })
       .populate('following', 'name username bio avatarUrl role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const currentUserId = req.user._id;
     const users = await Promise.all(
@@ -313,9 +315,9 @@ exports.getFollowing = async (req, res) => {
           getAuthenticFollowCounts(u._id, validUserIds),
         ]);
         return {
-          ...u.toObject(),
+          ...(typeof u.toObject === 'function' ? u.toObject() : u),
           isFollowing: !!isFollowing,
-          isSelf: currentUserId.equals(u._id),
+          isSelf: currentUserId ? currentUserId.toString() === u._id?.toString() : false,
           followersCount: counts.followersCount,
           followingCount: counts.followingCount,
         };
@@ -335,7 +337,8 @@ exports.getCourseDirectory = async (req, res) => {
     const currentUserId = req.user ? req.user._id : null;
     const members = await User.find({ isApproved: true })
       .select('name username bio avatarUrl role createdAt')
-      .sort({ role: 1, name: 1 });
+      .sort({ role: 1, name: 1 })
+      .lean();
 
     const validUserIds = members.map((m) => m._id);
 
@@ -346,9 +349,9 @@ exports.getCourseDirectory = async (req, res) => {
           getAuthenticFollowCounts(m._id, validUserIds),
         ]);
         return {
-          ...m.toObject(),
+          ...(typeof m.toObject === 'function' ? m.toObject() : m),
           isFollowing: !!isFollowing,
-          isSelf: currentUserId ? currentUserId.equals(m._id) : false,
+          isSelf: currentUserId ? currentUserId.toString() === m._id?.toString() : false,
           followersCount: counts.followersCount,
           followingCount: counts.followingCount,
         };
@@ -369,7 +372,7 @@ exports.getSuggestions = async (req, res) => {
     const currentUserId = req.user ? req.user._id : null;
 
     // Get IDs of users current user already follows
-    const followingEdges = currentUserId ? await Follow.find({ follower: currentUserId }).select('following') : [];
+    const followingEdges = currentUserId ? await Follow.find({ follower: currentUserId }).select('following').lean() : [];
     const followingIds = followingEdges.map((e) => e.following);
     if (currentUserId) followingIds.push(currentUserId); // exclude self
 
@@ -379,13 +382,14 @@ exports.getSuggestions = async (req, res) => {
       isApproved: true,
     })
       .select('name username bio avatarUrl role')
-      .limit(5);
+      .limit(5)
+      .lean();
 
     const enrichedSuggestions = await Promise.all(
       suggestions.map(async (s) => {
         const counts = await getAuthenticFollowCounts(s._id);
         return {
-          ...s.toObject(),
+          ...(typeof s.toObject === 'function' ? s.toObject() : s),
           followersCount: counts.followersCount,
           followingCount: counts.followingCount,
         };
