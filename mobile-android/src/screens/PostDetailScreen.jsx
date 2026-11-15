@@ -1,3 +1,12 @@
+/**
+ * Clearfeed Post Detail Screen
+ * Features:
+ * - Full post display with CodeSnippetView and media
+ * - Threaded / nested comments
+ * - Comment creation & deletion (DELETE /api/comments/:id)
+ * - Moderation & report integration
+ * - Back button & ClearUI design tokens
+ */
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -9,14 +18,15 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDistanceToNowStrict } from 'date-fns';
 import colors from '../theme/colors';
 import Avatar from '../components/Avatar';
-import CodeSnippetView from '../components/CodeSnippetView';
 import PostCard from '../components/PostCard';
 import Button from '../components/Button';
+import ModerationModal from '../components/ModerationModal';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +44,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(!initialPost);
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showModeration, setShowModeration] = useState(false);
 
   useEffect(() => {
     const fetchPostAndComments = async () => {
@@ -72,8 +83,28 @@ export const PostDetailScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleDeleteComment = (commentId) => {
+    Alert.alert('Delete Reply', 'Are you sure you want to delete this reply?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.delete(`/comments/${commentId}`);
+            setComments((prev) => prev.filter((c) => c._id !== commentId));
+            showToast('Reply removed', 'info');
+          } catch {
+            showToast('Failed to delete reply', 'error');
+          }
+        },
+      },
+    ]);
+  };
+
   const renderComment = ({ item }) => {
     const author = item.author || {};
+    const canDelete = user && (user._id === author._id || user.role === 'admin');
     let timeStr = 'now';
     try {
       timeStr = formatDistanceToNowStrict(new Date(item.createdAt));
@@ -84,13 +115,25 @@ export const PostDetailScreen = ({ route, navigation }) => {
         <Avatar src={author.avatarUrl} name={author.name} size="sm" />
         <View style={styles.commentBody}>
           <View style={styles.commentHeader}>
-            <Text style={styles.commentAuthor}>{author.name || 'Member'}</Text>
-            {author.role === 'admin' && (
-              <VerifiedBadge size={12} style={{ marginLeft: 4 }} />
+            <View style={styles.authorRow}>
+              <Text style={styles.commentAuthor}>{author.name || 'Member'}</Text>
+              {author.role === 'admin' && (
+                <VerifiedBadge size={12} style={{ marginLeft: 4 }} />
+              )}
+              <Text style={styles.commentHandle}>@{author.username}</Text>
+              <Text style={styles.commentDot}>·</Text>
+              <Text style={styles.commentTime}>{timeStr}</Text>
+            </View>
+
+            {canDelete && (
+              <TouchableOpacity
+                onPress={() => handleDeleteComment(item._id)}
+                style={styles.deleteCommentBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="trash-outline" size={14} color="#EF4444" />
+              </TouchableOpacity>
             )}
-            <Text style={styles.commentHandle}>@{author.username}</Text>
-            <Text style={styles.commentDot}>·</Text>
-            <Text style={styles.commentTime}>{timeStr}</Text>
           </View>
           <Text style={styles.commentText}>{item.content}</Text>
         </View>
@@ -106,15 +149,17 @@ export const PostDetailScreen = ({ route, navigation }) => {
       {/* Top Navbar */}
       <View style={styles.navBar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
+          <Ionicons name="arrow-back" size={22} color="#F8FAFC" />
         </TouchableOpacity>
         <Text style={styles.navTitle}>Post</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => setShowModeration(true)} style={styles.flagNavBtn}>
+          <Ionicons name="ellipsis-horizontal" size={20} color="#94A3B8" />
+        </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color="#14B8A6" />
         </View>
       ) : (
         <FlatList
@@ -124,11 +169,13 @@ export const PostDetailScreen = ({ route, navigation }) => {
           ListHeaderComponent={
             post ? (
               <View>
-                <PostCard post={post} navigation={navigation} />
+                <PostCard
+                  post={post}
+                  onFlag={() => setShowModeration(true)}
+                  navigation={navigation}
+                />
                 <View style={styles.repliesDivider}>
-                  <Text style={styles.repliesTitle}>
-                    Replies ({comments.length})
-                  </Text>
+                  <Text style={styles.repliesTitle}>Replies ({comments.length})</Text>
                 </View>
               </View>
             ) : null
@@ -146,7 +193,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
         <Avatar src={user?.avatarUrl} name={user?.name} size="xs" />
         <TextInput
           placeholder="Post your reply..."
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor="#64748B"
           value={replyText}
           onChangeText={setReplyText}
           style={styles.replyInput}
@@ -162,6 +209,16 @@ export const PostDetailScreen = ({ route, navigation }) => {
           Reply
         </Button>
       </View>
+
+      {/* Moderation Modal */}
+      <ModerationModal
+        visible={showModeration}
+        onClose={() => setShowModeration(false)}
+        targetPost={post}
+        onUserBlocked={() => {
+          navigation.goBack();
+        }}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -169,7 +226,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#090D16',
   },
   navBar: {
     flexDirection: 'row',
@@ -178,21 +235,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#1E293B',
   },
   backBtn: {
     paddingVertical: 4,
     paddingRight: 10,
   },
-  backBtnText: {
-    color: colors.accent,
-    fontSize: 15,
-    fontWeight: '700',
-  },
   navTitle: {
-    color: colors.text,
+    color: '#F8FAFC',
     fontSize: 16,
     fontWeight: '700',
+  },
+  flagNavBtn: {
+    padding: 4,
   },
   centerLoading: {
     flex: 1,
@@ -202,12 +257,12 @@ const styles = StyleSheet.create({
   repliesDivider: {
     paddingHorizontal: 16,
     paddingVertical: 10,
+    backgroundColor: '#111827',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.bg,
+    borderBottomColor: '#1E293B',
   },
   repliesTitle: {
-    color: colors.textSecondary,
+    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -216,64 +271,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    borderBottomColor: '#1E293B',
   },
   commentBody: {
+    marginLeft: 12,
     flex: 1,
-    marginLeft: 10,
   },
   commentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
-    flexWrap: 'nowrap',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  authorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    flex: 1,
   },
   commentAuthor: {
-    color: colors.text,
+    color: '#F8FAFC',
     fontSize: 13,
     fontWeight: '700',
   },
-  goldBadge: {
-    backgroundColor: colors.gold,
-    borderRadius: 6,
-    width: 12,
-    height: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 4,
-  },
-  goldBadgeText: {
-    color: '#000000',
-    fontSize: 7,
-    fontWeight: '900',
-  },
   commentHandle: {
-    color: colors.textSecondary,
+    color: '#94A3B8',
     fontSize: 12,
     marginLeft: 4,
   },
   commentDot: {
-    color: colors.textSecondary,
+    color: '#64748B',
     marginHorizontal: 4,
-    fontSize: 12,
   },
   commentTime: {
-    color: colors.textSecondary,
+    color: '#64748B',
     fontSize: 11,
   },
+  deleteCommentBtn: {
+    padding: 4,
+    marginLeft: 8,
+  },
   commentText: {
-    color: colors.text,
+    color: '#E2E8F0',
     fontSize: 13,
-    lineHeight: 18,
-    marginTop: 2,
+    lineHeight: 19,
   },
   emptyReplies: {
-    padding: 30,
+    paddingVertical: 36,
     alignItems: 'center',
   },
   emptyRepliesText: {
-    color: colors.textSecondary,
+    color: '#64748B',
     fontSize: 13,
   },
   replyBar: {
@@ -281,25 +329,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: '#111827',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 8,
+    borderTopColor: '#1E293B',
   },
   replyInput: {
     flex: 1,
-    color: colors.text,
-    backgroundColor: colors.bg,
-    borderRadius: 9999,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    color: '#F8FAFC',
     fontSize: 13,
+    marginHorizontal: 10,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#334155',
   },
   replyBtn: {
     paddingHorizontal: 14,
-    paddingVertical: 6,
   },
 });
 

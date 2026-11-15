@@ -1,0 +1,280 @@
+/**
+ * Clearfeed Edit Profile Screen
+ * Allows editing bio, display name, status line, website/github links, and avatar image picking.
+ */
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
+import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
+import Avatar from '../components/Avatar';
+import Button from '../components/Button';
+
+export const EditProfileScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
+  const { user, updateUser } = useAuth();
+  const { showToast } = useNotifications();
+
+  const [name, setName] = useState(user?.name || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [status, setStatus] = useState(user?.status || '');
+  const [website, setWebsite] = useState(user?.website || '');
+  const [github, setGithub] = useState(user?.github || '');
+  const [avatarUri, setAvatarUri] = useState(user?.avatarUrl || null);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handlePickAvatar = async () => {
+    try {
+      const { status: permissionStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionStatus !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera roll permissions are required to upload an avatar.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingAvatar(true);
+
+        const base64Data = asset.base64
+          ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
+
+        // Upload avatar
+        const res = await api.patch('/users/profile', { avatarUrl: base64Data });
+        if (res.data?.user) {
+          updateUser(res.data.user);
+          setAvatarUri(res.data.user.avatarUrl);
+          showToast('Avatar updated successfully', 'success');
+        }
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to update avatar', 'error');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      showToast('Name cannot be empty', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await api.patch('/users/profile', {
+        name: name.trim(),
+        bio: bio.trim(),
+        status: status.trim(),
+        website: website.trim(),
+        github: github.trim(),
+      });
+
+      if (res.data?.user) {
+        updateUser(res.data.user);
+      }
+      showToast('Profile updated', 'success');
+      navigation.goBack();
+    } catch (err) {
+      showToast(err.message || 'Failed to update profile', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Top Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#F8FAFC" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <Button
+          title={saving ? 'Saving...' : 'Save'}
+          variant="primary"
+          size="sm"
+          onPress={handleSave}
+          disabled={saving}
+        />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Avatar Section */}
+        <View style={styles.avatarSection}>
+          <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.8} style={styles.avatarWrapper}>
+            <Avatar uri={avatarUri} name={name} size={90} />
+            <View style={styles.avatarOverlay}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="camera" size={22} color="#FFFFFF" />
+              )}
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.avatarHint}>Tap to change avatar</Text>
+        </View>
+
+        {/* Inputs */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>DISPLAY NAME</Text>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Your name"
+            placeholderTextColor="#64748B"
+            maxLength={50}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>STATUS LINE</Text>
+          <TextInput
+            style={styles.input}
+            value={status}
+            onChangeText={setStatus}
+            placeholder="e.g. Building distributed systems"
+            placeholderTextColor="#64748B"
+            maxLength={80}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>BIO</Text>
+          <TextInput
+            style={[styles.input, styles.bioInput]}
+            value={bio}
+            onChangeText={setBio}
+            placeholder="Tell the community about yourself..."
+            placeholderTextColor="#64748B"
+            multiline
+            numberOfLines={4}
+            maxLength={280}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>WEBSITE / PORTFOLIO</Text>
+          <TextInput
+            style={styles.input}
+            value={website}
+            onChangeText={setWebsite}
+            placeholder="https://..."
+            placeholderTextColor="#64748B"
+            autoCapitalize="none"
+            keyboardType="url"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>GITHUB USERNAME</Text>
+          <TextInput
+            style={styles.input}
+            value={github}
+            onChangeText={setGithub}
+            placeholder="octocat"
+            placeholderTextColor="#64748B"
+            autoCapitalize="none"
+          />
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#090D16',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  backBtn: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  content: {
+    padding: 20,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  avatarWrapper: {
+    position: 'relative',
+    borderRadius: 45,
+    overflow: 'hidden',
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarHint: {
+    fontSize: 12,
+    color: '#14B8A6',
+    marginTop: 8,
+    fontWeight: '600',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  input: {
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#F8FAFC',
+    fontSize: 14,
+  },
+  bioInput: {
+    height: 90,
+    textAlignVertical: 'top',
+    paddingTop: 10,
+  },
+});
+
+export default EditProfileScreen;

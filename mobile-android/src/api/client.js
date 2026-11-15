@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import { getAuthToken } from '../services/secureStorage';
 
 // Automatically detect host computer's LAN IP or Android Emulator when running on Expo Go:
 const getDevHostIp = () => {
@@ -140,7 +141,7 @@ async function request(endpoint, options = {}) {
   }
 
   const baseUrl = await getBaseUrl();
-  const token = await AsyncStorage.getItem('token');
+  const token = await getAuthToken();
 
   const headers = {
     'Content-Type': 'application/json',

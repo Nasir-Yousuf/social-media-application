@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export const LoginScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { login, register, loginGuest } = useAuth();
+  const { login, register, loginGuest, enterOfflineMeshMode } = useAuth();
   const { showToast } = useNotifications();
 
   const [isRegister, setIsRegister] = useState(false);
@@ -217,14 +217,17 @@ export const LoginScreen = ({ navigation }) => {
 
           {/* Standalone Offline Mesh Chat Entry (No server or login needed) */}
           <TouchableOpacity
-            onPress={() => navigation.navigate('MeshHome')}
+            onPress={() => {
+              enterOfflineMeshMode();
+              navigation.navigate('MeshHome');
+            }}
             activeOpacity={0.8}
             style={styles.meshBtn}
           >
-            <Ionicons name="radio" size={18} color="#00ba7c" style={{ marginRight: 8 }} />
+            <Ionicons name="radio" size={18} color="#F59E0B" style={{ marginRight: 8 }} />
             <View style={{ alignItems: 'center' }}>
-              <Text style={styles.meshBtnText}>Open Mesh Chat (Offline)</Text>
-              <Text style={styles.meshBtnSubtext}>Connect nearby without internet or account</Text>
+              <Text style={[styles.meshBtnText, { color: '#F59E0B' }]}>Enter Clearfeed Mesh (Offline)</Text>
+              <Text style={styles.meshBtnSubtext}>P2P communication without internet or cloud login</Text>
             </View>
           </TouchableOpacity>
 

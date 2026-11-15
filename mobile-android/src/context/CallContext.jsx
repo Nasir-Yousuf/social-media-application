@@ -17,6 +17,10 @@ export const CallProvider = ({ children }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  const minimizeCall = useCallback(() => setIsMinimized(true), []);
+  const maximizeCall = useCallback(() => setIsMinimized(false), []);
 
   const durationTimerRef = useRef(null);
   const ringVibrationTimerRef = useRef(null);
@@ -110,6 +114,7 @@ export const CallProvider = ({ children }) => {
       stopRingingVibration();
       stopTimer();
       setCallState('idle');
+      setIsMinimized(false);
       setActiveCall(null);
       showToast(reason === 'busy' ? 'User is busy on another call' : 'Call declined', 'info');
     });
@@ -119,6 +124,7 @@ export const CallProvider = ({ children }) => {
       stopRingingVibration();
       stopTimer();
       setCallState('idle');
+      setIsMinimized(false);
       setActiveCall(null);
       const reasonMsg =
         data?.reason === 'no_answer'
@@ -134,6 +140,7 @@ export const CallProvider = ({ children }) => {
       stopRingingVibration();
       stopTimer();
       setCallState('idle');
+      setIsMinimized(false);
       setActiveCall(null);
       showToast('User is currently offline', 'info');
     });
@@ -362,6 +369,10 @@ export const CallProvider = ({ children }) => {
         isSpeaker,
         callDuration,
         formatDuration,
+        isMinimized,
+        setIsMinimized,
+        minimizeCall,
+        maximizeCall,
         startAudioCall,
         startGroupAudioCall,
         acceptIncomingCall,

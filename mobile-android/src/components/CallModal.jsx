@@ -25,6 +25,8 @@ export const CallModal = () => {
   const { showToast } = useNotifications();
   const {
     callState,
+    isMinimized,
+    minimizeCall,
     activeCall,
     groupCall,
     isMuted,
@@ -92,7 +94,7 @@ export const CallModal = () => {
     }
   }, [callState, waveAnim1, waveAnim2, waveAnim3, waveAnim4]);
 
-  if (callState === 'idle') {
+  if (callState === 'idle' || isMinimized) {
     return null;
   }
 
@@ -213,6 +215,9 @@ export const CallModal = () => {
         {/* ========================================================================= */}
         {callState === 'connected' && (
           <View style={styles.screenContent}>
+            <TouchableOpacity style={styles.minimizeBtn} onPress={minimizeCall} activeOpacity={0.7}>
+              <Ionicons name="chevron-down" size={28} color="#e2e8f0" />
+            </TouchableOpacity>
             <View style={styles.headerInfo}>
               <View style={styles.activeCallBadge}>
                 <View style={styles.greenDot} />
@@ -287,6 +292,9 @@ export const CallModal = () => {
         {/* ========================================================================= */}
         {callState === 'group' && (
           <View style={[styles.screenContent, { justifyContent: 'flex-start' }]}>
+            <TouchableOpacity style={styles.minimizeBtn} onPress={minimizeCall} activeOpacity={0.7}>
+              <Ionicons name="chevron-down" size={28} color="#e2e8f0" />
+            </TouchableOpacity>
             <View style={styles.groupHeader}>
               <View>
                 <Text style={styles.groupRoomTitle}>{groupCall?.roomName || 'Group Audio Call'}</Text>
@@ -397,6 +405,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 12,
+  },
+  minimizeBtn: {
+    alignSelf: 'flex-start',
+    padding: 8,
+    marginBottom: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   headerInfo: {
     alignItems: 'center',

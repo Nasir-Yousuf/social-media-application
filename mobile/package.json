@@ -1,0 +1,10 @@
+{
+  "name": "clearfeed-mobile",
+  "version": "1.0.0",
+  "description": "Clearfeed Android Mobile Application workspace",
+  "scripts": {
+    "start": "npm --prefix ../mobile-android run start",
+    "android": "npm --prefix ../mobile-android run android",
+    "test:mesh": "npm --prefix ../mobile-android run test:mesh"
+  }
+}

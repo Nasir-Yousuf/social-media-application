@@ -7,6 +7,8 @@ import {
   Share,
 } from 'react-native';
 import { formatDistanceToNowStrict } from 'date-fns';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import colors from '../theme/colors';
 import Avatar from './Avatar';
 import CodeSnippetView from './CodeSnippetView';
@@ -28,6 +30,7 @@ export const PostCard = ({
   onPress,
   onDeleted,
   onUpdated,
+  onFlag,
   navigation,
 }) => {
   const { user } = useAuth();
@@ -55,8 +58,12 @@ export const PostCard = ({
     }
   };
 
-  // Like Toggle
+  // Like Toggle with Haptics
   const handleLike = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+
     const prevLiked = isLiked;
     const prevCount = likesCount;
 
@@ -74,8 +81,12 @@ export const PostCard = ({
     }
   };
 
-  // Bookmark Toggle
+  // Bookmark Toggle with Haptics
   const handleBookmark = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+
     const prev = isBookmarked;
     setIsBookmarked(!prev);
 
@@ -91,15 +102,20 @@ export const PostCard = ({
 
   // Repost
   const handleRepost = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {}
     setReposted(!reposted);
     showToast(reposted ? 'Undo repost' : 'Reposted to feed', 'success');
   };
 
-  // Share
+  // Native Android Share Intent
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `${author.name || 'Clearfeed user'}: "${post.content?.substring(0, 100)}..."\n\nShared via Clearfeed`,
+        title: 'Clearfeed Post',
+        message: `${author.name || 'Member'} on Clearfeed:\n"${post.content?.substring(0, 140)}..."\n\nRead more on Clearfeed`,
+        url: `clearfeed://post/${post._id}`,
       });
     } catch (err) {
       // User cancelled
@@ -229,6 +245,18 @@ export const PostCard = ({
               >
                 <ShareIcon size={16} />
               </TouchableOpacity>
+
+              {/* Report / Moderation Flag */}
+              {onFlag && (
+                <TouchableOpacity
+                  onPress={onFlag}
+                  style={styles.actionBtn}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Report post"
+                >
+                  <Ionicons name="flag-outline" size={15} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>

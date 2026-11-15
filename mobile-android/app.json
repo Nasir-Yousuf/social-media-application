@@ -2,10 +2,11 @@
   "expo": {
     "name": "ClearFeed",
     "slug": "clearfeed",
+    "scheme": "clearfeed",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "android": {
       "package": "com.clearfeed.app",
       "softwareKeyboardLayoutMode": "resize",
@@ -16,15 +17,42 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.CHANGE_WIFI_STATE",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.BLUETOOTH_ADVERTISE",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.NEARBY_WIFI_DEVICES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.CAMERA"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "clearfeed"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {
@@ -32,11 +60,17 @@
     },
     "plugins": [
       "expo-font",
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-haptics",
       [
         "expo-build-properties",
         {
           "android": {
             "usesCleartextTraffic": true,
+            "minSdkVersion": 24,
+            "targetSdkVersion": 35,
+            "compileSdkVersion": 35,
             "extraGradleProperties": {
               "android.newDsl": "false",
               "android.suppressUnsupportedCompileSdk": "37"

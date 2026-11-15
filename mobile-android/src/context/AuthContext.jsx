@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api/client';
 import socketService from '../services/socket';
+import { getAuthToken, setAuthToken, clearAuthTokens } from '../services/secureStorage';
 
 const AuthContext = createContext(null);
 
@@ -9,12 +10,21 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isOfflineMeshMode, setIsOfflineMeshMode] = useState(false);
 
-  // Initialize auth state from storage
+  // Initialize auth state from SecureStorage and local cache
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem('token');
+        // Eagerly restore cached user profile for offline cold-start
+        const cachedUserRaw = await AsyncStorage.getItem('@cf_cached_user');
+        if (cachedUserRaw) {
+          try {
+            setUser(JSON.parse(cachedUserRaw));
+          } catch {}
+        }
+
+        const storedToken = await getAuthToken();
         if (storedToken) {
           setToken(storedToken);
           // Fetch current profile from /auth/me (fallback to /users/me)
@@ -30,6 +40,7 @@ export const AuthProvider = ({ children }) => {
           }
           if (res?.data?.user) {
             setUser(res.data.user);
+            await AsyncStorage.setItem('@cf_cached_user', JSON.stringify(res.data.user));
             socketService.connect(storedToken).catch(() => {});
           }
         }
@@ -40,13 +51,14 @@ export const AuthProvider = ({ children }) => {
           (err.message && err.message.toLowerCase().includes('token'));
 
         if (isAuthError) {
-          console.log('Session expired or invalid, clearing storage');
-          await AsyncStorage.removeItem('token');
+          console.log('[Auth] Session expired or invalid, clearing secure storage');
+          await clearAuthTokens();
+          await AsyncStorage.removeItem('@cf_cached_user');
           setToken(null);
           setUser(null);
           socketService.disconnect();
         } else {
-          console.warn('Network or server error during auth init:', err.message);
+          console.warn('[Auth] Network or server error during auth init (offline mode viable):', err.message);
         }
       } finally {
         setLoading(false);
@@ -78,9 +90,11 @@ export const AuthProvider = ({ children }) => {
     });
 
     const { token: receivedToken, user: receivedUser } = res.data;
-    await AsyncStorage.setItem('token', receivedToken);
+    await setAuthToken(receivedToken);
+    await AsyncStorage.setItem('@cf_cached_user', JSON.stringify(receivedUser));
     setToken(receivedToken);
     setUser(receivedUser);
+    setIsOfflineMeshMode(false);
     socketService.reconnect(receivedToken).catch(() => {});
     await syncPushToken();
     return receivedUser;
@@ -89,9 +103,11 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     const res = await api.post('/auth/register', userData);
     const { token: receivedToken, user: receivedUser } = res.data;
-    await AsyncStorage.setItem('token', receivedToken);
+    await setAuthToken(receivedToken);
+    await AsyncStorage.setItem('@cf_cached_user', JSON.stringify(receivedUser));
     setToken(receivedToken);
     setUser(receivedUser);
+    setIsOfflineMeshMode(false);
     socketService.reconnect(receivedToken).catch(() => {});
     await syncPushToken();
     return receivedUser;
@@ -100,11 +116,22 @@ export const AuthProvider = ({ children }) => {
   const loginGuest = async () => {
     const res = await api.post('/auth/guest');
     const { token: receivedToken, user: receivedUser } = res.data;
-    await AsyncStorage.setItem('token', receivedToken);
+    await setAuthToken(receivedToken);
+    await AsyncStorage.setItem('@cf_cached_user', JSON.stringify(receivedUser));
     setToken(receivedToken);
     setUser(receivedUser);
+    setIsOfflineMeshMode(false);
     socketService.reconnect(receivedToken).catch(() => {});
     return receivedUser;
+  };
+
+  // Dedicated Offline Mesh Mode Entry (zero login / zero internet required)
+  const enterOfflineMeshMode = () => {
+    setIsOfflineMeshMode(true);
+  };
+
+  const exitOfflineMeshMode = () => {
+    setIsOfflineMeshMode(false);
   };
 
   const logout = async () => {
@@ -118,14 +145,22 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Ignored
     }
-    await AsyncStorage.removeItem('token');
+    await clearAuthTokens();
+    await AsyncStorage.removeItem('@cf_cached_user');
     socketService.disconnect();
     setToken(null);
     setUser(null);
+    setIsOfflineMeshMode(false);
   };
 
   const updateUser = (updatedFields) => {
-    setUser((prev) => (prev ? { ...prev, ...updatedFields } : null));
+    setUser((prev) => {
+      const updated = prev ? { ...prev, ...updatedFields } : null;
+      if (updated) {
+        AsyncStorage.setItem('@cf_cached_user', JSON.stringify(updated)).catch(() => {});
+      }
+      return updated;
+    });
   };
 
   return (
@@ -135,6 +170,9 @@ export const AuthProvider = ({ children }) => {
         token,
         loading,
         isAuthenticated: !!token && !!user,
+        isOfflineMeshMode,
+        enterOfflineMeshMode,
+        exitOfflineMeshMode,
         isAdmin: user?.role === 'admin',
         login,
         register,

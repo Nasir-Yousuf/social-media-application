@@ -22,7 +22,11 @@
     "expo-crypto": "~58.0.7",
     "expo-device": "~58.0.5",
     "expo-font": "~58.0.11",
+    "expo-haptics": "~58.0.8",
     "expo-image-picker": "~58.0.10",
+    "expo-linking": "~58.0.17",
+    "expo-secure-store": "~58.0.3",
+    "expo-sqlite": "~58.0.17",
     "expo-status-bar": "~58.0.4",
     "qrcode": "^1.5.4",
     "react": "19.3.0",
@@ -37,7 +41,9 @@
     "web": "expo start --web",
     "build:apk": "eas build -p android --profile preview",
     "build:status": "eas build:list",
-    "test:mesh": "node src/mesh/__tests__/mesh.test.js --input-type=module"
+    "test:mesh": "node src/mesh/__tests__/mesh.test.js --input-type=module",
+    "test:shell": "node test/androidShellAndParity.test.js --input-type=module",
+    "test": "npm run test:mesh && npm run test:shell"
   },
   "private": true
 }

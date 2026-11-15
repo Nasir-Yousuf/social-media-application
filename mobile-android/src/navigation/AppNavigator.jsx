@@ -1,38 +1,60 @@
+/**
+ * Clearfeed Android Production Native Navigation Shell
+ * 5-Tab Architecture:
+ * 1. Feed (Chronological Feed, Community Directory, Search, Bookmarks)
+ * 2. Hub & Learn (CodeHub + Learn Academy segmented switcher)
+ * 3. Spaces (Live Audio Rooms + AI Companion dock)
+ * 4. Connect (Cloud Chat + Clearfeed Mesh segmented switcher)
+ * 5. Profile (User Profile, Edit Profile, Certificates, Settings)
+ *
+ * Includes:
+ * - Deep link routing (clearfeed://post/:id, clearfeed://learn/:track/:lesson, etc.)
+ * - Android BackHandler integration
+ * - Unread message & mesh peer badges
+ * - Offline mesh mode bypass
+ */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { View, Text, StyleSheet, Platform, BackHandler, ToastAndroid } from 'react-native';
+import {
+  NavigationContainer,
+  useNavigationContainerRef,
+  DefaultTheme,
+  DarkTheme,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import colors from '../theme/colors';
-import { ClearfeedLogo } from '../components/TwitterIcons';
+import { ClearfeedLogo } from '../components/ClearfeedIcons';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useMesh } from '../mesh/context/MeshContext';
+import { useTheme } from '../context/ThemeContext';
 
-// Primary Tab Screens
+// Primary 5 Tab Screens
 import HomeScreen from '../screens/HomeScreen';
-import MessagesScreen from '../screens/MessagesScreen';
-import LearnScreen from '../screens/LearnScreen';
-import ExploreScreen from '../screens/ExploreScreen';
-import SettingsScreen from '../screens/SettingsScreen';
-import PracticeScreen from '../screens/PracticeScreen';
+import HubLearnScreen from '../screens/HubLearnScreen';
+import SpacesScreen from '../screens/SpacesScreen';
+import ConnectScreen from '../screens/ConnectScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 // Stack Screens
+import EditProfileScreen from '../screens/EditProfileScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 import ConversationScreen from '../screens/ConversationScreen';
 import LessonDetailScreen from '../screens/LessonDetailScreen';
+import PracticeScreen from '../screens/PracticeScreen';
 import SearchScreen from '../screens/SearchScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import LoginScreen from '../screens/LoginScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import MembersScreen from '../screens/MembersScreen';
-import ProfileScreen from '../screens/ProfileScreen';
 import ComposeScreen from '../screens/ComposeScreen';
 import PostDetailScreen from '../screens/PostDetailScreen';
 import BookmarksScreen from '../screens/BookmarksScreen';
 import CodeHubScreen from '../screens/CodeHubScreen';
-import { useTheme } from '../context/ThemeContext';
 
 // Clearfeed Mesh Screens (Offline-First Subsystem)
 import MeshHomeScreen from '../screens/mesh/MeshHomeScreen';
@@ -43,32 +65,71 @@ import MeshSettingsScreen from '../screens/mesh/MeshSettingsScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Bottom Tab Navigator (5 ergonomic tabs: Feed, Messages, Learn, Discover, Settings)
+// Deep link routing specification
+export const linking = {
+  prefixes: [
+    'clearfeed://',
+    'https://clearfeed-web.vercel.app',
+    'https://clearfeed.app',
+    'https://social-media-application-production-e75d.up.railway.app',
+  ],
+  config: {
+    screens: {
+      MainTabs: {
+        screens: {
+          Feed: 'feed',
+          HubLearn: 'hub',
+          Spaces: 'spaces',
+          Connect: 'connect',
+          Profile: 'profile',
+        },
+      },
+      PostDetail: 'post/:postId',
+      LessonDetail: 'learn/:track/:lessonId',
+      CodeHub: 'code/:id',
+      Conversation: 'messages/:conversationId',
+      MeshHome: 'mesh',
+      MeshConversation: 'mesh/chat/:peerId',
+      Search: 'search',
+      Members: 'members',
+      Bookmarks: 'bookmarks',
+      Notifications: 'notifications',
+      EditProfile: 'profile/edit',
+      Login: 'login',
+      Register: 'register',
+    },
+  },
+};
+
+// 5-Tab Android Native Bottom Tab Navigator
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const { unreadMessagesCount } = useNotifications();
+  const { peerCount = 0 } = useMesh ? useMesh() : {};
   const { colors: currentColors } = useTheme();
 
   return (
     <Tab.Navigator
+      initialRouteName="Feed"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: currentColors.surface,
-          borderTopColor: currentColors.border,
+          backgroundColor: '#090D16',
+          borderTopColor: '#1E293B',
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 56 + insets.bottom : 62,
-          paddingBottom: Platform.OS === 'ios' ? insets.bottom : 8,
+          height: Platform.OS === 'android' ? 62 : 56 + insets.bottom,
+          paddingBottom: Platform.OS === 'android' ? 8 : insets.bottom,
           paddingTop: 6,
         },
-        tabBarActiveTintColor: currentColors.accent,
-        tabBarInactiveTintColor: currentColors.textSecondary,
+        tabBarActiveTintColor: '#14B8A6',
+        tabBarInactiveTintColor: '#94A3B8',
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '700',
         },
       }}
     >
+      {/* Tab 1: Chronological Social Feed */}
       <Tab.Screen
         name="Feed"
         component={HomeScreen}
@@ -80,15 +141,47 @@ function MainTabs() {
         }}
       />
 
+      {/* Tab 2: Hub & Learn (CodeHub + Academy Switcher) */}
       <Tab.Screen
-        name="Messages"
-        component={MessagesScreen}
+        name="HubLearn"
+        component={HubLearnScreen}
         options={{
-          tabBarLabel: 'Messages',
-          tabBarBadge: unreadMessagesCount > 0 ? (unreadMessagesCount > 9 ? '9+' : unreadMessagesCount) : undefined,
+          tabBarLabel: 'Hub & Learn',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'code-slash' : 'code-slash-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+
+      {/* Tab 3: Spaces (Live Audio Rooms + AI Dock) */}
+      <Tab.Screen
+        name="Spaces"
+        component={SpacesScreen}
+        options={{
+          tabBarLabel: 'Spaces',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'radio' : 'radio-outline'} size={22} color={color} />
+          ),
+        }}
+      />
+
+      {/* Tab 4: Connect (Cloud Chat + Offline Mesh Switcher) */}
+      <Tab.Screen
+        name="Connect"
+        component={ConnectScreen}
+        options={{
+          tabBarLabel: 'Connect',
+          tabBarBadge:
+            unreadMessagesCount > 0
+              ? unreadMessagesCount > 9
+                ? '9+'
+                : unreadMessagesCount
+              : peerCount > 0
+              ? `${peerCount}`
+              : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: currentColors.accent,
-            color: '#ffffff',
+            backgroundColor: unreadMessagesCount > 0 ? '#14B8A6' : '#F59E0B',
+            color: '#090D16',
             fontSize: 10,
             fontWeight: '900',
             lineHeight: 13,
@@ -99,35 +192,14 @@ function MainTabs() {
         }}
       />
 
+      {/* Tab 5: Profile (User Profile & Settings) */}
       <Tab.Screen
-        name="Learn"
-        component={LearnScreen}
+        name="Profile"
+        component={ProfileScreen}
         options={{
-          tabBarLabel: 'Learn',
+          tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'school' : 'school-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="Discover"
-        component={ExploreScreen}
-        options={{
-          tabBarLabel: 'Discover',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          tabBarLabel: 'Settings',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -137,9 +209,9 @@ function MainTabs() {
 
 // Root Navigator
 export const AppNavigator = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isOfflineMeshMode, loading } = useAuth();
   const { setNavigationRef } = useNotifications();
-  const { currentColors, isDark } = useTheme();
+  const { isDark } = useTheme();
   const navRef = useNavigationContainerRef();
 
   useEffect(() => {
@@ -148,11 +220,51 @@ export const AppNavigator = () => {
     }
   }, [navRef, setNavigationRef]);
 
+  // Android Hardware Back Button Handling
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    let lastBackPress = 0;
+    const onBackPress = () => {
+      if (!navRef.isReady()) return false;
+
+      // If we can go back in the current stack, do that first
+      if (navRef.canGoBack()) {
+        navRef.goBack();
+        return true;
+      }
+
+      // If on root tab and it is not Feed, navigate to Feed
+      const currentRoute = navRef.getCurrentRoute();
+      if (currentRoute?.name !== 'Feed' && (isAuthenticated || isOfflineMeshMode)) {
+        try {
+          navRef.navigate('MainTabs', { screen: 'Feed' });
+          return true;
+        } catch {}
+      }
+
+      // Double-tap to exit on root
+      const now = Date.now();
+      if (now - lastBackPress < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackPress = now;
+      ToastAndroid.show('Press back again to exit Clearfeed', ToastAndroid.SHORT);
+      return true;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, [navRef, isAuthenticated, isOfflineMeshMode]);
+
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: currentColors?.bg || '#000000' }]}>
-        <ClearfeedLogo size={52} style={{ marginBottom: 16 }} />
-        <Text style={styles.loadingLogo}>Clear<Text style={{ color: currentColors?.accent || '#00A6F4' }}>feed</Text></Text>
+      <View style={styles.loadingContainer}>
+        <ClearfeedLogo className="w-16 h-16" showSquircle={true} />
+        <Text style={styles.loadingLogo}>
+          Clear<Text style={{ color: '#14B8A6' }}>feed</Text>
+        </Text>
       </View>
     );
   }
@@ -160,28 +272,24 @@ export const AppNavigator = () => {
   const baseTheme = isDark ? DarkTheme : DefaultTheme;
   const navTheme = {
     ...baseTheme,
-    dark: isDark,
+    dark: true,
     colors: {
       ...baseTheme.colors,
-      primary: currentColors?.accent || '#00A6F4',
-      background: currentColors?.bg || '#000000',
-      card: currentColors?.surface || '#16181c',
-      text: currentColors?.text || '#e7e9ea',
-      border: currentColors?.border || '#2f3336',
-      notification: currentColors?.accent || '#00A6F4',
-    },
-    fonts: baseTheme.fonts || {
-      regular: { fontFamily: 'System', fontWeight: '400' },
-      medium: { fontFamily: 'System', fontWeight: '500' },
-      bold: { fontFamily: 'System', fontWeight: '700' },
-      heavy: { fontFamily: 'System', fontWeight: '900' },
+      primary: '#14B8A6',
+      background: '#090D16',
+      card: '#111827',
+      text: '#F8FAFC',
+      border: '#334155',
+      notification: '#F59E0B',
     },
   };
 
+  const showAuthenticatedApp = isAuthenticated || isOfflineMeshMode;
+
   return (
-    <NavigationContainer ref={navRef} theme={navTheme}>
+    <NavigationContainer ref={navRef} theme={navTheme} linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
+        {!showAuthenticatedApp ? (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
@@ -193,20 +301,21 @@ export const AppNavigator = () => {
         ) : (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="Practice" component={PracticeScreen} />
             <Stack.Screen
               name="Compose"
               component={ComposeScreen}
               options={{ presentation: 'modal' }}
             />
+            <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="Conversation" component={ConversationScreen} />
             <Stack.Screen name="LessonDetail" component={LessonDetailScreen} />
+            <Stack.Screen name="Practice" component={PracticeScreen} />
             <Stack.Screen name="Search" component={SearchScreen} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
-            <Stack.Screen name="PostDetail" component={PostDetailScreen} />
             <Stack.Screen name="Bookmarks" component={BookmarksScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Members" component={MembersScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="CodeHub" component={CodeHubScreen} />
             <Stack.Screen name="MeshHome" component={MeshHomeScreen} />
             <Stack.Screen name="MeshConversation" component={MeshConversationScreen} />
@@ -222,15 +331,16 @@ export const AppNavigator = () => {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#090D16',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingLogo: {
-    color: colors.text,
-    fontSize: 28,
+    color: '#F8FAFC',
+    fontSize: 26,
     fontWeight: '900',
-    letterSpacing: -1,
+    letterSpacing: -0.5,
+    marginTop: 16,
   },
 });
 

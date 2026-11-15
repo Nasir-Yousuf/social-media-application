@@ -1,3 +1,13 @@
+/**
+ * Clearfeed Post Composer & Editor
+ * Features:
+ * - Chronological post creation & editing (route.params.editPost)
+ * - Markdown & code formatting toolbar (Bold, Italic, Code block, Inline code, Link)
+ * - Image attachment with client-side compression (expo-image-picker, quality 0.7)
+ * - Multi-file code workspace snippet builder
+ * - Character counter with warning thresholds
+ * - Staff controls (Announcement & Pinned)
+ */
 import React, { useState } from 'react';
 import {
   View,
@@ -8,8 +18,11 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import colors from '../theme/colors';
 import Button from '../components/Button';
 import Avatar from '../components/Avatar';
@@ -31,28 +44,65 @@ const LANGUAGES = [
   'shell',
 ];
 
-export const ComposeScreen = ({ navigation }) => {
+export const ComposeScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
   const { user, isAdmin } = useAuth();
   const { showToast } = useNotifications();
 
-  const [content, setContent] = useState('');
+  const editPost = route?.params?.editPost || null;
+  const isEditing = Boolean(editPost);
+
+  const [content, setContent] = useState(editPost?.content || '');
   const [loading, setLoading] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState(editPost?.mediaUrl || null);
 
   // Admin options
-  const [isAnnouncement, setIsAnnouncement] = useState(false);
-  const [isPinned, setIsPinned] = useState(false);
+  const [isAnnouncement, setIsAnnouncement] = useState(editPost?.isAnnouncement || false);
+  const [isPinned, setIsPinned] = useState(editPost?.isPinned || false);
 
   // Multi-File Code Snippet state
-  const [hasCode, setHasCode] = useState(false);
-  const [snippetTitle, setSnippetTitle] = useState('');
-  const [files, setFiles] = useState([
-    { filename: 'index.js', language: 'javascript', code: '' },
-  ]);
+  const [hasCode, setHasCode] = useState(Boolean(editPost?.codeSnippet));
+  const [snippetTitle, setSnippetTitle] = useState(editPost?.codeSnippet?.title || '');
+  const [files, setFiles] = useState(
+    editPost?.codeSnippet?.files?.length
+      ? editPost.codeSnippet.files
+      : [{ filename: 'index.js', language: 'javascript', code: editPost?.codeSnippet?.code || '' }]
+  );
   const [activeTab, setActiveTab] = useState(0);
 
   const MAX_CHARS = 2000;
   const remaining = MAX_CHARS - content.length;
+
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera roll permissions are required to attach images.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const base64Data = asset.base64
+          ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
+        setMediaUrl(base64Data);
+      }
+    } catch (err) {
+      showToast('Failed to select image', 'error');
+    }
+  };
+
+  const handleInsertFormatting = (prefix, suffix = '') => {
+    setContent((prev) => `${prev} ${prefix}text${suffix} `);
+  };
 
   const handleAddFile = () => {
     if (files.length >= 6) {
@@ -100,6 +150,7 @@ export const ComposeScreen = ({ navigation }) => {
         content: content.trim(),
         isAnnouncement,
         isPinned,
+        mediaUrl: mediaUrl || undefined,
       };
 
       if (hasCode) {
@@ -114,11 +165,16 @@ export const ComposeScreen = ({ navigation }) => {
         }
       }
 
-      await api.post('/posts', payload);
-      showToast('Post published successfully!', 'success');
+      if (isEditing) {
+        await api.patch(`/posts/${editPost._id}`, payload);
+        showToast('Post updated successfully!', 'success');
+      } else {
+        await api.post('/posts', payload);
+        showToast('Post published successfully!', 'success');
+      }
       navigation.goBack();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to publish post', 'error');
+      showToast(err.response?.data?.message || 'Failed to save post', 'error');
     } finally {
       setLoading(false);
     }
@@ -133,16 +189,22 @@ export const ComposeScreen = ({ navigation }) => {
     >
       {/* Top Navbar */}
       <View style={styles.topNav}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="close" size={24} color={colors.text} />
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.cancelBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="close" size={24} color="#F8FAFC" />
         </TouchableOpacity>
+
+        <Text style={styles.topTitle}>{isEditing ? 'Edit Post' : 'New Post'}</Text>
 
         <View style={styles.topNavRight}>
           <Text
             style={[
               styles.charCounter,
-              remaining < 0 && { color: colors.danger, fontWeight: '700' },
-              remaining < 100 && remaining >= 0 && { color: colors.gold },
+              remaining < 0 && { color: '#EF4444', fontWeight: '700' },
+              remaining < 100 && remaining >= 0 && { color: '#F59E0B' },
             ]}
           >
             {remaining}
@@ -156,7 +218,7 @@ export const ComposeScreen = ({ navigation }) => {
             disabled={!content.trim() || remaining < 0}
             style={styles.postBtn}
           >
-            Post
+            {isEditing ? 'Update' : 'Post'}
           </Button>
         </View>
       </View>
@@ -174,27 +236,92 @@ export const ComposeScreen = ({ navigation }) => {
         {/* Text Input */}
         <TextInput
           multiline
-          placeholder="What's happening? Share a thought, experiment, or code..."
-          placeholderTextColor={colors.textSecondary}
+          placeholder="Share an un-curated thought, technical reflection, or code snippet..."
+          placeholderTextColor="#64748B"
           value={content}
           onChangeText={setContent}
           style={styles.textInput}
-          autoFocus
+          autoFocus={!isEditing}
         />
 
-        {/* Admin Options */}
+        {/* Attached Media Preview */}
+        {mediaUrl && (
+          <View style={styles.mediaPreviewContainer}>
+            <Image source={{ uri: mediaUrl }} style={styles.mediaPreview} resizeMode="cover" />
+            <TouchableOpacity
+              style={styles.removeMediaBtn}
+              onPress={() => setMediaUrl(null)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Markdown Toolbar */}
+        <View style={styles.toolbar}>
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => handleInsertFormatting('**', '**')}
+            accessibilityLabel="Bold"
+          >
+            <Text style={styles.toolBtnText}>B</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => handleInsertFormatting('*', '*')}
+            accessibilityLabel="Italic"
+          >
+            <Text style={[styles.toolBtnText, { fontStyle: 'italic' }]}>I</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => handleInsertFormatting('`', '`')}
+            accessibilityLabel="Inline Code"
+          >
+            <Ionicons name="code" size={16} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => handleInsertFormatting('\n```javascript\n', '\n```\n')}
+            accessibilityLabel="Code Block"
+          >
+            <Ionicons name="code-working" size={16} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => handleInsertFormatting('[', '](url)')}
+            accessibilityLabel="Link"
+          >
+            <Ionicons name="link" size={16} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toolBtn, mediaUrl && styles.toolBtnActive]}
+            onPress={handlePickImage}
+            accessibilityLabel="Attach Image"
+          >
+            <Ionicons name="image-outline" size={16} color={mediaUrl ? '#14B8A6' : '#94A3B8'} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Staff Controls */}
         {isAdmin && (
           <View style={styles.adminBox}>
-            <Text style={styles.adminTitle}>Staff Controls</Text>
+            <Text style={styles.adminTitle}>Maintainer Controls</Text>
             <View style={styles.adminOptions}>
               <TouchableOpacity
                 onPress={() => setIsAnnouncement(!isAnnouncement)}
                 style={[styles.checkPill, isAnnouncement && styles.checkPillActive]}
               >
                 <Ionicons
-                  name={isAnnouncement ? "megaphone" : "megaphone-outline"}
+                  name={isAnnouncement ? 'megaphone' : 'megaphone-outline'}
                   size={14}
-                  color={isAnnouncement ? colors.accent : colors.textSecondary}
+                  color={isAnnouncement ? '#14B8A6' : '#94A3B8'}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={[styles.checkText, isAnnouncement && styles.checkTextActive]}>
@@ -207,9 +334,9 @@ export const ComposeScreen = ({ navigation }) => {
                 style={[styles.checkPill, isPinned && styles.checkPillActive]}
               >
                 <MaterialCommunityIcons
-                  name={isPinned ? "pin" : "pin-outline"}
+                  name={isPinned ? 'pin' : 'pin-outline'}
                   size={14}
-                  color={isPinned ? colors.accent : colors.textSecondary}
+                  color={isPinned ? '#14B8A6' : '#94A3B8'}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={[styles.checkText, isPinned && styles.checkTextActive]}>
@@ -227,9 +354,9 @@ export const ComposeScreen = ({ navigation }) => {
             style={[styles.codeToggleBtn, hasCode && styles.codeToggleBtnActive]}
           >
             <Ionicons
-              name={hasCode ? "code-slash" : "code-slash-outline"}
+              name={hasCode ? 'code-slash' : 'code-slash-outline'}
               size={17}
-              color={hasCode ? colors.accent : colors.textSecondary}
+              color={hasCode ? '#14B8A6' : '#94A3B8'}
               style={{ marginRight: 8 }}
             />
             <Text style={[styles.codeToggleText, hasCode && styles.codeToggleTextActive]}>
@@ -242,8 +369,8 @@ export const ComposeScreen = ({ navigation }) => {
         {hasCode && (
           <View style={styles.codeBuilder}>
             <TextInput
-              placeholder="Workspace title (e.g., Reactive Card Component)"
-              placeholderTextColor={colors.textSecondary}
+              placeholder="Workspace title (e.g. Distributed Consensus Engine)"
+              placeholderTextColor="#64748B"
               value={snippetTitle}
               onChangeText={setSnippetTitle}
               style={styles.codeTitleInput}
@@ -266,7 +393,7 @@ export const ComposeScreen = ({ navigation }) => {
                         onPress={() => handleRemoveFile(idx)}
                         style={styles.tabClose}
                       >
-                        <Ionicons name="close" size={13} color={colors.textSecondary} />
+                        <Ionicons name="close" size={13} color="#94A3B8" />
                       </TouchableOpacity>
                     )}
                   </TouchableOpacity>
@@ -274,7 +401,7 @@ export const ComposeScreen = ({ navigation }) => {
               </ScrollView>
 
               <TouchableOpacity onPress={handleAddFile} style={styles.addTabBtn}>
-                <Ionicons name="add" size={16} color={colors.accent} style={{ marginRight: 2 }} />
+                <Ionicons name="add" size={16} color="#14B8A6" style={{ marginRight: 2 }} />
                 <Text style={styles.addTabBtnText}>Tab</Text>
               </TouchableOpacity>
             </View>
@@ -282,11 +409,11 @@ export const ComposeScreen = ({ navigation }) => {
             {/* Current File Config */}
             <View style={styles.fileConfigRow}>
               <TextInput
-                placeholder="Filename (e.g., App.js)"
-                placeholderTextColor={colors.textSecondary}
                 value={currentFile.filename}
-                onChangeText={(val) => updateCurrentFile('filename', val)}
+                onChangeText={(text) => updateCurrentFile('filename', text)}
                 style={styles.filenameInput}
+                placeholder="filename.js"
+                placeholderTextColor="#64748B"
               />
 
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.langList}>
@@ -312,13 +439,13 @@ export const ComposeScreen = ({ navigation }) => {
               </ScrollView>
             </View>
 
-            {/* Code TextArea */}
+            {/* Code Text Area */}
             <TextInput
               multiline
-              placeholder="// Write or paste your code here..."
-              placeholderTextColor="#666666"
               value={currentFile.code}
-              onChangeText={(val) => updateCurrentFile('code', val)}
+              onChangeText={(text) => updateCurrentFile('code', text)}
+              placeholder={`// Write ${currentFile.language} code here...`}
+              placeholderTextColor="#475569"
               style={styles.codeInput}
               autoCapitalize="none"
               autoCorrect={false}
@@ -333,24 +460,24 @@ export const ComposeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: '#090D16',
   },
   topNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#1E293B',
   },
   cancelBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    padding: 4,
   },
-  cancelBtnText: {
-    color: colors.textSecondary,
-    fontSize: 15,
+  topTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F8FAFC',
   },
   topNavRight: {
     flexDirection: 'row',
@@ -358,13 +485,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   charCounter: {
-    color: colors.textSecondary,
     fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#94A3B8',
+    fontWeight: '600',
   },
   postBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
   },
   scrollArea: {
     flex: 1,
@@ -379,203 +505,253 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   authorName: {
-    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
+    color: '#F8FAFC',
   },
   authorHandle: {
-    color: colors.textSecondary,
     fontSize: 12,
+    color: '#94A3B8',
   },
   textInput: {
-    color: colors.text,
     fontSize: 16,
-    lineHeight: 22,
+    color: '#F8FAFC',
     minHeight: 120,
     textAlignVertical: 'top',
+    lineHeight: 24,
+  },
+  mediaPreviewContainer: {
+    position: 'relative',
+    marginVertical: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  mediaPreview: {
+    width: '100%',
+    height: 190,
+  },
+  removeMediaBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    padding: 4,
+    gap: 8,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  toolBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toolBtnActive: {
+    borderColor: '#14B8A6',
+    borderWidth: 1,
+  },
+  toolBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#94A3B8',
   },
   adminBox: {
-    marginVertical: 10,
-    padding: 12,
+    backgroundColor: '#111827',
     borderRadius: 10,
-    backgroundColor: colors.surface,
+    padding: 10,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#334155',
   },
   adminTitle: {
-    color: colors.gold,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+    color: '#94A3B8',
     marginBottom: 8,
+    letterSpacing: 0.5,
   },
   adminOptions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   checkPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
+    borderRadius: 16,
+    backgroundColor: '#1E293B',
   },
   checkPillActive: {
-    backgroundColor: colors.gold,
-    borderColor: colors.gold,
+    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+    borderWidth: 1,
+    borderColor: '#14B8A6',
   },
   checkText: {
-    color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    color: '#94A3B8',
   },
   checkTextActive: {
-    color: colors.black,
+    color: '#14B8A6',
     fontWeight: '700',
   },
   codeToggleRow: {
-    marginTop: 10,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   codeToggleBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignSelf: 'flex-start',
   },
   codeToggleBtnActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
+    borderColor: '#14B8A6',
+    backgroundColor: 'rgba(20, 184, 166, 0.08)',
   },
   codeToggleText: {
-    color: colors.accent,
     fontSize: 13,
-    fontWeight: '700',
+    color: '#94A3B8',
+    fontWeight: '600',
   },
   codeToggleTextActive: {
-    color: colors.accent,
+    color: '#14B8A6',
+    fontWeight: '700',
   },
   codeBuilder: {
-    backgroundColor: colors.codeBg,
-    borderRadius: 10,
+    backgroundColor: '#111827',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 30,
-    overflow: 'hidden',
+    borderColor: '#334155',
+    padding: 12,
+    marginBottom: 20,
   },
   codeTitleInput: {
-    color: colors.text,
-    fontSize: 13,
+    fontSize: 14,
+    color: '#F8FAFC',
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#282828',
-    backgroundColor: '#161616',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   tabsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#181818',
-    borderBottomWidth: 1,
-    borderBottomColor: '#282828',
+    marginBottom: 10,
   },
   tabsList: {
-    flexGrow: 0,
+    flex: 1,
   },
   fileTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRightWidth: 1,
-    borderRightColor: '#252525',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#1E293B',
+    marginRight: 6,
   },
   fileTabActive: {
-    backgroundColor: colors.codeBg,
-    borderTopWidth: 2,
-    borderTopColor: colors.accent,
+    backgroundColor: '#14B8A6',
   },
   fileTabText: {
-    color: '#888888',
     fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#94A3B8',
+    fontWeight: '600',
   },
   fileTabTextActive: {
-    color: colors.white,
-    fontWeight: '600',
+    color: '#090D16',
+    fontWeight: '800',
   },
   tabClose: {
     marginLeft: 6,
-    padding: 2,
-  },
-  tabCloseText: {
-    color: '#888888',
-    fontSize: 10,
   },
   addTabBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#202020',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#1E293B',
+    marginLeft: 6,
   },
   addTabBtnText: {
-    color: colors.accent,
     fontSize: 12,
+    color: '#14B8A6',
     fontWeight: '700',
   },
   fileConfigRow: {
-    padding: 8,
-    backgroundColor: '#1a1a1a',
-    borderBottomWidth: 1,
-    borderBottomColor: '#282828',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 10,
   },
   filenameInput: {
-    color: colors.white,
     fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#F8FAFC',
+    backgroundColor: '#1E293B',
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#111111',
-    borderRadius: 6,
+    width: 110,
     borderWidth: 1,
-    borderColor: '#333333',
-    minWidth: 100,
+    borderColor: '#334155',
   },
   langList: {
-    flexGrow: 0,
+    flex: 1,
   },
   langPill: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: '#252525',
-    marginRight: 6,
+    borderRadius: 6,
+    backgroundColor: '#1E293B',
+    marginRight: 4,
   },
   langPillActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: '#14B8A6',
   },
   langPillText: {
-    color: '#aaaaaa',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    color: '#94A3B8',
   },
   langPillTextActive: {
-    color: colors.white,
+    color: '#090D16',
+    fontWeight: '700',
   },
   codeInput: {
-    color: '#e6e6e6',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-    padding: 12,
-    minHeight: 180,
+    fontFamily: Platform.OS === 'android' ? 'monospace' : 'Courier',
+    fontSize: 13,
+    color: '#22C55E',
+    backgroundColor: '#090D16',
+    borderRadius: 8,
+    padding: 10,
+    minHeight: 140,
     textAlignVertical: 'top',
-    backgroundColor: colors.codeBg,
+    borderWidth: 1,
+    borderColor: '#1E293B',
   },
 });
 

@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBaseUrl, LOCAL_DEV_ORIGIN } from '../api/client';
+import { getAuthToken } from './secureStorage';
 
 class SocketService {
   constructor() {
@@ -27,7 +28,7 @@ class SocketService {
   }
 
   async connect(explicitToken = null) {
-    const token = explicitToken !== null ? explicitToken : (await AsyncStorage.getItem('token'));
+    const token = explicitToken !== null ? explicitToken : ((await getAuthToken()) || (await AsyncStorage.getItem('token')));
     const serverUrl = await this.getSocketServerUrl();
 
     // If already connected with the exact same token and to the same server URL, reuse current socket

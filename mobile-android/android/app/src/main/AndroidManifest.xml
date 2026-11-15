@@ -19,7 +19,7 @@
     
     <!-- Location permission required for BLE scanning -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     
     <!-- Notification permissions -->
@@ -28,6 +28,7 @@
     <!-- Wi‑Fi / Wi‑Fi Aware permissions (also used for hotspot APK sharing) -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!-- Android 13+ runtime permission for Wi‑Fi operations (including Aware and Wi‑Fi P2P) -->
     <uses-permission
         android:name="android.permission.NEARBY_WIFI_DEVICES"
@@ -47,10 +48,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- Location foreground service type required for BLE scanning in background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
     <!-- Microphone for voice notes -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Camera for QR verification -->
     <uses-permission android:name="android.permission.CAMERA" />
 
@@ -129,7 +132,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="bitchat" android:host="verify" />
+                <data android:scheme="clearfeed" />
             </intent-filter>
         </activity>
 
