@@ -53,7 +53,8 @@
     "test:ble": "node test/androidBleGatt.test.js --input-type=module",
     "test:lan": "node test/androidLanWifiMesh.test.js --input-type=module",
     "test:multihop": "node test/meshMultiHopStoreForward.test.js --input-type=module",
-    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling && npm run test:spaces && npm run test:ble && npm run test:lan && npm run test:multihop"
+    "test:learn": "node test/androidLearnParity.test.js --input-type=module",
+    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox && npm run test:calling && npm run test:spaces && npm run test:ble && npm run test:lan && npm run test:multihop && npm run test:learn"
   },
   "private": true
 }

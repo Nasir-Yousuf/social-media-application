@@ -1,8 +1,53 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
-import api from '../api/client';
-import { LESSONS, TRACKS } from '../data/learningCurriculum';
-import { LESSON_QUIZZES } from '../data/lessonQuizzes';
+import { LESSONS, TRACKS } from '../data/learningCurriculum.js';
+import { LESSON_QUIZZES } from '../data/lessonQuizzes.js';
+
+async function getApiClient() {
+  try {
+    const mod = await import('../api/client.js');
+    return mod.default || mod;
+  } catch {
+    return null;
+  }
+}
+
+const memStore = new Map();
+const AsyncStorage = {
+  getItem: async (key) => {
+    try {
+      const mod = await import('@react-native-async-storage/async-storage').catch(() => null);
+      const storage = mod?.default || mod;
+      if (storage?.getItem) return await storage.getItem(key);
+    } catch {}
+    return memStore.get(key) || null;
+  },
+  setItem: async (key, val) => {
+    try {
+      const mod = await import('@react-native-async-storage/async-storage').catch(() => null);
+      const storage = mod?.default || mod;
+      if (storage?.setItem) return await storage.setItem(key, val);
+    } catch {}
+    memStore.set(key, val);
+  },
+  removeItem: async (key) => {
+    try {
+      const mod = await import('@react-native-async-storage/async-storage').catch(() => null);
+      const storage = mod?.default || mod;
+      if (storage?.removeItem) return await storage.removeItem(key);
+    } catch {}
+    memStore.delete(key);
+  },
+};
+
+const NetInfo = {
+  fetch: async () => {
+    try {
+      const mod = await import('@react-native-community/netinfo').catch(() => null);
+      const net = mod?.default || mod;
+      if (net?.fetch) return await net.fetch();
+    } catch {}
+    return { isConnected: true, isInternetReachable: true };
+  },
+};
 
 const OUTBOX_KEY = 'clearfeed_learn_outbox';
 const PROGRESS_KEY = 'clearfeed_learning_progress';
@@ -109,6 +154,12 @@ export async function syncOutbox() {
     }
 
     isSyncing = true;
+
+    const api = await getApiClient();
+    if (!api) {
+      isSyncing = false;
+      return { synced: 0, pending: outbox.length };
+    }
 
     // Send batch sync request (idempotent set-union on server)
     const res = await api.post(

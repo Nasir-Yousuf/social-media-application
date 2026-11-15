@@ -12,6 +12,8 @@ import { TRACKS } from '../features/learning/data/learningCurriculum';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { desktopDb } from '../services/desktopDb';
+import { isTauri } from '../services/secureStorage';
 
 export interface LearningProgress {
   completedLessons: string[];
@@ -69,6 +71,18 @@ export const LearnView: React.FC = () => {
   const fetchProgress = useCallback(async () => {
     if (!user) return;
     try {
+      // Flush any queued offline sync items first
+      const rawOutbox = localStorage.getItem('clearfeed_learn_outbox');
+      if (rawOutbox) {
+        try {
+          const outboxItems = JSON.parse(rawOutbox);
+          if (Array.isArray(outboxItems) && outboxItems.length > 0) {
+            await api.post('/learning/sync-progress', { progress: outboxItems });
+            localStorage.removeItem('clearfeed_learn_outbox');
+          }
+        } catch {}
+      }
+
       const res = await api.get('/learning/progress');
       if (res.data?.progress) {
         const serverProg = res.data.progress;
@@ -162,9 +176,19 @@ export const LearnView: React.FC = () => {
       return updated;
     });
 
+    // 2. Persist to native SQLite if on Windows Tauri
+    if (isTauri()) {
+      desktopDb.saveLearnProgress({
+        lesson_id: completedId,
+        completed: true,
+        score: 100,
+        last_accessed_at: Date.now(),
+      }).catch(() => {});
+    }
+
     showToast('Lesson marked as completed! (+25 XP)', 'success');
 
-    // 2. Sync to server if authenticated
+    // 3. Sync to server or queue in outbox if offline
     if (user) {
       try {
         await api.post('/learning/progress/complete', {
@@ -172,7 +196,12 @@ export const LearnView: React.FC = () => {
           track: completedTrack,
         });
       } catch (err: any) {
-        console.warn('Failed to sync lesson progress to backend:', err.message);
+        try {
+          const raw = localStorage.getItem('clearfeed_learn_outbox');
+          const outbox = raw ? JSON.parse(raw) : [];
+          outbox.push({ lessonId: completedId, trackId: completedTrack, completedAt: new Date().toISOString() });
+          localStorage.setItem('clearfeed_learn_outbox', JSON.stringify(outbox));
+        } catch {}
       }
     }
   };

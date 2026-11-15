@@ -165,6 +165,20 @@ export const CertificateModal = ({
                 <div className="text-[10px] text-neutral-500 mt-0.5">
                   Issued on: {dateFormatted}
                 </div>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-400 mt-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  <span>Ed25519 Cryptographically Signed</span>
+                </div>
+                {certificate.verificationUrl && (
+                  <a
+                    href={certificate.verificationUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-sky-400 hover:underline block truncate mt-0.5"
+                  >
+                    Verify Credential Online ↗
+                  </a>
+                )}
               </div>
 
               <div className="text-right">

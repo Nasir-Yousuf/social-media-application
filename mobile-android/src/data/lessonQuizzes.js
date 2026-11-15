@@ -1,6 +1,6 @@
 // Clearfeed Interactive Lesson Quizzes & Track Certification Final Exams
 // Bilingual: English + বাংলা explanations
-import { ENGLISH_GRAMMAR_QUIZZES } from './englishGrammarData';
+import { ENGLISH_GRAMMAR_QUIZZES } from './englishGrammarData.js';
 
 export const LESSON_QUIZZES = {
   ...ENGLISH_GRAMMAR_QUIZZES,
