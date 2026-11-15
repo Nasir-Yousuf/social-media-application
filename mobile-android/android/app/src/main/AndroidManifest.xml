@@ -51,7 +51,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
-    <!-- Microphone for voice notes -->
+    <!-- Microphone for voice notes and 1:1 calls -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Camera for QR verification -->
@@ -143,6 +143,19 @@
             android:foregroundServiceType="connectedDevice|dataSync|location"
             tools:ignore="DataExtractionRules">
         </service>
+
+        <!-- Clearfeed 1:1 Audio Calling Foreground Service (Microphone & Connected Device) -->
+        <service
+            android:name="com.clearfeed.telecom.CallForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|connectedDevice"
+            tools:ignore="DataExtractionRules">
+        </service>
+
+        <receiver
+            android:name="com.clearfeed.telecom.CallNotificationReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
         <receiver
             android:name=".service.ConversationNotificationReceiver"

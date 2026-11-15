@@ -5,6 +5,8 @@
   "scripts": {
     "start": "npm --prefix ../mobile-android run start",
     "android": "npm --prefix ../mobile-android run android",
+    "test": "npm --prefix ../mobile-android test",
+    "test:calling": "npm --prefix ../mobile-android run test:calling",
     "test:mesh": "npm --prefix ../mobile-android run test:mesh"
   }
 }

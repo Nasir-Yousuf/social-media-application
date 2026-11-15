@@ -31,6 +31,9 @@ export const CallModal = () => {
     groupCall,
     isMuted,
     isSpeaker,
+    audioRoute,
+    availableAudioRoutes,
+    setAudioRoute,
     callDuration,
     formatDuration,
     acceptIncomingCall,
@@ -242,8 +245,73 @@ export const CallModal = () => {
             </View>
 
             <Text style={styles.connectedStatus}>
-              {isMuted ? 'Microphone Muted' : 'HD Audio Encrypted (STUN Peer-to-Peer)'}
+              {isMuted ? 'Microphone Muted' : 'HD Audio Encrypted (STUN/TURN WebRTC)'}
             </Text>
+
+            {/* Audio Route Selector (Earpiece / Speaker / Bluetooth) */}
+            <View style={styles.routeSelectorRow}>
+              <TouchableOpacity
+                style={[styles.routeBadge, audioRoute === 'EARPIECE' && styles.routeBadgeActive]}
+                onPress={() => setAudioRoute('EARPIECE')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={14}
+                  color={audioRoute === 'EARPIECE' ? '#00A6F4' : '#94a3b8'}
+                />
+                <Text
+                  style={[
+                    styles.routeBadgeText,
+                    audioRoute === 'EARPIECE' && styles.routeBadgeTextActive,
+                  ]}
+                >
+                  Earpiece
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.routeBadge, audioRoute === 'SPEAKER' && styles.routeBadgeActive]}
+                onPress={() => setAudioRoute('SPEAKER')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="volume-high-outline"
+                  size={14}
+                  color={audioRoute === 'SPEAKER' ? '#00A6F4' : '#94a3b8'}
+                />
+                <Text
+                  style={[
+                    styles.routeBadgeText,
+                    audioRoute === 'SPEAKER' && styles.routeBadgeTextActive,
+                  ]}
+                >
+                  Speaker
+                </Text>
+              </TouchableOpacity>
+
+              {availableAudioRoutes?.includes('BLUETOOTH') && (
+                <TouchableOpacity
+                  style={[styles.routeBadge, audioRoute === 'BLUETOOTH' && styles.routeBadgeActive]}
+                  onPress={() => setAudioRoute('BLUETOOTH')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="bluetooth-outline"
+                    size={14}
+                    color={audioRoute === 'BLUETOOTH' ? '#00A6F4' : '#94a3b8'}
+                  />
+                  <Text
+                    style={[
+                      styles.routeBadgeText,
+                      audioRoute === 'BLUETOOTH' && styles.routeBadgeTextActive,
+                    ]}
+                  >
+                    Bluetooth
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
             {/* In-Call Audio Controls */}
             <View style={styles.inCallControls}>
@@ -270,7 +338,7 @@ export const CallModal = () => {
                 <Ionicons name="call" size={30} color="#ffffff" style={{ transform: [{ rotate: '135deg' }] }} />
               </TouchableOpacity>
 
-              {/* Speaker Button */}
+              {/* Speaker Toggle Button */}
               <TouchableOpacity
                 style={[styles.controlCircle, isSpeaker && styles.controlActive]}
                 onPress={toggleSpeaker}
@@ -540,7 +608,42 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 13,
     fontWeight: '500',
+    marginBottom: 16,
+  },
+  routeSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     marginBottom: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  routeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  routeBadgeActive: {
+    backgroundColor: 'rgba(0, 166, 244, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 166, 244, 0.4)',
+  },
+  routeBadgeText: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  routeBadgeTextActive: {
+    color: '#00A6F4',
+    fontWeight: '700',
   },
   inCallControls: {
     flexDirection: 'row',

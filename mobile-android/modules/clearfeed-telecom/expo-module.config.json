@@ -1,0 +1,8 @@
+{
+  "name": "clearfeed-telecom",
+  "platforms": ["android"],
+  "android": {
+    "package": "com.clearfeed.telecom",
+    "modules": ["com.clearfeed.telecom.ClearFeedTelecomModule"]
+  }
+}
