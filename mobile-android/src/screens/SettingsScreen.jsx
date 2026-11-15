@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   Platform,
+  Share,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -20,7 +21,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationContext";
 import Avatar from "../components/Avatar";
-import { getBaseUrl, setBaseUrl, CLOUD_URL, LOCAL_DEV_URL } from "../api/client";
+import { getBaseUrl, setBaseUrl, CLOUD_URL, LOCAL_DEV_URL, api } from "../api/client";
 import socketService from "../services/socket";
 
 const THEME_ICONS = {
@@ -42,6 +43,81 @@ export const SettingsScreen = ({ navigation }) => {
   const [customInput, setCustomInput] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [socketConnected, setSocketConnected] = useState(socketService.isConnected);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isRevoking, setIsRevoking] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeleteBox, setShowDeleteBox] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const res = await api.get('/users/me/export-data');
+      const exportJson = JSON.stringify(res.data, null, 2);
+      showToast('Data archive generated successfully', 'success');
+      try {
+        await Share.share({
+          title: `Clearfeed Data Export - @${user?.username || 'user'}`,
+          message: exportJson,
+        });
+      } catch {
+        Alert.alert(
+          'Data Export Ready',
+          `Your archive has been compiled (${res.data.activity?.postsCount || 0} posts, ${res.data.activity?.commentsCount || 0} comments, ${res.data.activity?.bookmarksCount || 0} bookmarks).`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to export data', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleLogoutAll = () => {
+    Alert.alert(
+      'Log out of all devices',
+      'This will invalidate all your active sessions on Web, Android, and Windows immediately. You will need to log in again on all devices.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log out all devices',
+          style: 'destructive',
+          onPress: async () => {
+            setIsRevoking(true);
+            try {
+              await api.post('/auth/logout-all');
+              showToast('All sessions invalidated across all devices', 'success');
+              logout();
+            } catch (err) {
+              showToast(err.message || 'Failed to revoke sessions', 'error');
+            } finally {
+              setIsRevoking(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      Alert.alert('Password Required', 'Please enter your password to confirm account deletion.');
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await api.delete('/users/me', { password: deletePassword.trim() });
+      showToast('Account permanently deleted', 'info');
+      setShowDeleteBox(false);
+      setDeletePassword('');
+      logout();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete account', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     getBaseUrl().then((url) => {
@@ -596,6 +672,129 @@ export const SettingsScreen = ({ navigation }) => {
           )}
         </View>
 
+        {/* Privacy & Data Ownership Section */}
+        <View style={styles.sectionHeader}>
+          <Ionicons
+            name="shield-checkmark"
+            size={18}
+            color={currentColors.accent}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={[styles.sectionTitle, { color: currentColors.text }]}>
+            Privacy & Data Ownership
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.sectionSubtitle,
+            { color: currentColors.textSecondary },
+          ]}
+        >
+          Manage your personal data, invalidate all active device sessions, or exercise your Right to be Forgotten.
+        </Text>
+
+        <View
+          style={[
+            styles.serverCard,
+            {
+              backgroundColor: currentColors.surface,
+              borderColor: currentColors.border,
+            },
+          ]}
+        >
+          {/* Download Data Archive */}
+          <TouchableOpacity
+            style={[
+              styles.privacyActionRow,
+              { borderBottomColor: currentColors.border },
+            ]}
+            onPress={handleExportData}
+            disabled={isExporting}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.privacyActionTitle, { color: currentColors.text }]}>
+                {isExporting ? 'Compiling Archive...' : 'Download My Data (JSON Export)'}
+              </Text>
+              <Text style={[styles.privacyActionDesc, { color: currentColors.textSecondary }]}>
+                Full export of your profile, posts, snippets, Learn progress, and bookmarks.
+              </Text>
+            </View>
+            <Ionicons name="download-outline" size={20} color={currentColors.accent} />
+          </TouchableOpacity>
+
+          {/* Logout of All Devices */}
+          <TouchableOpacity
+            style={[
+              styles.privacyActionRow,
+              { borderBottomColor: currentColors.border },
+            ]}
+            onPress={handleLogoutAll}
+            disabled={isRevoking}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.privacyActionTitle, { color: '#f59e0b' }]}>
+                {isRevoking ? 'Revoking Sessions...' : 'Log out of all devices'}
+              </Text>
+              <Text style={[styles.privacyActionDesc, { color: currentColors.textSecondary }]}>
+                Invalidate all active sessions across Android, Web, and Desktop immediately.
+              </Text>
+            </View>
+            <Ionicons name="phone-portrait-outline" size={20} color="#f59e0b" />
+          </TouchableOpacity>
+
+          {/* Delete Account */}
+          <TouchableOpacity
+            style={styles.privacyActionRow}
+            onPress={() => setShowDeleteBox((prev) => !prev)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.privacyActionTitle, { color: '#f4212e' }]}>
+                Delete Account (Permanent)
+              </Text>
+              <Text style={[styles.privacyActionDesc, { color: currentColors.textSecondary }]}>
+                Right to be Forgotten: permanently erase profile, posts, and learning progress.
+              </Text>
+            </View>
+            <Ionicons name={showDeleteBox ? 'chevron-up' : 'chevron-down'} size={20} color="#f4212e" />
+          </TouchableOpacity>
+
+          {showDeleteBox && (
+            <View style={[styles.deleteAccountBox, { backgroundColor: currentColors.bg, borderColor: '#f4212e' }]}>
+              <Text style={[styles.deleteWarningText, { color: currentColors.text }]}>
+                ⚠️ This action is irreversible. Enter your password to confirm complete account deletion:
+              </Text>
+              <TextInput
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                placeholder="Enter account password"
+                placeholderTextColor={currentColors.textSecondary}
+                secureTextEntry
+                style={[
+                  styles.customInput,
+                  {
+                    color: currentColors.text,
+                    borderColor: currentColors.border,
+                    backgroundColor: currentColors.surface,
+                    marginTop: 8,
+                  },
+                ]}
+              />
+              <TouchableOpacity
+                style={[styles.deleteConfirmBtn, { opacity: isDeleting ? 0.6 : 1 }]}
+                onPress={handleDeleteAccount}
+                disabled={isDeleting}
+              >
+                <Text style={styles.deleteConfirmBtnText}>
+                  {isDeleting ? 'Deleting Account...' : 'Permanently Delete My Account'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         {/* App Info & Logout Section */}
         <View
           style={[
@@ -924,6 +1123,45 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "700",
+  },
+  privacyActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  privacyActionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  privacyActionDesc: {
+    fontSize: 11,
+    marginTop: 2,
+    paddingRight: 10,
+  },
+  deleteAccountBox: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  deleteWarningText: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 16,
+  },
+  deleteConfirmBtn: {
+    backgroundColor: "#f4212e",
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  deleteConfirmBtnText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "800",
   },
 });
 

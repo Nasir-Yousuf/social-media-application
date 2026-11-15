@@ -1,12 +1,13 @@
 const rateLimit = require('express-rate-limit');
 
 /**
- * Strict limiter for sensitive authentication endpoints (login, register, reset password)
+ * Strict limiter for sensitive authentication endpoints (login, register, reset password, refresh)
  * Mitigates brute-force credential stuffing and automated bot account creation.
+ * Enforces 10 requests per 15 minutes per IP.
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Max 20 attempts per 15 minutes per IP
+  max: 10, // Max 10 attempts per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
@@ -17,10 +18,11 @@ const authLimiter = rateLimit({
 
 /**
  * General API limiter to prevent DDoS / scraping of endpoints
+ * Enforces 300 requests per 15 minutes per IP.
  */
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Max 500 requests per 15 minutes per IP
+  max: 300, // Max 300 requests per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
@@ -61,14 +63,18 @@ const aiPerUserLimiter = rateLimit({
 });
 
 /**
- * Limiter for content creation (posts, comments, messages) to prevent automated spam
+ * Limiter for content creation (posts, comments, messages, uploads) to prevent automated spam
+ * Enforces 60 requests per 15 minutes per authenticated user (falling back to IP).
  */
 const contentCreationLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 60, // Max 60 creations per 10 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 60, // Max 60 creations per 15 minutes per user
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
+  keyGenerator: (req) => {
+    return req.user?._id ? req.user._id.toString() : (req.ip || 'unknown');
+  },
   message: {
     message: 'You are posting too quickly. Please pause for a moment.',
   },

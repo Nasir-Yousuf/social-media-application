@@ -7,6 +7,8 @@ const { requireAuth, optionalAuth } = require('../middleware/auth');
 // Direct profile /me and avatar aliases for full mobile and client compatibility
 router.get('/me', requireAuth, authController.getMe);
 router.patch('/me/avatar', requireAuth, userController.updateProfile);
+router.get('/me/export-data', requireAuth, userController.exportData);
+router.delete('/me', requireAuth, userController.deleteAccount);
 
 // Directory endpoints
 router.get('/', optionalAuth, userController.getCourseDirectory);

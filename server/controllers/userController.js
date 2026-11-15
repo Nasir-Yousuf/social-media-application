@@ -1,11 +1,23 @@
 const User = require('../models/User');
 const Post = require('../models/Post');
+const Comment = require('../models/Comment');
+const Like = require('../models/Like');
+const Bookmark = require('../models/Bookmark');
 const Follow = require('../models/Follow');
 const Notification = require('../models/Notification');
+const LearningProgress = require('../models/LearningProgress');
+const LearningQuestion = require('../models/LearningQuestion');
+const LearningAnswer = require('../models/LearningAnswer');
 const TypingProfile = require('../models/TypingProfile');
+const TypingResult = require('../models/TypingResult');
 const TypingChallenge = require('../models/TypingChallenge');
+const AIConversation = require('../models/AIConversation');
+const AIPersonaConfig = require('../models/AIPersonaConfig');
 const { getAuthenticFollowCounts, purgeOrphanedFollows } = require('../utils/followUtils');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const { logActivity } = require('../utils/auditLogger');
+const { validateAndSanitizeImage, MAX_AVATAR_BYTES } = require('../utils/fileSecurity');
+const { isCoAdmin } = require('./authController');
 
 // Get user profile by username
 exports.getProfileByUsername = async (req, res) => {
@@ -87,28 +99,26 @@ exports.updateProfile = async (req, res) => {
     } else if (avatarBase64) {
       // Process avatar base64 upload if provided
       const matches = avatarBase64.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-      let buffer;
-      let mimeType = 'image/jpeg';
+      let rawBuffer;
 
       if (matches && matches.length === 3) {
-        mimeType = matches[1];
-        buffer = Buffer.from(matches[2], 'base64');
+        rawBuffer = Buffer.from(matches[2], 'base64');
       } else {
-        buffer = Buffer.from(avatarBase64, 'base64');
+        rawBuffer = Buffer.from(avatarBase64, 'base64');
       }
 
-      // 200KB limit enforcement
-      const MAX_SIZE = 200 * 1024;
-      if (buffer.length > MAX_SIZE) {
-        return res.status(400).json({
-          message: `Profile photo must be under 200KB (current: ${(buffer.length / 1024).toFixed(1)}KB).`,
+      try {
+        const sanitized = validateAndSanitizeImage(rawBuffer, {
+          maxSize: MAX_AVATAR_BYTES,
+          allowedFormats: ['jpeg', 'png', 'webp', 'gif'],
         });
+        user.avatar = sanitized.buffer;
+        user.avatarMimeType = sanitized.mimeType;
+        user.hasCustomAvatar = true;
+        user.avatarUrl = `/api/users/${user._id}/avatar?t=${Date.now()}`;
+      } catch (validationErr) {
+        return res.status(400).json({ message: validationErr.message });
       }
-
-      user.avatar = buffer;
-      user.avatarMimeType = mimeType;
-      user.hasCustomAvatar = true;
-      user.avatarUrl = `/api/users/${user._id}/avatar?t=${Date.now()}`;
     } else if (avatarUrl) {
       user.avatarUrl = avatarUrl.trim();
     }
@@ -400,5 +410,154 @@ exports.syncFollows = async (req, res) => {
   } catch (err) {
     console.error('syncFollows error:', err);
     return res.status(500).json({ message: 'Failed to sync follow graph.' });
+  }
+};
+
+// Export all personal data archive as structured JSON ("Right to Data Portability")
+exports.exportData = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const [
+      user,
+      posts,
+      comments,
+      bookmarks,
+      follows,
+      learningProgress,
+      learningQuestions,
+      learningAnswers,
+      typingProfile,
+      typingResults,
+      aiPersonas,
+    ] = await Promise.all([
+      User.findById(userId).select('-password -__v'),
+      Post.find({ author: userId }).select('-__v').sort({ createdAt: -1 }),
+      Comment.find({ author: userId }).select('-__v').sort({ createdAt: -1 }),
+      Bookmark.find({ user: userId }).populate('post', 'content title author createdAt').sort({ createdAt: -1 }),
+      Follow.find({ $or: [{ follower: userId }, { following: userId }] }).populate('follower following', 'username name'),
+      LearningProgress.findOne({ user: userId }).select('-__v'),
+      LearningQuestion.find({ author: userId }).select('-__v'),
+      LearningAnswer.find({ author: userId }).select('-__v'),
+      TypingProfile.findOne({ user: userId }).select('-__v'),
+      TypingResult.find({ user: userId }).select('-__v').sort({ createdAt: -1 }).limit(100),
+      AIPersonaConfig.find({ user: userId }).select('-__v'),
+    ]);
+
+    const followingList = [];
+    const followersList = [];
+    for (const f of follows) {
+      if (f.follower && f.follower._id && f.follower._id.equals(userId)) {
+        followingList.push(f.following?.username || f.following);
+      } else if (f.following && f.following._id && f.following._id.equals(userId)) {
+        followersList.push(f.follower?.username || f.follower);
+      }
+    }
+
+    const exportArchive = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      platform: 'Clearfeed',
+      profile: user,
+      activity: {
+        postsCount: posts.length,
+        commentsCount: comments.length,
+        bookmarksCount: bookmarks.length,
+        followingCount: followingList.length,
+        followersCount: followersList.length,
+      },
+      social: {
+        following: followingList,
+        followers: followersList,
+        bookmarks,
+      },
+      content: {
+        posts,
+        comments,
+      },
+      learn: {
+        progress: learningProgress || null,
+        discussions: {
+          questions: learningQuestions,
+          answers: learningAnswers,
+        },
+      },
+      typing: {
+        profile: typingProfile || null,
+        recentResults: typingResults,
+      },
+      aiSettings: {
+        personas: aiPersonas,
+      },
+    };
+
+    await logActivity(req, 'user_data_export', { sizeKB: Math.round(JSON.stringify(exportArchive).length / 1024) }, req.user);
+
+    const filename = `clearfeed-data-export-${user?.username || 'user'}-${Date.now()}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(JSON.stringify(exportArchive, null, 2));
+  } catch (err) {
+    console.error('exportData error:', err);
+    return res.status(500).json({ message: 'Failed to generate data export archive.' });
+  }
+};
+
+// Permanent account deletion & anonymization ("Right to be Forgotten")
+exports.deleteAccount = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ message: 'Your current account password is required to confirm deletion.' });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Verify password with bcrypt
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid password. Account deletion aborted.' });
+    }
+
+    // Primary maintainer safeguard
+    const username = (user.username || '').toLowerCase().trim();
+    const email = (user.email || '').toLowerCase().trim();
+    if (isCoAdmin(username, email)) {
+      return res.status(403).json({
+        message: 'Primary platform maintainer accounts cannot be deleted.',
+      });
+    }
+
+    const userId = user._id;
+
+    // Cascade delete user data across all collections
+    await Promise.all([
+      User.findByIdAndDelete(userId),
+      Post.deleteMany({ author: userId }),
+      Comment.deleteMany({ author: userId }),
+      Like.deleteMany({ user: userId }),
+      Bookmark.deleteMany({ user: userId }),
+      Follow.deleteMany({ $or: [{ follower: userId }, { following: userId }] }),
+      Notification.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] }),
+      LearningProgress.deleteMany({ user: userId }),
+      LearningQuestion.deleteMany({ author: userId }),
+      LearningAnswer.deleteMany({ author: userId }),
+      TypingProfile.deleteMany({ user: userId }),
+      TypingResult.deleteMany({ user: userId }),
+      AIConversation.deleteMany({ user: userId }),
+      AIPersonaConfig.deleteMany({ user: userId }),
+    ]);
+
+    await logActivity(req, 'user_self_deleted', { username, email }, user);
+
+    return res.status(200).json({
+      message: 'Your Clearfeed account and all associated personal data have been permanently deleted.',
+    });
+  } catch (err) {
+    console.error('deleteAccount error:', err);
+    return res.status(500).json({ message: 'Failed to delete account.' });
   }
 };

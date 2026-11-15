@@ -13,11 +13,14 @@ import {
   Shield,
   Check,
   Server,
+  Download,
+  Smartphone,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTheme, ThemeMode } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useMesh } from '../mesh/context/MeshContext';
-import { PRODUCTION_BACKEND_URL, LOCAL_BACKEND_URL, getBaseUrl } from '../api/client';
+import { PRODUCTION_BACKEND_URL, LOCAL_BACKEND_URL, getBaseUrl, api } from '../api/client';
 
 export const SettingsView: React.FC = () => {
   const { theme, setTheme } = useTheme();
@@ -30,6 +33,71 @@ export const SettingsView: React.FC = () => {
   const [savedApiNotice, setSavedApiNotice] = useState<boolean>(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
   const [showPreviews, setShowPreviews] = useState<boolean>(true);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isRevoking, setIsRevoking] = useState<boolean>(false);
+  const [showDeleteBox, setShowDeleteBox] = useState<boolean>(false);
+  const [deletePassword, setDeletePassword] = useState<string>('');
+  const [deleteError, setDeleteError] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [privacyMessage, setPrivacyMessage] = useState<string>('');
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    setPrivacyMessage('');
+    try {
+      const res = await api.get('/users/me/export-data');
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `clearfeed-data-export-${user?.username || 'user'}-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setPrivacyMessage('Data export downloaded successfully.');
+      setTimeout(() => setPrivacyMessage(''), 3000);
+    } catch (err: any) {
+      setPrivacyMessage(err.response?.data?.message || err.message || 'Failed to export data.');
+      setTimeout(() => setPrivacyMessage(''), 4000);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    if (!window.confirm('Log out of all devices? This will invalidate all your sessions across Windows, Web, and Android immediately.')) {
+      return;
+    }
+    setIsRevoking(true);
+    try {
+      await api.post('/auth/logout-all');
+      alert('All active sessions have been invalidated across all devices.');
+      logout();
+    } catch (err: any) {
+      alert(err.response?.data?.message || err.message || 'Failed to revoke sessions.');
+    } finally {
+      setIsRevoking(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      setDeleteError('Password is required to confirm account deletion.');
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      await api.delete('/users/me', { data: { password: deletePassword.trim() } });
+      alert('Your Clearfeed account and all associated personal data have been permanently deleted.');
+      logout();
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.message || err.message || 'Failed to delete account.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleSaveApiUrl = (url: string) => {
     const trimmed = url.trim();
@@ -255,7 +323,115 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 6. Account & Application Info */}
+      {/* 6. Privacy & Data Ownership */}
+      {user && (
+        <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-neutral-200">
+            <Shield className="w-4 h-4 text-sky-400" />
+            Privacy & Data Ownership
+          </div>
+          <p className="text-xs text-neutral-400">
+            Export your entire personal archive, invalidate active sessions across all devices, or delete your account under GDPR / Right to be Forgotten.
+          </p>
+
+          {privacyMessage && (
+            <div className="p-3 bg-sky-950/40 border border-sky-500/30 rounded-xl text-xs text-sky-300 flex items-center gap-2">
+              <Check className="w-4 h-4 text-sky-400" />
+              {privacyMessage}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {/* Download Data Archive */}
+            <button
+              onClick={handleExportData}
+              disabled={isExporting}
+              className="p-3.5 bg-neutral-950/50 hover:bg-neutral-950 border border-neutral-800 hover:border-neutral-700 rounded-xl flex items-center justify-between transition cursor-pointer text-left"
+            >
+              <div>
+                <div className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                  <Download className="w-3.5 h-3.5 text-sky-400" />
+                  {isExporting ? 'Preparing Archive...' : 'Download My Data (JSON)'}
+                </div>
+                <div className="text-[11px] text-neutral-400 mt-0.5">
+                  Full export of posts, code snippets, progress & bookmarks
+                </div>
+              </div>
+            </button>
+
+            {/* Invalidate All Sessions */}
+            <button
+              onClick={handleLogoutAll}
+              disabled={isRevoking}
+              className="p-3.5 bg-neutral-950/50 hover:bg-neutral-950 border border-amber-900/40 hover:border-amber-700/60 rounded-xl flex items-center justify-between transition cursor-pointer text-left"
+            >
+              <div>
+                <div className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                  {isRevoking ? 'Revoking...' : 'Log Out of All Devices'}
+                </div>
+                <div className="text-[11px] text-neutral-400 mt-0.5">
+                  Invalidate all sessions across Web, Android, and Windows
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Account Deletion Accordion */}
+          <div className="pt-2">
+            {!showDeleteBox ? (
+              <button
+                onClick={() => setShowDeleteBox(true)}
+                className="text-xs text-rose-400 hover:text-rose-300 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Account (Permanent Right to be Forgotten)
+              </button>
+            ) : (
+              <div className="p-4 bg-rose-950/20 border border-rose-500/30 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-rose-300">
+                  <AlertTriangle className="w-4 h-4 text-rose-400" />
+                  Confirm Permanent Account Deletion
+                </div>
+                <p className="text-[11px] text-neutral-400">
+                  This action is permanent and cannot be undone. All your posts, comments, learning progress, and personal data will be completely deleted.
+                </p>
+                {deleteError && (
+                  <p className="text-xs text-rose-400 font-semibold">{deleteError}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    placeholder="Enter your account password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    className="flex-1 px-3 py-1.5 bg-neutral-950 border border-neutral-700 rounded-xl text-xs text-neutral-200 focus:outline-none focus:border-rose-500"
+                  />
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Confirm Deletion'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeleteBox(false);
+                      setDeletePassword('');
+                      setDeleteError('');
+                    }}
+                    className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 7. Account & Application Info */}
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 flex items-center justify-between">
         <div>
           <h4 className="text-xs font-bold text-neutral-200">Clearfeed Desktop</h4>

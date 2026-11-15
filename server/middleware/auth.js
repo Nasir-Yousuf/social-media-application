@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'pulse518_super_secret_course_key_2026';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || `${JWT_SECRET}_refresh_v1`;
 
 const requireAuth = async (req, res, next) => {
   try {
@@ -20,6 +21,19 @@ const requireAuth = async (req, res, next) => {
 
     if (!user.isApproved) {
       return res.status(403).json({ message: 'Account is pending approval or suspended by course admin.' });
+    }
+
+    // Check token revocation via tokenVersion:
+    // If user's tokenVersion > 0, an unversioned token is rejected.
+    // If token has a tokenVersion, it must match user.tokenVersion exactly.
+    const currentVersion = user.tokenVersion || 0;
+    const tokenVersion = decoded.tokenVersion !== undefined ? decoded.tokenVersion : null;
+
+    if (tokenVersion === null ? currentVersion > 0 : tokenVersion !== currentVersion) {
+      return res.status(401).json({
+        message: 'Session has been revoked across devices. Please log in again.',
+        code: 'SESSION_REVOKED',
+      });
     }
 
     req.user = user;
@@ -47,7 +61,11 @@ const optionalAuth = async (req, res, next) => {
       const decoded = jwt.verify(token, JWT_SECRET);
       const user = await User.findById(decoded.userId);
       if (user && user.isApproved) {
-        req.user = user;
+        const currentVersion = user.tokenVersion || 0;
+        const tokenVersion = decoded.tokenVersion !== undefined ? decoded.tokenVersion : null;
+        if (tokenVersion === null ? currentVersion === 0 : tokenVersion === currentVersion) {
+          req.user = user;
+        }
       }
     }
   } catch {
@@ -61,4 +79,5 @@ module.exports = {
   requireAdmin,
   optionalAuth,
   JWT_SECRET,
+  JWT_REFRESH_SECRET,
 };

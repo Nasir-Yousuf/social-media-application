@@ -220,7 +220,12 @@ export const api = {
   post: (endpoint, body, options = {}) => request(endpoint, { method: 'POST', body, ...options }),
   put: (endpoint, body, options = {}) => request(endpoint, { method: 'PUT', body, ...options }),
   patch: (endpoint, body, options = {}) => request(endpoint, { method: 'PATCH', body, ...options }),
-  delete: (endpoint, options = {}) => request(endpoint, { method: 'DELETE', ...options }),
+  delete: (endpoint, bodyOrOptions = {}, options = {}) => {
+    if (bodyOrOptions && (bodyOrOptions.password || (bodyOrOptions.body === undefined && !bodyOrOptions.headers && !bodyOrOptions.silent && Object.keys(bodyOrOptions).length > 0))) {
+      return request(endpoint, { method: 'DELETE', body: bodyOrOptions, ...options });
+    }
+    return request(endpoint, { method: 'DELETE', ...bodyOrOptions, ...options });
+  },
 };
 
 export default api;

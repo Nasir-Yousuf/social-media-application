@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Camera,
   KeyRound,
+  Shield,
   Zap,
   LogOut,
   Phone,
@@ -20,6 +21,7 @@ import Modal from '../components/common/Modal';
 import PostList from '../components/posts/PostList';
 import EditProfileModal from '../components/users/EditProfileModal';
 import ChangePasswordModal from '../components/users/ChangePasswordModal';
+import PrivacySettingsModal from '../components/users/PrivacySettingsModal';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useCall } from '../context/CallContext';
@@ -40,6 +42,7 @@ export const ProfilePage = () => {
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   // Followers / Following Modal
   const [connectionsModal, setConnectionsModal] = useState({ isOpen: false, title: '', users: [] });
@@ -473,6 +476,15 @@ export const ProfilePage = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setIsPrivacyModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-full border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:text-sky-500 hover:border-sky-500/50 hover:bg-sky-50 dark:hover:bg-sky-500/10 transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer active:scale-95"
+                  title="Privacy & Data Ownership"
+                >
+                  <Shield className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Privacy</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     logout();
                     navigate('/login');
@@ -739,6 +751,12 @@ export const ProfilePage = () => {
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
+      />
+
+      {/* Privacy & Data Ownership Modal */}
+      <PrivacySettingsModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
       />
 
 

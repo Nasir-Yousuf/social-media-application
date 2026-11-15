@@ -2,15 +2,20 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Post = require('../models/Post');
 const Follow = require('../models/Follow');
-const { JWT_SECRET } = require('../middleware/auth');
+const { JWT_SECRET, JWT_REFRESH_SECRET } = require('../middleware/auth');
 const { getAuthenticFollowCounts } = require('../utils/followUtils');
 const { getClientIp } = require('../utils/ipUtils');
 const { logActivity } = require('../utils/auditLogger');
+const { validateAndSanitizeImage, MAX_AVATAR_BYTES } = require('../utils/fileSecurity');
 
 const COURSE_INVITE_CODE = process.env.COURSE_INVITE_CODE || 'CS518-2026';
 
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+const generateToken = (userId, tokenVersion = 0) => {
+  return jwt.sign({ userId, tokenVersion }, JWT_SECRET, { expiresIn: '7d' });
+};
+
+const generateRefreshToken = (userId, tokenVersion = 0) => {
+  return jwt.sign({ userId, tokenVersion }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 };
 
 // Designated platform maintainers with guaranteed Admin powers (STRICT exact match only)
@@ -65,18 +70,22 @@ exports.register = async (req, res) => {
     let avatarMime = 'image/jpeg';
     if (avatarBase64) {
       const matches = avatarBase64.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+      let rawBuffer;
       if (matches && matches.length === 3) {
-        avatarMime = matches[1];
-        avatarBuffer = Buffer.from(matches[2], 'base64');
+        rawBuffer = Buffer.from(matches[2], 'base64');
       } else {
-        avatarBuffer = Buffer.from(avatarBase64, 'base64');
+        rawBuffer = Buffer.from(avatarBase64, 'base64');
       }
 
-      const MAX_SIZE = 200 * 1024;
-      if (avatarBuffer.length > MAX_SIZE) {
-        return res.status(400).json({
-          message: `Profile photo must be under 200KB (current: ${(avatarBuffer.length / 1024).toFixed(1)}KB).`,
+      try {
+        const sanitized = validateAndSanitizeImage(rawBuffer, {
+          maxSize: MAX_AVATAR_BYTES,
+          allowedFormats: ['jpeg', 'png', 'webp', 'gif'],
         });
+        avatarBuffer = sanitized.buffer;
+        avatarMime = sanitized.mimeType;
+      } catch (validationErr) {
+        return res.status(400).json({ message: validationErr.message });
       }
     }
 
@@ -118,11 +127,13 @@ exports.register = async (req, res) => {
     await user.save();
     await logActivity(req, 'user_register', { email: cleanEmail, role: user.role }, user);
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.tokenVersion || 0);
+    const refreshToken = generateRefreshToken(user._id, user.tokenVersion || 0);
 
     return res.status(201).json({
       message: 'Account created successfully! Welcome to Clearfeed.',
       token,
+      refreshToken,
       user: {
         ...user.toJSON(),
         followersCount: 0,
@@ -200,7 +211,8 @@ exports.login = async (req, res) => {
 
     await logActivity(req, 'user_login', { method: 'credentials' }, user);
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.tokenVersion || 0);
+    const refreshToken = generateRefreshToken(user._id, user.tokenVersion || 0);
 
     const [counts, postsCount] = await Promise.all([
       getAuthenticFollowCounts(user._id),
@@ -210,6 +222,7 @@ exports.login = async (req, res) => {
     return res.status(200).json({
       message: 'Login successful.',
       token,
+      refreshToken,
       user: {
         _id: user._id,
         name: user.name,
@@ -297,7 +310,8 @@ exports.guestLogin = async (req, res) => {
 
     await logActivity(req, 'guest_login', { note: 'Visitor entered guest session' }, guestUser);
 
-    const token = generateToken(guestUser._id);
+    const token = generateToken(guestUser._id, guestUser.tokenVersion || 0);
+    const refreshToken = generateRefreshToken(guestUser._id, guestUser.tokenVersion || 0);
 
     const [counts, postsCount] = await Promise.all([
       getAuthenticFollowCounts(guestUser._id),
@@ -307,6 +321,7 @@ exports.guestLogin = async (req, res) => {
     return res.status(200).json({
       message: 'Signed in as guest.',
       token,
+      refreshToken,
       user: {
         _id: guestUser._id,
         name: guestUser.name,
@@ -359,12 +374,90 @@ exports.changePassword = async (req, res) => {
     }
 
     user.password = newPassword;
+    // Invalidate all previous sessions upon password change
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
 
-    return res.status(200).json({ message: 'Password changed successfully.' });
+    await logActivity(req, 'password_change', { tokenVersion: user.tokenVersion }, user);
+
+    const token = generateToken(user._id, user.tokenVersion);
+    const refreshToken = generateRefreshToken(user._id, user.tokenVersion);
+
+    return res.status(200).json({
+      message: 'Password changed successfully. All previous device sessions have been revoked.',
+      token,
+      refreshToken,
+    });
   } catch (err) {
     console.error('changePassword error:', err);
     return res.status(500).json({ message: 'Failed to change password.' });
+  }
+};
+
+// Invalidate all active sessions across all devices (Web, Mobile, Desktop)
+exports.logoutAll = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    await logActivity(req, 'logout_all_sessions', { tokenVersion: user.tokenVersion }, user);
+
+    return res.status(200).json({
+      message: 'All active sessions have been invalidated across all devices.',
+      tokenVersion: user.tokenVersion,
+    });
+  } catch (err) {
+    console.error('logoutAll error:', err);
+    return res.status(500).json({ message: 'Failed to revoke sessions.' });
+  }
+};
+
+// Refresh access token via valid refresh token
+exports.refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ message: 'Refresh token is required.' });
+    }
+
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ message: 'User account no longer exists.' });
+    }
+
+    if (!user.isApproved) {
+      return res.status(403).json({ message: 'Account is pending approval or suspended by course admin.' });
+    }
+
+    const currentVersion = user.tokenVersion || 0;
+    const tokenVersion = decoded.tokenVersion !== undefined ? decoded.tokenVersion : null;
+
+    if (tokenVersion === null ? currentVersion > 0 : tokenVersion !== currentVersion) {
+      return res.status(401).json({
+        message: 'Refresh token has been revoked across devices. Please log in again.',
+        code: 'SESSION_REVOKED',
+      });
+    }
+
+    const newAccessToken = generateToken(user._id, currentVersion);
+    const newRefreshToken = generateRefreshToken(user._id, currentVersion);
+
+    return res.status(200).json({
+      message: 'Token refreshed successfully.',
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Refresh token expired. Please log in again.' });
+    }
+    return res.status(401).json({ message: 'Invalid refresh token.' });
   }
 };
 
@@ -381,3 +474,10 @@ exports.resetPassword = async (req, res) => {
     message: 'Password reset functionality has been disabled for account security.',
   });
 };
+
+// Export helpers for unified maintainer checks and token operations
+exports.generateToken = generateToken;
+exports.generateRefreshToken = generateRefreshToken;
+exports.isCoAdmin = isCoAdmin;
+exports.DEFAULT_ADMIN_USERNAMES = DEFAULT_ADMIN_USERNAMES;
+exports.DEFAULT_ADMIN_EMAILS = DEFAULT_ADMIN_EMAILS;

@@ -7,6 +7,7 @@ const Conversation = require('../models/Conversation');
 const Notification = require('../models/Notification');
 const callSessionManager = require('../services/callSessionManager');
 const { spaceSessionManager, SpaceRole } = require('../services/spaceSessionManager');
+const { isCoAdmin } = require('../controllers/authController');
 
 let ioInstance = null;
 
@@ -80,11 +81,18 @@ function initSocket(server) {
         const userId = decoded.userId || decoded.id || decoded._id;
 
         if (userId) {
-          socket.userId = userId.toString();
           try {
-            const user = await User.findById(userId).select('name username avatarUrl role status');
-            if (user) {
-              socket.user = user;
+            const user = await User.findById(userId).select('name username email avatarUrl role status tokenVersion isApproved');
+            if (user && user.isApproved) {
+              const currentVersion = user.tokenVersion || 0;
+              const tokenVersion = decoded.tokenVersion !== undefined ? decoded.tokenVersion : null;
+              if (tokenVersion === null ? currentVersion === 0 : tokenVersion === currentVersion) {
+                socket.userId = user._id.toString();
+                socket.user = user;
+                socket.data = socket.data || {};
+                socket.data.userId = socket.userId;
+                socket.data.user = user;
+              }
             }
           } catch {}
         }
@@ -168,36 +176,51 @@ function initSocket(server) {
     }
 
     // Client can explicitly identify after login or token acquisition
-    socket.on('auth:identify', async ({ token, userId: clientUserId, username: clientUsername } = {}) => {
+    // STRICT SECURITY: Identification REQUIREs verified JWT token. Untrusted userId/username is rejected.
+    socket.on('auth:identify', async ({ token } = {}, ack) => {
       try {
-        let uId = clientUserId;
-        let uname = clientUsername;
-
-        if (token) {
-          const secret = process.env.JWT_SECRET || 'pulse518_super_secret_course_key_2026';
-          const decoded = jwt.verify(token, secret);
-          uId = (decoded.userId || decoded.id || decoded._id || uId)?.toString();
+        if (!token) {
+          if (typeof ack === 'function') ack({ success: false, error: 'Authentication token required.' });
+          return;
         }
 
-        if (uId) {
-          socket.userId = uId.toString();
-          socket.join(`user:${socket.userId}`);
-          userId = socket.userId;
+        const secret = process.env.JWT_SECRET || 'pulse518_super_secret_course_key_2026';
+        const decoded = jwt.verify(token, secret);
+        const uId = (decoded.userId || decoded.id || decoded._id)?.toString();
 
-          try {
-            const user = await User.findById(socket.userId).select('name username avatarUrl role status');
-            if (user) {
-              registerUser(socket, user);
-              return;
-            }
-          } catch {}
+        if (!uId) {
+          if (typeof ack === 'function') ack({ success: false, error: 'Invalid token payload.' });
+          return;
+        }
 
-          if (uname) {
-            socket.join(`user:${uname.toLowerCase()}`);
-          }
+        const user = await User.findById(uId).select('name username email avatarUrl role status tokenVersion isApproved');
+        if (!user || !user.isApproved) {
+          if (typeof ack === 'function') ack({ success: false, error: 'User not found or suspended.' });
+          return;
+        }
+
+        const currentVersion = user.tokenVersion || 0;
+        const tokenVersion = decoded.tokenVersion !== undefined ? decoded.tokenVersion : null;
+        if (tokenVersion === null ? currentVersion > 0 : tokenVersion !== currentVersion) {
+          if (typeof ack === 'function') ack({ success: false, error: 'Session has been revoked.' });
+          return;
+        }
+
+        socket.userId = user._id.toString();
+        socket.user = user;
+        socket.data = socket.data || {};
+        socket.data.userId = socket.userId;
+        socket.data.user = user;
+        userId = socket.userId;
+
+        registerUser(socket, user);
+
+        if (typeof ack === 'function') {
+          ack({ success: true, userId: socket.userId, username: user.username });
         }
       } catch (err) {
         console.warn('Socket auth:identify error:', err.message);
+        if (typeof ack === 'function') ack({ success: false, error: 'Authentication failed.' });
       }
     });
 
@@ -216,10 +239,33 @@ function initSocket(server) {
     // 1. MESSAGING & CHAT EVENTS
     // ==========================================
 
-    // Join specific conversation room
-    socket.on('chat:join', ({ conversationId }) => {
-      if (conversationId) {
+    // Join specific conversation room (IDOR prevented: verifies participant membership)
+    socket.on('chat:join', async ({ conversationId }, ack) => {
+      const actorId = socket.userId || userId;
+      if (!actorId) {
+        if (typeof ack === 'function') ack({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      if (!conversationId) return;
+
+      try {
+        const conv = await Conversation.findById(conversationId);
+        if (!conv) {
+          if (typeof ack === 'function') ack({ success: false, error: 'Conversation not found.' });
+          return;
+        }
+
+        const isParticipant = conv.participants.some((p) => p.toString() === actorId);
+        if (!isParticipant) {
+          socket.emit('chat:error', { message: 'Forbidden: You are not a participant in this conversation.' });
+          if (typeof ack === 'function') ack({ success: false, error: 'Forbidden: You are not a participant.' });
+          return;
+        }
+
         socket.join(`conv:${conversationId}`);
+        if (typeof ack === 'function') ack({ success: true, conversationId });
+      } catch (err) {
+        console.warn('chat:join error:', err.message);
       }
     });
 
@@ -250,7 +296,8 @@ function initSocket(server) {
 
     // Direct Message sent via socket
     socket.on('chat:send_message', async (data, callback) => {
-      if (!userId) {
+      const actorId = socket.userId || userId;
+      if (!actorId) {
         if (typeof callback === 'function') callback({ error: 'Unauthorized' });
         return;
       }
@@ -262,7 +309,7 @@ function initSocket(server) {
         if (clientMessageId && typeof clientMessageId === 'string' && clientMessageId.trim()) {
           const cleanClientId = clientMessageId.trim();
           const existingMsg = await Message.findOne({
-            sender: userId,
+            sender: actorId,
             clientMessageId: cleanClientId,
           })
             .populate('sender', 'name username avatarUrl')
@@ -296,13 +343,13 @@ function initSocket(server) {
           conv = await Conversation.findById(conversationId);
         } else if (recipientId) {
           conv = await Conversation.findOne({
-            participants: { $all: [userId, recipientId] },
+            participants: { $all: [actorId, recipientId] },
           });
           if (!conv) {
             conv = new Conversation({
-              participants: [userId, recipientId],
+              participants: [actorId, recipientId],
               unreadCounts: new Map([
-                [userId, 0],
+                [actorId, 0],
                 [recipientId, 0],
               ]),
             });
@@ -315,7 +362,14 @@ function initSocket(server) {
           return;
         }
 
-        const targetRecipientId = conv.participants.find((p) => p.toString() !== userId);
+        // Strict authorization check: sender must be in participants
+        const isParticipant = conv.participants.some((p) => p.toString() === actorId);
+        if (!isParticipant) {
+          if (typeof callback === 'function') callback({ error: 'Forbidden: You are not a participant in this conversation.' });
+          return;
+        }
+
+        const targetRecipientId = conv.participants.find((p) => p.toString() !== actorId);
         if (!targetRecipientId) {
           if (typeof callback === 'function') callback({ error: 'Invalid recipient.' });
           return;
@@ -323,7 +377,7 @@ function initSocket(server) {
 
         const newMsg = new Message({
           conversation: conv._id,
-          sender: userId,
+          sender: actorId,
           recipient: targetRecipientId,
           text: trimmedText,
           mediaUrl: cleanMediaUrl || undefined,
@@ -560,9 +614,9 @@ function initSocket(server) {
     // 2. 1-ON-1 AUDIO CALL SIGNALING (WebRTC Free Mesh)
     // ==========================================
 
-    // Initiate Call
+    // Initiate Call (Strict caller validation from authenticated socket)
     socket.on('call:initiate', async ({ callId, targetUserId, callerInfo, callType = 'audio' }) => {
-      const effectiveCallerId = (socket.userId || callerInfo?._id || callerInfo?.id || '').toString();
+      const effectiveCallerId = (socket.userId || userId || '').toString();
       const normTargetUserId = (targetUserId || '').toString().trim();
 
       if (!effectiveCallerId || !normTargetUserId) {
@@ -576,11 +630,11 @@ function initSocket(server) {
         socket.join(`call:${callId}`);
       }
 
-      const callerPayload = callerInfo || {
+      const callerPayload = {
         _id: effectiveCallerId,
-        name: socket.user?.name || 'Classmate',
-        username: socket.user?.username || 'user',
-        avatarUrl: socket.user?.avatarUrl,
+        name: socket.user?.name || callerInfo?.name || 'Classmate',
+        username: socket.user?.username || callerInfo?.username || 'user',
+        avatarUrl: socket.user?.avatarUrl || callerInfo?.avatarUrl,
       };
 
       const callData = {
@@ -788,15 +842,28 @@ function initSocket(server) {
     });
 
     // WebRTC Signaling Relay (SDP Offer, SDP Answer, ICE Candidates)
-    socket.on('call:signal', ({ callId, targetUserId, fromUserId, signal }) => {
+    // Strictly verifies that the actor is an active caller/callee in the call session
+    socket.on('call:signal', ({ callId, targetUserId, signal }) => {
       if (!signal) return;
-      const fromId = (fromUserId || socket.userId || socket.user?._id || '').toString();
+      const actorId = (socket.userId || userId || '').toString();
+      if (!actorId) return;
 
-      // Track ICE restart count if signal indicates ice restart
-      if (signal.type === 'offer' && signal.sdp?.sdp?.includes('ice-restart') && callId) {
+      if (callId) {
         const session = callSessionManager.sessions.get(callId);
         if (session) {
-          session.iceRestartCount = (session.iceRestartCount || 0) + 1;
+          const isParticipant =
+            session.callerId === actorId ||
+            session.calleeId === actorId ||
+            session.responderId === actorId;
+          if (!isParticipant) {
+            console.warn(`🛑 [WebRTC Security] Unauthorized call:signal attempt by ${actorId} on callId ${callId}`);
+            return;
+          }
+
+          // Track ICE restart count if signal indicates ice restart
+          if (signal.type === 'offer' && signal.sdp?.sdp?.includes('ice-restart')) {
+            session.iceRestartCount = (session.iceRestartCount || 0) + 1;
+          }
         }
       }
 
@@ -804,7 +871,7 @@ function initSocket(server) {
       if (callId) {
         socket.to(`call:${callId}`).emit('call:signal', {
           callId,
-          fromUserId: fromId,
+          fromUserId: actorId,
           signal,
         });
       }
@@ -813,7 +880,7 @@ function initSocket(server) {
       if (targetUserId) {
         io.to(`user:${targetUserId}`).emit('call:signal', {
           callId,
-          fromUserId: fromId,
+          fromUserId: actorId,
           signal,
         });
       }
@@ -1039,9 +1106,17 @@ function initSocket(server) {
     socket.on('spaces:toggle_mute', handleToggleMute);
     socket.on('space:toggle_mute', handleToggleMute);
 
-    socket.on('spaces:force_mute', ({ spaceId, targetUserId }) => {
-      const finalUserId = userId || socket.id;
+    socket.on('spaces:force_mute', async ({ spaceId, targetUserId }) => {
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
       try {
+        if (targetUserId) {
+          const targetDoc = await User.findById(targetUserId).select('username email');
+          if (targetDoc && isCoAdmin(targetDoc.username, targetDoc.email)) {
+            socket.emit('space:error', { message: 'Root platform maintainers cannot be force muted.' });
+            return;
+          }
+        }
         const space = spaceSessionManager.forceMute(spaceId, finalUserId, targetUserId);
         io.to(`space:${spaceId}`).emit('space:state_change', { space });
         io.to(`user:${targetUserId}`).emit('spaces:force_muted', { spaceId });
@@ -1050,9 +1125,17 @@ function initSocket(server) {
       }
     });
 
-    socket.on('spaces:demote_to_listener', ({ spaceId, targetUserId }) => {
-      const finalUserId = userId || socket.id;
+    socket.on('spaces:demote_to_listener', async ({ spaceId, targetUserId }) => {
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
       try {
+        if (targetUserId) {
+          const targetDoc = await User.findById(targetUserId).select('username email');
+          if (targetDoc && isCoAdmin(targetDoc.username, targetDoc.email)) {
+            socket.emit('space:error', { message: 'Root platform maintainers cannot be demoted.' });
+            return;
+          }
+        }
         const result = spaceSessionManager.demoteToListener(spaceId, finalUserId, targetUserId);
         io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
         io.to(`user:${targetUserId}`).emit('spaces:demoted', {
@@ -1065,7 +1148,8 @@ function initSocket(server) {
     });
 
     socket.on('spaces:promote_cohost', ({ spaceId, targetUserId }) => {
-      const finalUserId = userId || socket.id;
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
       try {
         const result = spaceSessionManager.promoteCoHost(spaceId, finalUserId, targetUserId);
         io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
@@ -1079,7 +1163,8 @@ function initSocket(server) {
     });
 
     socket.on('spaces:transfer_host', ({ spaceId, newHostId }) => {
-      const finalUserId = userId || socket.id;
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
       try {
         const space = spaceSessionManager.transferHost(spaceId, finalUserId, newHostId);
         io.to(`space:${spaceId}`).emit('space:host_transferred', {
@@ -1094,9 +1179,17 @@ function initSocket(server) {
       }
     });
 
-    socket.on('spaces:kick_participant', ({ spaceId, targetUserId }) => {
-      const finalUserId = userId || socket.id;
+    socket.on('spaces:kick_participant', async ({ spaceId, targetUserId }) => {
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
       try {
+        if (targetUserId) {
+          const targetDoc = await User.findById(targetUserId).select('username email');
+          if (targetDoc && isCoAdmin(targetDoc.username, targetDoc.email)) {
+            socket.emit('space:error', { message: 'Root platform maintainers cannot be kicked.' });
+            return;
+          }
+        }
         const result = spaceSessionManager.kickParticipant(spaceId, finalUserId, targetUserId);
         for (const sId of result.kickedSocketIds) {
           const s = io.sockets.sockets.get(sId);
@@ -1113,8 +1206,9 @@ function initSocket(server) {
     });
 
     // Backward compatibility helper
-    socket.on('space:set_role', ({ spaceId, targetUserId, role }) => {
-      const finalUserId = userId || socket.id;
+    socket.on('space:set_role', async ({ spaceId, targetUserId, role }) => {
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
       try {
         if (role === 'speaker') {
           const result = spaceSessionManager.approveSpeak(spaceId, finalUserId, targetUserId);
@@ -1124,6 +1218,13 @@ function initSocket(server) {
             mediaToken: result.mediaToken,
           });
         } else if (role === 'listener') {
+          if (targetUserId) {
+            const targetDoc = await User.findById(targetUserId).select('username email');
+            if (targetDoc && isCoAdmin(targetDoc.username, targetDoc.email)) {
+              socket.emit('space:error', { message: 'Root platform maintainers cannot be demoted.' });
+              return;
+            }
+          }
           const result = spaceSessionManager.demoteToListener(spaceId, finalUserId, targetUserId);
           io.to(`space:${spaceId}`).emit('space:state_change', { space: result.space });
           io.to(`user:${targetUserId}`).emit('spaces:demoted', {
@@ -1137,7 +1238,8 @@ function initSocket(server) {
     });
 
     const handleSpeakingState = ({ spaceId, isSpeaking }) => {
-      const finalUserId = userId || socket.id;
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
       spaceSessionManager.setSpeakingState(spaceId, finalUserId, isSpeaking);
       io.to(`space:${spaceId}`).emit('space:user_speaking', {
         spaceId,
@@ -1159,9 +1261,14 @@ function initSocket(server) {
     socket.on('space:reaction', handleReaction);
 
     const handleSignal = ({ spaceId, targetUserId, signal }) => {
-      const finalUserId = userId || socket.id;
+      const finalUserId = socket.userId || userId;
+      if (!finalUserId) return;
+
       const session = spaceSessionManager.sessions.get(spaceId);
       if (!session) return;
+
+      // Sender must be an active participant in this Space
+      if (!session.participants.has(finalUserId.toString())) return;
 
       // SECURITY CONSTRAINT: Listeners must NEVER be able to publish audio
       if (signal?.type === 'offer') {
@@ -1174,7 +1281,7 @@ function initSocket(server) {
 
       io.to(`user:${targetUserId}`).emit('space:signal', {
         spaceId,
-        fromUserId: finalUserId,
+        fromUserId: finalUserId.toString(),
         signal,
       });
     };

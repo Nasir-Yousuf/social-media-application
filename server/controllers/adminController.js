@@ -5,6 +5,8 @@ const Like = require('../models/Like');
 const Follow = require('../models/Follow');
 const Notification = require('../models/Notification');
 const AuditLog = require('../models/AuditLog');
+const { logActivity } = require('../utils/auditLogger');
+const { isCoAdmin } = require('./authController');
 
 // Admin Platform Overview & Analytics
 exports.getOverview = async (req, res) => {
@@ -74,10 +76,7 @@ exports.toggleUserRole = async (req, res) => {
 
     const targetU = user.username.toLowerCase();
     const targetE = (user.email || '').toLowerCase();
-    if (
-      ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'].includes(targetU) ||
-      targetE === 'sowrovsarker2003@gmail.com'
-    ) {
+    if (isCoAdmin(targetU, targetE)) {
       return res.status(400).json({
         message: 'Primary site maintainers cannot be demoted from admin.',
       });
@@ -85,6 +84,7 @@ exports.toggleUserRole = async (req, res) => {
 
     user.role = user.role === 'admin' ? 'student' : 'admin';
     await user.save();
+    await logActivity(req, 'admin_toggle_role', { targetUserId: id, targetUsername: user.username, newRole: user.role });
 
     return res.status(200).json({
       message: `User @${user.username} role updated to ${user.role}.`,
@@ -112,10 +112,7 @@ exports.toggleUserStatus = async (req, res) => {
 
     const targetU = user.username.toLowerCase();
     const targetE = (user.email || '').toLowerCase();
-    if (
-      ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'].includes(targetU) ||
-      targetE === 'sowrovsarker2003@gmail.com'
-    ) {
+    if (isCoAdmin(targetU, targetE)) {
       return res.status(400).json({
         message: 'Primary site maintainers cannot be suspended.',
       });
@@ -123,6 +120,7 @@ exports.toggleUserStatus = async (req, res) => {
 
     user.isApproved = !user.isApproved;
     await user.save();
+    await logActivity(req, 'admin_toggle_status', { targetUserId: id, targetUsername: user.username, isApproved: user.isApproved });
 
     return res.status(200).json({
       message: `User status changed to ${user.isApproved ? 'Active' : 'Suspended'}.`,
@@ -149,10 +147,7 @@ exports.deleteUser = async (req, res) => {
 
     const targetU = user.username.toLowerCase();
     const targetE = (user.email || '').toLowerCase();
-    if (
-      ['nasir', 'nasiryousuf', 'nasir_yousuf', 'whoissowrov', 'sowrov'].includes(targetU) ||
-      targetE === 'sowrovsarker2003@gmail.com'
-    ) {
+    if (isCoAdmin(targetU, targetE)) {
       return res.status(400).json({
         message: 'Primary site maintainers cannot be deleted.',
       });
@@ -166,6 +161,8 @@ exports.deleteUser = async (req, res) => {
       Follow.deleteMany({ $or: [{ follower: id }, { following: id }] }),
       Notification.deleteMany({ $or: [{ recipient: id }, { sender: id }] }),
     ]);
+
+    await logActivity(req, 'admin_delete_user', { targetUserId: id, targetUsername: user.username, targetEmail: user.email });
 
     return res.status(200).json({ message: 'Course member and associated data deleted.' });
   } catch (err) {
