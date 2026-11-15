@@ -27,7 +27,9 @@ export const PacketType = {
   KEY_EXCHANGE: 0x03,    // Ephemeral key exchange packet
   ROUTED_DATA: 0x04,     // Encrypted user message payload (relayed multi-hop)
   HOP_ACK: 0x05,         // Direct single-hop link acknowledgement
-  END_TO_END_ACK: 0x06,  // Cryptographic receipt generated only by destination
+  DELIVERY_ACK: 0x05,    // Cryptographic delivery receipt generated only by destination
+  END_TO_END_ACK: 0x05,  // Cryptographic receipt generated only by destination (CFM1_ACK)
+  SYNC_SUMMARY: 0x06,    // 256-byte Bloom filter summary of known packet IDs for epidemic sync
   PING: 0x07,            // Connectivity probe
 };
 
@@ -36,9 +38,20 @@ export const PacketTypeName = {
   [PacketType.ANNOUNCE]: 'ANNOUNCE',
   [PacketType.KEY_EXCHANGE]: 'KEY_EXCHANGE',
   [PacketType.ROUTED_DATA]: 'ROUTED_DATA',
-  [PacketType.HOP_ACK]: 'HOP_ACK',
-  [PacketType.END_TO_END_ACK]: 'END_TO_END_ACK',
+  [PacketType.DELIVERY_ACK]: 'DELIVERY_ACK',
+  [PacketType.SYNC_SUMMARY]: 'SYNC_SUMMARY',
   [PacketType.PING]: 'PING',
+};
+
+export const DeliveryState = {
+  SAVED_LOCALLY: 'SAVED_LOCALLY',
+  QUEUED: 'QUEUED',
+  SENT_NEIGHBOR: 'SENT_NEIGHBOR',
+  RELAYED: 'RELAYED',
+  DELIVERED_ACK: 'DELIVERED_ACK',
+  EXPIRED: 'EXPIRED',
+  FAILED: 'FAILED',
+  FAILED_EXPIRED: 'EXPIRED', // Backward compatibility alias
 };
 
 export const MessageContentType = {

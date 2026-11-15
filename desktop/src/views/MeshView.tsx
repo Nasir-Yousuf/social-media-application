@@ -56,7 +56,34 @@ export const MeshView: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
   const [isEditingNick, setIsEditingNick] = useState<boolean>(false);
   const [newNick, setNewNick] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'chats' | 'peers' | 'identity'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'peers' | 'diagnostics' | 'identity'>('chats');
+  const [diagnosticsStats, setDiagnosticsStats] = useState(meshRouter.getStats());
+  const [sfStats, setSfStats] = useState<{ totalCount: number; totalBytes: number; totalMB: number; maxMB: number; maxAgeHours: number; maxPerSender: number }>({
+    totalCount: 0,
+    totalBytes: 0,
+    totalMB: 0,
+    maxMB: 25.0,
+    maxAgeHours: 48,
+    maxPerSender: 50,
+  });
+  const [isBatterySaver, setIsBatterySaver] = useState(meshRouter.isBatterySaverMode());
+  const [verifiedPeers, setVerifiedPeers] = useState<string[]>([]);
+  const [blockedPeers, setBlockedPeers] = useState<string[]>([]);
+
+  useEffect(() => {
+    const updateStats = async () => {
+      setDiagnosticsStats(meshRouter.getStats());
+      const sf = await meshRouter.getStoreAndForwardStats();
+      if (sf) setSfStats(sf);
+      const v = await meshStorage.loadVerifiedPeers();
+      setVerifiedPeers(v);
+      const b = await meshStorage.loadBlockedPeers();
+      setBlockedPeers(b);
+    };
+    updateStats();
+    const interval = setInterval(updateStats, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [showPairingModal, setShowPairingModal] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
@@ -279,6 +306,16 @@ export const MeshView: React.FC = () => {
               Peers ({peers.length})
             </button>
             <button
+              onClick={() => setActiveTab('diagnostics')}
+              className={`flex-1 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                activeTab === 'diagnostics'
+                  ? 'bg-emerald-500 text-white'
+                  : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              Diag
+            </button>
+            <button
               onClick={() => setActiveTab('identity')}
               className={`flex-1 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
                 activeTab === 'identity'
@@ -483,25 +520,167 @@ export const MeshView: React.FC = () => {
                     </div>
 
                     <div className="pt-2 border-t border-neutral-800/60 flex items-center justify-between">
-                      <span className="text-[10px] text-neutral-400 font-mono truncate max-w-[130px]">
-                        {peer.publicKeyHex.slice(0, 16)}...
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          selectPeer(peer);
-                          setActiveTab('chats');
-                        }}
-                        className="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm shadow-emerald-500/20 cursor-pointer"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        <span>Message</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-neutral-400 font-mono truncate max-w-[90px]">
+                          {peer.publicKeyHex.slice(0, 10)}...
+                        </span>
+                        {verifiedPeers.includes(peer.publicKeyHex.toLowerCase()) ? (
+                          <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-bold rounded">🛡️ Verified</span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 bg-neutral-800 text-neutral-400 text-[9px] rounded">Unverified</span>
+                        )}
+                        {blockedPeers.includes(peer.publicKeyHex.toLowerCase()) && (
+                          <span className="px-1.5 py-0.5 bg-rose-500/20 text-rose-400 text-[9px] font-bold rounded">🚫 Blocked</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const isV = verifiedPeers.includes(peer.publicKeyHex.toLowerCase());
+                            await meshStorage.verifyPeer(peer.publicKeyHex, !isV);
+                            setVerifiedPeers(await meshStorage.loadVerifiedPeers());
+                          }}
+                          className="px-2 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded text-[10px] font-semibold cursor-pointer"
+                          title="Verify Safety Number"
+                        >
+                          {verifiedPeers.includes(peer.publicKeyHex.toLowerCase()) ? 'Unverify' : 'Verify'}
+                        </button>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const isB = blockedPeers.includes(peer.publicKeyHex.toLowerCase());
+                            if (isB) {
+                              await meshStorage.unblockPeer(peer.publicKeyHex);
+                            } else {
+                              await meshStorage.blockPeer(peer.publicKeyHex);
+                            }
+                            setBlockedPeers(await meshStorage.loadBlockedPeers());
+                          }}
+                          className="px-2 py-1 bg-neutral-800 hover:bg-rose-900/40 text-neutral-300 hover:text-rose-300 rounded text-[10px] font-semibold cursor-pointer"
+                          title="Block/Unblock peer"
+                        >
+                          {blockedPeers.includes(peer.publicKeyHex.toLowerCase()) ? 'Unblock' : 'Block'}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectPeer(peer);
+                            setActiveTab('chats');
+                          }}
+                          className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>Chat</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
               })
             )}
+          </div>
+        )}
+
+        {/* Tab: Diagnostics */}
+        {activeTab === 'diagnostics' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+            {/* Live Packet Telemetry Card */}
+            <div className="p-3.5 bg-neutral-950/70 border border-neutral-800/90 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-neutral-200 flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                  Live Mesh Telemetry
+                </span>
+                <button
+                  onClick={() => {
+                    meshRouter.resetStats();
+                    setDiagnosticsStats(meshRouter.getStats());
+                  }}
+                  className="text-[10px] text-neutral-400 hover:text-neutral-200 underline cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="p-2 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                  <span className="text-neutral-400 block text-[10px]">Packets Sent</span>
+                  <span className="font-mono font-bold text-emerald-400 text-sm">{diagnosticsStats.packetsSent}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                  <span className="text-neutral-400 block text-[10px]">Packets Relayed</span>
+                  <span className="font-mono font-bold text-indigo-400 text-sm">{diagnosticsStats.packetsRelayed}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                  <span className="text-neutral-400 block text-[10px]">In Store-and-Forward</span>
+                  <span className="font-mono font-bold text-sky-400 text-sm">{diagnosticsStats.packetsStored}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                  <span className="text-neutral-400 block text-[10px]">ACKs Verified</span>
+                  <span className="font-mono font-bold text-emerald-300 text-sm">{diagnosticsStats.acksVerified}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                  <span className="text-neutral-400 block text-[10px]">Dropped (Forged Sig)</span>
+                  <span className="font-mono font-bold text-rose-400 text-sm">{diagnosticsStats.droppedInvalidSignatures}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-neutral-900/60 border border-neutral-800">
+                  <span className="text-neutral-400 block text-[10px]">Dropped (Duplicates)</span>
+                  <span className="font-mono font-bold text-amber-400 text-sm">{diagnosticsStats.droppedDuplicates}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bounded Store-and-Forward Buffer Card */}
+            <div className="p-3.5 bg-neutral-950/70 border border-neutral-800/90 rounded-2xl space-y-2">
+              <span className="font-bold text-neutral-200 flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-sky-400" />
+                Store-and-Forward Bounded Queue
+              </span>
+              <p className="text-[10px] text-neutral-400">
+                Epidemic multi-hop buffer bounded to 25 MB max size, 48h TTL, and max 50 packets per sender.
+              </p>
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-neutral-400">Buffer Usage</span>
+                  <span className="font-mono text-neutral-200">{sfStats.totalMB} MB / {sfStats.maxMB} MB</span>
+                </div>
+                <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden border border-neutral-800">
+                  <div
+                    className="bg-sky-500 h-full rounded-full transition-all"
+                    style={{ width: `${Math.min(100, (sfStats.totalMB / sfStats.maxMB) * 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-neutral-500">
+                  <span>Queued Packets: {sfStats.totalCount}</span>
+                  <span>Max Age: {sfStats.maxAgeHours}h • Max/Sender: {sfStats.maxPerSender}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Battery-Saver Scan Mode Card */}
+            <div className="p-3.5 bg-neutral-950/70 border border-neutral-800/90 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-neutral-200 block">Battery-Saver Scan Mode</span>
+                  <span className="text-[10px] text-neutral-400">
+                    {isBatterySaver ? 'Reduced radio duty cycle (30s beaconing)' : 'Standard balanced scan mode (8s beaconing)'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = !isBatterySaver;
+                    meshRouter.setBatterySaverMode(next);
+                    setIsBatterySaver(next);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer ${
+                    isBatterySaver ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
+                  }`}
+                >
+                  {isBatterySaver ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -786,7 +965,23 @@ export const MeshView: React.FC = () => {
                       </span>
                       {msg.isOutgoing && (
                         <span>
-                          {msg.deliveryState === 'delivered' ? '✓ Delivered' : '••• Queued'}
+                          {msg.deliveryState === 'DELIVERED_ACK' || msg.deliveryState === 'delivered' ? (
+                            <span className="text-emerald-300 font-medium">✓✓ Acknowledged [Signed]</span>
+                          ) : msg.deliveryState === 'SENT_NEIGHBOR' ? (
+                            <span className="text-sky-300">✓ Sent to Neighbor</span>
+                          ) : msg.deliveryState === 'RELAYED' || msg.deliveryState === 'relayed' ? (
+                            <span className="text-indigo-300">⚡ Relayed</span>
+                          ) : msg.deliveryState === 'QUEUED' || msg.deliveryState === 'queued' ? (
+                            <span className="text-amber-300">⏱ Queued</span>
+                          ) : msg.deliveryState === 'SAVED_LOCALLY' ? (
+                            <span className="text-neutral-300">💾 Saved locally</span>
+                          ) : msg.deliveryState === 'EXPIRED' ? (
+                            <span className="text-neutral-400">⏳ Expired</span>
+                          ) : msg.deliveryState === 'FAILED' || msg.deliveryState === 'failed' ? (
+                            <span className="text-rose-400">✕ Failed</span>
+                          ) : (
+                            <span className="text-neutral-300">{msg.deliveryState}</span>
+                          )}
                         </span>
                       )}
                     </div>

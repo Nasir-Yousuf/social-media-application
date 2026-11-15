@@ -1,6 +1,7 @@
 import { ed25519, x25519 } from '@noble/curves/ed25519.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
+import { computeSafetyNumber as coreComputeSafetyNumber } from '@clearfeed/mesh-core';
 
 let ExpoCrypto = null;
 try {
@@ -116,6 +117,20 @@ export function computeFingerprint(publicKeyHex) {
     return `${hex.slice(0, 4)} : ${hex.slice(4, 8)} : ${hex.slice(8, 12)} : ${hex.slice(12, 16)}`;
   } catch (err) {
     return 'INVALID:KEY';
+  }
+}
+
+/**
+ * Computes deterministic 60-digit safety number between two Ed25519 public keys
+ */
+export function computeSafetyNumber(pubkeyHexA, pubkeyHexB) {
+  try {
+    const bytesA = hexToBytes(pubkeyHexA);
+    const bytesB = hexToBytes(pubkeyHexB);
+    const res = coreComputeSafetyNumber(bytesA, bytesB);
+    return res.rawDigits;
+  } catch {
+    return '0'.repeat(60);
   }
 }
 

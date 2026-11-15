@@ -259,42 +259,64 @@ export const MeshConversationScreen = ({ route, navigation }) => {
   };
 
   const renderDeliveryBadge = (status, isMe = true) => {
-    const badgeColor = isMe ? 'rgba(255, 255, 255, 0.9)' : '#00ba7c';
+    const badgeColor = isMe ? 'rgba(255, 255, 255, 0.95)' : '#00ba7c';
     switch (status) {
       case DeliveryState.DELIVERED_ACK:
         return (
           <View style={styles.deliveryRow}>
-            <Ionicons name="checkmark-done" size={13} color={badgeColor} />
-            <Text style={[styles.deliveryText, { color: badgeColor }]}>Delivered</Text>
+            <Ionicons name="shield-checkmark" size={13} color="#4ade80" />
+            <Text style={[styles.deliveryText, { color: '#4ade80', fontWeight: '600' }]}>
+              Acknowledged [Signed]
+            </Text>
           </View>
         );
       case DeliveryState.SENT_NEIGHBOR:
         return (
           <View style={styles.deliveryRow}>
             <Ionicons name="checkmark" size={13} color={badgeColor} />
-            <Text style={[styles.deliveryText, { color: badgeColor }]}>Sent to Peer</Text>
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Sent to Neighbor</Text>
           </View>
         );
       case DeliveryState.RELAYED:
         return (
           <View style={styles.deliveryRow}>
-            <MaterialCommunityIcons name="transit-connection-variant" size={13} color={badgeColor} />
-            <Text style={[styles.deliveryText, { color: badgeColor }]}>Relayed</Text>
+            <MaterialCommunityIcons name="transit-connection-variant" size={13} color="#a5b4fc" />
+            <Text style={[styles.deliveryText, { color: '#a5b4fc' }]}>Relayed</Text>
           </View>
         );
       case DeliveryState.QUEUED:
         return (
           <View style={styles.deliveryRow}>
-            <Ionicons name="time-outline" size={12} color={badgeColor} />
-            <Text style={[styles.deliveryText, { color: badgeColor }]}>Queued</Text>
+            <Ionicons name="time-outline" size={12} color="#fbbf24" />
+            <Text style={[styles.deliveryText, { color: '#fbbf24' }]}>Queued</Text>
           </View>
         );
       case DeliveryState.SAVED_LOCALLY:
+        return (
+          <View style={styles.deliveryRow}>
+            <Ionicons name="save-outline" size={12} color={badgeColor} />
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Saved locally</Text>
+          </View>
+        );
+      case DeliveryState.EXPIRED:
+        return (
+          <View style={styles.deliveryRow}>
+            <Ionicons name="hourglass-outline" size={12} color="#94a3b8" />
+            <Text style={[styles.deliveryText, { color: '#94a3b8' }]}>Expired</Text>
+          </View>
+        );
+      case DeliveryState.FAILED:
+        return (
+          <View style={styles.deliveryRow}>
+            <Ionicons name="alert-circle-outline" size={12} color="#f87171" />
+            <Text style={[styles.deliveryText, { color: '#f87171' }]}>Failed</Text>
+          </View>
+        );
       default:
         return (
           <View style={styles.deliveryRow}>
             <Ionicons name="checkmark-outline" size={12} color={badgeColor} />
-            <Text style={[styles.deliveryText, { color: badgeColor }]}>Saved</Text>
+            <Text style={[styles.deliveryText, { color: badgeColor }]}>Saved locally</Text>
           </View>
         );
     }

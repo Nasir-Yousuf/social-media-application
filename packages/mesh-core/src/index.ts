@@ -10,3 +10,4 @@ export * from './crypto.js';
 export * from './handshake.js';
 export * from './ack.js';
 export * from './fragmenter.js';
+export * from './bloom.js';

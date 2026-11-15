@@ -32,6 +32,7 @@ import {
   fragmentFrame,
   BLEFrameReassembler,
   ReplayFilter,
+  BloomFilter,
 } from '../dist/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -372,6 +373,29 @@ runTest('Replay Protection Sliding Window', () => {
   assert.strictEqual(filter.checkAndRecord(packetId1, now), false, 'Duplicate packetId must be rejected');
   assert.strictEqual(filter.checkAndRecord(packetId2, now), true);
   assert.strictEqual(filter.checkAndRecord(new Uint8Array(16).fill(0x33), now - 400000), false, 'Expired packet must be rejected');
+});
+
+// Test 11: 256-Byte Bloom Filter & Epidemic Sync Summary
+runTest('256-Byte Bloom Filter Epidemic Sync Summary (0x06)', () => {
+  const filter = new BloomFilter();
+  const idA = new Uint8Array(16).fill(0xaa);
+  const idB = new Uint8Array(16).fill(0xbb);
+  const idC = new Uint8Array(16).fill(0xcc);
+
+  filter.add(idA);
+  filter.add(idB);
+
+  assert.strictEqual(filter.has(idA), true, 'Must report item A present');
+  assert.strictEqual(filter.has(idB), true, 'Must report item B present');
+  assert.strictEqual(filter.has(idC), false, 'Must report item C not present');
+
+  const bytes = filter.toByteArray();
+  assert.strictEqual(bytes.length, 256, 'Bloom filter bitset must be exactly 256 bytes (2048 bits)');
+
+  const restored = BloomFilter.fromByteArray(bytes);
+  assert.strictEqual(restored.has(idA), true);
+  assert.strictEqual(restored.has(idB), true);
+  assert.strictEqual(restored.has(idC), false);
 });
 
 console.log('\n================================================================');

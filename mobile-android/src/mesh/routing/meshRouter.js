@@ -6,6 +6,7 @@ import {
   createEnvelope,
   validateEnvelope,
   BROADCAST_PUBKEY,
+  DeliveryState,
 } from '../protocol/wireProtocol.js';
 import {
   encryptDirectPayload,
@@ -13,15 +14,9 @@ import {
   signEnvelope,
   verifyEnvelopeSignature,
 } from '../crypto/meshCrypto.js';
+import { BloomFilter } from '@clearfeed/mesh-core';
 
-export const DeliveryState = {
-  SAVED_LOCALLY: 'SAVED_LOCALLY',
-  QUEUED: 'QUEUED',
-  SENT_NEIGHBOR: 'SENT_NEIGHBOR',
-  RELAYED: 'RELAYED',
-  DELIVERED_ACK: 'DELIVERED_ACK',
-  FAILED_EXPIRED: 'FAILED_EXPIRED',
-};
+export { DeliveryState };
 
 class MeshRouter {
   constructor() {
@@ -29,11 +24,31 @@ class MeshRouter {
     this.deliveryListeners = new Set();
     this.peerListeners = new Set();
     this.beaconTimer = null;
+
+    // In-memory LRU deduplication cache for sub-millisecond lookups
+    this.recentSeen = new Set();
+    this.MAX_RECENT_SEEN = 5000;
+
+    // Node Diagnostics & Metrics
+    this.stats = {
+      packetsSent: 0,
+      packetsRelayed: 0,
+      packetsStored: 0,
+      acksVerified: 0,
+      droppedInvalidSignatures: 0,
+      droppedDuplicates: 0,
+    };
+
+    // Anti-Spam Relay Guard: Peer anomaly tracking
+    this.peerAnomalyScores = new Map(); // pubkeyHex -> count
+
+    // Battery-Saver Scan Mode toggle
+    this.batterySaverMode = false;
   }
 
   initialize() {
     meshTransport.onPacket((envelope) => this.handleIncomingEnvelope(envelope));
-    this.startBeaconing(8);
+    this.startBeaconing(this.batterySaverMode ? 30 : 8);
   }
 
   onMessageReceived(cb) {
@@ -57,6 +72,78 @@ class MeshRouter {
         cb();
       } catch (e) {}
     }
+  }
+
+  // --- STATS & DIAGNOSTICS ---
+  getStats() {
+    return { ...this.stats };
+  }
+
+  resetStats() {
+    this.stats = {
+      packetsSent: 0,
+      packetsRelayed: 0,
+      packetsStored: 0,
+      acksVerified: 0,
+      droppedInvalidSignatures: 0,
+      droppedDuplicates: 0,
+    };
+  }
+
+  getPeerAnomalyScores() {
+    const obj = {};
+    for (const [k, v] of this.peerAnomalyScores.entries()) {
+      obj[k] = v;
+    }
+    return obj;
+  }
+
+  recordPeerAnomaly(pubkeyHex) {
+    if (!pubkeyHex) return;
+    const key = pubkeyHex.toLowerCase();
+    const current = this.peerAnomalyScores.get(key) || 0;
+    this.peerAnomalyScores.set(key, current + 1);
+    this.stats.droppedInvalidSignatures++;
+  }
+
+  async getStoreAndForwardStats() {
+    return await meshStorage.getStoreAndForwardStats();
+  }
+
+  // --- BATTERY-SAVER SCAN MODE ---
+  isBatterySaverMode() {
+    return this.batterySaverMode;
+  }
+
+  setBatterySaverMode(enabled) {
+    this.batterySaverMode = !!enabled;
+    const intervalSec = this.batterySaverMode ? 30 : 8;
+    this.startBeaconing(intervalSec);
+  }
+
+  // --- DEDUPLICATION ---
+  async isPacketSeen(packetId) {
+    if (!packetId) return true;
+    if (this.recentSeen.has(packetId)) return true;
+    const seenInDb = await meshStorage.isPacketSeen(packetId);
+    if (seenInDb) {
+      this.recentSeen.add(packetId);
+      return true;
+    }
+    return false;
+  }
+
+  async markPacketSeen(packetId, senderPubkey = '', packetType = 0) {
+    if (!packetId) return;
+    if (this.recentSeen.size >= this.MAX_RECENT_SEEN) {
+      // Clear oldest half
+      const iter = this.recentSeen.values();
+      for (let i = 0; i < Math.floor(this.MAX_RECENT_SEEN / 2); i++) {
+        this.recentSeen.delete(iter.next().value);
+      }
+    }
+    this.recentSeen.add(packetId);
+    await meshStorage.markPacketSeen(packetId, senderPubkey, packetType);
   }
 
   /**
@@ -125,6 +212,9 @@ class MeshRouter {
 
   /**
    * Send an end-to-end encrypted message or rich media (image, voice, file) to a peer
+   * Enforces honest delivery progression:
+   * SAVED_LOCALLY -> QUEUED -> SENT_NEIGHBOR
+   * (transitions to DELIVERED_ACK ONLY upon destination-signed ACK arrival)
    */
   async sendMessage({
     recipientPubkey,
@@ -238,17 +328,121 @@ class MeshRouter {
     localMessage.deliveryStatus = DeliveryState.QUEUED;
     await meshStorage.saveMessages(recipientPubkey.toLowerCase(), existingMessages);
 
-    // Dispatch outbox transmission
+    // Add to Store-and-Forward queue (25MB bounded, 48h expiration) for epidemic synchronization
+    if (!isBroadcast) {
+      await meshStorage.addToStoreAndForwardQueue(envelope);
+      this.stats.packetsStored++;
+    }
+
+    // Mark as seen locally to prevent reflecting back
+    await this.markPacketSeen(envelope.packetId, identity.publicKeyHex, envelope.type);
+
+    // 5. Dispatch outbox transmission
     try {
       await meshTransport.broadcastPacket(envelope);
       localMessage.deliveryStatus = DeliveryState.SENT_NEIGHBOR;
       await meshStorage.saveMessages(recipientPubkey.toLowerCase(), existingMessages);
       this.notifyDelivery(localMessage);
+      this.stats.packetsSent++;
     } catch {
       // Retains QUEUED status
     }
 
     return localMessage;
+  }
+
+  /**
+   * Relay packet with randomized jitter (40-180 ms) to suppress radio collisions
+   */
+  async relayPacketWithJitter(forwardedEnvelope) {
+    const jitterMs = 40 + Math.floor(Math.random() * 140); // 40–180 ms
+    setTimeout(async () => {
+      try {
+        await meshTransport.broadcastPacket(forwardedEnvelope);
+        this.stats.packetsRelayed++;
+      } catch (err) {
+        // Stored in store-and-forward queue; will be synced upon peer encounter
+      }
+    }, jitterMs);
+  }
+
+  /**
+   * Epidemic Peer Encounter Sync: Sends 256-byte Bloom Filter summary of stored packets
+   */
+  async sendSyncSummary(targetPubkey) {
+    try {
+      const identity = await meshIdentityService.getOrCreateIdentity();
+      if (!identity) return;
+
+      // Extract all packet IDs from store-and-forward queue
+      const queue = await meshStorage.getStoreAndForwardQueue(500);
+      const filter = new BloomFilter();
+      for (const item of queue) {
+        if (item.packetId) filter.add(item.packetId);
+      }
+      for (const id of this.recentSeen) {
+        filter.add(id);
+      }
+
+      const envelope = createEnvelope({
+        type: PacketType.SYNC_SUMMARY,
+        senderPubkey: identity.publicKeyHex,
+        recipientPubkey: targetPubkey || BROADCAST_PUBKEY,
+        hopsRemaining: 1, // Single-hop direct exchange
+        hopCount: 0,
+        payload: {
+          bloomFilterHex: filter.toHex(),
+          packetCount: queue.length,
+          timestamp: Date.now(),
+        },
+      });
+
+      envelope.signature = signEnvelope(envelope, identity.secretKeyHex);
+      if (targetPubkey && targetPubkey !== BROADCAST_PUBKEY) {
+        await meshTransport.sendDirect(targetPubkey, envelope);
+      } else {
+        await meshTransport.broadcastPacket(envelope);
+      }
+    } catch (err) {
+      console.warn('[MeshRouter] sendSyncSummary error:', err?.message);
+    }
+  }
+
+  /**
+   * Handles incoming 0x06=SYNC_SUMMARY Bloom filter from peer
+   */
+  async handleSyncSummary(envelope) {
+    try {
+      const bloomHex = envelope.payload?.bloomFilterHex;
+      if (!bloomHex) return;
+      const remoteFilter = BloomFilter.fromHex(bloomHex);
+
+      const storedPackets = await meshStorage.getStoreAndForwardQueue(100);
+      const missingForPeer = [];
+
+      for (const stored of storedPackets) {
+        if (stored.packetId && !remoteFilter.has(stored.packetId)) {
+          missingForPeer.push(stored);
+        }
+      }
+
+      // Transmit missing packets to peer with randomized jitter spacing (30-110 ms)
+      let delayMs = 30 + Math.floor(Math.random() * 40);
+      for (const item of missingForPeer) {
+        setTimeout(async () => {
+          try {
+            const rawPacket = item.rawHex ? JSON.parse(item.rawHex) : null;
+            if (rawPacket && rawPacket.hopsRemaining > 0) {
+              await meshTransport.sendDirect(envelope.senderPubkey, rawPacket);
+              this.stats.packetsRelayed++;
+            }
+          } catch {}
+        }, delayMs);
+        delayMs += 30 + Math.floor(Math.random() * 80); // 30–110 ms spacing
+      }
+    } catch (err) {
+      console.warn('[MeshRouter] handleSyncSummary error:', err?.message);
+    }
   }
 
   /**
@@ -258,14 +452,24 @@ class MeshRouter {
     const check = validateEnvelope(envelope);
     if (!check.valid) return;
 
-    // Check deduplication (loop prevention)
-    const alreadySeen = await meshStorage.isPacketSeen(envelope.packetId);
-    if (alreadySeen) return;
-    await meshStorage.markPacketSeen(envelope.packetId);
+    // Check anti-spam: is sender blocked by user?
+    const isBlocked = await meshStorage.isPeerBlocked(envelope.senderPubkey);
+    if (isBlocked) return;
 
-    // Verify digital signature
+    // Deduplication (loop and broadcast storm prevention)
+    const alreadySeen = await this.isPacketSeen(envelope.packetId);
+    if (alreadySeen) {
+      this.stats.droppedDuplicates++;
+      return;
+    }
+    await this.markPacketSeen(envelope.packetId, envelope.senderPubkey, envelope.type);
+
+    // Cryptographic signature verification (Outer Ed25519)
     const isValidSig = verifyEnvelopeSignature(envelope);
-    if (!isValidSig) return;
+    if (!isValidSig) {
+      this.recordPeerAnomaly(envelope.senderPubkey);
+      return;
+    }
 
     const identity = await meshIdentityService.getOrCreateIdentity();
     if (!identity) return;
@@ -299,12 +503,20 @@ class MeshRouter {
         // Immediate announce back so pairing completes in < 1 sec
         if (envelope.type === PacketType.BEACON) {
           this.sendAnnounce(senderPub);
+          // Trigger Epidemic Sync with encountered peer
+          this.sendSyncSummary(senderPub);
         }
       }
       return;
     }
 
-    // CASE A: Packet is for ME or for EVERYONE (Nearby Public Broadcast)
+    // CASE 1: Epidemic Peer Sync Summary (0x06=SYNC_SUMMARY)
+    if (envelope.type === PacketType.SYNC_SUMMARY) {
+      await this.handleSyncSummary(envelope);
+      return;
+    }
+
+    // CASE 2: Packet is for ME or for EVERYONE (Nearby Public Broadcast)
     const isBroadcast = recipientPub === BROADCAST_PUBKEY;
     if (recipientPub === myPub || isBroadcast) {
       if (envelope.type === PacketType.ROUTED_DATA) {
@@ -351,7 +563,6 @@ class MeshRouter {
 
           if (!text && !mediaBase64) return;
 
-          const senderPub = envelope.senderPubkey.toLowerCase();
           const senderNick = envelope.payload?.senderNickname || 'Nearby Peer';
           const targetConvPubkey = isBroadcast ? BROADCAST_PUBKEY : senderPub;
           const targetConvNick = isBroadcast ? 'Nearby Public Broadcast' : senderNick;
@@ -398,7 +609,7 @@ class MeshRouter {
           }
           await meshStorage.saveConversations(conversations);
 
-          // Auto-discover sender in peers list so users can start 1-on-1 chat in 1 tap
+          // Auto-discover sender in peers list
           if (senderPub && senderPub !== myPub) {
             const peers = await meshStorage.loadPeers();
             const pIdx = peers.findIndex((p) => p.publicKeyHex.toLowerCase() === senderPub);
@@ -419,20 +630,38 @@ class MeshRouter {
             this.notifyPeersUpdated();
           }
 
-          // Send back cryptographically signed END_TO_END_ACK if 1-on-1
+          // Send back cryptographically signed DELIVERY_ACK (0x05) if 1-on-1
           if (!isBroadcast) {
             await this.sendEndToEndAck(envelope);
+          } else {
+            // Also relay broadcast forward if hops remaining
+            if (envelope.hopsRemaining > 0 && envelope.expiresAt > Date.now()) {
+              const forwarded = {
+                ...envelope,
+                hopsRemaining: envelope.hopsRemaining - 1,
+                hopCount: envelope.hopCount + 1,
+              };
+              this.relayPacketWithJitter(forwarded);
+            }
           }
 
           this.notifyMessage(incomingMsg);
         } catch (e) {
           // Decryption failed or tampered packet; drop safely
         }
-      } else if (envelope.type === PacketType.END_TO_END_ACK) {
+      } else if (
+        envelope.type === PacketType.DELIVERY_ACK ||
+        envelope.type === PacketType.END_TO_END_ACK ||
+        envelope.type === PacketType.HOP_ACK
+      ) {
         // Mark outgoing message as acknowledged by recipient
-        const ackPacketId = envelope.payload?.acknowledgedPacketId;
+        const ackPacketId = envelope.payload?.acknowledgedPacketId || envelope.payload?.originalPacketId;
         const senderPub = envelope.senderPubkey.toLowerCase();
         if (ackPacketId) {
+          // 1. Purge acknowledged packet from local store-and-forward queue
+          await meshStorage.purgeDeliveredFromStoreAndForward(ackPacketId);
+
+          // 2. Update local conversation if we are the sender
           const msgs = await meshStorage.loadMessages(senderPub);
           let updated = false;
           for (const m of msgs) {
@@ -440,17 +669,28 @@ class MeshRouter {
               m.deliveryStatus = DeliveryState.DELIVERED_ACK;
               updated = true;
               this.notifyDelivery(m);
+              this.stats.acksVerified++;
             }
           }
           if (updated) {
             await meshStorage.saveMessages(senderPub, msgs);
+          }
+
+          // 3. If we are an intermediate node relaying an ACK, jitter forward it
+          if (recipientPub !== myPub && envelope.hopsRemaining > 0) {
+            const forwardedAck = {
+              ...envelope,
+              hopsRemaining: envelope.hopsRemaining - 1,
+              hopCount: envelope.hopCount + 1,
+            };
+            this.relayPacketWithJitter(forwardedAck);
           }
         }
       }
       return;
     }
 
-    // CASE B: Packet is for SOMEONE ELSE -> Multi-hop Relay
+    // CASE 3: Packet is for SOMEONE ELSE -> Store-and-Forward & Multi-hop Relay
     const settings = await meshStorage.loadSettings();
     if (!settings.relayEnabled) return; // User opted out of relaying
 
@@ -461,32 +701,32 @@ class MeshRouter {
         hopCount: envelope.hopCount + 1,
       };
 
-      // Add to bounded store-and-forward relay cache
-      const relayCache = await meshStorage.loadRelayCache();
-      relayCache.push(forwardedEnvelope);
-      await meshStorage.saveRelayCache(relayCache);
+      // Add to bounded store-and-forward queue (25MB bounded, 48h expiration)
+      await meshStorage.addToStoreAndForwardQueue(forwardedEnvelope);
+      this.stats.packetsStored++;
 
-      // Attempt broadcast forwarding to neighboring peers
-      try {
-        await meshTransport.broadcastPacket(forwardedEnvelope);
-      } catch {
-        // Will be forwarded upon next peer discovery event
-      }
+      // Jittered broadcast forwarding (40-180 ms) to suppress radio collisions
+      await this.relayPacketWithJitter(forwardedEnvelope);
     }
   }
 
+  /**
+   * Destination-signed cryptographic delivery receipt (0x05=DELIVERY_ACK)
+   */
   async sendEndToEndAck(originalEnvelope) {
     const identity = await meshIdentityService.getOrCreateIdentity();
     if (!identity) return;
 
     const ackEnvelope = createEnvelope({
-      type: PacketType.END_TO_END_ACK,
+      type: PacketType.DELIVERY_ACK,
       senderPubkey: identity.publicKeyHex,
       recipientPubkey: originalEnvelope.senderPubkey,
       hopsRemaining: 5,
       hopCount: 0,
       payload: {
         acknowledgedPacketId: originalEnvelope.packetId,
+        originalPacketId: originalEnvelope.packetId,
+        deliveredTimestamp: Date.now(),
         timestamp: Date.now(),
       },
     });

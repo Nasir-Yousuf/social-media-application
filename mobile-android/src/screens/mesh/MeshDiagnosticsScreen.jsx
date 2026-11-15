@@ -14,6 +14,7 @@ import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../context/ThemeContext';
 import { useMesh } from '../../mesh/context/MeshContext';
+import meshRouter from '../../mesh/routing/meshRouter';
 import bleMeshBridge, {
   CFM1_SERVICE_UUID,
   CFM1_TX_RX_FRAME_CHAR,
@@ -41,6 +42,9 @@ export const MeshDiagnosticsScreen = ({ navigation }) => {
   const [fgsActive, setFgsActive] = useState(bleMeshBridge.transportState.isForegroundServiceActive);
   const [lastActionResult, setLastActionResult] = useState('');
   const [isStressTesting, setIsStressTesting] = useState(false);
+  const [routerStats, setRouterStats] = useState(meshRouter.getStats());
+  const [sfStats, setSfStats] = useState({ totalCount: 0, totalBytes: 0, totalMB: 0, maxMB: 25.0, maxAgeHours: 48, maxPerSender: 50 });
+  const [isBatterySaver, setIsBatterySaver] = useState(meshRouter.isBatterySaverMode());
 
   useEffect(() => {
     const unsub = bleMeshBridge.onDiagnosticsUpdated((diag) => {
@@ -48,9 +52,16 @@ export const MeshDiagnosticsScreen = ({ navigation }) => {
       setFgsActive(diag.transportState.isForegroundServiceActive);
     });
 
-    const interval = setInterval(() => {
+    const updateMeshMetrics = async () => {
       setDiagnostics(bleMeshBridge.getDiagnostics());
-    }, 1500);
+      setRouterStats(meshRouter.getStats());
+      const sf = await meshRouter.getStoreAndForwardStats();
+      if (sf) setSfStats(sf);
+      setIsBatterySaver(meshRouter.isBatterySaverMode());
+    };
+
+    updateMeshMetrics();
+    const interval = setInterval(updateMeshMetrics, 1500);
 
     return () => {
       unsub();
@@ -306,6 +317,99 @@ export const MeshDiagnosticsScreen = ({ navigation }) => {
           <View style={[styles.counterBox, { backgroundColor: currentColors.card, borderColor: currentColors.border }]}>
             <Text style={[styles.counterNumber, { color: '#6366F1' }]}>{diagnostics.counters.chunksReceived}</Text>
             <Text style={[styles.counterLabel, { color: currentColors.subtext }]}>BLE Chunks Rcvd</Text>
+          </View>
+        </View>
+
+        {/* Phase 13: Multi-Hop Routing & Honest Delivery Telemetry */}
+        <View style={[styles.card, { backgroundColor: currentColors.card, borderColor: '#6366F150' }]}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="transit-connection-variant" size={20} color="#6366F1" />
+            <Text style={[styles.cardTitle, { color: currentColors.text }]}>Multi-Hop Relay & Store-and-Forward Telemetry</Text>
+          </View>
+
+          <View style={styles.counterGrid}>
+            <View style={[styles.counterBox, { backgroundColor: currentColors.bg, borderColor: currentColors.border }]}>
+              <Text style={[styles.counterNumber, { color: '#10B981' }]}>{routerStats.packetsSent}</Text>
+              <Text style={[styles.counterLabel, { color: currentColors.subtext }]}>Packets Sent</Text>
+            </View>
+            <View style={[styles.counterBox, { backgroundColor: currentColors.bg, borderColor: currentColors.border }]}>
+              <Text style={[styles.counterNumber, { color: '#818CF8' }]}>{routerStats.packetsRelayed}</Text>
+              <Text style={[styles.counterLabel, { color: currentColors.subtext }]}>Packets Relayed</Text>
+            </View>
+            <View style={[styles.counterBox, { backgroundColor: currentColors.bg, borderColor: currentColors.border }]}>
+              <Text style={[styles.counterNumber, { color: '#38BDF8' }]}>{routerStats.packetsStored}</Text>
+              <Text style={[styles.counterLabel, { color: currentColors.subtext }]}>Stored in Queue</Text>
+            </View>
+            <View style={[styles.counterBox, { backgroundColor: currentColors.bg, borderColor: currentColors.border }]}>
+              <Text style={[styles.counterNumber, { color: '#4ADE80' }]}>{routerStats.acksVerified}</Text>
+              <Text style={[styles.counterLabel, { color: currentColors.subtext }]}>ACKs Verified</Text>
+            </View>
+          </View>
+
+          <View style={[styles.metaRow, { marginTop: 8 }]}>
+            <Text style={[styles.metaLabel, { color: currentColors.subtext }]}>Dropped (Invalid Sig):</Text>
+            <Text style={[styles.metaValue, { color: '#F87171', fontWeight: '700' }]}>{routerStats.droppedInvalidSignatures}</Text>
+          </View>
+          <View style={styles.metaRow}>
+            <Text style={[styles.metaLabel, { color: currentColors.subtext }]}>Dropped (Duplicates):</Text>
+            <Text style={[styles.metaValue, { color: '#FBBF24', fontWeight: '700' }]}>{routerStats.droppedDuplicates}</Text>
+          </View>
+        </View>
+
+        {/* Phase 13: Bounded Store-and-Forward Buffer Status */}
+        <View style={[styles.card, { backgroundColor: currentColors.card, borderColor: '#38BDF850' }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="layers-outline" size={20} color="#38BDF8" />
+            <Text style={[styles.cardTitle, { color: currentColors.text }]}>Store-and-Forward Bounded Buffer (25 MB)</Text>
+          </View>
+
+          <View style={styles.metaRow}>
+            <Text style={[styles.metaLabel, { color: currentColors.subtext }]}>Storage Usage:</Text>
+            <Text style={[styles.metaValue, { color: '#38BDF8', fontWeight: '700' }]}>
+              {sfStats.totalMB} MB / {sfStats.maxMB} MB ({sfStats.totalCount} packets)
+            </Text>
+          </View>
+          <View style={styles.metaRow}>
+            <Text style={[styles.metaLabel, { color: currentColors.subtext }]}>Retention Policy:</Text>
+            <Text style={[styles.metaValue, { color: currentColors.text }]}>48 hours max age • Max 50/sender</Text>
+          </View>
+          <View style={styles.metaRow}>
+            <Text style={[styles.metaLabel, { color: currentColors.subtext }]}>Jitter Window:</Text>
+            <Text style={[styles.metaValue, { color: '#10B981' }]}>40–180 ms (Storm Suppression)</Text>
+          </View>
+        </View>
+
+        {/* Phase 13: Battery-Saver Scan Mode Toggle Card */}
+        <View style={[styles.card, { backgroundColor: currentColors.card, borderColor: currentColors.border }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="battery-charging-outline" size={20} color="#F59E0B" />
+            <Text style={[styles.cardTitle, { color: currentColors.text }]}>Battery-Saver Scan Mode</Text>
+          </View>
+
+          <View style={[styles.metaRow, { alignItems: 'center' }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: currentColors.text, fontSize: 13, fontWeight: '600' }}>
+                {isBatterySaver ? 'Battery-Saver Mode Active' : 'Balanced Duty Cycle (Standard)'}
+              </Text>
+              <Text style={{ color: currentColors.subtext, fontSize: 11 }}>
+                {isBatterySaver ? 'Duty-cycled discovery (30s interval)' : 'Active discovery (8s interval)'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                const next = !isBatterySaver;
+                meshRouter.setBatterySaverMode(next);
+                setIsBatterySaver(next);
+              }}
+              style={[
+                styles.fgsPill,
+                { backgroundColor: isBatterySaver ? '#F59E0B25' : '#10B98125', borderColor: isBatterySaver ? '#F59E0B' : '#10B981', borderWidth: 1 },
+              ]}
+            >
+              <Text style={{ color: isBatterySaver ? '#F59E0B' : '#10B981', fontSize: 12, fontWeight: '700' }}>
+                {isBatterySaver ? 'BATTERY SAVER' : 'BALANCED'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 

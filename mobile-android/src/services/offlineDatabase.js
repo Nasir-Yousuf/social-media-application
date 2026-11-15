@@ -51,6 +51,8 @@ const memoryStore = {
   messages: new Map(),
   outbox_queue: new Map(),
   mesh_packets: new Map(),
+  seen_packets: new Map(),
+  store_and_forward_queue: new Map(),
 };
 
 export const initDatabase = async () => {
@@ -146,6 +148,30 @@ const runMigrations = (db) => {
         hops INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS idx_mesh_timestamp ON mesh_packets(timestamp DESC);
+
+      CREATE TABLE IF NOT EXISTS seen_packets (
+        packet_id TEXT PRIMARY KEY,
+        sender_pubkey TEXT,
+        packet_type INTEGER,
+        seen_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_seen_packets_seen_at ON seen_packets(seen_at);
+
+      CREATE TABLE IF NOT EXISTS store_and_forward_queue (
+        packet_id TEXT PRIMARY KEY,
+        sender_pubkey TEXT NOT NULL,
+        recipient_pubkey TEXT NOT NULL,
+        packet_type INTEGER NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 1,
+        raw_hex TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        timestamp_ms INTEGER NOT NULL,
+        ttl INTEGER NOT NULL,
+        hop_count INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_sf_created_at ON store_and_forward_queue(created_at ASC);
+      CREATE INDEX IF NOT EXISTS idx_sf_sender ON store_and_forward_queue(sender_pubkey, created_at ASC);
     `);
   } catch (err) {
     console.error('[OfflineDB] Sync Migration execution failed:', err);
@@ -217,6 +243,30 @@ const runMigrationsAsync = async (db) => {
         hops INTEGER NOT NULL DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS idx_mesh_timestamp ON mesh_packets(timestamp DESC);
+
+      CREATE TABLE IF NOT EXISTS seen_packets (
+        packet_id TEXT PRIMARY KEY,
+        sender_pubkey TEXT,
+        packet_type INTEGER,
+        seen_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_seen_packets_seen_at ON seen_packets(seen_at);
+
+      CREATE TABLE IF NOT EXISTS store_and_forward_queue (
+        packet_id TEXT PRIMARY KEY,
+        sender_pubkey TEXT NOT NULL,
+        recipient_pubkey TEXT NOT NULL,
+        packet_type INTEGER NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 1,
+        raw_hex TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        timestamp_ms INTEGER NOT NULL,
+        ttl INTEGER NOT NULL,
+        hop_count INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_sf_created_at ON store_and_forward_queue(created_at ASC);
+      CREATE INDEX IF NOT EXISTS idx_sf_sender ON store_and_forward_queue(sender_pubkey, created_at ASC);
     `);
   } catch (err) {
     console.error('[OfflineDB] Async Migration execution failed:', err);
@@ -400,6 +450,220 @@ export const removeOutboxItem = async (id) => {
   }
 };
 
+// ==========================================
+// 4. Mesh Store-and-Forward & Seen Packets
+// ==========================================
+export const MAX_STORE_FORWARD_BYTES = 25 * 1024 * 1024; // 25 MB
+export const MAX_PACKET_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
+export const MAX_PACKETS_PER_SENDER = 50;
+export const SEEN_RETENTION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export const isPacketSeen = async (packetId) => {
+  if (!packetId) return false;
+  try {
+    const db = await initDatabase();
+    if (db && typeof db.getFirstSync === 'function') {
+      const row = db.getFirstSync(`SELECT packet_id FROM seen_packets WHERE packet_id = ?`, [packetId]);
+      return !!row;
+    }
+  } catch {}
+  return memoryStore.seen_packets.has(packetId);
+};
+
+export const markPacketSeen = async (packetId, senderPubkey = '', packetType = 0) => {
+  if (!packetId) return;
+  const now = Date.now();
+  try {
+    const db = await initDatabase();
+    if (db && typeof db.runSync === 'function') {
+      db.runSync(
+        `INSERT OR REPLACE INTO seen_packets (packet_id, sender_pubkey, packet_type, seen_at) VALUES (?, ?, ?, ?)`,
+        [packetId, senderPubkey, packetType, now]
+      );
+    }
+  } catch {}
+  memoryStore.seen_packets.set(packetId, { packetId, senderPubkey, packetType, seenAt: now });
+  if (memoryStore.seen_packets.size > 10000) {
+    const firstKey = memoryStore.seen_packets.keys().next().value;
+    memoryStore.seen_packets.delete(firstKey);
+  }
+};
+
+export const cleanSeenPackets = async (retentionMs = SEEN_RETENTION_MS) => {
+  const cutoff = Date.now() - retentionMs;
+  try {
+    const db = await initDatabase();
+    if (db && typeof db.runSync === 'function') {
+      db.runSync(`DELETE FROM seen_packets WHERE seen_at < ?`, [cutoff]);
+    }
+  } catch {}
+  for (const [k, v] of memoryStore.seen_packets.entries()) {
+    if (v.seenAt < cutoff) memoryStore.seen_packets.delete(k);
+  }
+};
+
+export const addToStoreAndForwardQueue = async (packet) => {
+  if (!packet || !packet.packetId) return false;
+  const now = Date.now();
+  const packetId = packet.packetId;
+  const senderPubkey = packet.senderPubkey || '';
+  const recipientPubkey = packet.recipientPubkey || '';
+  const packetType = packet.packetType || 0;
+  const priority = packet.priority || 1;
+  const rawHex = packet.rawHex || '';
+  const sizeBytes = packet.sizeBytes || Math.ceil(rawHex.length / 2) || 188;
+  const timestampMs = packet.timestampMs || now;
+  const ttl = packet.ttl || 3;
+  const hopCount = packet.hopCount || 0;
+
+  try {
+    const db = await initDatabase();
+    if (db && typeof db.runSync === 'function') {
+      // 1. Evict expired packets (>48 hours)
+      const expiryCutoff = now - MAX_PACKET_AGE_MS;
+      db.runSync(`DELETE FROM store_and_forward_queue WHERE created_at < ?`, [expiryCutoff]);
+
+      // 2. Check per-sender limit (max 50 packets per sender)
+      const senderRows = db.getAllSync(
+        `SELECT packet_id FROM store_and_forward_queue WHERE sender_pubkey = ? ORDER BY created_at ASC`,
+        [senderPubkey]
+      );
+      if (senderRows.length >= MAX_PACKETS_PER_SENDER) {
+        const oldestId = senderRows[0].packet_id;
+        db.runSync(`DELETE FROM store_and_forward_queue WHERE packet_id = ?`, [oldestId]);
+      }
+
+      // 3. Check total buffer limit (25 MB)
+      const sumRow = db.getFirstSync(`SELECT SUM(size_bytes) as total_size FROM store_and_forward_queue`);
+      let currentTotal = sumRow?.total_size || 0;
+      while (currentTotal + sizeBytes > MAX_STORE_FORWARD_BYTES) {
+        const oldestLowPriority = db.getFirstSync(
+          `SELECT packet_id, size_bytes FROM store_and_forward_queue ORDER BY priority ASC, created_at ASC LIMIT 1`
+        );
+        if (!oldestLowPriority) break;
+        db.runSync(`DELETE FROM store_and_forward_queue WHERE packet_id = ?`, [oldestLowPriority.packet_id]);
+        currentTotal -= oldestLowPriority.size_bytes;
+      }
+
+      // Insert packet
+      db.runSync(
+        `INSERT OR REPLACE INTO store_and_forward_queue 
+        (packet_id, sender_pubkey, recipient_pubkey, packet_type, priority, raw_hex, size_bytes, timestamp_ms, ttl, hop_count, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [packetId, senderPubkey, recipientPubkey, packetType, priority, rawHex, sizeBytes, timestampMs, ttl, hopCount, now]
+      );
+    }
+  } catch {}
+
+  // In-memory fallback
+  const expiryCutoff = now - MAX_PACKET_AGE_MS;
+  for (const [id, p] of memoryStore.store_and_forward_queue.entries()) {
+    if (p.createdAt < expiryCutoff) memoryStore.store_and_forward_queue.delete(id);
+  }
+
+  let senderCount = 0;
+  let oldestSenderPacketId = null;
+  let oldestSenderTime = Infinity;
+  for (const [id, p] of memoryStore.store_and_forward_queue.entries()) {
+    if (p.senderPubkey === senderPubkey) {
+      senderCount++;
+      if (p.createdAt < oldestSenderTime) {
+        oldestSenderTime = p.createdAt;
+        oldestSenderPacketId = id;
+      }
+    }
+  }
+  if (senderCount >= MAX_PACKETS_PER_SENDER && oldestSenderPacketId) {
+    memoryStore.store_and_forward_queue.delete(oldestSenderPacketId);
+  }
+
+  memoryStore.store_and_forward_queue.set(packetId, {
+    packetId,
+    senderPubkey,
+    recipientPubkey,
+    packetType,
+    priority,
+    rawHex,
+    sizeBytes,
+    timestampMs,
+    ttl,
+    hopCount,
+    createdAt: now,
+  });
+
+  return true;
+};
+
+export const removeFromStoreAndForwardQueue = async (packetId) => {
+  if (!packetId) return false;
+  try {
+    const db = await initDatabase();
+    if (db && typeof db.runSync === 'function') {
+      db.runSync(`DELETE FROM store_and_forward_queue WHERE packet_id = ?`, [packetId]);
+    }
+  } catch {}
+  memoryStore.store_and_forward_queue.delete(packetId);
+  return true;
+};
+
+export const purgeDeliveredFromStoreAndForward = async (originalPacketId) => {
+  return await removeFromStoreAndForwardQueue(originalPacketId);
+};
+
+export const getStoreAndForwardQueue = async () => {
+  try {
+    const db = await initDatabase();
+    if (db && typeof db.getAllSync === 'function') {
+      const rows = db.getAllSync(`SELECT * FROM store_and_forward_queue ORDER BY priority DESC, created_at ASC`);
+      return rows.map((r) => ({
+        packetId: r.packet_id,
+        senderPubkey: r.sender_pubkey,
+        recipientPubkey: r.recipient_pubkey,
+        packetType: r.packet_type,
+        priority: r.priority,
+        rawHex: r.raw_hex,
+        sizeBytes: r.size_bytes,
+        timestampMs: r.timestamp_ms,
+        ttl: r.ttl,
+        hopCount: r.hop_count,
+        createdAt: r.created_at,
+      }));
+    }
+  } catch {}
+  return Array.from(memoryStore.store_and_forward_queue.values());
+};
+
+export const getStoreAndForwardStats = async () => {
+  let count = 0;
+  let totalBytes = 0;
+  try {
+    const db = await initDatabase();
+    if (db && typeof db.getFirstSync === 'function') {
+      const row = db.getFirstSync(`SELECT COUNT(*) as count, SUM(size_bytes) as total_size FROM store_and_forward_queue`);
+      count = row?.count || 0;
+      totalBytes = row?.total_size || 0;
+    }
+  } catch {}
+
+  if (count === 0 && memoryStore.store_and_forward_queue.size > 0) {
+    count = memoryStore.store_and_forward_queue.size;
+    for (const p of memoryStore.store_and_forward_queue.values()) {
+      totalBytes += p.sizeBytes || 0;
+    }
+  }
+
+  return {
+    totalCount: count,
+    count,
+    totalBytes,
+    totalMB: Math.round((totalBytes / (1024 * 1024)) * 100) / 100,
+    maxMB: 25.0,
+    maxAgeHours: 48,
+    maxPerSender: MAX_PACKETS_PER_SENDER,
+    maxBytes: MAX_STORE_FORWARD_BYTES,
+  };
+};
+
 export default {
   initDatabase,
   cachePosts,
@@ -410,4 +674,12 @@ export default {
   enqueueOutboxItem,
   getPendingOutboxItems,
   removeOutboxItem,
+  isPacketSeen,
+  markPacketSeen,
+  cleanSeenPackets,
+  addToStoreAndForwardQueue,
+  removeFromStoreAndForwardQueue,
+  purgeDeliveredFromStoreAndForward,
+  getStoreAndForwardQueue,
+  getStoreAndForwardStats,
 };
