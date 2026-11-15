@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Settings as SettingsIcon,
   Moon,
@@ -16,6 +17,7 @@ import {
   Download,
   Smartphone,
   AlertTriangle,
+  Activity,
 } from 'lucide-react';
 import { useTheme, ThemeMode } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +25,7 @@ import { useMesh } from '../mesh/context/MeshContext';
 import { PRODUCTION_BACKEND_URL, LOCAL_BACKEND_URL, getBaseUrl, api } from '../api/client';
 
 export const SettingsView: React.FC = () => {
+  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { user, logout, checkAuth } = useAuth();
   const { identity, settings: meshSettings, updateSettings, clearAllData } = useMesh();
@@ -431,7 +434,27 @@ export const SettingsView: React.FC = () => {
         </div>
       )}
 
-      {/* 7. Account & Application Info */}
+      {/* 7. Hardware & Network Diagnostics */}
+      <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-sm font-bold text-neutral-200">
+            <Activity className="w-4 h-4 text-emerald-400" />
+            System Diagnostics & Field Test Harness
+          </div>
+          <p className="text-xs text-neutral-400">
+            Verify real microphone capture, WebRTC STUN/TURN ICE traversal, and Clearfeed Mesh (CFM1) physical peer pings.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/diagnostics')}
+          className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-2"
+        >
+          <Activity className="w-3.5 h-3.5" />
+          Open Diagnostics
+        </button>
+      </div>
+
+      {/* 8. Account & Application Info */}
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-2xl p-5 flex items-center justify-between">
         <div>
           <h4 className="text-xs font-bold text-neutral-200">Clearfeed Desktop</h4>

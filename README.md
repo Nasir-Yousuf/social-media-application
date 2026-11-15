@@ -601,6 +601,114 @@ Clearfeed is pre-configured for frictionless zero-cost deployment across standar
 | **Backend**  | [Railway](https://railway.app/)           | Root: `server` · Start: `node server.js`                 |
 | **Database** | [MongoDB Atlas](https://www.mongodb.com/) | Free M0 Cluster (512 MB storage)                         |
 
+### Environment Variables Reference Table
+
+| Variable | Scope | Description | Default / Example |
+| :--- | :--- | :--- | :--- |
+| `PORT` | Backend | HTTP/WebSocket listening port | `5180` |
+| `NODE_ENV` | Backend | Deployment environment mode | `production` (or `development`) |
+| `MONGODB_URI` | Backend | MongoDB Atlas connection string | `mongodb+srv://user:pass@cluster.mongodb.net/clearfeed` |
+| `JWT_SECRET` | Backend | Cryptographic secret for signing JWT auth tokens | `min_32_char_cryptographically_secure_string` |
+| `GEMINI_API_KEY` | Backend | Google AI Studio Gemini API Key for AI Companion | `AIzaSy...` (Stored server-side ONLY) |
+| `GEMINI_MODEL` | Backend | Gemini model variant for streaming and chat | `gemini-2.5-flash` |
+| `CF_TURN_TOKEN` | Backend | Cloudflare Calls / Turn credentials token | `cf_turn_token_hex` |
+| `LIVEKIT_URL` | Backend/Live | LiveKit Cloud or self-hosted SFU endpoint | `wss://clearfeed.livekit.cloud` |
+| `LIVEKIT_API_KEY` | Backend | LiveKit room generation API key | `APIxxxxxx` |
+| `LIVEKIT_API_SECRET`| Backend | LiveKit room generation API secret | `secretxxxxxx` |
+| `CORS_ORIGIN` | Backend | Allowed CORS origins (comma-separated) | `https://clearfeed-web.vercel.app,tauri://localhost` |
+| `VITE_API_URL` | Web / Desktop| REST & Socket.io backend base URL | `https://social-media-application-production-e75d.up.railway.app` |
+
+---
+
+## 📦 Native Application Packaging & Distribution
+
+### 📱 Android Standalone APK & Production AAB (Google Play)
+
+The Clearfeed Android application (`mobile-android/`) is built on Expo SDK 52 with custom native modules for BLE GATT Server/Client (`modules/clearfeed-ble-mesh`) and high-speed Wi-Fi Direct / Local LAN sockets.
+
+#### 1. Direct Standalone APK Build (Internal Testing & Sideloading):
+```bash
+# Using Expo Application Services (EAS) CLI:
+cd mobile-android
+npx eas-cli build -p android --profile preview
+
+# Direct local Gradle release build:
+cd mobile-android/android
+./gradlew assembleRelease
+# Output artifact: mobile-android/android/app/build/outputs/apk/release/app-release.apk
+```
+
+#### 2. Production Google Play App Bundle (.aab):
+```bash
+cd mobile-android
+npx eas-cli build -p android --profile production
+# Output artifact: .aab ready for Google Play Console submission
+```
+
+---
+
+### 💻 Windows Native Desktop Packaging (Tauri 2 + Rust)
+
+Clearfeed Desktop (`desktop/`) packages into high-performance, native Windows 64-bit installers with Windows Credential Manager integration, system tray background execution, and Tokio TCP/UDP + WinRT BLE mesh daemon.
+
+#### Prerequisites:
+- **Rust Toolchain**: `rustup default stable-x86_64-pc-windows-msvc`
+- **Visual Studio Build Tools**: C++ CMake and MSVC compiler toolset
+- **Node.js**: v18+
+
+#### Build Command:
+```bash
+cd desktop
+npm run build
+npm run tauri build
+```
+
+#### Generated Distribution Artifacts:
+- **NSIS Self-Extracting Executable**: `desktop/src-tauri/target/release/bundle/nsis/Clearfeed_2.0.0_x64-setup.exe`
+- **WiX Enterprise MSI Package**: `desktop/src-tauri/target/release/bundle/msi/Clearfeed_2.0.0_x64_en-US.msi`
+
+---
+
+## 🧪 Comprehensive Physical-Device Field Testing Checklist
+
+Clearfeed includes an in-app **System Diagnostics & Field Test Harness** accessible via `/diagnostics` on Web and Windows Desktop, and via `Settings -> System Diagnostics & Field Test` on Android.
+
+### Verification Matrix & Procedures:
+
+#### 1. 1:1 Audio Calling & Multi-Device Dismissal
+- [ ] **Signaling Latency Probe**: Navigate to Diagnostics screen. Click *"Probe ICE & Signaling"*. Verify Socket.io signaling RTT is under 200 ms and status reports `EXCELLENT` or `GOOD`.
+- [ ] **NAT Traversal Classification**: Ensure WebRTC candidate gathering returns real candidates. Direct Wi-Fi connections must yield `STUN_REFLEXIVE (Direct P2P Ready)` (`srflx`); restricted symmetric NAT firewalls must gather `TURN_RELAY` (`relay`).
+- [ ] **Microphone Hardware RMS Meter**: Tap *"Test Mic"*. Speak into the physical microphone. Verify the volume indicator smoothly animates from 0% to >40% without audio clipping or permission crashes.
+- [ ] **Cross-Device Call Initiation**: Initiate a call from Android phone to Windows laptop. Verify Windows desktop system notification rings immediately with caller name and avatar.
+- [ ] **Multi-Device Ring Dismissal**: If a third device (Web tab) is also logged in to the recipient's account, answer or decline the call on Android. Verify all ringing indicators on Windows and Web are dismissed within 300 ms with zero orphaned ringers.
+
+#### 2. Spaces Live Multi-Speaker Voice Room
+- [ ] **Space Creation**: Host a Space named *"Engineering Sync"* from Windows Desktop.
+- [ ] **Multi-Client Join**: Join the Space from an Android phone and a Web browser.
+- [ ] **Speaker Permission Elevation**: From Android, tap *"Raise Hand"*. From Windows (Host), approve the request. Verify Android status elevates from Listener to Speaker.
+- [ ] **Real-Time Audio & Mute State**: Unmute on Android and speak. Verify audio plays clearly on Windows laptop and Web client with active speaker visual wave animations.
+- [ ] **Host Space Termination**: Host ends the Space. Verify all participants receive graceful `space:ended` notifications and return to the main feed.
+
+#### 3. Offline Clearfeed Mesh (CFM1) Multi-Transport Field Test
+- [ ] **Air-Gap Verification**: Disable Mobile Data and Internet Wi-Fi on two Android phones and a Windows laptop.
+- [ ] **BLE Peripheral Advertising**: Open Clearfeed Mesh on Android Device A. Verify Bluetooth LE peripheral begins advertising `0000CFM1` service UUID with 8-character identity fingerprint.
+- [ ] **Central Scanner Discovery**: Open Clearfeed Mesh on Android Device B and Windows Laptop. Verify Device A appears in the *"Discovered Physical Peers"* list with real RSSI (dBm).
+- [ ] **1-Tap Signed Echo Ping**: On Android Device B, tap *"Send Signed Echo Ping"* targeting Device A. Verify Device A verifies the Ed25519 signature and returns an ACK; Device B displays real round-trip RTT (e.g., `RTT: 48 ms`).
+- [ ] **Store-and-Forward Relay**: Transmit a message to an offline peer. Verify the message is held in the SQLite outbox queue (`Stored in Queue: 1`). Move near an intermediate relay node; verify packet hops and the destination receives the packet once within range.
+
+#### 4. CodeHub Multi-File & Remix Diff Verification
+- [ ] **Multi-File Composer**: Create a post with 3 tabs (`main.py`, `utils.py`, `README.md`). Verify syntax highlighting renders accurately on all files.
+- [ ] **1-Tap Copy & Share**: Tap copy button on a file tab. Verify exact file contents are copied to clipboard without line numbers.
+- [ ] **Remix / Fork Lineage**: Tap *"Remix Snippet"*. Modify 3 lines in `utils.py` and publish. Verify new post displays `Forked from @author/snippet` badge.
+- [ ] **Inline Visual Diff**: Tap *"View Changes (Diff)"*. Verify additions (+) render in emerald green, deletions (-) render in rose red, and unchanged lines preserve context.
+
+#### 5. Learn 15-Track Curriculum & Offline-to-Online Sync
+- [ ] **Offline Lesson Completion**: Go offline on Android. Complete Lesson 1 of *"Python for Developers"*, answer the quiz correctly, and earn 25 XP.
+- [ ] **Local Persistence**: Close and reopen the app while offline. Verify the track progress (1/30) and 25 XP remain cached in SQLite.
+- [ ] **Reconnection Auto-Sync**: Re-enable Wi-Fi. Observe background synchronization. Verify online backend profile registers the 25 XP with zero duplicate XP awards.
+
+---
+
 ### Environment Variables
 
 **Backend (`server/.env`):**

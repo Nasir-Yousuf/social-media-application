@@ -475,6 +475,40 @@ export const SettingsScreen = ({ navigation }) => {
           <Ionicons name="chevron-forward" size={18} color="#00ba7c" />
         </TouchableOpacity>
 
+        {/* System Diagnostics & Field Test Card */}
+        <TouchableOpacity
+          style={[
+            styles.meshCard,
+            {
+              backgroundColor: currentColors.surface,
+              borderColor: 'rgba(56, 189, 248, 0.35)',
+              marginTop: 10,
+            },
+          ]}
+          onPress={() => navigation.navigate('MeshDiagnostics')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.meshCardLeft}>
+            <View style={[styles.meshIconCircle, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+              <Ionicons name="pulse" size={20} color="#38bdf8" />
+            </View>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={[styles.meshCardTitle, { color: currentColors.text }]}>
+                System Diagnostics & Field Test
+              </Text>
+              <Text
+                style={[
+                  styles.meshCardSubtitle,
+                  { color: currentColors.textSecondary },
+                ]}
+              >
+                Real hardware testing: 1:1 Calling, STUN/TURN ICE, Mic RMS, and CFM1 Mesh Pings
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#38bdf8" />
+        </TouchableOpacity>
+
         {/* Server & Network Connectivity Card */}
         <View
           style={[

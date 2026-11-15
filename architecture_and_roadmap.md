@@ -283,3 +283,38 @@ All protected endpoints require an `Authorization: Bearer <token>` header.
    - Responsive verification across mobile, tablet, and desktop.
    - Micro-interactions, empty states, and toast notifications.
    - Comprehensive end-to-end verification.
+
+---
+
+## 8. Clearfeed 2.0 Modern Cross-Platform Architecture (Phases 7–20)
+
+### 8.1 Multi-Hop CFM1 Offline Mesh Subsystem
+- **Cryptographic Wire Protocol (`@clearfeed/mesh-core`)**: Ed25519 signatures, X25519 ECDH key agreement, and ChaCha20-Poly1305 AEAD authenticated payload encryption. 16-byte magic headers, bounded TTL (max 7 hops), deduplication Bloom filter with 10,000 packet capacity.
+- **Physical Transports**:
+  - **Android BLE (`modules/clearfeed-ble-mesh`)**: Custom GATT Server (`0000CFM1`) and Central Scanner with adaptive battery-efficient duty cycling (Active 5s/2s, Balanced 3s/12s, Low Power 2s/28s).
+  - **Wi-Fi Direct & Local LAN**: Android `WifiP2pManager` and Universal mDNS `_clearfeed-mesh._tcp.` framed TCP socket connections enabling 10–15 MB/s data transfers.
+  - **Windows Desktop (Rust Tauri 2)**: Native `btleplug` WinRT BLE scanner and Tokio TCP/UDP transport engine.
+- **Store-and-Forward SQLite Layer**:
+  - Encrypted packets buffered in SQLite with 48-hour expiration TTL and per-sender caps (max 50 packets).
+  - Honest Delivery UI states: `STORING_LOCAL` -> `SENT_TO_NEIGHBOR` -> `RELAYED` -> `ACKNOWLEDGED_BY_DESTINATION`.
+
+### 8.2 Real-Time Voice & Live Spaces
+- **1:1 WebRTC Audio Calling**: Ephemeral STUN/TURN credentials, ICE candidate queue draining, multi-device ring dismissal, and automated glare/busy resolution.
+- **Spaces Live Audio Rooms**: Multi-speaker voice rooms with host moderation, hand-raising queue, role management, and SFU WebRTC audio bridges.
+
+### 8.3 Curriculum & Developer Tooling
+- **Learn & Academy**: 15 tracks with 446 interactive lessons, bilingual text (English / Bangla), offline caching, code playgrounds, interactive quizzes, XP tracking, and cryptographic completion certificates.
+- **CodeHub Studio**: Multi-file snippet composition, deterministic LCS line-by-line diff viewing, fork attribution (`forkedFrom` lineage tracking), and syntax highlighting.
+- **AI Companion & Classroom Mentor**: Server-side Google Gemini SDK integration with streaming indicators, role personas, bilingual responses, and zero client-side API key exposure.
+
+### 8.4 Packaging & Deployment Targets
+- **Web**: React 19 + Vite deployed to Vercel Edge CDN.
+- **Backend**: Express 5 + Socket.io 4 + MongoDB Atlas deployed to Railway (`Procfile`: `web: node server/server.js`).
+- **Android**: Standalone preview APK (`eas build -p android --profile preview` / Gradle `assembleRelease`) and Google Play AAB (`eas build -p android --profile production`).
+- **Windows**: Tauri 2 + Rust native installers (`cargo tauri build` generating NSIS `.exe` and WiX `.msi`).
+
+### 8.5 In-App Physical Field Test Harness
+Accessible across Web and Windows (`/diagnostics`) and Android (`Settings -> System Diagnostics & Field Test`):
+1. **WebRTC STUN/TURN ICE Gathering**: Dynamically retrieves credentials, gathers `host`, `srflx`, and `relay` candidates, and classifies NAT traversal capabilities.
+2. **Microphone Hardware RMS Meter**: Measures live 16-bit PCM 48kHz audio capture levels from the operating system without mock passes.
+3. **CFM1 Mesh Echo Ping**: Broadcasts an authenticated Ed25519-signed ping and records the actual round-trip acknowledgement latency in milliseconds.

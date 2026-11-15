@@ -7,6 +7,10 @@ class DesktopSocketService {
   private currentToken: string | null = null;
   private listeners: Map<string, Set<(...args: any[]) => void>> = new Map();
 
+  public getRawSocket(): Socket | null {
+    return this.socket;
+  }
+
   public getSocketServerUrl(): string {
     const apiUrl = getBaseUrl();
     return apiUrl.replace(/\/api\/?$/, '');

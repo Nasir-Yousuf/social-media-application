@@ -22,6 +22,7 @@ import {
   Zap,
   Radio,
   Phone,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -394,6 +395,14 @@ export const LeftSidebar = () => {
             >
               <Sparkles className="w-4 h-4 text-sky-500" />
               <span>Weekly Digest</span>
+            </NavLink>
+            <NavLink
+              to="/diagnostics"
+              onClick={() => setIsMoreMenuOpen(false)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors"
+            >
+              <Activity className="w-4 h-4 text-emerald-500" />
+              <span>System Diagnostics</span>
             </NavLink>
           </div>,
           document.body

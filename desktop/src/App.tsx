@@ -25,6 +25,7 @@ const SearchView = lazy(() => import('./views/SearchView'));
 const ProfileView = lazy(() => import('./views/ProfileView'));
 const PostDetailView = lazy(() => import('./views/PostDetailView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
+const DiagnosticsView = lazy(() => import('./views/DiagnosticsView'));
 const AdminView = lazy(() => import('./views/AdminView'));
 const AuthView = lazy(() => import('./views/AuthView'));
 import { User } from './types';
@@ -49,6 +50,7 @@ const DesktopContent: React.FC = () => {
     if (path.startsWith('/search')) return 'search';
     if (path.startsWith('/profile')) return 'profile';
     if (path.startsWith('/admin')) return 'admin';
+    if (path.startsWith('/diagnostics')) return 'diagnostics';
     if (path.startsWith('/posts/') || path.startsWith('/post/')) return 'home';
     if (path.startsWith('/settings')) return 'settings';
     if (path.startsWith('/auth') || path.startsWith('/login') || path.startsWith('/register')) return 'auth';
@@ -74,6 +76,7 @@ const DesktopContent: React.FC = () => {
       search: '/search',
       profile: '/profile/me',
       admin: '/admin',
+      diagnostics: '/diagnostics',
       settings: '/settings',
       auth: '/auth',
     };
@@ -145,6 +148,7 @@ const DesktopContent: React.FC = () => {
             />
             <Route path="/posts/:id" element={<PostDetailView />} />
             <Route path="/post/:id" element={<PostDetailView />} />
+            <Route path="/diagnostics" element={<DiagnosticsView />} />
             <Route path="/settings" element={<SettingsView />} />
             <Route path="/auth" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
             <Route path="/login" element={<AuthView onContinueOffline={() => navigate('/mesh')} />} />
