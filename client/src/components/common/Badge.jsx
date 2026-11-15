@@ -3,19 +3,23 @@ import React from 'react';
 export const Badge = ({ children, variant = 'neutral', size = 'sm', className = '' }) => {
   const variantStyles = {
     neutral:
-      'bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700/60',
+      'bg-[#1E293B] text-[#94A3B8] border-[#334155]',
     accent:
-      'bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border-sky-200/80 dark:border-sky-800/60 font-semibold',
+      'bg-[#14B8A6]/15 text-[#14B8A6] border-[#14B8A6]/30 font-semibold',
+    mesh:
+      'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30 font-semibold',
+    academy:
+      'bg-[#6366F1]/15 text-[#818CF8] border-[#6366F1]/30 font-semibold',
     admin:
-      'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/80 dark:border-amber-800/60 font-bold',
+      'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30 font-bold',
     announcement:
-      'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25 font-bold',
+      'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30 font-bold',
     success:
-      'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-800/60 font-semibold',
+      'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/30 font-semibold',
     danger:
-      'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-200/80 dark:border-rose-800/60 font-semibold',
+      'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/30 font-semibold',
     chronological:
-      'bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border-sky-200/80 dark:border-sky-800/50 font-mono font-semibold',
+      'bg-[#14B8A6]/15 text-[#14B8A6] border-[#14B8A6]/30 font-mono font-semibold',
   };
 
   const sizeStyles = {

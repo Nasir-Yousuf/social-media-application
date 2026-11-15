@@ -12,21 +12,40 @@ export const Button = ({
   ...props
 }) => {
   const baseStyles =
-    'relative inline-flex items-center justify-center font-bold tracking-tight rounded-full select-none cursor-pointer transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900';
+    'relative inline-flex items-center justify-center font-semibold tracking-tight rounded-full select-none cursor-pointer transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#090D16]';
 
   const variants = {
+    // Brand Primary (Signal Teal - WCAG AAA 8.5:1 contrast with dark text)
     primary:
-      'bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white shadow-sm shadow-sky-500/20 hover:shadow-sky-500/35 border border-sky-400/30',
+      'bg-[#14B8A6] hover:bg-[#0D9488] active:bg-[#0F766E] text-[#090D16] shadow-sm shadow-[#14B8A6]/25 border border-[#14B8A6]/40 focus-visible:ring-[#14B8A6]',
+    
+    // Offline Mesh Accent (Beacon Amber)
+    mesh:
+      'bg-[#F59E0B] hover:bg-[#D97706] active:bg-[#B45309] text-[#090D16] shadow-sm shadow-[#F59E0B]/25 border border-[#F59E0B]/40 focus-visible:ring-[#F59E0B]',
+
+    // Academy / CodeHub Accent (Indigo)
+    academy:
+      'bg-[#6366F1] hover:bg-[#4F46E5] active:bg-[#4338CA] text-white shadow-sm shadow-[#6366F1]/25 border border-[#6366F1]/40 focus-visible:ring-[#6366F1]',
+
+    // Secondary / Elevated Surface
     secondary:
-      'bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 shadow-sm border border-transparent',
+      'bg-[#1E293B] hover:bg-[#334155] active:bg-[#0F172A] text-[#F8FAFC] border border-[#334155] shadow-sm focus-visible:ring-[#94A3B8]',
+
+    // Outline / Border Divider
     outline:
-      'bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800/80 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700/80',
+      'bg-transparent hover:bg-[#1E293B]/70 active:bg-[#1E293B] text-[#F8FAFC] border border-[#334155] focus-visible:ring-[#14B8A6]',
+
+    // Ghost
     ghost:
-      'bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800/70 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white',
+      'bg-transparent hover:bg-[#1E293B]/60 active:bg-[#1E293B] text-[#94A3B8] hover:text-[#F8FAFC] focus-visible:ring-[#14B8A6]',
+
+    // Danger / Destructive
     danger:
-      'bg-rose-500/10 hover:bg-rose-500 text-rose-600 dark:text-rose-400 hover:text-white border border-rose-500/25',
+      'bg-[#EF4444]/15 hover:bg-[#EF4444] active:bg-[#DC2626] text-[#EF4444] hover:text-white border border-[#EF4444]/30 focus-visible:ring-[#EF4444]',
+
+    // Legacy accent alias -> maps to primary Signal Teal
     accent:
-      'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-md shadow-sky-500/25',
+      'bg-gradient-to-r from-[#14B8A6] to-[#06B6D4] hover:from-[#0D9488] hover:to-[#0891B2] text-[#090D16] shadow-md shadow-[#14B8A6]/25 border border-[#14B8A6]/40',
   };
 
   const sizes = {

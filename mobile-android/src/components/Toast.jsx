@@ -12,14 +12,18 @@ export const Toast = () => {
 
   const bgColors = {
     info: colors.surface,
-    success: 'rgba(0, 186, 124, 0.95)',
-    error: 'rgba(244, 33, 46, 0.95)',
+    success: 'rgba(34, 197, 94, 0.95)',
+    error: 'rgba(239, 68, 68, 0.95)',
+    warning: 'rgba(234, 179, 8, 0.95)',
+    mesh: 'rgba(245, 158, 11, 0.95)',
   };
 
   const borderColors = {
-    info: colors.accent,
+    info: colors.brandPrimary,
     success: colors.success,
     error: colors.danger,
+    warning: colors.warning,
+    mesh: colors.meshAccent,
   };
 
   return (

@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import colors from '../theme/colors';
-import { VerifiedBadge } from './TwitterIcons';
+import { VerifiedBadge } from './ClearfeedIcons';
 import { resolveAvatarUrl } from '../api/client';
 
-const TWITTER_PALETTE = [
-  '#00A6F4', // Blue
-  '#00ba7c', // Green
-  '#f91880', // Pink
-  '#ffd700', // Gold
-  '#7856ff', // Purple
-  '#ff7a00', // Orange
+const CLEARUI_PALETTE = [
+  '#14B8A6', // Signal Teal
+  '#F59E0B', // Beacon Amber
+  '#6366F1', // Indigo
+  '#06B6D4', // Cyan
+  '#22C55E', // Green
+  '#8B5CF6', // Purple
+  '#334155', // Slate
 ];
 
 const getInitials = (name) => {
@@ -21,12 +22,12 @@ const getInitials = (name) => {
 };
 
 const getColor = (name) => {
-  if (!name) return TWITTER_PALETTE[0];
+  if (!name) return CLEARUI_PALETTE[0];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return TWITTER_PALETTE[Math.abs(hash) % TWITTER_PALETTE.length];
+  return CLEARUI_PALETTE[Math.abs(hash) % CLEARUI_PALETTE.length];
 };
 
 export const Avatar = ({
@@ -37,6 +38,7 @@ export const Avatar = ({
   size = 'md',
   role = 'user',
   showRoleBadge = false,
+  status, // 'online' | 'mesh' | 'space' | 'idle'
   style,
 }) => {
   const sizeMap = {
@@ -57,19 +59,39 @@ export const Avatar = ({
   const rawTarget = src || uri || avatarUrl;
   const resolvedUri = useMemo(() => resolveAvatarUrl(rawTarget), [rawTarget]);
 
-  // Reset error flag if target url changes
   useEffect(() => {
     setHasError(false);
   }, [resolvedUri]);
 
   const shouldShowImage = Boolean(resolvedUri) && !hasError;
 
+  // Status ring styles
+  let ringStyle = null;
+  let dotColor = null;
+
+  if (status === 'online') {
+    ringStyle = { borderWidth: 2, borderColor: colors.brandPrimary };
+    dotColor = colors.brandPrimary;
+  } else if (status === 'mesh') {
+    ringStyle = { borderWidth: 2, borderColor: colors.meshAccent };
+    dotColor = colors.meshAccent;
+  } else if (status === 'space') {
+    ringStyle = { borderWidth: 2, borderColor: colors.academyAccent };
+    dotColor = colors.academyAccent;
+  }
+
+  const dotSize = Math.max(8, Math.floor(dimension * 0.28));
+
   return (
     <View style={[{ width: dimension, height: dimension }, styles.wrapper, style]}>
       {shouldShowImage ? (
         <Image
           source={{ uri: resolvedUri }}
-          style={[styles.image, { width: dimension, height: dimension, borderRadius: dimension / 2 }]}
+          style={[
+            styles.image,
+            { width: dimension, height: dimension, borderRadius: dimension / 2 },
+            ringStyle,
+          ]}
           resizeMode="cover"
           onError={() => setHasError(true)}
         />
@@ -83,16 +105,32 @@ export const Avatar = ({
               borderRadius: dimension / 2,
               backgroundColor: bgColor,
             },
+            ringStyle,
           ]}
         >
           <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
         </View>
       )}
 
-      {/* Role Badge (Gold Verified Shield for Admin) */}
-      {showRoleBadge && role === 'admin' && (
+      {/* Network / Space Status Ring Dot */}
+      {dotColor && (
+        <View
+          style={[
+            styles.statusDot,
+            {
+              width: dotSize,
+              height: dotSize,
+              borderRadius: dotSize / 2,
+              backgroundColor: dotColor,
+            },
+          ]}
+        />
+      )}
+
+      {/* Role / Faculty Badge */}
+      {showRoleBadge && role === 'faculty' && !dotColor && (
         <View style={styles.badgeWrapper}>
-          <VerifiedBadge size={Math.max(13, dimension * 0.35)} />
+          <VerifiedBadge size={14} />
         </View>
       )}
     </View>
@@ -104,17 +142,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   image: {
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   fallback: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
   },
   initials: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   badgeWrapper: {
@@ -122,7 +157,15 @@ const styles = StyleSheet.create({
     bottom: -2,
     right: -2,
     backgroundColor: colors.bg,
-    borderRadius: 9999,
+    borderRadius: 8,
+    padding: 1,
+  },
+  statusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    borderWidth: 2,
+    borderColor: colors.bg,
   },
 });
 

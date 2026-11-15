@@ -9,3 +9,4 @@ export * from './events';
 export * from './contracts';
 export * from './validators';
 export * from './api';
+export * from './theme';

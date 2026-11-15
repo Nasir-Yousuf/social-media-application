@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import colors from '../theme/colors';
+import { getBilingualTextStyle } from '../theme/typography';
 
 export const Button = ({
   children,
@@ -16,6 +17,10 @@ export const Button = ({
     switch (variant) {
       case 'primary':
         return styles.primary;
+      case 'mesh':
+        return styles.mesh;
+      case 'academy':
+        return styles.academy;
       case 'secondary':
         return styles.secondary;
       case 'outline':
@@ -33,6 +38,10 @@ export const Button = ({
     switch (variant) {
       case 'primary':
         return styles.primaryText;
+      case 'mesh':
+        return styles.meshText;
+      case 'academy':
+        return styles.academyText;
       case 'secondary':
         return styles.secondaryText;
       case 'outline':
@@ -68,6 +77,8 @@ export const Button = ({
     }
   };
 
+  const isDarkForeground = variant === 'primary' || variant === 'mesh';
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -84,10 +95,17 @@ export const Button = ({
       {isLoading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'secondary' ? colors.black : colors.white}
+          color={isDarkForeground ? colors.black : colors.white}
         />
       ) : typeof children === 'string' ? (
-        <Text style={[styles.baseText, getTextStyle(), getTextSizeStyle(), textStyle]}>
+        <Text
+          style={[
+            styles.baseText,
+            getTextStyle(),
+            getTextSizeStyle(),
+            getBilingualTextStyle(children, textStyle),
+          ]}
+        >
           {children}
         </Text>
       ) : (
@@ -99,7 +117,7 @@ export const Button = ({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 9999, // Twitter pill
+    borderRadius: 9999,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -109,18 +127,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Variants
+  // ClearUI Variants
   primary: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.brandPrimary, // Signal Teal
   },
   primaryText: {
+    color: '#090D16', // High contrast dark text (WCAG AAA 8.5:1)
+  },
+  mesh: {
+    backgroundColor: colors.meshAccent, // Beacon Amber
+  },
+  meshText: {
+    color: '#090D16',
+  },
+  academy: {
+    backgroundColor: colors.academyAccent, // Indigo
+  },
+  academyText: {
     color: colors.white,
   },
   secondary: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.elevated,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   secondaryText: {
-    color: colors.black,
+    color: colors.text,
   },
   outline: {
     backgroundColor: 'transparent',

@@ -3,9 +3,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ========================================================================
-   CLEARFEED DESIGN SYSTEM — POWERED BY TAILWIND CSS V4
-   Curated palette with high-contrast Dark Mode ("Lights Out"),
-   Crisp Light Mode, and vibrant Twitter & Dev accents.
+   CLEARFEED "CLEARUI" DESIGN SYSTEM — POWERED BY TAILWIND CSS V4
+   Original visual identity: Chrono-Prism Signal Teal, Obsidian Canvas,
+   and Beacon Amber Offline Mesh.
    ======================================================================== */
 
 @theme {
@@ -13,15 +13,18 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-serif: 'Source Serif 4', Georgia, Cambria, 'Times New Roman', Times, serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-bangla: 'Hind Siliguri', 'Noto Sans Bengali', 'Inter', sans-serif;
 
-  /* Custom Color Tokens */
-  --color-brand: #1d9bf0;
-  --color-brand-hover: #1a8cd8;
-  --color-brand-light: #e8f5fe;
-  --color-brand-pink: #f91880;
-  --color-brand-green: #00ba7c;
+  /* Custom ClearUI Color Tokens */
+  --color-brand: #14b8a6;
+  --color-brand-hover: #0d9488;
+  --color-brand-light: rgba(20, 184, 166, 0.15);
+  --color-brand-teal: #14b8a6;
   --color-brand-amber: #f59e0b;
-  --color-brand-danger: #f4212e;
+  --color-brand-indigo: #6366f1;
+  --color-brand-pink: #ec4899;
+  --color-brand-green: #22c55e;
+  --color-brand-danger: #ef4444;
 
   /* Animation Utilities */
   --animate-fade-in: fade-in-up 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -31,76 +34,93 @@
 }
 
 /* ========================================================================
-   CSS VARIABLES FOR THEME RESOLUTION & COMPATIBILITY
+   CSS VARIABLES FOR THEME RESOLUTION & ACCESSIBLE CONTRAST
    ======================================================================== */
 
 :root {
-  --color-cf-bg: #ffffff;
+  --color-cf-bg: #f8fafc;
   --color-cf-surface: #ffffff;
-  --color-cf-elevated: #f7f9f9;
-  --color-cf-border: #eff3f4;
-  --color-cf-border-subtle: #f7f9f9;
-  --color-cf-text: #0f1419;
-  --color-cf-text-secondary: #536471;
-  --color-cf-text-muted: #536471;
-  --color-cf-accent: #1d9bf0;
-  --color-cf-accent-hover: #1a8cd8;
-  --color-cf-accent-soft: rgba(29, 155, 240, 0.08);
+  --color-cf-elevated: #f1f5f9;
+  --color-cf-border: #cbd5e1;
+  --color-cf-border-subtle: #e2e8f0;
+  --color-cf-text: #0f172a;
+  --color-cf-text-secondary: #475569;
+  --color-cf-text-muted: #64748b;
+  --color-cf-accent: #0d9488;
+  --color-cf-accent-hover: #0f766e;
+  --color-cf-accent-soft: rgba(13, 148, 136, 0.12);
   --color-cf-amber: #d97706;
   --color-cf-amber-soft: rgba(217, 119, 6, 0.12);
-  --color-cf-like: #f91880;
-  --color-cf-like-soft: rgba(249, 24, 128, 0.08);
-  --color-cf-boost: #00ba7c;
-  --color-cf-boost-soft: rgba(0, 186, 124, 0.08);
-  --color-cf-danger: #f4212e;
-  --color-cf-danger-soft: rgba(244, 33, 46, 0.08);
-  --color-cf-success: #00ba7c;
-  --color-cf-success-soft: rgba(0, 186, 124, 0.08);
+  --color-cf-indigo: #4f46e5;
+  --color-cf-indigo-soft: rgba(79, 70, 229, 0.12);
+  --color-cf-like: #db2777;
+  --color-cf-like-soft: rgba(219, 39, 119, 0.12);
+  --color-cf-boost: #0d9488;
+  --color-cf-boost-soft: rgba(13, 148, 136, 0.12);
+  --color-cf-danger: #dc2626;
+  --color-cf-danger-soft: rgba(220, 38, 38, 0.12);
+  --color-cf-success: #16a34a;
+  --color-cf-success-soft: rgba(22, 163, 74, 0.12);
 }
 
 html.dark {
-  --color-cf-bg: #000000;
-  --color-cf-surface: #121519;
-  --color-cf-elevated: #1a1e24;
-  --color-cf-border: #242930;
-  --color-cf-border-subtle: #1c2026;
-  --color-cf-text: #f0f3f5;
-  --color-cf-text-secondary: #8b949e;
-  --color-cf-text-muted: #6e7681;
-  --color-cf-accent: #1d9bf0;
-  --color-cf-accent-hover: #1a8cd8;
-  --color-cf-accent-soft: rgba(29, 155, 240, 0.15);
+  --color-cf-bg: #090d16;
+  --color-cf-surface: #111827;
+  --color-cf-elevated: #1e293b;
+  --color-cf-border: #334155;
+  --color-cf-border-subtle: #1e293b;
+  --color-cf-text: #f8fafc;
+  --color-cf-text-secondary: #94a3b8;
+  --color-cf-text-muted: #64748b;
+  --color-cf-accent: #14b8a6;
+  --color-cf-accent-hover: #0d9488;
+  --color-cf-accent-soft: rgba(20, 184, 166, 0.15);
   --color-cf-amber: #f59e0b;
   --color-cf-amber-soft: rgba(245, 158, 11, 0.15);
-  --color-cf-like: #f91880;
-  --color-cf-like-soft: rgba(249, 24, 128, 0.15);
-  --color-cf-boost: #00ba7c;
-  --color-cf-boost-soft: rgba(0, 186, 124, 0.15);
-  --color-cf-danger: #f4212e;
-  --color-cf-danger-soft: rgba(244, 33, 46, 0.15);
-  --color-cf-success: #00ba7c;
-  --color-cf-success-soft: rgba(0, 186, 124, 0.15);
+  --color-cf-indigo: #6366f1;
+  --color-cf-indigo-soft: rgba(99, 102, 241, 0.15);
+  --color-cf-like: #ec4899;
+  --color-cf-like-soft: rgba(236, 72, 153, 0.15);
+  --color-cf-boost: #14b8a6;
+  --color-cf-boost-soft: rgba(20, 184, 166, 0.15);
+  --color-cf-danger: #ef4444;
+  --color-cf-danger-soft: rgba(239, 68, 68, 0.15);
+  --color-cf-success: #22c55e;
+  --color-cf-success-soft: rgba(34, 197, 94, 0.15);
 
   /* Legacy alias mappings */
-  --color-cfd-bg: #000000;
-  --color-cfd-surface: #121519;
-  --color-cfd-elevated: #1a1e24;
-  --color-cfd-border: #242930;
-  --color-cfd-border-subtle: #1c2026;
-  --color-cfd-text: #f0f3f5;
-  --color-cfd-text-secondary: #8b949e;
-  --color-cfd-text-muted: #6e7681;
-  --color-cfd-accent: #1d9bf0;
-  --color-cfd-accent-hover: #1a8cd8;
-  --color-cfd-accent-soft: rgba(29, 155, 240, 0.15);
+  --color-cfd-bg: #090d16;
+  --color-cfd-surface: #111827;
+  --color-cfd-elevated: #1e293b;
+  --color-cfd-border: #334155;
+  --color-cfd-border-subtle: #1e293b;
+  --color-cfd-text: #f8fafc;
+  --color-cfd-text-secondary: #94a3b8;
+  --color-cfd-text-muted: #64748b;
+  --color-cfd-accent: #14b8a6;
+  --color-cfd-accent-hover: #0d9488;
+  --color-cfd-accent-soft: rgba(20, 184, 166, 0.15);
   --color-cfd-amber: #f59e0b;
   --color-cfd-amber-soft: rgba(245, 158, 11, 0.15);
-  --color-cfd-like: #f91880;
-  --color-cfd-like-soft: rgba(249, 24, 128, 0.15);
-  --color-cfd-boost: #00ba7c;
-  --color-cfd-danger: #f4212e;
-  --color-cfd-danger-soft: rgba(244, 33, 46, 0.15);
-  --color-cfd-success: #00ba7c;
+  --color-cfd-like: #ec4899;
+  --color-cfd-like-soft: rgba(236, 72, 153, 0.15);
+  --color-cfd-boost: #14b8a6;
+  --color-cfd-danger: #ef4444;
+  --color-cfd-danger-soft: rgba(239, 68, 68, 0.15);
+  --color-cfd-success: #22c55e;
+}
+
+/* ========================================================================
+   BILINGUAL BANGLA + ENGLISH TYPOGRAPHY & DIACRITIC CLIPPING PROTECTION
+   ======================================================================== */
+
+[lang="bn"],
+.font-bangla,
+.bangla-text {
+  font-family: var(--font-bangla) !important;
+  /* Mandatory minimum line-height >= 1.6 to prevent vowel diacritic (matra/kar) clipping */
+  line-height: 1.65 !important;
+  letter-spacing: 0.01em;
 }
 
 @layer base {
@@ -124,8 +144,8 @@ html.dark {
   }
 
   html.dark, html.dark body {
-    background-color: #000000;
-    color: #f0f3f5;
+    background-color: #090d16;
+    color: #f8fafc;
   }
 
   /* ========================================================================

@@ -1,9 +1,14 @@
 import React from 'react';
 
 /**
- * Modern Twitter/X-style circular loading spinner
+ * ClearUI Signal Pulse Spinner
+ * High-performance circular loading indicator in Signal Teal or customizable accent.
  */
-export const TwitterSpinner = ({ size = 'md', className = 'text-sky-500', trackClassName = 'opacity-20' }) => {
+export const ClearSpinner = ({
+  size = 'md',
+  className = 'text-[#14B8A6]',
+  trackClassName = 'opacity-20',
+}) => {
   const sizeMap = {
     xs: 'w-3.5 h-3.5',
     sm: 'w-4 h-4',
@@ -38,4 +43,7 @@ export const TwitterSpinner = ({ size = 'md', className = 'text-sky-500', trackC
   );
 };
 
-export default TwitterSpinner;
+// Backward-compatible alias for existing callers
+export const TwitterSpinner = ClearSpinner;
+
+export default ClearSpinner;
