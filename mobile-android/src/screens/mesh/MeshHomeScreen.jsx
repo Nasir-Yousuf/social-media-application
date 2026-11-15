@@ -106,6 +106,18 @@ export const MeshHomeScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            onPress={() => navigation.navigate('MeshDiagnostics')}
+            style={styles.iconBtn}
+            accessibilityLabel="Mesh Diagnostic Lab"
+          >
+            <MaterialCommunityIcons
+              name="bluetooth-connect"
+              size={21}
+              color="#14b8a6"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
             onPress={() => navigation.navigate('MeshSettings')}
             style={styles.iconBtn}
             accessibilityLabel="Mesh Settings"

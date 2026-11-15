@@ -343,6 +343,43 @@ export const MeshSettingsScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Diagnostic Lab Section */}
+        <Text
+          style={[styles.sectionHeading, { color: currentColors.textSecondary }]}
+        >
+          CFM1 HARDWARE DIAGNOSTICS & LAB
+        </Text>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: currentColors.surface,
+              borderColor: currentColors.border,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.dangerActionRow}
+            onPress={() => navigation.navigate('MeshDiagnostics')}
+          >
+            <MaterialCommunityIcons name="bluetooth-connect" size={20} color="#14b8a6" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.dangerLabel, { color: '#14b8a6' }]}>
+                Hardware Diagnostics & Test Harness
+              </Text>
+              <Text
+                style={[
+                  styles.dangerSub,
+                  { color: currentColors.textSecondary },
+                ]}
+              >
+                Inspect real RSSI, negotiated MTU (512B), GATT peers & packet counters.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={currentColors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Danger Zone */}
         <Text
           style={[styles.sectionHeading, { color: currentColors.textSecondary }]}

@@ -61,6 +61,7 @@ import MeshHomeScreen from '../screens/mesh/MeshHomeScreen';
 import MeshConversationScreen from '../screens/mesh/MeshConversationScreen';
 import MeshPeersScreen from '../screens/mesh/MeshPeersScreen';
 import MeshSettingsScreen from '../screens/mesh/MeshSettingsScreen';
+import MeshDiagnosticsScreen from '../screens/mesh/MeshDiagnosticsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -297,6 +298,7 @@ export const AppNavigator = () => {
             <Stack.Screen name="MeshConversation" component={MeshConversationScreen} />
             <Stack.Screen name="MeshPeers" component={MeshPeersScreen} />
             <Stack.Screen name="MeshSettings" component={MeshSettingsScreen} />
+            <Stack.Screen name="MeshDiagnostics" component={MeshDiagnosticsScreen} />
           </>
         ) : (
           <>
@@ -321,6 +323,7 @@ export const AppNavigator = () => {
             <Stack.Screen name="MeshConversation" component={MeshConversationScreen} />
             <Stack.Screen name="MeshPeers" component={MeshPeersScreen} />
             <Stack.Screen name="MeshSettings" component={MeshSettingsScreen} />
+            <Stack.Screen name="MeshDiagnostics" component={MeshDiagnosticsScreen} />
           </>
         )}
       </Stack.Navigator>
