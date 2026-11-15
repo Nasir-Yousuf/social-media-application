@@ -4,10 +4,12 @@ const learningController = require('../controllers/learningController');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
 const { aiLimiter, contentCreationLimiter } = require('../middleware/rateLimiter');
 
-// Progress tracking
+// Progress tracking & Offline Sync
 router.get('/progress', optionalAuth, learningController.getProgress);
 router.post('/progress/complete', requireAuth, learningController.completeLesson);
 router.post('/complete', requireAuth, learningController.completeLesson);
+router.post('/sync-progress', requireAuth, learningController.syncProgress);
+router.post('/progress/sync', requireAuth, learningController.syncProgress);
 router.post('/progress/active', requireAuth, learningController.setActiveLesson);
 router.post('/progress/save-code', requireAuth, learningController.saveLessonCode);
 
@@ -15,6 +17,9 @@ router.post('/progress/save-code', requireAuth, learningController.saveLessonCod
 router.post('/quiz/submit', requireAuth, learningController.submitQuiz);
 router.post('/exam/submit', requireAuth, learningController.submitExam);
 router.get('/certificate/:certificateId', optionalAuth, learningController.getCertificate);
+router.get('/certificates/:certificateId', optionalAuth, learningController.getCertificate);
+router.get('/certificate/:certificateId/verify', optionalAuth, learningController.verifyCertificate);
+router.get('/certificates/:certificateId/verify', optionalAuth, learningController.verifyCertificate);
 
 // Community Questions & Answers (Explicit single and plural routes for robust Express matching)
 router.get('/questions', optionalAuth, learningController.getQuestions);

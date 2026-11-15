@@ -80,6 +80,8 @@ app.use('/api/spaces', require('./routes/spaceRoutes'));
 app.use('/spaces', require('./routes/spaceRoutes'));
 app.use('/api/learning', require('./routes/learningRoutes'));
 app.use('/learning', require('./routes/learningRoutes'));
+app.use('/api/learn', require('./routes/learningRoutes'));
+app.use('/learn', require('./routes/learningRoutes'));
 app.use('/api/typing', require('./routes/typingRoutes'));
 app.use('/typing', require('./routes/typingRoutes'));
 app.use('/api/challenges', require('./routes/typingRoutes'));

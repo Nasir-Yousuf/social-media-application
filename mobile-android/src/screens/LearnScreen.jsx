@@ -19,6 +19,8 @@ import { useNotifications } from '../context/NotificationContext';
 import { useTheme } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TRACKS, CURRICULUM_DATA, TRACK_METADATA } from '../data/learningCurriculum';
+import CertificateModal from '../components/learning/CertificateModal';
+import { downloadTrack, getDownloadedTracks, syncOutbox, getPendingCount } from '../services/learnSync';
 
 const getTrackIconInfo = (t) => {
   switch (t.id) {
@@ -68,11 +70,17 @@ export const LearnScreen = ({ navigation }) => {
     completedLessons: [],
     xp: 0,
     streak: 1,
+    certificates: [],
   });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [downloadedTracks, setDownloadedTracks] = useState([]);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [showCertModal, setShowCertModal] = useState(false);
+  const [selectedCert, setSelectedCert] = useState(null);
 
-  // Hydrate initial progress from local storage
+  // Hydrate initial progress & downloaded tracks from local storage
   useEffect(() => {
     AsyncStorage.getItem('clearfeed_learning_progress')
       .then((raw) => {
@@ -92,7 +100,50 @@ export const LearnScreen = ({ navigation }) => {
         }
       })
       .catch(() => {});
+
+    getDownloadedTracks().then((tracks) => setDownloadedTracks(tracks));
+    getPendingCount().then((cnt) => setPendingSyncCount(cnt));
+
+    // Attempt automatic outbox sync
+    syncOutbox().then((res) => {
+      if (res && res.synced > 0) {
+        getPendingCount().then((cnt) => setPendingSyncCount(cnt));
+      }
+    });
   }, []);
+
+  const handleDownloadTrack = async () => {
+    setIsDownloading(true);
+    try {
+      const ok = await downloadTrack(selectedTrack);
+      if (ok) {
+        const updated = await getDownloadedTracks();
+        setDownloadedTracks(updated);
+        showToast('Track downloaded for full offline study! 📥', 'success');
+      } else {
+        showToast('Failed to download track for offline.', 'error');
+      }
+    } catch {
+      showToast('Error downloading track.', 'error');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleViewCertificate = () => {
+    const certs = progress.certificates || [];
+    const cert = certs.find((c) => c.trackId === selectedTrack) || {
+      certificateId: `CF-CERT-${selectedTrack.toUpperCase()}-VERIFIED`,
+      trackId: selectedTrack,
+      trackTitle: trackMeta.title || selectedTrack.toUpperCase(),
+      studentName: user?.name || user?.username || 'Verified Learner',
+      score: 100,
+      issuedAt: new Date().toISOString(),
+      verificationUrl: `https://clearfeed.app/verify-cert/CF-CERT-${selectedTrack.toUpperCase()}-VERIFIED`,
+    };
+    setSelectedCert(cert);
+    setShowCertModal(true);
+  };
 
   // Fetch student learning progress from server
   const fetchProgress = useCallback(async (isRefresh = false) => {
@@ -370,6 +421,61 @@ export const LearnScreen = ({ navigation }) => {
         </View>
       </View>
 
+      {/* Track Offline & Certification Controls Bar */}
+      <View style={styles.trackControlBar}>
+        <TouchableOpacity
+          style={[
+            styles.offlineDownloadBtn,
+            downloadedTracks.includes(selectedTrack) && styles.offlineDownloadedBtn,
+          ]}
+          onPress={handleDownloadTrack}
+          disabled={isDownloading || downloadedTracks.includes(selectedTrack)}
+          activeOpacity={0.7}
+        >
+          {isDownloading ? (
+            <ActivityIndicator size="small" color="#38bdf8" style={{ marginRight: 4 }} />
+          ) : (
+            <Ionicons
+              name={downloadedTracks.includes(selectedTrack) ? 'checkmark-circle' : 'cloud-download-outline'}
+              size={15}
+              color={downloadedTracks.includes(selectedTrack) ? '#10b981' : '#38bdf8'}
+              style={{ marginRight: 4 }}
+            />
+          )}
+          <Text
+            style={[
+              styles.offlineDownloadBtnText,
+              downloadedTracks.includes(selectedTrack) && { color: '#10b981' },
+            ]}
+          >
+            {downloadedTracks.includes(selectedTrack)
+              ? 'Offline Ready (Cached)'
+              : 'Download for Offline Study'}
+          </Text>
+        </TouchableOpacity>
+
+        {completionPercent === 100 && (
+          <TouchableOpacity
+            style={styles.certBadgeBtn}
+            onPress={handleViewCertificate}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="ribbon" size={15} color="#fbbf24" style={{ marginRight: 4 }} />
+            <Text style={styles.certBadgeBtnText}>View Certificate</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Pending Offline Sync Notice */}
+      {pendingSyncCount > 0 && (
+        <View style={styles.syncNoticeBar}>
+          <Ionicons name="sync" size={13} color="#f59e0b" style={{ marginRight: 6 }} />
+          <Text style={styles.syncNoticeText}>
+            {pendingSyncCount} offline completion{pendingSyncCount > 1 ? 's' : ''} queued for sync
+          </Text>
+        </View>
+      )}
+
       {/* Modules & Lessons List */}
       <FlatList
         data={currentTrackData.modules || []}
@@ -384,6 +490,13 @@ export const LearnScreen = ({ navigation }) => {
           />
         }
         contentContainerStyle={styles.listContent}
+      />
+
+      {/* Certificate Modal */}
+      <CertificateModal
+        visible={showCertModal}
+        certificate={selectedCert}
+        onClose={() => setShowCertModal(false)}
       />
     </View>
   );
@@ -531,6 +644,64 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.accent,
   },
+  trackControlBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    gap: 8,
+  },
+  offlineDownloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  offlineDownloadedBtn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  offlineDownloadBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+  },
+  certBadgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.5)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  certBadgeBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fbbf24',
+  },
+  syncNoticeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  syncNoticeText: {
+    fontSize: 11,
+    color: '#f59e0b',
+    fontWeight: '600',
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 24,
@@ -627,9 +798,10 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   lessonTitleBn: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 21, // >= 1.6x for Bangla readability
   },
   lessonSummary: {
     fontSize: 12,

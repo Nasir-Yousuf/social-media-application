@@ -1,13 +1,13 @@
-import { module1Lessons } from './module1';
-import { module2Lessons } from './module2';
-import { module3Lessons } from './module3';
-import { module4Lessons } from './module4';
-import { module5Lessons } from './module5';
-import { module6Lessons } from './module6';
-import { module7Lessons } from './module7';
-import { module8Lessons } from './module8';
-import { module9Lessons } from './module9';
-import { module10Lessons } from './module10';
+import { module1Lessons } from './module1.js';
+import { module2Lessons } from './module2.js';
+import { module3Lessons } from './module3.js';
+import { module4Lessons } from './module4.js';
+import { module5Lessons } from './module5.js';
+import { module6Lessons } from './module6.js';
+import { module7Lessons } from './module7.js';
+import { module8Lessons } from './module8.js';
+import { module9Lessons } from './module9.js';
+import { module10Lessons } from './module10.js';
 
 function normalizeLesson(raw, idx) {
   const lessonNumber = raw.lessonNumber || raw.order || (idx + 1);

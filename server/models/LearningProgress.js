@@ -58,6 +58,9 @@ const learningProgressSchema = new mongoose.Schema(
         score: { type: Number, required: true },
         issuedAt: { type: Date, default: Date.now },
         studentName: { type: String, required: true },
+        signature: { type: String, default: '' },
+        issuerPubkey: { type: String, default: '' },
+        verificationUrl: { type: String, default: '' },
       },
     ],
     lastActiveAt: {

@@ -5,6 +5,7 @@ const LearningAnswer = require('../models/LearningAnswer');
 const Notification = require('../models/Notification');
 const Post = require('../models/Post');
 const { notifyMentions } = require('../utils/mentionUtils');
+const { signCertificate, verifyCertificate } = require('../utils/certificateAuthority');
 
 // ==========================================
 // 1. Progress Tracking
@@ -880,7 +881,82 @@ exports.submitQuiz = async (req, res) => {
   }
 };
 
-// Submit Final Track Certification Exam & issue certificate
+// Synchronize offline completed lessons & quizzes (idempotent set-union)
+exports.syncProgress = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required to sync progress.' });
+    }
+
+    const { progress: items, completedLessons: rawCompleted, currentTrack, currentLessonId } = req.body;
+
+    // Normalize incoming batch items
+    let incomingLessons = [];
+    if (Array.isArray(items)) {
+      incomingLessons = items.map((item) => (typeof item === 'string' ? { lessonId: item } : item));
+    } else if (Array.isArray(rawCompleted)) {
+      incomingLessons = rawCompleted.map((id) => ({ lessonId: id }));
+    } else if (req.body.lessonId) {
+      incomingLessons = [{ lessonId: req.body.lessonId, trackId: req.body.trackId || req.body.track }];
+    }
+
+    let progress = await LearningProgress.findOne({ user: req.user._id });
+    if (!progress) {
+      progress = new LearningProgress({
+        user: req.user._id,
+        completedLessons: [],
+        xp: 0,
+        streak: 1,
+      });
+    }
+
+    const existingSet = new Set(progress.completedLessons || []);
+    const newlyCompleted = [];
+    let xpAwarded = 0;
+
+    if (!progress.lastLessonByTrack) {
+      progress.lastLessonByTrack = new Map();
+    }
+
+    for (const item of incomingLessons) {
+      const lessonId = item.lessonId || item.id;
+      if (!lessonId) continue;
+
+      if (!existingSet.has(lessonId)) {
+        existingSet.add(lessonId);
+        newlyCompleted.push(lessonId);
+        xpAwarded += 25; // 25 XP per newly completed lesson
+      }
+
+      const track = item.trackId || item.track;
+      if (track) {
+        progress.lastLessonByTrack.set(track, lessonId);
+      }
+    }
+
+    progress.completedLessons = Array.from(existingSet);
+    progress.xp += xpAwarded;
+
+    if (currentTrack) progress.currentTrack = currentTrack;
+    if (currentLessonId) progress.currentLessonId = currentLessonId;
+    progress.lastActiveAt = new Date();
+
+    await progress.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Progress synced successfully. ${newlyCompleted.length} new lesson(s), +${xpAwarded} XP awarded.`,
+      progress,
+      newlyCompleted,
+      xpAwarded,
+    });
+  } catch (err) {
+    console.error('syncProgress error:', err);
+    return res.status(500).json({ message: 'Error syncing learning progress.' });
+  }
+};
+
+// Submit Final Track Certification Exam & issue Ed25519-signed certificate
 exports.submitExam = async (req, res) => {
   try {
     if (!req.user) {
@@ -907,14 +983,31 @@ exports.submitExam = async (req, res) => {
       const certificateId = existingCert
         ? existingCert.certificateId
         : `CF-CERT-${trackId.toUpperCase()}-${randomSuffix}`;
+      const issuedAt = new Date();
+      const nameOfStudent = studentName || req.user.name || req.user.username;
+
+      const certPayload = {
+        certificateId,
+        trackId,
+        trackTitle: trackTitle || trackId.toUpperCase(),
+        studentName: nameOfStudent,
+        studentUserId: req.user._id.toString(),
+        score,
+        issuedAt: issuedAt.toISOString(),
+      };
+
+      const signedMeta = signCertificate(certPayload);
 
       certificate = {
         trackId,
         trackTitle: trackTitle || trackId.toUpperCase(),
         certificateId,
         score,
-        issuedAt: new Date(),
-        studentName: studentName || req.user.name || req.user.username,
+        issuedAt,
+        studentName: nameOfStudent,
+        signature: signedMeta.signature,
+        issuerPubkey: signedMeta.issuerPubkey,
+        verificationUrl: signedMeta.verificationUrl,
       };
 
       if (!existingCert) {
@@ -925,6 +1018,9 @@ exports.submitExam = async (req, res) => {
         // Update score if higher
         if (score > existingCert.score) {
           existingCert.score = score;
+          existingCert.signature = signedMeta.signature;
+          existingCert.issuerPubkey = signedMeta.issuerPubkey;
+          existingCert.verificationUrl = signedMeta.verificationUrl;
         }
       }
 
@@ -952,7 +1048,7 @@ exports.getCertificate = async (req, res) => {
     const { certificateId } = req.params;
     const progress = await LearningProgress.findOne({
       'certificates.certificateId': certificateId,
-    }).populate('user', 'username name avatar');
+    }).populate('user', 'username name avatar avatarUrl');
 
     if (!progress) {
       return res.status(404).json({ message: 'Certificate not found.' });
@@ -962,10 +1058,60 @@ exports.getCertificate = async (req, res) => {
     return res.status(200).json({
       certificate: cert,
       user: progress.user,
+      qrPayload: cert.verificationUrl || `https://clearfeed.app/verify-cert/${certificateId}`,
+      issuer: 'Clearfeed Academy Root CA',
     });
   } catch (err) {
     console.error('getCertificate error:', err);
     return res.status(500).json({ message: 'Error retrieving certificate.' });
+  }
+};
+
+// Cryptographically verify an Ed25519 Certificate
+exports.verifyCertificate = async (req, res) => {
+  try {
+    const { certificateId } = req.params;
+    const { sig, pub } = req.query;
+
+    let cert = null;
+    let studentUser = null;
+
+    const progress = await LearningProgress.findOne({
+      'certificates.certificateId': certificateId,
+    }).populate('user', 'username name avatar avatarUrl');
+
+    if (progress) {
+      const found = progress.certificates.find((c) => c.certificateId === certificateId);
+      if (found) {
+        cert = found.toObject ? found.toObject() : found;
+        studentUser = progress.user;
+      }
+    }
+
+    const certToVerify = cert
+      ? { ...cert }
+      : {
+          certificateId,
+          signature: sig,
+          issuerPubkey: pub,
+        };
+
+    if (sig) certToVerify.signature = sig;
+    if (pub) certToVerify.issuerPubkey = pub;
+
+    const result = verifyCertificate(certToVerify);
+
+    return res.status(200).json({
+      verified: result.verified,
+      certificate: cert || certToVerify,
+      issuer: result.issuer || 'Clearfeed Academy Root CA',
+      issuerPubkey: result.issuerPubkey || certToVerify.issuerPubkey,
+      user: studentUser,
+      qrPayload: (cert && cert.verificationUrl) || `https://clearfeed.app/verify-cert/${certificateId}?sig=${certToVerify.signature || ''}&pub=${certToVerify.issuerPubkey || ''}`,
+    });
+  } catch (err) {
+    console.error('verifyCertificate error:', err);
+    return res.status(500).json({ message: 'Error verifying certificate.' });
   }
 };
 

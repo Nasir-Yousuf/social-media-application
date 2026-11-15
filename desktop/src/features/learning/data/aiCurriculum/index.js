@@ -1,13 +1,13 @@
-import { CHAPTER_1_LESSONS } from './chapter1';
-import { CHAPTER_2_LESSONS } from './chapter2';
-import { CHAPTER_3_LESSONS } from './chapter3';
-import { CHAPTER_4_LESSONS } from './chapter4';
-import { CHAPTER_5_LESSONS } from './chapter5';
-import { CHAPTER_6_LESSONS } from './chapter6';
-import { CHAPTER_7_LESSONS } from './chapter7';
-import { CHAPTER_8_LESSONS } from './chapter8';
-import { CHAPTER_9_LESSONS } from './chapter9';
-import { CHAPTER_10_LESSONS } from './chapter10';
+import { CHAPTER_1_LESSONS } from './chapter1.js';
+import { CHAPTER_2_LESSONS } from './chapter2.js';
+import { CHAPTER_3_LESSONS } from './chapter3.js';
+import { CHAPTER_4_LESSONS } from './chapter4.js';
+import { CHAPTER_5_LESSONS } from './chapter5.js';
+import { CHAPTER_6_LESSONS } from './chapter6.js';
+import { CHAPTER_7_LESSONS } from './chapter7.js';
+import { CHAPTER_8_LESSONS } from './chapter8.js';
+import { CHAPTER_9_LESSONS } from './chapter9.js';
+import { CHAPTER_10_LESSONS } from './chapter10.js';
 
 export const AI_LESSONS = [
   ...CHAPTER_1_LESSONS,

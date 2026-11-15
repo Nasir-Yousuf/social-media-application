@@ -1,16 +1,16 @@
 // Clearfeed Learn & Practice - Beginner Web Development & AI Curriculum
 // Bilingual: English + বাংলা + Both
-import { AI_LESSONS } from './aiCurriculum';
-import { ENGLISH_GRAMMAR_LESSONS } from './englishGrammarData';
-import { PYTHON_LESSONS } from './pythonCurriculum';
-import { PYTHON_AI_LESSONS } from './pythonAiCurriculum';
-import { TAILWIND_LESSONS } from './tailwindCurriculum';
-import { REACT_LESSONS } from './reactCurriculum';
-import { TYPESCRIPT_LESSONS } from './typescriptCurriculum';
-import { NEXTJS_LESSONS } from './nextjsCurriculum';
-import { PYCHARM_LESSONS } from './pycharmCurriculum';
-import { COMPUTER_BASICS_LESSONS } from './computerBasicsCurriculum';
-import { MYSQL_LESSONS } from './mysqlCurriculum';
+import { AI_LESSONS } from './aiCurriculum/index.js';
+import { ENGLISH_GRAMMAR_LESSONS } from './englishGrammarData.js';
+import { PYTHON_LESSONS } from './pythonCurriculum.js';
+import { PYTHON_AI_LESSONS } from './pythonAiCurriculum.js';
+import { TAILWIND_LESSONS } from './tailwindCurriculum.js';
+import { REACT_LESSONS } from './reactCurriculum.js';
+import { TYPESCRIPT_LESSONS } from './typescriptCurriculum.js';
+import { NEXTJS_LESSONS } from './nextjsCurriculum.js';
+import { PYCHARM_LESSONS } from './pycharmCurriculum.js';
+import { COMPUTER_BASICS_LESSONS } from './computerBasicsCurriculum.js';
+import { MYSQL_LESSONS } from './mysqlCurriculum/index.js';
 
 export const TRACKS = [
   {
