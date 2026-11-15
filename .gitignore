@@ -13,6 +13,9 @@ dist/
 client/dist/
 desktop/dist/
 desktop/src-tauri/target/
+desktop/src-tauri/.cargo/
+target/
+**/target/
 
 # Environment variables
 .env

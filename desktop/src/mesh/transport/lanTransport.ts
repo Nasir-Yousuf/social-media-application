@@ -78,6 +78,10 @@ export class DesktopLanTransport {
     this.notifyPeers();
   }
 
+  public getPeers(): DiscoveredLanPeer[] {
+    return Array.from(this.discoveredPeers.values());
+  }
+
   public onPeers(cb: (peers: DiscoveredLanPeer[]) => void): () => void {
     this.peerListeners.add(cb);
     cb(Array.from(this.discoveredPeers.values()));

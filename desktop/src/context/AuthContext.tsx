@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import api from '../api/client';
 import socketService from '../services/socket';
+import secureStorage from '../services/secureStorage';
 import { User } from '../types';
 
 interface AuthContextValue {
@@ -38,7 +39,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [backendConnected, setBackendConnected] = useState<boolean>(true);
 
   const checkAuth = useCallback(async () => {
-    const currentToken = localStorage.getItem('pulse518_token');
+    let currentToken = localStorage.getItem('pulse518_token');
+    if (!currentToken) {
+      try {
+        currentToken = await secureStorage.getToken();
+      } catch {}
+    }
+
     if (!currentToken) {
       try {
         await api.get('/posts/feed?limit=1');
@@ -94,6 +101,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setBackendConnected(true);
         localStorage.setItem('pulse518_token', receivedToken);
         localStorage.setItem('pulse518_user', JSON.stringify(receivedUser));
+        secureStorage.storeToken(receivedToken).catch(() => {});
         socketService.connect(receivedToken);
         return { success: true };
       }
@@ -114,6 +122,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setBackendConnected(true);
         localStorage.setItem('pulse518_token', receivedToken);
         localStorage.setItem('pulse518_user', JSON.stringify(receivedUser));
+        secureStorage.storeToken(receivedToken).catch(() => {});
         socketService.connect(receivedToken);
         return { success: true };
       }
@@ -141,6 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setBackendConnected(true);
         localStorage.setItem('pulse518_token', receivedToken);
         localStorage.setItem('pulse518_user', JSON.stringify(receivedUser));
+        secureStorage.storeToken(receivedToken).catch(() => {});
         socketService.connect(receivedToken);
         return { success: true };
       }
@@ -156,6 +166,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
     localStorage.removeItem('pulse518_token');
     localStorage.removeItem('pulse518_user');
+    secureStorage.deleteToken().catch(() => {});
     socketService.disconnect();
   };
 

@@ -55,10 +55,28 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
     });
   };
 
-  // Global Keyboard Shortcuts
+  // Global Keyboard Shortcuts & Tauri System Tray Event Listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('clearfeed:toggle-mic-mute'));
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '1') {
+        e.preventDefault();
+        onNavigate('home');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+        e.preventDefault();
+        onNavigate('code');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '3') {
+        e.preventDefault();
+        onNavigate('learn');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '4') {
+        e.preventDefault();
+        onNavigate('messages');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '5') {
+        e.preventDefault();
+        onNavigate('mesh');
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         toggleSidebar();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
@@ -83,7 +101,32 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    // Listen to tray events if running in Tauri
+    let unlistenTauriNav: (() => void) | undefined;
+    let unlistenTauriMute: (() => void) | undefined;
+
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      import('@tauri-apps/api/event').then(({ listen }) => {
+        listen<string>('desktop://navigate', (event) => {
+          if (event.payload) onNavigate(event.payload);
+        }).then((unlisten) => {
+          unlistenTauriNav = unlisten;
+        });
+
+        listen('desktop://toggle-mute', () => {
+          window.dispatchEvent(new CustomEvent('clearfeed:toggle-mic-mute'));
+        }).then((unlisten) => {
+          unlistenTauriMute = unlisten;
+        });
+      }).catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (unlistenTauriNav) unlistenTauriNav();
+      if (unlistenTauriMute) unlistenTauriMute();
+    };
   }, [onNavigate]);
 
   const navItems = [
