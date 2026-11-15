@@ -43,7 +43,8 @@
     "build:status": "eas build:list",
     "test:mesh": "node src/mesh/__tests__/mesh.test.js --input-type=module",
     "test:shell": "node test/androidShellAndParity.test.js --input-type=module",
-    "test": "npm run test:mesh && npm run test:shell"
+    "test:outbox": "node test/offlineOutbox.test.js --input-type=module",
+    "test": "npm run test:mesh && npm run test:shell && npm run test:outbox"
   },
   "private": true
 }

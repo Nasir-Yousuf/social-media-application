@@ -96,6 +96,25 @@ const messageSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    deliveryStatus: {
+      type: String,
+      enum: ['QUEUED_OFFLINE', 'SENDING', 'SENT_TO_SERVER', 'DELIVERED_TO_DEVICE', 'READ'],
+      default: 'SENT_TO_SERVER',
+      index: true,
+    },
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
+    mediaUrl: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -107,5 +126,8 @@ messageSchema.index({ conversation: 1, createdAt: -1, _id: -1 });
 messageSchema.index({ conversation: 1, createdAt: 1, _id: 1 });
 messageSchema.index({ clientMessageId: 1 }, { unique: true, sparse: true });
 messageSchema.index({ recipient: 1, isRead: 1 });
+messageSchema.index({ recipient: 1, deliveryStatus: 1 });
+messageSchema.index({ sender: 1, clientMessageId: 1 });
+messageSchema.index({ updatedAt: -1 });
 
 module.exports = mongoose.model('Message', messageSchema);

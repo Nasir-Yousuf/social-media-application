@@ -13,6 +13,8 @@ router.post('/read-all', notificationController.markAsRead);
 router.get('/unread-count', notificationController.getUnreadCount);
 router.post('/push-token', notificationController.registerPushToken);
 router.delete('/push-token', notificationController.removePushToken);
+router.post('/register-token', notificationController.registerPushToken);
+router.delete('/unregister-token', notificationController.removePushToken);
 router.patch('/preferences', notificationController.updatePreferences);
 
 module.exports = router;

@@ -12,6 +12,7 @@ router.delete('/conversations/:conversationId/messages', messageController.clear
 router.put('/conversations/:conversationId/ai-settings', messageController.updateAiSettings);
 router.post('/conversations', messageController.startConversation);
 router.post('/send', messageController.sendMessage);
+router.get('/sync', messageController.syncMissedMessages);
 router.delete('/:messageId', messageController.deleteMessage);
 router.post('/:messageId/react', messageController.reactToMessage);
 router.get('/unread-total', messageController.getUnreadTotal);

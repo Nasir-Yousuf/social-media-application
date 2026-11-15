@@ -114,8 +114,39 @@ export const NotificationProvider = ({ children }) => {
           showBadge: true,
         });
 
-        await Notifications.setNotificationChannelAsync('messages', {
+        // High priority Direct Messages channel
+        await Notifications.setNotificationChannelAsync('messages_channel', {
           name: 'Direct Messages',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#2b825e',
+          sound: 'default',
+          showBadge: true,
+        });
+
+        // Max priority Incoming Calls channel (ringtone vibration pattern)
+        await Notifications.setNotificationChannelAsync('calls_channel', {
+          name: 'Clearfeed Voice & Video Calls',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 800, 1000],
+          lightColor: '#ff0055',
+          sound: 'default',
+          showBadge: true,
+        });
+
+        // Spaces Live Audio Rooms channel
+        await Notifications.setNotificationChannelAsync('spaces_channel', {
+          name: 'Clearfeed Spaces',
+          importance: Notifications.AndroidImportance.DEFAULT,
+          vibrationPattern: [0, 150, 150],
+          lightColor: '#53bdeb',
+          sound: 'default',
+          showBadge: true,
+        });
+
+        // Backward compatibility channels
+        await Notifications.setNotificationChannelAsync('messages', {
+          name: 'Direct Messages Legacy',
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#00A6F4',
@@ -201,12 +232,19 @@ export const NotificationProvider = ({ children }) => {
         const authToken = await AsyncStorage.getItem('token');
         if (authToken) {
           try {
-            await api.post('/notifications/push-token', {
+            await api.post('/notifications/register-token', {
               token,
               platform: Platform.OS,
             });
           } catch {
-            // Token will be synced upon next login
+            try {
+              await api.post('/notifications/push-token', {
+                token,
+                platform: Platform.OS,
+              });
+            } catch {
+              // Token will be synced upon next login
+            }
           }
         }
 
@@ -225,9 +263,13 @@ export const NotificationProvider = ({ children }) => {
     try {
       const stored = await AsyncStorage.getItem('cf_push_token');
       if (stored) {
-        await api.delete('/notifications/push-token', {
-          body: { token: stored },
-        }).catch(() => {});
+        await api.delete('/notifications/unregister-token', {
+          data: { token: stored },
+        }).catch(async () => {
+          await api.delete('/notifications/push-token', {
+            data: { token: stored },
+          }).catch(() => {});
+        });
         await AsyncStorage.removeItem('cf_push_token');
       }
       setPushToken(null);

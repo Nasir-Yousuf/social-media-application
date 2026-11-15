@@ -11,10 +11,12 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, isToday, isYesterday } from 'date-fns';
 import * as Clipboard from 'expo-clipboard';
+import * as ImagePicker from 'expo-image-picker';
 import {
   Ionicons,
   Feather,
@@ -30,6 +32,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useCall } from '../context/CallContext';
 import socketService from '../services/socket';
+import offlineOutbox, { DeliveryStatus } from '../services/offlineOutbox';
 
 const QUICK_EMOJIS = ['❤️', '👍', '😂', '🔥', '🚀', '💡', '😮', '👏'];
 
@@ -63,6 +66,14 @@ export const ConversationScreen = ({ route, navigation }) => {
   const [showAiModal, setShowAiModal] = useState(false);
   const [customAiSettings, setCustomAiSettings] = useState(null);
 
+  // Pagination state (cursor-based for history virtualization)
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Media attachment state
+  const [mediaAttachment, setMediaAttachment] = useState(null);
+
   // Code composer drawer state
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [snippetCode, setSnippetCode] = useState('');
@@ -72,7 +83,6 @@ export const ConversationScreen = ({ route, navigation }) => {
   const [activeReactionMsgId, setActiveReactionMsgId] = useState(null);
 
   const flatListRef = useRef(null);
-  const isNearBottomRef = useRef(true);
   const isMountedRef = useRef(true);
   const typingTimerRef = useRef(null);
   const otherUserRef = useRef(otherUser);
@@ -105,16 +115,7 @@ export const ConversationScreen = ({ route, navigation }) => {
     }
   };
 
-  // Scroll to bottom helper with immediate and delayed safety passes
-  const scrollToBottom = (animated = true) => {
-    if (flatListRef.current) {
-      try {
-        flatListRef.current.scrollToEnd({ animated });
-      } catch {}
-    }
-  };
-
-  // Fetch messages from server without clearing pending optimistic items
+  // Fetch messages from server (inverted format: newest message first at index 0)
   const fetchMessages = useCallback(
     async (silent = false) => {
       if (!silent) setLoading(true);
@@ -127,28 +128,28 @@ export const ConversationScreen = ({ route, navigation }) => {
         if (res.data.conversation?.customAiSettings) {
           setCustomAiSettings(res.data.conversation.customAiSettings);
         }
+        setNextCursor(res.data.pagination?.nextCursor || null);
+        setHasMore(Boolean(res.data.pagination?.hasMore));
 
         if (isMountedRef.current) {
+          const reversedServer = [...serverMessages].reverse();
           setMessages((prev) => {
-            // Keep in-flight optimistic messages
             const pending = prev.filter(
               (m) =>
-                typeof m._id === 'string' &&
-                (m._id.startsWith('temp-') || m.status === 'sending' || m.status === 'failed')
+                m.deliveryStatus === DeliveryStatus.QUEUED_OFFLINE ||
+                m.status === 'sending' ||
+                m.status === 'failed'
             );
 
-            if (pending.length === 0) return serverMessages;
+            if (pending.length === 0) return reversedServer;
 
-            const serverIds = new Set(serverMessages.map((m) => m._id));
-            const stillPending = pending.filter((opt) => !serverIds.has(opt._id));
-            return [...serverMessages, ...stillPending];
+            const serverIds = new Set(reversedServer.map((m) => m._id));
+            const clientIds = new Set(reversedServer.map((m) => m.clientMessageId).filter(Boolean));
+            const stillPending = pending.filter(
+              (opt) => !serverIds.has(opt._id) && !clientIds.has(opt.clientMessageId)
+            );
+            return [...stillPending, ...reversedServer];
           });
-
-          // Scroll to bottom on initial load
-          if (!silent) {
-            requestAnimationFrame(() => scrollToBottom(false));
-            setTimeout(() => scrollToBottom(false), 80);
-          }
         }
       } catch (err) {
         if (!silent) showToast('Could not load message history', 'error');
@@ -161,6 +162,33 @@ export const ConversationScreen = ({ route, navigation }) => {
     [conversationId, showToast]
   );
 
+  // Load older messages via cursor pagination when scrolling up in inverted list
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore || !nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const res = await api.get(`/messages/conversations/${conversationId}`, {
+        params: { cursor: nextCursor },
+      });
+      const olderMessages = res.data.messages || [];
+      setNextCursor(res.data.pagination?.nextCursor || null);
+      setHasMore(Boolean(res.data.pagination?.hasMore));
+
+      if (olderMessages.length > 0 && isMountedRef.current) {
+        const olderReversed = [...olderMessages].reverse();
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m._id));
+          const filtered = olderReversed.filter((m) => !existingIds.has(m._id));
+          return [...prev, ...filtered];
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to load older messages:', err?.message);
+    } finally {
+      if (isMountedRef.current) setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     isMountedRef.current = true;
     fetchMessages(false);
@@ -169,6 +197,18 @@ export const ConversationScreen = ({ route, navigation }) => {
     // 1. Join Conversation Room & Mark Read via Socket
     socketService.joinConversation(conversationId);
     socketService.markMessagesAsRead(conversationId);
+
+    // Sync any missed messages since device last sleep/disconnection
+    offlineOutbox.syncMissedMessages(api, conversationId).then((missed) => {
+      if (Array.isArray(missed) && missed.length > 0 && isMountedRef.current) {
+        const missedReversed = [...missed].reverse();
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m._id));
+          const newItems = missedReversed.filter((m) => !existingIds.has(m._id));
+          return [...newItems, ...prev];
+        });
+      }
+    }).catch(() => {});
 
     // 2. Real-time Incoming Message Listener
     const unsubMsg = socketService.on('chat:message', (payload) => {
@@ -190,22 +230,26 @@ export const ConversationScreen = ({ route, navigation }) => {
           const exists = prev.some(
             (m) =>
               m._id === incomingMsg._id ||
-              (m.status === 'sending' && m.text === incomingMsg.text)
+              (m.clientMessageId && incomingMsg.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId)
           );
           if (exists) {
             return prev.map((m) =>
-              m._id === incomingMsg._id || (m.status === 'sending' && m.text === incomingMsg.text)
+              m._id === incomingMsg._id || (m.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId)
                 ? incomingMsg
                 : m
             );
           }
-          return [...prev, incomingMsg];
+          // Prepend at index 0 in inverted list
+          return [incomingMsg, ...prev];
         });
 
-        // Always auto-scroll down to the new message
-        isNearBottomRef.current = true;
-        requestAnimationFrame(() => scrollToBottom(true));
-        setTimeout(() => scrollToBottom(true), 80);
+        // Acknowledge delivery to sender
+        socketService.sendDeliveryAck({
+          messageId: incomingMsg._id,
+          clientMessageId: incomingMsg.clientMessageId,
+          conversationId,
+          senderId: senderIdStr,
+        });
 
         // Acknowledge read if message is from the other person
         if (otherIdStr && senderIdStr === otherIdStr) {
@@ -214,7 +258,50 @@ export const ConversationScreen = ({ route, navigation }) => {
       }
     });
 
-    // 3. Real-time Typing Status Listener
+    // 3. Real-time Delivery Receipt Listener (DELIVERED_TO_DEVICE)
+    const unsubDelivered = socketService.on('chat:message_delivered', (data) => {
+      if (isMountedRef.current && (data?.clientMessageId || data?.messageId)) {
+        setMessages((prev) =>
+          prev.map((m) => {
+            const isMatch =
+              (data.clientMessageId && m.clientMessageId === data.clientMessageId) ||
+              (data.messageId && (m._id === data.messageId || m.clientMessageId === data.messageId));
+            if (isMatch && m.deliveryStatus !== DeliveryStatus.READ) {
+              return {
+                ...m,
+                deliveryStatus: DeliveryStatus.DELIVERED_TO_DEVICE,
+                deliveredAt: data.deliveredAt || new Date().toISOString(),
+              };
+            }
+            return m;
+          })
+        );
+      }
+    });
+
+    // 4. Real-time Read Receipt Listener (READ teal double-check)
+    const unsubRead = socketService.on('chat:messages_read', (data) => {
+      if (data.conversationId?.toString() === conversationId?.toString()) {
+        if (isMountedRef.current) {
+          setMessages((prev) =>
+            prev.map((m) => {
+              const senderId = (m.sender?._id || m.sender)?.toString();
+              if (senderId === currentUser?._id?.toString()) {
+                return {
+                  ...m,
+                  isRead: true,
+                  deliveryStatus: DeliveryStatus.READ,
+                  readAt: data.readAt || new Date().toISOString(),
+                };
+              }
+              return m;
+            })
+          );
+        }
+      }
+    });
+
+    // 5. Real-time Typing Status Listener
     const unsubTyping = socketService.on('chat:typing', (data) => {
       if (
         data.conversationId?.toString() === conversationId?.toString() &&
@@ -226,22 +313,7 @@ export const ConversationScreen = ({ route, navigation }) => {
       }
     });
 
-    // 4. Real-time Double-Blue-Check Read Receipt Listener
-    const unsubRead = socketService.on('chat:messages_read', (data) => {
-      if (data.conversationId?.toString() === conversationId?.toString()) {
-        if (isMountedRef.current) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              (m.sender?._id || m.sender)?.toString() === currentUser?._id?.toString()
-                ? { ...m, isRead: true }
-                : m
-            )
-          );
-        }
-      }
-    });
-
-    // 5. Real-time Presence Listener
+    // 6. Real-time Presence Listener
     const unsubOnline = socketService.on('presence:user_online', (data) => {
       const otherId = (otherUserRef.current?._id || otherUserRef.current?.id)?.toString();
       if (data.userId?.toString() === otherId) {
@@ -256,7 +328,7 @@ export const ConversationScreen = ({ route, navigation }) => {
       }
     });
 
-    // 6. Real-time Message Reactions Listener
+    // 7. Real-time Message Reactions Listener
     const handleReactionEvent = (data) => {
       if (data?.messageId && isMountedRef.current) {
         setMessages((prev) =>
@@ -269,7 +341,7 @@ export const ConversationScreen = ({ route, navigation }) => {
     const unsubReaction = socketService.on('chat:reaction', handleReactionEvent);
     const unsubReactionAlt = socketService.on('chat:message_reacted', handleReactionEvent);
 
-    // 7. Real-time Message Deletion Listener
+    // 8. Real-time Message Deletion Listener
     const handleDeleteEvent = (data) => {
       const targetConvId = data?.conversationId?.toString();
       const currentConvId = conversationId?.toString();
@@ -286,10 +358,10 @@ export const ConversationScreen = ({ route, navigation }) => {
     const unsubDelete = socketService.on('chat:delete', handleDeleteEvent);
     const unsubDeleteAlt = socketService.on('chat:message_deleted', handleDeleteEvent);
 
-    // Passive fallback interval (18s background safety sync)
+    // Passive fallback interval (20s background safety sync)
     const fallbackSync = setInterval(() => {
       fetchMessages(true);
-    }, 18000);
+    }, 20000);
 
     return () => {
       isMountedRef.current = false;
@@ -297,8 +369,9 @@ export const ConversationScreen = ({ route, navigation }) => {
       socketService.leaveConversation(conversationId);
       socketService.sendTypingStatus(conversationId, otherUserRef.current?._id, false);
       unsubMsg();
-      unsubTyping();
+      unsubDelivered();
       unsubRead();
+      unsubTyping();
       unsubOnline();
       unsubOffline();
       unsubReaction();
@@ -321,55 +394,86 @@ export const ConversationScreen = ({ route, navigation }) => {
     }
   };
 
-  // Handle message sending (with optimistic local preview)
+  // Image attachment picker
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera roll permissions are required to attach images.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const base64Data = asset.base64
+          ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
+        setMediaAttachment(base64Data);
+      }
+    } catch (err) {
+      showToast('Failed to select image', 'error');
+    }
+  };
+
+  // Handle message sending (with deterministic offline outbox queue & idempotency)
   const handleSendMessage = async () => {
     const trimmedText = inputText.trim();
     const trimmedCode = snippetCode.trim();
+    const media = mediaAttachment;
 
-    if (!trimmedText && !trimmedCode) return;
+    if (!trimmedText && !trimmedCode && !media) return;
 
-    const tempId = `temp-${Date.now()}`;
-    const optimisticMsg = {
-      _id: tempId,
-      sender: { _id: currentUser._id, name: currentUser.name, username: currentUser.username },
-      recipient: otherUser?._id,
-      text: trimmedText,
-      codeSnippet: trimmedCode ? { language: snippetLang, code: trimmedCode } : undefined,
-      isRead: false,
-      createdAt: new Date().toISOString(),
-      status: 'sending',
-    };
-
-    // Optimistically update list immediately
-    setMessages((prev) => [...prev, optimisticMsg]);
     setInputText('');
     setSnippetCode('');
+    setMediaAttachment(null);
     setShowCodeEditor(false);
     setSending(true);
 
-    isNearBottomRef.current = true;
-    requestAnimationFrame(() => scrollToBottom(true));
-    setTimeout(() => scrollToBottom(true), 60);
-
     try {
-      const payload = {
+      // 1. Enqueue to local outbox (status: QUEUED_OFFLINE)
+      const optimisticMsg = await offlineOutbox.enqueueMessage({
         conversationId,
+        recipientId: otherUser?._id,
         text: trimmedText,
         codeSnippet: trimmedCode ? { language: snippetLang, code: trimmedCode } : undefined,
-      };
+        mediaUrl: media || undefined,
+        sender: { _id: currentUser._id, name: currentUser.name, username: currentUser.username },
+      });
 
-      const res = await api.post('/messages/send', payload);
-      const deliveredMsg = res.data.data;
+      // 2. Insert into inverted message stream immediately
+      setMessages((prev) => [optimisticMsg, ...prev]);
 
-      // Reconcile optimistic message
-      setMessages((prev) =>
-        prev.map((m) => (m._id === tempId ? { ...deliveredMsg, status: 'sent' } : m))
-      );
+      // 3. Flush outbox to server
+      offlineOutbox.flushOutbox(api, (finalizedMsg, pendingMsg) => {
+        if (isMountedRef.current) {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (
+                m.clientMessageId === pendingMsg.clientMessageId ||
+                m._id === pendingMsg._id
+              ) {
+                return {
+                  ...finalizedMsg,
+                  deliveryStatus: DeliveryStatus.SENT_TO_SERVER,
+                  status: DeliveryStatus.SENT_TO_SERVER,
+                };
+              }
+              return m;
+            })
+          );
+        }
+      }).catch((err) => {
+        console.warn('Background outbox flush error:', err?.message);
+      });
     } catch (err) {
-      setMessages((prev) =>
-        prev.map((m) => (m._id === tempId ? { ...m, status: 'failed' } : m))
-      );
-      showToast('Failed to deliver message. Tap to retry.', 'error');
+      showToast('Could not queue message', 'error');
     } finally {
       setSending(false);
     }
@@ -378,8 +482,28 @@ export const ConversationScreen = ({ route, navigation }) => {
   // Retry sending failed message
   const handleRetrySend = async (failedMsg) => {
     setMessages((prev) =>
-      prev.map((m) => (m._id === failedMsg._id ? { ...m, status: 'sending' } : m))
+      prev.map((m) =>
+        m._id === failedMsg._id ? { ...m, deliveryStatus: DeliveryStatus.SENDING, status: 'sending' } : m
+      )
     );
+
+    try {
+      await offlineOutbox.flushOutbox(api, (finalizedMsg, pendingMsg) => {
+        if (isMountedRef.current) {
+          setMessages((prev) =>
+            prev.map((m) => (m._id === pendingMsg._id ? finalizedMsg : m))
+          );
+        }
+      });
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m._id === failedMsg._id ? { ...m, deliveryStatus: DeliveryStatus.FAILED, status: 'failed' } : m
+        )
+      );
+      showToast('Message delivery failed again', 'error');
+    }
+  };
 
     try {
       const payload = {
@@ -589,14 +713,14 @@ export const ConversationScreen = ({ route, navigation }) => {
   const renderMessageItem = ({ item, index }) => {
     const senderId = typeof item.sender === 'object' ? item.sender?._id : item.sender;
     const isMine = senderId === currentUser?._id;
-    const isSending = item.status === 'sending';
-    const isFailed = item.status === 'failed';
+    const isSending = item.deliveryStatus === DeliveryStatus.SENDING || item.status === 'sending';
+    const isFailed = item.deliveryStatus === DeliveryStatus.FAILED || item.status === 'failed';
 
-    // Show date divider if first message or previous message is from different date
-    const prevMsg = index > 0 ? messages[index - 1] : null;
+    // In inverted list, item at index + 1 is the older message rendered visually above item
+    const olderMsg = index < messages.length - 1 ? messages[index + 1] : null;
     const showDateDivider =
-      !prevMsg ||
-      new Date(item.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
+      !olderMsg ||
+      new Date(item.createdAt).toDateString() !== new Date(olderMsg.createdAt).toDateString();
 
     // Group reactions by emoji
     const reactionCounts = {};
@@ -647,6 +771,17 @@ export const ConversationScreen = ({ route, navigation }) => {
               if (isFailed) handleRetrySend(item);
             }}
           >
+            {/* Media Image attachment if present */}
+            {item.mediaUrl ? (
+              <View style={styles.bubbleMediaWrapper}>
+                <Image
+                  source={{ uri: item.mediaUrl }}
+                  style={styles.bubbleMediaImage}
+                  resizeMode="cover"
+                />
+              </View>
+            ) : null}
+
             {/* Code Snippet attachment if present */}
             {item.codeSnippet && item.codeSnippet.code ? (
               <View style={styles.codeSnippetBox}>
@@ -678,7 +813,7 @@ export const ConversationScreen = ({ route, navigation }) => {
               </Text>
             ) : null}
 
-            {/* Bubble Footer: time & status checkmarks */}
+            {/* Bubble Footer: time & explicit delivery status checkmarks */}
             <View style={styles.bubbleFooter}>
               <Text
                 style={[
@@ -691,14 +826,18 @@ export const ConversationScreen = ({ route, navigation }) => {
 
               {isMine && (
                 <View style={styles.statusIconWrapper}>
-                  {isSending ? (
-                    <Ionicons name="time-outline" size={12} color="#ffffff" />
+                  {item.deliveryStatus === DeliveryStatus.QUEUED_OFFLINE ? (
+                    <Ionicons name="time-outline" size={13} color="#faad14" />
+                  ) : item.deliveryStatus === DeliveryStatus.SENDING || isSending ? (
+                    <ActivityIndicator size={10} color="#ffffff" style={{ marginHorizontal: 2 }} />
+                  ) : item.deliveryStatus === DeliveryStatus.READ || item.isRead ? (
+                    <Ionicons name="checkmark-done" size={15} color="#2b825e" />
+                  ) : item.deliveryStatus === DeliveryStatus.DELIVERED_TO_DEVICE ? (
+                    <Ionicons name="checkmark-done" size={15} color="#bfbfbf" />
                   ) : isFailed ? (
-                    <Ionicons name="alert-circle" size={13} color="#ff4d4f" />
-                  ) : item.isRead ? (
-                    <Ionicons name="checkmark-done" size={14} color="#53bdeb" />
+                    <Ionicons name="alert-circle" size={14} color="#ff4d4f" />
                   ) : (
-                    <Ionicons name="checkmark" size={14} color="#ffffff" />
+                    <Ionicons name="checkmark" size={15} color="#bfbfbf" />
                   )}
                 </View>
               )}
@@ -920,7 +1059,7 @@ export const ConversationScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Message Stream */}
+      {/* Message Stream (Inverted Virtualized List for 60fps Scrolling) */}
       {loading ? (
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color={colors.accent} />
@@ -929,23 +1068,17 @@ export const ConversationScreen = ({ route, navigation }) => {
         <FlatList
           ref={flatListRef}
           data={messages}
-          keyExtractor={(item) => item._id}
+          inverted={true}
+          keyExtractor={(item) => item.clientMessageId || item._id}
           renderItem={renderMessageItem}
           contentContainerStyle={styles.listContent}
-          onContentSizeChange={() => {
-            if (isNearBottomRef.current) {
-              flatListRef.current?.scrollToEnd({ animated: true });
-            }
-          }}
-          onLayout={() => {
-            flatListRef.current?.scrollToEnd({ animated: false });
-          }}
-          onScroll={(e) => {
-            const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-            const distance = contentSize.height - layoutMeasurement.height - contentOffset.y;
-            isNearBottomRef.current = distance < 150;
-          }}
-          scrollEventThrottle={100}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator size="small" color={colors.accent} style={{ padding: 12 }} />
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Avatar
@@ -1032,8 +1165,38 @@ export const ConversationScreen = ({ route, navigation }) => {
         </View>
       )}
 
+      {/* Media Attachment Preview Chip */}
+      {mediaAttachment && (
+        <View style={styles.mediaPreviewContainer}>
+          <Image source={{ uri: mediaAttachment }} style={styles.mediaPreviewThumb} />
+          <View style={styles.mediaPreviewInfo}>
+            <Text style={styles.mediaPreviewLabel}>Image attached</Text>
+            <Text style={styles.mediaPreviewSub}>Ready to send</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.mediaPreviewRemoveBtn}
+            onPress={() => setMediaAttachment(null)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close-circle" size={20} color="#ff4d4f" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Composer Bar */}
       <View style={[styles.composerContainer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <TouchableOpacity
+          style={styles.composerIconBtn}
+          onPress={handlePickImage}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name="image-outline"
+            size={22}
+            color={mediaAttachment ? colors.accent : colors.textSecondary}
+          />
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.composerIconBtn, showCodeEditor && styles.composerIconBtnActive]}
           onPress={() => setShowCodeEditor((prev) => !prev)}
@@ -1059,9 +1222,9 @@ export const ConversationScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={[
             styles.sendBtn,
-            (!inputText.trim() && !snippetCode.trim()) && styles.sendBtnDisabled,
+            (!inputText.trim() && !snippetCode.trim() && !mediaAttachment) && styles.sendBtnDisabled,
           ]}
-          disabled={!inputText.trim() && !snippetCode.trim()}
+          disabled={!inputText.trim() && !snippetCode.trim() && !mediaAttachment}
           onPress={handleSendMessage}
         >
           {sending ? (
@@ -1551,6 +1714,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#10b981',
     fontStyle: 'italic',
+  },
+  bubbleMediaWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  bubbleMediaImage: {
+    width: 220,
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: '#161b22',
+  },
+  mediaPreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  mediaPreviewThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#161b22',
+  },
+  mediaPreviewInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  mediaPreviewLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  mediaPreviewSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  mediaPreviewRemoveBtn: {
+    padding: 6,
   },
 });
 

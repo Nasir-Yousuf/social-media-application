@@ -83,6 +83,31 @@ class SocketService {
         if (this.currentConversationId) {
           socket.emit('chat:join', { conversationId: this.currentConversationId });
         }
+
+        // Automatic outbox flush upon socket connection / reconnection
+        try {
+          const { flushOutbox } = require('./offlineOutbox');
+          const apiModule = require('../api/client');
+          const api = apiModule.default || apiModule;
+          flushOutbox(api).catch((err) => {
+            console.warn('Auto outbox flush notice:', err?.message);
+          });
+        } catch {}
+      });
+
+      // Automatically acknowledge message delivery to server so sender sees DELIVERED_TO_DEVICE
+      socket.on('chat:message', (payload) => {
+        try {
+          const msg = payload?.message;
+          if (msg && msg._id) {
+            socket.emit('message:delivered_ack', {
+              messageId: msg._id,
+              clientMessageId: msg.clientMessageId,
+              conversationId: payload.conversationId || msg.conversation?._id || msg.conversation,
+              senderId: msg.sender?._id || msg.sender,
+            });
+          }
+        } catch {}
       });
 
       socket.on('disconnect', (reason) => {
@@ -182,6 +207,10 @@ class SocketService {
 
   markMessagesAsRead(conversationId, messageIds) {
     this.emit('chat:mark_read', { conversationId, messageIds });
+  }
+
+  sendDeliveryAck({ messageId, clientMessageId, conversationId, senderId }) {
+    this.emit('message:delivered_ack', { messageId, clientMessageId, conversationId, senderId });
   }
 
   // ------------------------------------------

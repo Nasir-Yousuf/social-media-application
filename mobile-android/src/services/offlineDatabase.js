@@ -6,7 +6,32 @@
  * - Messages & Outbox Queue (Offline queueing & replay)
  * - Mesh Packets (Offline telemetry & packet deduplication)
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import RawAsyncStorage from '@react-native-async-storage/async-storage';
+
+const memDbStore = new Map();
+const AsyncStorage = {
+  getItem: async (k) => {
+    try {
+      if (typeof RawAsyncStorage?.getItem === 'function') return await RawAsyncStorage.getItem(k);
+      if (typeof RawAsyncStorage?.default?.getItem === 'function') return await RawAsyncStorage.default.getItem(k);
+    } catch {}
+    return memDbStore.get(k) || null;
+  },
+  setItem: async (k, v) => {
+    try {
+      if (typeof RawAsyncStorage?.setItem === 'function') return await RawAsyncStorage.setItem(k, v);
+      if (typeof RawAsyncStorage?.default?.setItem === 'function') return await RawAsyncStorage.default.setItem(k, v);
+    } catch {}
+    memDbStore.set(k, v);
+  },
+  removeItem: async (k) => {
+    try {
+      if (typeof RawAsyncStorage?.removeItem === 'function') return await RawAsyncStorage.removeItem(k);
+      if (typeof RawAsyncStorage?.default?.removeItem === 'function') return await RawAsyncStorage.default.removeItem(k);
+    } catch {}
+    memDbStore.delete(k);
+  },
+};
 
 let SQLite = null;
 try {
@@ -321,8 +346,8 @@ export const saveLearnProgress = async (track, lessonId, completed = true) => {
 // ==========================================
 // 3. Outbox Queue for Offline Interactions
 // ==========================================
-export const enqueueOutboxItem = async (type, payload) => {
-  const id = `outbox_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+export const enqueueOutboxItem = async (type, payload, customId = null) => {
+  const id = customId || payload?.clientMessageId || payload?._id || `outbox_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const now = Date.now();
 
   try {
@@ -353,6 +378,7 @@ export const getPendingOutboxItems = async () => {
 };
 
 export const removeOutboxItem = async (id) => {
+  if (!id) return;
   try {
     const db = await initDatabase();
     if (db && typeof db.runSync === 'function') {
@@ -362,6 +388,16 @@ export const removeOutboxItem = async (id) => {
   } catch {}
 
   memoryStore.outbox_queue.delete(id);
+  for (const [key, item] of memoryStore.outbox_queue.entries()) {
+    if (
+      key === id ||
+      item.id === id ||
+      item.payload?.clientMessageId === id ||
+      item.payload?._id === id
+    ) {
+      memoryStore.outbox_queue.delete(key);
+    }
+  }
 };
 
 export default {

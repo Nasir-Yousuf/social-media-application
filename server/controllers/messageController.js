@@ -117,6 +117,7 @@ exports.getMessages = async (req, res) => {
     const currentUnread = getUnreadForUser(conversation.unreadCounts, currentUserId);
     if (currentUnread > 0) {
       setUnreadForUser(conversation, currentUserId, 0);
+      const readNow = new Date();
       await Promise.all([
         Message.updateMany(
           {
@@ -124,7 +125,11 @@ exports.getMessages = async (req, res) => {
             recipient: currentUserId,
             isRead: false,
           },
-          { isRead: true }
+          {
+            isRead: true,
+            deliveryStatus: 'READ',
+            readAt: readNow,
+          }
         ),
         Notification.updateMany(
           {
@@ -154,7 +159,7 @@ exports.getMessages = async (req, res) => {
         cursor,
         limit,
         sortOrder: -1,
-        select: 'sender recipient text codeSnippet typingChallenge replyTo isRead reactions createdAt',
+        select: 'sender recipient text codeSnippet typingChallenge replyTo isRead deliveryStatus deliveredAt readAt mediaUrl clientMessageId reactions createdAt updatedAt',
         populate: [
           { path: 'reactions.user', select: 'name username avatarUrl' },
           { path: 'typingChallenge' },
@@ -169,7 +174,7 @@ exports.getMessages = async (req, res) => {
       const probeItems = await Message.find({ conversation: conversationId })
         .sort({ createdAt: -1, _id: -1 })
         .limit(limit + 1)
-        .select('sender recipient text codeSnippet typingChallenge replyTo isRead reactions createdAt')
+        .select('sender recipient text codeSnippet typingChallenge replyTo isRead deliveryStatus deliveredAt readAt mediaUrl clientMessageId reactions createdAt updatedAt')
         .populate('reactions.user', 'name username avatarUrl')
         .populate('typingChallenge')
         .exec();
@@ -314,17 +319,50 @@ exports.startConversation = async (req, res) => {
 // Send message
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, recipientId, text, content, message: bodyMessage, codeSnippet, replyTo } = req.body;
+    const {
+      conversationId,
+      recipientId,
+      text,
+      content,
+      message: bodyMessage,
+      codeSnippet,
+      replyTo,
+      clientMessageId,
+      mediaUrl,
+    } = req.body;
     const currentUserId = req.user._id;
+
+    // Idempotent duplicate check: If clientMessageId was previously submitted by this sender, return the saved message
+    if (clientMessageId && typeof clientMessageId === 'string' && clientMessageId.trim()) {
+      const cleanClientId = clientMessageId.trim();
+      const existingMessage = await Message.findOne({
+        sender: currentUserId,
+        clientMessageId: cleanClientId,
+      })
+        .populate('sender', 'name username avatarUrl')
+        .populate('recipient', 'name username avatarUrl')
+        .populate('reactions.user', 'name username avatarUrl')
+        .populate('typingChallenge');
+
+      if (existingMessage) {
+        return res.status(200).json({
+          message: existingMessage,
+          data: existingMessage,
+          success: true,
+          deduplicated: true,
+        });
+      }
+    }
 
     const rawText = text || content || bodyMessage || '';
     const trimmedText = typeof rawText === 'string' ? rawText.trim().slice(0, 1000) : '';
+    const cleanMediaUrl = typeof mediaUrl === 'string' && mediaUrl.trim() ? mediaUrl.trim() : null;
     const hasValidCode =
       codeSnippet &&
       codeSnippet.code &&
       codeSnippet.code.trim().length > 0;
 
-    if (!trimmedText && !hasValidCode) {
+    if (!trimmedText && !hasValidCode && !cleanMediaUrl) {
       return res.status(400).json({ message: 'Message content or code snippet is required.' });
     }
 
@@ -378,6 +416,9 @@ exports.sendMessage = async (req, res) => {
       sender: currentUserId,
       recipient: targetRecipientId,
       text: trimmedText,
+      mediaUrl: cleanMediaUrl || undefined,
+      clientMessageId: clientMessageId ? clientMessageId.trim() : undefined,
+      deliveryStatus: 'SENT_TO_SERVER',
       codeSnippet: hasValidCode
         ? {
             language: (codeSnippet.language || 'javascript').slice(0, 30).toLowerCase(),
@@ -399,7 +440,7 @@ exports.sendMessage = async (req, res) => {
     // Update conversation metadata
     const messageCreatedAt = new Date();
     conversation.lastMessage = {
-      text: trimmedText || (hasValidCode ? 'Shared a code snippet' : 'New message'),
+      text: trimmedText || (hasValidCode ? 'Shared a code snippet' : (cleanMediaUrl ? 'Sent a media attachment' : 'New message')),
       hasCode: Boolean(hasValidCode),
       sender: currentUserId,
       createdAt: messageCreatedAt,
@@ -858,6 +899,57 @@ exports.updateAiSettings = async (req, res) => {
   } catch (err) {
     console.error('updateAiSettings error:', err);
     return res.status(500).json({ message: 'Failed to update AI settings.' });
+  }
+};
+
+// Deterministic Reconnection Synchronization: Sync missed messages since timestamp or cursor
+exports.syncMissedMessages = async (req, res) => {
+  try {
+    const currentUserId = req.user._id;
+    const { since, conversationId, limit = 100 } = req.query;
+
+    const query = {
+      $or: [{ sender: currentUserId }, { recipient: currentUserId }],
+    };
+
+    if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+      query.conversation = conversationId;
+    }
+
+    if (since) {
+      const sinceDate = new Date(since);
+      if (!isNaN(sinceDate.getTime())) {
+        query.updatedAt = { $gte: sinceDate };
+      }
+    }
+
+    const maxLimit = Math.min(parseInt(limit, 10) || 100, 200);
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: 1, _id: 1 })
+      .limit(maxLimit)
+      .populate('sender', 'name username avatarUrl role status')
+      .populate('recipient', 'name username avatarUrl role status')
+      .populate('reactions.user', 'name username avatarUrl')
+      .populate('typingChallenge')
+      .lean();
+
+    const sanitizedMessages = messages.map((m) => {
+      if (m.replyTo && !m.replyTo.text && !m.replyTo.hasCode) {
+        m.replyTo = null;
+      }
+      return m;
+    });
+
+    return res.status(200).json({
+      success: true,
+      messages: sanitizedMessages,
+      syncedAt: new Date().toISOString(),
+      count: sanitizedMessages.length,
+    });
+  } catch (err) {
+    console.error('syncMissedMessages error:', err);
+    return res.status(500).json({ message: 'Failed to sync missed messages.' });
   }
 };
 

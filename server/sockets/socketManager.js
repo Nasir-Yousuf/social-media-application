@@ -265,11 +265,37 @@ function initSocket(server) {
       }
 
       try {
-        const { conversationId, recipientId, text, codeSnippet, replyTo } = data;
+        const { conversationId, recipientId, text, codeSnippet, replyTo, clientMessageId, mediaUrl } = data || {};
+
+        // Idempotent duplicate check: If clientMessageId was previously submitted by this sender, return the saved message
+        if (clientMessageId && typeof clientMessageId === 'string' && clientMessageId.trim()) {
+          const cleanClientId = clientMessageId.trim();
+          const existingMsg = await Message.findOne({
+            sender: userId,
+            clientMessageId: cleanClientId,
+          })
+            .populate('sender', 'name username avatarUrl')
+            .populate('recipient', 'name username avatarUrl')
+            .populate('reactions.user', 'name username avatarUrl')
+            .populate('typingChallenge');
+
+          if (existingMsg) {
+            const existingData = existingMsg.toObject();
+            if (existingData.replyTo && !existingData.replyTo.text && !existingData.replyTo.hasCode) {
+              existingData.replyTo = null;
+            }
+            if (typeof callback === 'function') {
+              callback({ success: true, message: existingData, deduplicated: true });
+            }
+            return;
+          }
+        }
+
         const trimmedText = text ? text.trim().slice(0, 1000) : '';
+        const cleanMediaUrl = typeof mediaUrl === 'string' && mediaUrl.trim() ? mediaUrl.trim() : null;
         const hasValidCode = codeSnippet && codeSnippet.code && codeSnippet.code.trim().length > 0;
 
-        if (!trimmedText && !hasValidCode) {
+        if (!trimmedText && !hasValidCode && !cleanMediaUrl) {
           if (typeof callback === 'function') callback({ error: 'Message cannot be empty.' });
           return;
         }
@@ -309,6 +335,9 @@ function initSocket(server) {
           sender: userId,
           recipient: targetRecipientId,
           text: trimmedText,
+          mediaUrl: cleanMediaUrl || undefined,
+          clientMessageId: clientMessageId && typeof clientMessageId === 'string' ? clientMessageId.trim() : undefined,
+          deliveryStatus: 'SENT_TO_SERVER',
           codeSnippet: hasValidCode
             ? {
                 language: (codeSnippet.language || 'javascript').slice(0, 30).toLowerCase(),
@@ -331,7 +360,7 @@ function initSocket(server) {
 
         // Update conversation summary
         conv.lastMessage = {
-          text: trimmedText || (hasValidCode ? 'Shared a code snippet' : 'New message'),
+          text: trimmedText || (hasValidCode ? 'Shared a code snippet' : (cleanMediaUrl ? 'Sent a media attachment' : 'New message')),
           hasCode: Boolean(hasValidCode),
           sender: userId,
           createdAt: new Date(),
@@ -457,28 +486,82 @@ function initSocket(server) {
       }
     });
 
-    // Mark messages as read (double blue check mark acknowledgment)
+    // Mark messages as read (double teal check mark acknowledgment)
     socket.on('chat:mark_read', async ({ conversationId, messageIds }) => {
       if (!userId || !conversationId) return;
 
       try {
-        await Message.updateMany(
-          {
-            conversation: conversationId,
-            recipient: userId,
-            isRead: false,
-          },
-          { isRead: true }
-        );
+        const readNow = new Date();
+        const filter = {
+          conversation: conversationId,
+          recipient: userId,
+          isRead: false,
+        };
+        if (Array.isArray(messageIds) && messageIds.length > 0) {
+          filter._id = { $in: messageIds };
+        }
 
-        // Notify conversation partner that messages have been read
-        socket.to(`conv:${conversationId}`).emit('chat:messages_read', {
+        await Message.updateMany(filter, {
+          isRead: true,
+          deliveryStatus: 'READ',
+          readAt: readNow,
+        });
+
+        const payload = {
           conversationId,
           readBy: userId,
-          readAt: new Date().toISOString(),
-        });
+          readAt: readNow.toISOString(),
+          deliveryStatus: 'READ',
+          messageIds: Array.isArray(messageIds) ? messageIds : undefined,
+        };
+
+        // Notify conversation partner that messages have been read
+        socket.to(`conv:${conversationId}`).emit('chat:messages_read', payload);
+        io.to(`conv:${conversationId}`).emit('chat:messages_read', payload);
       } catch (err) {
         console.error('Socket chat:mark_read error:', err);
+      }
+    });
+
+    // Recipient Device Delivery Acknowledgment (DELIVERED_TO_DEVICE double check mark)
+    socket.on('message:delivered_ack', async ({ messageId, clientMessageId, conversationId, senderId }) => {
+      try {
+        const query = messageId && mongoose.Types.ObjectId.isValid(messageId)
+          ? { _id: messageId }
+          : clientMessageId
+          ? { clientMessageId }
+          : null;
+
+        if (!query) return;
+
+        const msg = await Message.findOne(query);
+        const deliveredNow = new Date();
+
+        if (msg && msg.deliveryStatus !== 'READ') {
+          msg.deliveryStatus = 'DELIVERED_TO_DEVICE';
+          msg.deliveredAt = deliveredNow;
+          await msg.save();
+        }
+
+        const targetSenderId = senderId || msg?.sender;
+        const convId = conversationId || msg?.conversation;
+
+        const payload = {
+          messageId: msg?._id || messageId,
+          clientMessageId: msg?.clientMessageId || clientMessageId,
+          conversationId: convId ? convId.toString() : null,
+          deliveryStatus: 'DELIVERED_TO_DEVICE',
+          deliveredAt: (msg?.deliveredAt || deliveredNow).toISOString(),
+        };
+
+        if (targetSenderId) {
+          io.to(`user:${targetSenderId.toString()}`).emit('chat:message_delivered', payload);
+        }
+        if (convId) {
+          io.to(`conv:${convId.toString()}`).emit('chat:message_delivered', payload);
+        }
+      } catch (err) {
+        console.warn('Socket message:delivered_ack error:', err.message);
       }
     });
 
