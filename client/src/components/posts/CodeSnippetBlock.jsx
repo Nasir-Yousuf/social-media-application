@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Copy,
   Check,
@@ -10,12 +10,16 @@ import {
   Terminal,
   Maximize2,
   Minimize2,
+  Download,
+  GitBranch,
 } from 'lucide-react';
 import { FileTabIcon, normalizeSnippetFiles, getFileMeta } from './vscodeUtils';
 import SyntaxHighlighter from './SyntaxHighlighter';
+import api from '../../api/client';
 
 export const CodeSnippetBlock = ({
   snippet,
+  post,
   defaultExpanded = false,
   className = '',
 }) => {
@@ -24,6 +28,22 @@ export const CodeSnippetBlock = ({
   const [copiedFile, setCopiedFile] = useState(false);
   const [copiedAll, setCopiedAll] = useState(false);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [viewMode, setViewMode] = useState('code'); // 'code' | 'diff'
+  const [diffData, setDiffData] = useState(null);
+  const [loadingDiff, setLoadingDiff] = useState(false);
+
+  const isFork = Boolean(post?.forkedFrom);
+
+  useEffect(() => {
+    if (viewMode === 'diff' && !diffData && post?._id) {
+      setLoadingDiff(true);
+      api
+        .get(`/posts/${post._id}/diff`)
+        .then((res) => setDiffData(res.data))
+        .catch(() => setViewMode('code'))
+        .finally(() => setLoadingDiff(false));
+    }
+  }, [viewMode, diffData, post?._id]);
 
   if (!files || files.length === 0) return null;
 
@@ -55,9 +75,39 @@ export const CodeSnippetBlock = ({
     setTimeout(() => setCopiedAll(false), 2000);
   };
 
+  const handleSaveFiles = (e) => {
+    e.stopPropagation();
+    try {
+      const bundle = files
+        .map((f) => `// ================= File: ${f.name} =================\n${f.code}`)
+        .join('\n\n');
+      const blob = new Blob([bundle], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(snippet.title || 'workspace').replace(/[^a-zA-Z0-9_-]/g, '_')}-files.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.warn('Failed to save project files:', err);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowRight') {
+      setActiveTabIndex((prev) => (prev + 1) % files.length);
+    } else if (e.key === 'ArrowLeft') {
+      setActiveTabIndex((prev) => (prev - 1 + files.length) % files.length);
+    }
+  };
+
   return (
     <div
       className={`mt-3 rounded-2xl border border-neutral-700/80 dark:border-neutral-800 bg-[#1e1e1e] overflow-hidden shadow-lg ring-1 ring-black/10 select-text font-mono text-xs group/vscode transition-all ${className}`}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
     >
       {/* VS Code Window Header / Title Bar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#181818] border-b border-[#252526] select-none text-[11px] text-[#858585]">
@@ -82,8 +132,42 @@ export const CodeSnippetBlock = ({
           </div>
         </div>
 
-        {/* Right: Quick Actions (Copy file / Copy All) */}
+        {/* Right: Mode Toggle (Code vs Diff) + Save / Copy Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {isFork && (
+            <div className="flex items-center bg-[#252526] rounded-md p-0.5 border border-[#333333]">
+              <button
+                type="button"
+                onClick={() => setViewMode('code')}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition ${
+                  viewMode === 'code' ? 'bg-[#007acc] text-white' : 'text-[#858585] hover:text-[#cccccc]'
+                }`}
+              >
+                Code
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('diff')}
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition flex items-center gap-1 ${
+                  viewMode === 'diff' ? 'bg-[#007acc] text-white' : 'text-[#858585] hover:text-[#cccccc]'
+                }`}
+              >
+                <GitBranch className="w-2.5 h-2.5" />
+                Diff
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSaveFiles}
+            title="Download workspace files"
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-[#858585] hover:text-[#cccccc] hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            <Download className="w-3 h-3" />
+            <span className="hidden sm:inline">Save</span>
+          </button>
+
           {files.length > 1 && (
             <button
               type="button"
@@ -126,110 +210,172 @@ export const CodeSnippetBlock = ({
         </div>
       </div>
 
-      {/* VS Code Tab Bar (Horizontally scrollable with active tab indicator) */}
-      <div className="flex items-center bg-[#141414] border-b border-[#252526] overflow-x-auto no-scrollbar select-none">
-        {files.map((file, idx) => {
-          const isActive = idx === safeIndex;
-          const meta = getFileMeta(file.name, file.language);
-
-          return (
-            <button
-              key={`${file.name}-${idx}`}
-              type="button"
-              onClick={() => setActiveTabIndex(idx)}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-mono border-r border-[#252526] transition-all cursor-pointer shrink-0 relative ${
-                isActive
-                  ? 'bg-[#1e1e1e] text-[#ffffff] font-semibold border-t-2 border-t-[#007acc]'
-                  : 'bg-[#141414] text-[#858585] hover:bg-[#1a1a1a] hover:text-[#cccccc] border-t-2 border-t-transparent'
-              }`}
-            >
-              <FileTabIcon filename={file.name} language={file.language} size="sm" />
-              <span className="truncate max-w-[150px]">{file.name}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* VS Code Breadcrumb Bar */}
-      <div className="flex items-center gap-1.5 px-3.5 py-1 bg-[#1e1e1e] border-b border-[#252526] text-[11px] text-[#858585] select-none">
-        <span>src</span>
-        <span className="text-[#555555]">›</span>
-        <FileTabIcon filename={activeFile.name} language={activeFile.language} size="sm" />
-        <span className="text-[#cccccc] font-medium">{activeFile.name}</span>
-      </div>
-
-      {/* VS Code Editor Body (Gutter line numbers + Syntax-highlighted code) */}
-      <div className="relative bg-[#1e1e1e] text-[#d4d4d4] overflow-x-auto min-h-[60px]">
-        <div className="flex min-w-full">
-          {/* Gutter / Line Numbers */}
-          <div className="w-11 shrink-0 py-2.5 pr-3 pl-2 text-right text-[#6e7681] text-[12px] font-mono select-none border-r border-[#252526] bg-[#1e1e1e]/80 leading-relaxed">
-            {Array.from({ length: displayLinesCount }).map((_, i) => (
-              <div key={i} className="min-h-[1.5em] text-[#6e7681]">
-                {i + 1}
+      {viewMode === 'diff' ? (
+        /* Inline Diff View */
+        <div className="bg-[#1e1e1e] text-[#d4d4d4] p-3 space-y-3 min-h-[100px] overflow-x-auto">
+          {loadingDiff ? (
+            <div className="flex items-center justify-center py-6 text-neutral-400 gap-2">
+              <span className="w-3.5 h-3.5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
+              <span>Computing line-by-line diff...</span>
+            </div>
+          ) : diffData?.isFork && diffData?.files ? (
+            <div>
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#2d2d2d] text-[11px]">
+                <span className="text-[#858585]">
+                  Changes against @{diffData.parent?.author?.username || 'parent'}
+                </span>
+                <span className="font-mono">
+                  <span className="text-emerald-400 font-bold">+{diffData.summary?.totalAdditions || 0}</span>{' '}
+                  <span className="text-rose-400 font-bold">-{diffData.summary?.totalDeletions || 0}</span>
+                </span>
               </div>
-            ))}
-          </div>
 
-          {/* Code Area */}
-          <div className="flex-1 py-2.5 px-3 min-w-0 font-mono text-[12.5px] leading-relaxed">
-            <SyntaxHighlighter code={displayCode} language={activeFile.language} />
-          </div>
-        </div>
-
-        {/* Collapsed fade gradient */}
-        {isLong && !isExpanded && (
-          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#1e1e1e] via-[#1e1e1e]/80 to-transparent pointer-events-none" />
-        )}
-      </div>
-
-      {/* Expand / Collapse Action if file is long */}
-      {isLong && (
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full py-1.5 px-3 text-[11px] font-mono text-[#007acc] hover:text-[#3794ff] bg-[#181818] hover:bg-[#202020] border-t border-[#252526] flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none"
-        >
-          {isExpanded ? (
-            <>
-              <ChevronUp className="w-3.5 h-3.5" />
-              <span>Show less ({lineCount} lines)</span>
-            </>
+              {diffData.files.map((file, fIdx) => (
+                <div key={fIdx} className="mb-3 border border-[#2d2d2d] rounded-lg overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-1 bg-[#252526] text-[11px] font-bold text-neutral-200">
+                    <span>{file.filename}</span>
+                    <span className="text-[10px] text-neutral-400">
+                      +{file.additions} -{file.deletions}
+                    </span>
+                  </div>
+                  <div className="p-2 space-y-0.5 text-[12px] font-mono leading-relaxed">
+                    {file.diffLines.map((line, lIdx) => {
+                      const isAdd = line.type === 'added';
+                      const isDel = line.type === 'removed';
+                      return (
+                        <div
+                          key={lIdx}
+                          className={`flex items-start px-2 py-0.5 rounded ${
+                            isAdd
+                              ? 'bg-emerald-500/15 text-emerald-300'
+                              : isDel
+                              ? 'bg-rose-500/15 text-rose-300'
+                              : 'text-neutral-400'
+                          }`}
+                        >
+                          <span className="w-5 shrink-0 select-none font-bold text-neutral-500">
+                            {isAdd ? '+' : isDel ? '-' : ' '}
+                          </span>
+                          <span className="whitespace-pre overflow-x-auto">{line.text}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <>
-              <ChevronDown className="w-3.5 h-3.5" />
-              <span>Expand full file ({lineCount} lines)</span>
-            </>
+            <div className="text-center py-6 text-neutral-500 text-xs">
+              No differences detected from parent snippet.
+            </div>
           )}
-        </button>
+        </div>
+      ) : (
+        /* Normal Code View */
+        <>
+          {/* VS Code Tab Bar */}
+          <div className="flex items-center bg-[#141414] border-b border-[#252526] overflow-x-auto no-scrollbar select-none">
+            {files.map((file, idx) => {
+              const isActive = idx === safeIndex;
+
+              return (
+                <button
+                  key={`${file.name}-${idx}`}
+                  type="button"
+                  onClick={() => setActiveTabIndex(idx)}
+                  className={`flex items-center gap-2 px-3.5 py-2 text-xs font-mono border-r border-[#252526] transition-all cursor-pointer shrink-0 relative ${
+                    isActive
+                      ? 'bg-[#1e1e1e] text-[#ffffff] font-semibold border-t-2 border-t-[#007acc]'
+                      : 'bg-[#141414] text-[#858585] hover:bg-[#1a1a1a] hover:text-[#cccccc] border-t-2 border-t-transparent'
+                  }`}
+                >
+                  <FileTabIcon filename={file.name} language={file.language} size="sm" />
+                  <span className="truncate max-w-[150px]">{file.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* VS Code Breadcrumb Bar */}
+          <div className="flex items-center gap-1.5 px-3.5 py-1 bg-[#1e1e1e] border-b border-[#252526] text-[11px] text-[#858585] select-none">
+            <span>src</span>
+            <span className="text-[#555555]">›</span>
+            <FileTabIcon filename={activeFile.name} language={activeFile.language} size="sm" />
+            <span className="text-[#cccccc] font-medium">{activeFile.name}</span>
+          </div>
+
+          {/* VS Code Editor Body */}
+          <div className="relative bg-[#1e1e1e] text-[#d4d4d4] overflow-x-auto min-h-[60px]">
+            <div className="flex min-w-full">
+              {/* Gutter / Line Numbers */}
+              <div className="w-11 shrink-0 py-2.5 pr-3 pl-2 text-right text-[#6e7681] text-[12px] font-mono select-none border-r border-[#252526] bg-[#1e1e1e]/80 leading-relaxed">
+                {Array.from({ length: displayLinesCount }).map((_, i) => (
+                  <div key={i} className="min-h-[1.5em] text-[#6e7681]">
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+
+              {/* Code Area */}
+              <div className="flex-1 py-2.5 px-3 min-w-0 font-mono text-[12.5px] leading-relaxed">
+                <SyntaxHighlighter code={displayCode} language={activeFile.language} />
+              </div>
+            </div>
+
+            {/* Collapsed fade gradient */}
+            {isLong && !isExpanded && (
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#1e1e1e] via-[#1e1e1e]/80 to-transparent pointer-events-none" />
+            )}
+          </div>
+
+          {/* Expand / Collapse Action if file is long */}
+          {isLong && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="w-full py-1.5 px-3 text-[11px] font-mono text-[#007acc] hover:text-[#3794ff] bg-[#181818] hover:bg-[#202020] border-t border-[#252526] flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none"
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  <span>Show less ({lineCount} lines)</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span>Expand full file ({lineCount} lines)</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* VS Code Signature Blue Status Bar */}
+          <div className="flex items-center justify-between px-3 py-0.5 bg-[#007acc] text-white text-[10.5px] font-mono select-none">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <FolderGit2 className="w-3 h-3" />
+                <span>main*</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span>⊗ 0</span>
+                <span>⚠ 0</span>
+              </div>
+              <span className="hidden sm:inline">
+                Ln {lineCount}, Col 1
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline">Spaces: 2</span>
+              <span>UTF-8</span>
+              <span className="hidden sm:inline">LF</span>
+              <span className="font-semibold uppercase tracking-wider bg-black/20 px-1.5 py-0.2 rounded">
+                {fileMeta.label}
+              </span>
+            </div>
+          </div>
+        </>
       )}
-
-      {/* VS Code Signature Blue Status Bar */}
-      <div className="flex items-center justify-between px-3 py-0.5 bg-[#007acc] text-white text-[10.5px] font-mono select-none">
-        {/* Left Status items */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <FolderGit2 className="w-3 h-3" />
-            <span>main*</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span>⊗ 0</span>
-            <span>⚠ 0</span>
-          </div>
-          <span className="hidden sm:inline">
-            Ln {lineCount}, Col 1
-          </span>
-        </div>
-
-        {/* Right Status items */}
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:inline">Spaces: 2</span>
-          <span>UTF-8</span>
-          <span className="hidden sm:inline">LF</span>
-          <span className="font-semibold uppercase tracking-wider bg-black/20 px-1.5 py-0.2 rounded">
-            {fileMeta.label}
-          </span>
-        </div>
-      </div>
     </div>
   );
 };

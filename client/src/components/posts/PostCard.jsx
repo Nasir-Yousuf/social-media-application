@@ -525,7 +525,7 @@ export const PostCard = ({
         {/* Code Snippet Block */}
         {hasCode && (
           <div className="mt-3">
-            <CodeSnippetBlock snippet={currentPost.codeSnippet} />
+            <CodeSnippetBlock snippet={currentPost.codeSnippet} post={currentPost} />
           </div>
         )}
       </div>

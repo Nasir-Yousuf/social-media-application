@@ -11,6 +11,7 @@ const { logActivity } = require('../utils/auditLogger');
 const { extractMentions, notifyMentions } = require('../utils/mentionUtils');
 const { sendPushToUser } = require('../services/pushNotificationService');
 const { executeCursorPagination, encodeCursor } = require('../utils/cursorPagination');
+const { compareMultiFileSnippets } = require('../utils/diffUtils');
 
 // Build Mongo query filter matching viewer's visibility permissions
 const buildVisibilityFilter = async (currentUserId, isAdmin = false) => {
@@ -1464,6 +1465,65 @@ exports.getTrendingHashtags = async (req, res) => {
   } catch (err) {
     console.error('getTrendingHashtags error:', err);
     return res.status(500).json({ message: 'Failed to retrieve trending topics.' });
+  }
+};
+
+// CodeHub Multi-File & Remix Line-by-Line Diff (Phase 16)
+exports.getPostDiff = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const post = await Post.findById(id).populate('author', 'name username avatarUrl role');
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    if (!post.forkedFrom) {
+      return res.status(200).json({
+        isFork: false,
+        message: 'This post is not a fork or remix of another snippet.',
+        post: {
+          id: post._id,
+          title: post.codeSnippet?.title || 'Snippet',
+          author: post.author,
+        },
+      });
+    }
+
+    const parent = await Post.findById(post.forkedFrom).populate('author', 'name username avatarUrl role');
+    if (!parent) {
+      return res.status(200).json({
+        isFork: true,
+        parentDeleted: true,
+        message: 'The original parent snippet has been deleted.',
+        child: {
+          id: post._id,
+          title: post.codeSnippet?.title || post.content?.slice(0, 40) || 'Snippet',
+          author: post.author,
+        },
+      });
+    }
+
+    const diffResult = compareMultiFileSnippets(parent.codeSnippet, post.codeSnippet);
+
+    return res.status(200).json({
+      isFork: true,
+      parent: {
+        id: parent._id,
+        title: parent.codeSnippet?.title || parent.content?.slice(0, 40) || 'Original Snippet',
+        author: parent.author,
+        createdAt: parent.createdAt,
+      },
+      child: {
+        id: post._id,
+        title: post.codeSnippet?.title || post.content?.slice(0, 40) || 'Remixed Snippet',
+        author: post.author,
+        createdAt: post.createdAt,
+      },
+      ...diffResult,
+    });
+  } catch (err) {
+    console.error('getPostDiff error:', err);
+    return res.status(500).json({ message: 'Failed to compute code diff.' });
   }
 };
 

@@ -50,9 +50,18 @@ export const ComposeScreen = ({ route, navigation }) => {
   const { showToast } = useNotifications();
 
   const editPost = route?.params?.editPost || null;
+  const remixPost = route?.params?.remixPost || route?.params?.forkPost || null;
   const isEditing = Boolean(editPost);
+  const isRemixing = Boolean(remixPost);
 
-  const [content, setContent] = useState(editPost?.content || '');
+  const [content, setContent] = useState(() => {
+    if (editPost?.content) return editPost.content;
+    if (remixPost) {
+      const handle = remixPost.author?.username ? `@${remixPost.author.username}` : 'member';
+      return `Remix of ${handle}'s workspace:\n`;
+    }
+    return '';
+  });
   const [loading, setLoading] = useState(false);
   const [mediaUrl, setMediaUrl] = useState(editPost?.mediaUrl || null);
 
@@ -61,13 +70,32 @@ export const ComposeScreen = ({ route, navigation }) => {
   const [isPinned, setIsPinned] = useState(editPost?.isPinned || false);
 
   // Multi-File Code Snippet state
-  const [hasCode, setHasCode] = useState(Boolean(editPost?.codeSnippet));
-  const [snippetTitle, setSnippetTitle] = useState(editPost?.codeSnippet?.title || '');
-  const [files, setFiles] = useState(
-    editPost?.codeSnippet?.files?.length
-      ? editPost.codeSnippet.files
-      : [{ filename: 'index.js', language: 'javascript', code: editPost?.codeSnippet?.code || '' }]
-  );
+  const [hasCode, setHasCode] = useState(Boolean(editPost?.codeSnippet || remixPost?.codeSnippet));
+  const [snippetTitle, setSnippetTitle] = useState(() => {
+    if (editPost?.codeSnippet?.title) return editPost.codeSnippet.title;
+    if (remixPost?.codeSnippet?.title) return `${remixPost.codeSnippet.title} (Remix)`;
+    return '';
+  });
+  const [files, setFiles] = useState(() => {
+    const targetSnippet = editPost?.codeSnippet || remixPost?.codeSnippet;
+    if (targetSnippet?.files?.length) {
+      return targetSnippet.files.map((f, idx) => ({
+        filename: f.name || f.filename || `file${idx + 1}.js`,
+        language: f.language || 'javascript',
+        code: f.code || f.content || '',
+      }));
+    }
+    if (targetSnippet?.code) {
+      return [
+        {
+          filename: targetSnippet.title || 'index.js',
+          language: targetSnippet.language || 'javascript',
+          code: targetSnippet.code,
+        },
+      ];
+    }
+    return [{ filename: 'index.js', language: 'javascript', code: '' }];
+  });
   const [activeTab, setActiveTab] = useState(0);
 
   const MAX_CHARS = 2000;
@@ -151,6 +179,7 @@ export const ComposeScreen = ({ route, navigation }) => {
         isAnnouncement,
         isPinned,
         mediaUrl: mediaUrl || undefined,
+        forkedFrom: remixPost?._id || editPost?.forkedFrom || undefined,
       };
 
       if (hasCode) {
@@ -197,7 +226,9 @@ export const ComposeScreen = ({ route, navigation }) => {
           <Ionicons name="close" size={24} color="#F8FAFC" />
         </TouchableOpacity>
 
-        <Text style={styles.topTitle}>{isEditing ? 'Edit Post' : 'New Post'}</Text>
+        <Text style={styles.topTitle}>
+          {isEditing ? 'Edit Post' : isRemixing ? 'Remix Code' : 'New Post'}
+        </Text>
 
         <View style={styles.topNavRight}>
           <Text
@@ -218,10 +249,20 @@ export const ComposeScreen = ({ route, navigation }) => {
             disabled={!content.trim() || remaining < 0}
             style={styles.postBtn}
           >
-            {isEditing ? 'Update' : 'Post'}
+            {isEditing ? 'Update' : isRemixing ? 'Remix' : 'Post'}
           </Button>
         </View>
       </View>
+
+      {/* Remix Lineage Notice */}
+      {isRemixing && (
+        <View style={styles.remixNoticeBar}>
+          <Ionicons name="git-branch-outline" size={13} color="#38BDF8" />
+          <Text style={styles.remixNoticeText}>
+            Forking from @{remixPost.author?.username || 'member'}'s workspace. Your changes will preserve original attribution.
+          </Text>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollArea} keyboardShouldPersistTaps="handled">
         {/* Author row */}
@@ -752,6 +793,22 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     borderWidth: 1,
     borderColor: '#1E293B',
+  },
+  remixNoticeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  remixNoticeText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
   },
 });
 

@@ -163,6 +163,26 @@ export const PostCard = ({
 
           {/* Author Details & Content */}
           <View style={styles.mainCol}>
+            {/* Forked Lineage Tag */}
+            {post.forkedFrom && (
+              <View style={styles.forkedTagRow}>
+                <Ionicons name="git-branch-outline" size={12} color="#38bdf8" />
+                <Text style={styles.forkedTagText}>
+                  Forked from{' '}
+                  <Text
+                    style={styles.forkedAuthorText}
+                    onPress={() =>
+                      navigation?.navigate('Profile', {
+                        username: post.forkedFrom?.author?.username,
+                      })
+                    }
+                  >
+                    @{post.forkedFrom?.author?.username || 'member'}
+                  </Text>
+                </Text>
+              </View>
+            )}
+
             <View style={styles.authorRow}>
               <Text style={styles.authorName} numberOfLines={1}>
                 {author.name || 'Member'}
@@ -186,7 +206,7 @@ export const PostCard = ({
             {/* Code Snippet Block */}
             {hasCode && (
               <View style={styles.snippetContainer}>
-                <CodeSnippetView snippet={post.codeSnippet} />
+                <CodeSnippetView snippet={post.codeSnippet} post={post} navigation={navigation} />
               </View>
             )}
 
@@ -245,6 +265,25 @@ export const PostCard = ({
               >
                 <ShareIcon size={16} />
               </TouchableOpacity>
+
+              {/* Remix / Fork Action */}
+              {hasCode && (
+                <TouchableOpacity
+                  onPress={() =>
+                    navigation?.navigate('Compose', {
+                      remixPost: post,
+                    })
+                  }
+                  style={styles.actionBtn}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Remix code snippet"
+                >
+                  <Ionicons name="git-pull-request-outline" size={16} color={colors.textSecondary} />
+                  {post.forksCount > 0 && (
+                    <Text style={styles.actionCount}>{post.forksCount}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
 
               {/* Report / Moderation Flag */}
               {onFlag && (
@@ -370,6 +409,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 6,
     fontWeight: '500',
+  },
+  forkedTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  forkedTagText: {
+    color: '#38bdf8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  forkedAuthorText: {
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });
 

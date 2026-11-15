@@ -15,6 +15,7 @@ router.post('/sync-views', requireAuth, postController.syncViews);
 router.get('/sync-views', requireAuth, postController.syncViews);
 router.post('/:id/view', optionalAuth, postController.recordView);
 router.post('/:id/flag', requireAuth, postController.flagPost);
+router.get('/:id/diff', optionalAuth, postController.getPostDiff);
 router.get('/:id', optionalAuth, postController.getPostById);
 router.patch('/:id', requireAuth, postController.updatePost);
 router.delete('/:id', requireAuth, postController.deletePost);
