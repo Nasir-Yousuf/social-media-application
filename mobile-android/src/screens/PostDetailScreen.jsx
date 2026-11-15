@@ -27,6 +27,7 @@ import Avatar from '../components/Avatar';
 import PostCard from '../components/PostCard';
 import Button from '../components/Button';
 import ModerationModal from '../components/ModerationModal';
+import ClassroomMentorSheet from '../components/ai/ClassroomMentorSheet';
 import api from '../api/client';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
@@ -45,6 +46,7 @@ export const PostDetailScreen = ({ route, navigation }) => {
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showModeration, setShowModeration] = useState(false);
+  const [showMentorSheet, setShowMentorSheet] = useState(false);
 
   useEffect(() => {
     const fetchPostAndComments = async () => {
@@ -174,6 +176,21 @@ export const PostDetailScreen = ({ route, navigation }) => {
                   onFlag={() => setShowModeration(true)}
                   navigation={navigation}
                 />
+                {(post?.codeSnippet?.code || (Array.isArray(post?.codeSnippet?.files) && post.codeSnippet.files.length > 0)) && (
+                  <TouchableOpacity
+                    style={styles.aiCodeBanner}
+                    onPress={() => setShowMentorSheet(true)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.aiCodeBannerLeft}>
+                      <Ionicons name="sparkles" size={15} color="#14B8A6" />
+                      <Text style={styles.aiCodeBannerTitle}>Ask AI Mentor about this code</Text>
+                    </View>
+                    <View style={styles.aiCodeBannerBtn}>
+                      <Text style={styles.aiCodeBannerBtnText}>Ask AI</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
                 <View style={styles.repliesDivider}>
                   <Text style={styles.repliesTitle}>Replies ({comments.length})</Text>
                 </View>
@@ -218,6 +235,17 @@ export const PostDetailScreen = ({ route, navigation }) => {
         onUserBlocked={() => {
           navigation.goBack();
         }}
+      />
+
+      {/* Contextual AI Classroom Mentor Sheet */}
+      <ClassroomMentorSheet
+        isOpen={showMentorSheet}
+        onClose={() => setShowMentorSheet(false)}
+        lessonId={post?._id}
+        trackId={post?.codeSnippet?.language || 'code'}
+        initialCode={post?.codeSnippet?.code || post?.codeSnippet?.files?.[0]?.code || ''}
+        contextTitle={post?.content?.slice(0, 45)}
+        navigation={navigation}
       />
     </KeyboardAvoidingView>
   );
@@ -347,6 +375,42 @@ const styles = StyleSheet.create({
   },
   replyBtn: {
     paddingHorizontal: 14,
+  },
+  aiCodeBanner: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  aiCodeBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  aiCodeBannerTitle: {
+    color: '#E2E8F0',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  aiCodeBannerBtn: {
+    backgroundColor: '#14B8A6',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginLeft: 8,
+  },
+  aiCodeBannerBtnText: {
+    color: '#090D16',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });
 

@@ -470,15 +470,8 @@ export const MessagesScreen = ({ navigation }) => {
                     style={styles.aiFeaturedCard}
                     activeOpacity={0.8}
                     onPress={() => {
-                      const aiMember = directoryMembers.find((m) => m.username === 'ai') || {
-                        _id: 'ai',
-                        username: 'ai',
-                        name: 'Clearfeed AI',
-                        role: 'ai',
-                        isAi: true,
-                        avatarUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=ClearfeedAI&backgroundColor=7c8a6b,6b7c5e&textColor=ffffff',
-                      };
-                      handleStartChatWithMember(aiMember);
+                      setShowNewChatModal(false);
+                      navigation?.navigate('AICompanion');
                     }}
                   >
                     <View style={styles.aiFeaturedIconWrap}>

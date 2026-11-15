@@ -12,12 +12,13 @@ interface AiSettingsModalProps {
 }
 
 const RELATIONSHIP_PRESETS = [
-  { id: 'best friend', label: 'Best Friend 🤝', desc: 'Chill, hilarious, deeply supportive, talks about life and code' },
+  { id: 'Socratic Coding Mentor', label: 'Socratic Coding Mentor 💡', desc: 'Patient senior mentor who guides you with architectural questions & mental models' },
+  { id: 'Architecture Reviewer', label: 'Architecture Reviewer 🏛️', desc: 'Expert engineer who analyzes complexity, scaling, and edge cases' },
+  { id: 'Friendly Study Partner', label: 'Friendly Study Partner 🤝', desc: 'Supportive classmate who quizzes you on lessons and keeps you focused' },
+  { id: 'best friend', label: 'Best Friend ✨', desc: 'Chill, hilarious, deeply supportive, talks about life and code' },
   { id: 'english partner', label: 'English Chatting Partner 🇬🇧', desc: 'Fluent English partner who chats, teaches vocabulary, and gently fixes mistakes' },
   { id: 'girlfriend', label: 'Girlfriend ❤️', desc: 'Affectionate, caring, sweet, playful, and emotionally attentive' },
   { id: 'boyfriend', label: 'Boyfriend 💙', desc: 'Supportive, protective, warm, thoughtful, and playful' },
-  { id: 'coding mentor', label: 'Coding Mentor 💡', desc: 'Expert senior developer who patiently debugs code with you' },
-  { id: 'study buddy', label: 'Study Buddy 📚', desc: 'Focused classmate who studies lessons and motivates you' },
 ];
 
 const LANGUAGE_OPTIONS = [
@@ -68,6 +69,13 @@ export const AiSettingsModal: React.FC<AiSettingsModalProps> = ({
         relationship: relToSave,
         languagePref,
       });
+
+      // Also persist to global AIPersonaConfig
+      api.put('/ai/persona', {
+        customName: nameToSave,
+        rolePersona: relToSave,
+        preferredLanguage: languagePref,
+      }).catch(() => {});
 
       if (res.data?.success) {
         if (onSaved) {

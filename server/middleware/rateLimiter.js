@@ -44,6 +44,23 @@ const aiLimiter = rateLimit({
 });
 
 /**
+ * Strict per-user rate limiter for AI queries & comment mentions (20 requests / 15 minutes)
+ */
+const aiPerUserLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Max 20 requests per 15 minutes per user
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: (req) => {
+    return req.user?._id ? req.user._id.toString() : (req.ip || 'unknown');
+  },
+  message: {
+    message: 'AI request limit reached (20 requests per 15 minutes). Please wait before asking again.',
+  },
+});
+
+/**
  * Limiter for content creation (posts, comments, messages) to prevent automated spam
  */
 const contentCreationLimiter = rateLimit({
@@ -61,5 +78,6 @@ module.exports = {
   authLimiter,
   apiLimiter,
   aiLimiter,
+  aiPerUserLimiter,
   contentCreationLimiter,
 };

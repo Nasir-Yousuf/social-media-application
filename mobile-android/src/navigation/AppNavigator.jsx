@@ -55,6 +55,7 @@ import ComposeScreen from '../screens/ComposeScreen';
 import PostDetailScreen from '../screens/PostDetailScreen';
 import BookmarksScreen from '../screens/BookmarksScreen';
 import CodeHubScreen from '../screens/CodeHubScreen';
+import AICompanionScreen from '../screens/AICompanionScreen';
 
 // Clearfeed Mesh Screens (Offline-First Subsystem)
 import MeshHomeScreen from '../screens/mesh/MeshHomeScreen';
@@ -88,6 +89,7 @@ export const linking = {
       PostDetail: 'post/:postId',
       LessonDetail: 'learn/:track/:lessonId',
       CodeHub: 'code/:id',
+      AICompanion: 'ai',
       Conversation: 'messages/:conversationId',
       MeshHome: 'mesh',
       MeshConversation: 'mesh/chat/:peerId',
@@ -319,6 +321,7 @@ export const AppNavigator = () => {
             <Stack.Screen name="Members" component={MembersScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="CodeHub" component={CodeHubScreen} />
+            <Stack.Screen name="AICompanion" component={AICompanionScreen} />
             <Stack.Screen name="MeshHome" component={MeshHomeScreen} />
             <Stack.Screen name="MeshConversation" component={MeshConversationScreen} />
             <Stack.Screen name="MeshPeers" component={MeshPeersScreen} />

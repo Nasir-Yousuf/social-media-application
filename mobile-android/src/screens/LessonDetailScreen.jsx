@@ -24,6 +24,7 @@ import { LESSONS } from '../data/learningCurriculum';
 import { LESSON_QUIZZES } from '../data/lessonQuizzes';
 import DeveloperAccessoryBar from '../components/learning/DeveloperAccessoryBar';
 import { recordOfflineCompletion } from '../services/learnSync';
+import ClassroomMentorSheet from '../components/ai/ClassroomMentorSheet';
 import {
   MobileIPOSimulator,
   MobileSpeedRaceSimulator,
@@ -73,6 +74,7 @@ export const LessonDetailScreen = ({ route, navigation }) => {
   // Playground code state
   const [playgroundCode, setPlaygroundCode] = useState('');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showMentorSheet, setShowMentorSheet] = useState(false);
 
   // Quiz state
   const [quizAnswers, setQuizAnswers] = useState({});
@@ -223,6 +225,16 @@ export const LessonDetailScreen = ({ route, navigation }) => {
             <Text style={[styles.langPillText, lang === 'both' && styles.langPillTextActive]}>ALL</Text>
           </TouchableOpacity>
         </View>
+
+        {/* AI Mentor Quick Trigger */}
+        <TouchableOpacity
+          style={styles.headerAiMentorBtn}
+          onPress={() => setShowMentorSheet(true)}
+          activeOpacity={0.8}
+          title="Ask AI Mentor"
+        >
+          <Ionicons name="sparkles" size={16} color="#14B8A6" />
+        </TouchableOpacity>
       </View>
 
       {/* Segment Tabs: Theory | Code Playground | Quiz */}
@@ -538,6 +550,26 @@ export const LessonDetailScreen = ({ route, navigation }) => {
                 )}
               </View>
             ) : null}
+
+            {/* AI Classroom Mentor Callout Card */}
+            <TouchableOpacity
+              style={styles.aiMentorCallout}
+              onPress={() => setShowMentorSheet(true)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.aiMentorCalloutLeft}>
+                <View style={styles.aiMentorIconWrap}>
+                  <Ionicons name="sparkles" size={18} color="#14B8A6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aiMentorCalloutTitle}>Questions about this lesson?</Text>
+                  <Text style={styles.aiMentorCalloutSub}>Ask your AI Classroom Mentor for intuitive guidance</Text>
+                </View>
+              </View>
+              <View style={styles.aiMentorCalloutBtn}>
+                <Text style={styles.aiMentorCalloutBtnText}>Ask AI</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -547,6 +579,15 @@ export const LessonDetailScreen = ({ route, navigation }) => {
             <View style={styles.playgroundHeaderRow}>
               <Text style={styles.playgroundLabel}>Interactive Code Playground</Text>
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                <TouchableOpacity
+                  style={styles.playgroundAiBtn}
+                  onPress={() => setShowMentorSheet(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="sparkles" size={12} color="#14B8A6" style={{ marginRight: 3 }} />
+                  <Text style={styles.playgroundAiBtnText}>Ask AI</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.playgroundRunBtn}
                   onPress={() => setShowPreviewModal(true)}
@@ -773,6 +814,17 @@ export const LessonDetailScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Contextual AI Classroom Mentor Sheet */}
+      <ClassroomMentorSheet
+        isOpen={showMentorSheet}
+        onClose={() => setShowMentorSheet(false)}
+        lessonId={lessonId}
+        trackId={trackId || lesson?.track}
+        initialCode={playgroundCode || getLessonCode(lesson)}
+        contextTitle={titleText}
+        navigation={navigation}
+      />
     </View>
   );
 };
@@ -802,6 +854,17 @@ const getStyles = (colors) => StyleSheet.create({
     fontWeight: '900',
     color: colors.accent,
     letterSpacing: 0.5,
+  },
+  headerAiMentorBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
   headerLessonTitle: {
     fontSize: 15,
@@ -985,6 +1048,21 @@ const getStyles = (colors) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: colors.text,
+  },
+  playgroundAiBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  playgroundAiBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#14B8A6',
   },
   playgroundRunBtn: {
     flexDirection: 'row',
@@ -1251,6 +1329,57 @@ const getStyles = (colors) => StyleSheet.create({
     color: '#3fb950',
     marginTop: 4,
     fontWeight: '600',
+  },
+  aiMentorCallout: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  aiMentorCalloutLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  aiMentorIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(20, 184, 166, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiMentorCalloutTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#F8FAFC',
+  },
+  aiMentorCalloutSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  aiMentorCalloutBtn: {
+    backgroundColor: '#14B8A6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  aiMentorCalloutBtnText: {
+    color: '#090D16',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });
 

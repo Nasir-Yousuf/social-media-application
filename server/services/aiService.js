@@ -1,5 +1,6 @@
 const https = require('https');
 const User = require('../models/User');
+const { inspectPromptSafety, sanitizeAiInput, checkAiMentionRateLimit } = require('../utils/aiGuardrails');
 
 function getGeminiApiKey() {
   return (process.env.GEMINI_API_KEY || '').trim();
@@ -153,6 +154,148 @@ async function callGeminiApi({ contents, systemInstruction, maxOutputTokens = 12
   }
 
   throw lastError || new Error('Gemini API request failed across all candidate models.');
+}
+
+/**
+ * Executes a streaming HTTP request to Gemini SSE API
+ */
+function executeGeminiStreamRequest({ model, apiKey, contents, systemInstruction, maxOutputTokens, temperature, onChunk }) {
+  return new Promise((resolve, reject) => {
+    const payload = {
+      contents,
+      generationConfig: {
+        maxOutputTokens,
+        temperature,
+      },
+    };
+
+    if (systemInstruction) {
+      payload.systemInstruction = {
+        parts: [{ text: systemInstruction }],
+      };
+    }
+
+    const bodyString = JSON.stringify(payload);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+
+    const req = https.request(
+      endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(bodyString),
+        },
+        timeout: 45000,
+      },
+      (res) => {
+        let fullText = '';
+        let buffer = '';
+
+        if (res.statusCode >= 400) {
+          let errData = '';
+          res.on('data', (d) => { errData += d; });
+          res.on('end', () => {
+            reject(new Error(`Gemini Stream API returned status ${res.statusCode}: ${errData}`));
+          });
+          return;
+        }
+
+        res.on('data', (chunk) => {
+          buffer += chunk.toString('utf8');
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // keep remainder
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('data: ')) {
+              const jsonStr = trimmed.slice(6).trim();
+              if (jsonStr === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  fullText += text;
+                  if (typeof onChunk === 'function') {
+                    onChunk(text);
+                  }
+                }
+              } catch (e) {
+                // Ignore partial JSON or keepalive comments
+              }
+            }
+          }
+        });
+
+        res.on('end', () => {
+          resolve(fullText);
+        });
+      }
+    );
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Gemini API stream request timed out.'));
+    });
+
+    req.write(bodyString);
+    req.end();
+  });
+}
+
+/**
+ * Emulates smooth token streaming when running offline or in mock fallback
+ */
+async function simulateTokenStream(text, onChunk) {
+  if (!text) return '';
+  const words = text.split(/(\s+)/);
+  let accumulated = '';
+  for (const part of words) {
+    accumulated += part;
+    if (typeof onChunk === 'function') {
+      onChunk(part);
+    }
+    // Small micro-delay for realistic typing feel (10ms)
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  return text;
+}
+
+/**
+ * Robust streaming call to Google Gemini API with fallback
+ */
+async function streamGeminiApi({ contents, systemInstruction, maxOutputTokens = 1200, temperature = 0.85, onChunk }) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured in server environment.');
+  }
+
+  const primaryModel = getGeminiModel();
+  const modelsToTry = [primaryModel];
+  if (!modelsToTry.includes('gemini-2.5-flash')) modelsToTry.push('gemini-2.5-flash');
+  if (!modelsToTry.includes('gemini-1.5-flash')) modelsToTry.push('gemini-1.5-flash');
+
+  let lastError = null;
+  for (const model of modelsToTry) {
+    try {
+      const text = await executeGeminiStreamRequest({
+        model,
+        apiKey,
+        contents,
+        systemInstruction,
+        maxOutputTokens,
+        temperature,
+        onChunk,
+      });
+      if (text) return text;
+    } catch (err) {
+      lastError = err;
+      console.warn(`Gemini stream attempt (${model}) failed: ${err.message}. Trying fallback...`);
+    }
+  }
+
+  throw lastError || new Error('Gemini stream API failed across candidate models.');
 }
 
 /**
@@ -346,7 +489,23 @@ ${languageGuidance}
 /**
  * Generate a reply for @ai mentions in post comments or social threads
  */
-async function generateCommentReply({ post, commentText, commenterName, parentComments = [] }) {
+async function generateCommentReply({ post, commentText, commenterName, commenterId, parentComments = [] }) {
+  // 1. Per-user Rate Limiting for @ai mentions
+  if (commenterId) {
+    const rateCheck = checkAiMentionRateLimit(commenterId.toString());
+    if (!rateCheck.allowed) {
+      return `Hey @${commenterName || 'friend'}! 👋 You've reached the limit of 20 @ai mentions per 15 minutes. Please take a quick breather and check back in a few minutes! ⏱️`;
+    }
+  }
+
+  // 2. Prompt Injection Guardrail
+  const safety = inspectPromptSafety(commentText);
+  if (!safety.isSafe) {
+    return safety.safeFallback || `Hey @${commenterName || 'friend'}, I cannot process this prompt due to safety guidelines.`;
+  }
+
+  const cleanComment = sanitizeAiInput(commentText);
+
   const systemInstruction = `
 You are @ai on the Clearfeed social network. You are an active, friendly, sharp classmate and friend in this community.
 A user named "${commenterName || 'friend'}" just mentioned you (@ai) in a comment or discussion.
@@ -363,7 +522,7 @@ Style:
   if (parentComments.length > 0) {
     contextText += `Previous Comments:\n` + parentComments.map((c) => `- ${c.author?.name || 'User'}: ${c.content}`).join('\n') + '\n';
   }
-  contextText += `\n${commenterName} tagged @ai with comment: "${commentText}"`;
+  contextText += `\n${commenterName} tagged @ai with comment: "${cleanComment}"`;
 
   const contents = [
     {
@@ -382,7 +541,7 @@ Style:
     return reply;
   } catch (err) {
     console.error('generateCommentReply error:', err.message);
-    const isBengali = /[\u0980-\u09FF]/.test(commentText || '');
+    const isBengali = /[\u0980-\u09FF]/.test(cleanComment || '');
     if (isBengali) {
       return `হাই @${commenterName}! 👋 আমাকে মেনশন করার জন্য ধন্যবাদ। আমাদের AI সার্ভিস এই মুহূর্তে সাময়িক রক্ষণাবেক্ষণে রয়েছে 🛠️✨ খুব শীঘ্রই আমি আবার ফিরে এসে উত্তর দিচ্ছি!`;
     }
@@ -390,10 +549,246 @@ Style:
   }
 }
 
+/**
+ * Generate a contextual Classroom Mentor reply for Learn & CodeHub
+ */
+async function generateClassroomMentorReply({
+  user,
+  question,
+  lessonId,
+  trackId,
+  code,
+  languagePref = 'auto',
+  persona = {},
+  stream = false,
+  onChunk,
+}) {
+  const safety = inspectPromptSafety(`${question || ''}\n${code || ''}`);
+  if (!safety.isSafe) {
+    const fallback = safety.safeFallback || 'Prompt safety violation detected.';
+    if (stream && typeof onChunk === 'function') {
+      await simulateTokenStream(fallback, onChunk);
+    }
+    return fallback;
+  }
+
+  const aiName = persona.customName?.trim() || 'Clearfeed AI';
+  const rolePersona = persona.rolePersona?.trim() || 'Socratic Coding Mentor';
+  const customInstructions = persona.systemInstructions?.trim() || '';
+  const prefLang = persona.preferredLanguage || languagePref || 'auto';
+
+  let languageGuidance = '';
+  if (prefLang === 'bangla' || prefLang === 'bn') {
+    languageGuidance = 'Respond in encouraging, clear Bengali (বাংলা). Keep programming identifiers and technical keywords in English.';
+  } else if (prefLang === 'english' || prefLang === 'en') {
+    languageGuidance = 'Respond in warm, articulate, and encouraging English.';
+  } else if (prefLang === 'bilingual' || prefLang === 'both') {
+    languageGuidance = 'Respond in a friendly blend of Bengali and English (Banglish), making technical concepts intuitive and easy to grasp.';
+  } else {
+    languageGuidance = 'Detect the language of the student\'s question. If asked in Bengali, respond in Bengali; if in English, respond in English.';
+  }
+
+  const systemInstruction = `
+You are ${aiName}, acting as a ${rolePersona} in Clearfeed Academy.
+You are helping student "${user?.name || user?.username || 'Learner'}" with a programming concept or lesson.
+
+Classroom Mentor Principles:
+- Socratic Pedagogy: Guide the learner with intuitive hints and physical mental models. Ask guiding questions to help them reason through the problem.
+- Explain the underlying architecture: why the code behaves this way in memory or the runtime.
+- Structure responses cleanly using standard Markdown and syntax-highlighted code blocks with language identifiers.
+- Never use corporate disclaimers. Speak like a passionate senior engineer and patient teacher.
+${customInstructions ? `\nUser Custom Persona Directive:\n${customInstructions}\n` : ''}
+
+Language Preference:
+${languageGuidance}
+`.trim();
+
+  let prompt = `Track: ${trackId || 'General Programming'}\nLesson ID: ${lessonId || 'General'}\n`;
+  if (question) {
+    prompt += `\nStudent Question:\n${sanitizeAiInput(question)}\n`;
+  }
+  if (code) {
+    prompt += `\nStudent Code Snippet:\n\`\`\`\n${code}\n\`\`\`\n`;
+  }
+
+  const contents = [
+    {
+      role: 'user',
+      parts: [{ text: prompt.trim() || 'Hello mentor, could you explain this lesson?' }],
+    },
+  ];
+
+  const getSmartFallback = () => {
+    const isBn = prefLang === 'bangla' || prefLang === 'bn' || /[\u0980-\u09FF]/.test(question || '');
+    if (isBn) {
+      return `🎓 **${aiName} (${rolePersona}) এর দিকনির্দেশনা:**\n\n` +
+        `আপনার প্রশ্নটি চমৎকার! এই পাঠে (${trackId || 'প্রোগ্রামিং'}) মূল ধারণাটি হলো ডেটার সঠিক ফ্লো এবং স্টেট ম্যানেজমেন্ট নিশ্চিত করা।\n\n` +
+        `💡 **মূল বিষয়:** কোড লেখার সময় সবসময় ইনপুট ভ্যালিডেশন এবং এজ-কেসগুলো বিবেচনা করুন।\n\n` +
+        `*নোট: AI ক্লাউড সার্ভিস সাময়িক অফলাইনে থাকলেও আপনার অফলাইন লার্নিং প্রগ্রেস অক্ষুণ্ণ রয়েছে।*`;
+    }
+    return `🎓 **${aiName} (${rolePersona}) Guidance:**\n\n` +
+      `Great inquiry on this topic! In the **${trackId || 'Programming'}** track (${lessonId || 'Core'}), ` +
+      `the key architectural intuition is maintaining predictable state flow and handling boundary conditions.\n\n` +
+      `💡 **Guiding Question:** Have you traced the execution path when the input is empty or outside the expected bounds?\n\n` +
+      `*Note: AI Cloud Services are operating in local study fallback mode; your learning progress is fully saved offline.*`;
+  };
+
+  try {
+    if (stream && typeof onChunk === 'function') {
+      try {
+        return await streamGeminiApi({
+          contents,
+          systemInstruction,
+          maxOutputTokens: 1500,
+          temperature: persona.temperature || 0.85,
+          onChunk,
+        });
+      } catch (streamErr) {
+        console.warn('streamGeminiApi failed, falling back to simulated stream:', streamErr.message);
+        const fb = getSmartFallback();
+        return await simulateTokenStream(fb, onChunk);
+      }
+    } else {
+      return await callGeminiApi({
+        contents,
+        systemInstruction,
+        maxOutputTokens: 1500,
+        temperature: persona.temperature || 0.85,
+      });
+    }
+  } catch (err) {
+    console.error('generateClassroomMentorReply error:', err.message);
+    const fb = getSmartFallback();
+    if (stream && typeof onChunk === 'function') {
+      return await simulateTokenStream(fb, onChunk);
+    }
+    return fb;
+  }
+}
+
+/**
+ * Generate a comprehensive Code Explanation for CodeHub snippets or lessons
+ */
+async function generateCodeExplanation({
+  user,
+  code,
+  language = 'javascript',
+  context = '',
+  question = '',
+  persona = {},
+  languagePref = 'auto',
+  stream = false,
+  onChunk,
+}) {
+  const safety = inspectPromptSafety(`${code || ''}\n${question || ''}`);
+  if (!safety.isSafe) {
+    const fallback = safety.safeFallback || 'Prompt safety violation detected.';
+    if (stream && typeof onChunk === 'function') {
+      await simulateTokenStream(fallback, onChunk);
+    }
+    return fallback;
+  }
+
+  const aiName = persona.customName?.trim() || 'Clearfeed AI';
+  const rolePersona = persona.rolePersona?.trim() || 'Architecture Reviewer';
+  const prefLang = persona.preferredLanguage || languagePref || 'auto';
+
+  let languageGuidance = '';
+  if (prefLang === 'bangla' || prefLang === 'bn') {
+    languageGuidance = 'Explain in clear, natural Bengali (বাংলা) while preserving programming syntax and function names in English.';
+  } else if (prefLang === 'english' || prefLang === 'en') {
+    languageGuidance = 'Explain in articulate, professional, and accessible English.';
+  } else if (prefLang === 'bilingual' || prefLang === 'both') {
+    languageGuidance = 'Explain in a natural mix of Bengali and English (Banglish) suitable for young developers.';
+  } else {
+    languageGuidance = 'Detect language and respond in the same tone.';
+  }
+
+  const systemInstruction = `
+You are ${aiName}, acting as an expert ${rolePersona} in the Clearfeed developer community.
+You are conducting a thorough, educational code walkthrough for "${user?.name || user?.username || 'Developer'}".
+
+Structure your explanation clearly:
+1. **Summary**: What the code achieves in 1-2 concise sentences.
+2. **Line-by-Line / Block Intuition**: How the logic executes in runtime/memory.
+3. **Complexity & Performance**: Time and space complexity (Big-O) if applicable.
+4. **Potential Edge Cases**: Boundary conditions, null checks, or async pitfalls.
+5. **Optimization / Best Practice**: Suggested clean refactoring snippet.
+
+Language Preference:
+${languageGuidance}
+`.trim();
+
+  let prompt = `Language: ${language}\n`;
+  if (context) prompt += `Context: ${context}\n`;
+  if (question) prompt += `Specific Question: ${sanitizeAiInput(question)}\n`;
+  prompt += `\nCode to Analyze:\n\`\`\`${language}\n${code || '// No code provided'}\n\`\`\``;
+
+  const contents = [
+    {
+      role: 'user',
+      parts: [{ text: prompt }],
+    },
+  ];
+
+  const getSmartFallback = () => {
+    const isBn = prefLang === 'bangla' || prefLang === 'bn' || /[\u0980-\u09FF]/.test(question || '');
+    if (isBn) {
+      return `🔍 **${aiName} কোড বিশ্লেষণ (${language}):**\n\n` +
+        `### ১. সারসংক্ষেপ\nএই কোডটি প্রদত্ত ইনপুট প্রসেস করে এবং লজিক্যাল শর্তাবলী প্রয়োগ করে কাঙ্ক্ষিত ফলাফল প্রস্তুত করে।\n\n` +
+        `### ২. আর্কিটেকচারাল ইনট্যুইশন\n- কোডটি মেমরিতে ভেরিয়েবল ইনিশিয়ালাইজেশন এবং ফাংশনাল এক্সিকিউশন স্ট্যাক অনুসরণ করে।\n\n` +
+        `### ৩. পারফরম্যান্স ও এজ কেস\n- ইনপুট ভ্যালিডেশন এবং নাল/আনডিফাইন্ড মান সঠিকভাবে চেক করা উচিত।\n\n` +
+        `*নোট: অফলাইন স্টাডি মোড সক্রিয়।*`;
+    }
+    return `🔍 **${aiName} Code Walkthrough (${language}):**\n\n` +
+      `### 1. Summary\nThis code block executes sequential logic to process inputs and return structured results.\n\n` +
+      `### 2. Architectural Intuition\n- Variables and state transitions are bound in the runtime execution frame.\n- Synchronous operations execute immediately without blocking event-loop workers.\n\n` +
+      `### 3. Edge Cases & Reliability\n- Ensure proper null checks for empty inputs.\n- Guard against unexpected type coercion.\n\n` +
+      `*Note: Local educational analysis fallback is active.*`;
+  };
+
+  try {
+    if (stream && typeof onChunk === 'function') {
+      try {
+        return await streamGeminiApi({
+          contents,
+          systemInstruction,
+          maxOutputTokens: 1500,
+          temperature: persona.temperature || 0.7,
+          onChunk,
+        });
+      } catch (streamErr) {
+        console.warn('streamGeminiApi failed in code explanation, falling back to simulated stream:', streamErr.message);
+        const fb = getSmartFallback();
+        return await simulateTokenStream(fb, onChunk);
+      }
+    } else {
+      return await callGeminiApi({
+        contents,
+        systemInstruction,
+        maxOutputTokens: 1500,
+        temperature: persona.temperature || 0.7,
+      });
+    }
+  } catch (err) {
+    console.error('generateCodeExplanation error:', err.message);
+    const fb = getSmartFallback();
+    if (stream && typeof onChunk === 'function') {
+      return await simulateTokenStream(fb, onChunk);
+    }
+    return fb;
+  }
+}
+
 module.exports = {
   ensureAiUser,
   callGeminiApi,
+  streamGeminiApi,
+  simulateTokenStream,
   generateDirectChatReply,
   generateLessonHelpReply,
+  generateClassroomMentorReply,
+  generateCodeExplanation,
   generateCommentReply,
+  getGeminiApiKey,
 };

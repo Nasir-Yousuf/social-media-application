@@ -277,6 +277,7 @@ exports.createComment = async (req, res) => {
               post,
               commentText: content.trim(),
               commenterName: req.user.name || req.user.username,
+              commenterId: req.user._id,
               parentComments: recentComments.reverse(),
             });
 

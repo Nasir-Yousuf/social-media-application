@@ -89,6 +89,8 @@ app.use('/challenges', require('./routes/typingRoutes'));
 app.use('/api/race', require('./routes/typingRoutes'));
 app.use('/race', require('./routes/typingRoutes'));
 app.use('/api/calls', require('./routes/callRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes'));
+app.use('/ai', require('./routes/aiRoutes'));
 
 
 // Secure Maintenance Purge Endpoint (guards against accidental or unauthorized database wipes)

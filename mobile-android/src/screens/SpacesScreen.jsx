@@ -174,24 +174,28 @@ export const SpacesScreen = ({ navigation }) => {
       </View>
 
       {/* AI Study Companion Quick Dock */}
-      <View style={styles.aiDockCard}>
+      <TouchableOpacity
+        style={styles.aiDockCard}
+        onPress={() => navigation?.navigate('AICompanion')}
+        activeOpacity={0.85}
+      >
         <View style={styles.aiLeft}>
           <View style={styles.aiIconBadge}>
-            <Ionicons name="sparkles" size={18} color="#6366F1" />
+            <Ionicons name="sparkles" size={18} color="#14B8A6" />
           </View>
           <View>
-            <Text style={styles.aiDockTitle}>AI Study Companion</Text>
-            <Text style={styles.aiDockSub}>Voice tutoring, code analysis & mock interviews</Text>
+            <Text style={styles.aiDockTitle}>AI Study Companion & Mentor</Text>
+            <Text style={styles.aiDockSub}>Multi-session chat, code analysis & mock interviews</Text>
           </View>
         </View>
         <TouchableOpacity
           style={styles.aiLaunchBtn}
-          onPress={() => setShowAiModal(true)}
+          onPress={() => navigation?.navigate('AICompanion')}
           activeOpacity={0.8}
         >
           <Text style={styles.aiLaunchText}>Launch</Text>
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
 
       {/* Active Spaces List */}
       {loading ? (

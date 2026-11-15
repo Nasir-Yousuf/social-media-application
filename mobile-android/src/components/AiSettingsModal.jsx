@@ -19,8 +19,23 @@ import { useNotifications } from "../context/NotificationContext";
 
 const RELATIONSHIP_PRESETS = [
   {
+    id: "Socratic Coding Mentor",
+    label: "Socratic Coding Mentor 💡",
+    desc: "Guides you with questions, architectural mental models, and deep reasoning",
+  },
+  {
+    id: "Architecture Reviewer",
+    label: "Architecture Reviewer 🏛️",
+    desc: "Senior systems engineer who reviews complexity, scaling, and edge cases",
+  },
+  {
+    id: "Friendly Study Partner",
+    label: "Friendly Study Partner 🤝",
+    desc: "Supportive classmate who quizzes you on lessons and keeps you motivated",
+  },
+  {
     id: "best friend",
-    label: "Best Friend 🤝",
+    label: "Best Friend ✨",
     desc: "Chill, hilarious, deeply supportive, talks about life and code",
   },
   {
@@ -37,16 +52,6 @@ const RELATIONSHIP_PRESETS = [
     id: "boyfriend",
     label: "Boyfriend 💙",
     desc: "Supportive, protective, warm, thoughtful, and playful",
-  },
-  {
-    id: "coding mentor",
-    label: "Coding Mentor 💡",
-    desc: "Expert senior developer who patiently debugs code with you",
-  },
-  {
-    id: "study buddy",
-    label: "Study Buddy 📚",
-    desc: "Focused classmate who studies lessons and motivates you",
   },
 ];
 
@@ -116,6 +121,13 @@ export const AiSettingsModal = ({
           languagePref,
         },
       );
+
+      // Also persist to global AIPersonaConfig
+      api.put('/ai/persona', {
+        customName: nameToSave,
+        rolePersona: relToSave,
+        preferredLanguage: languagePref,
+      }).catch(() => {});
 
       if (res.data?.success) {
         showToast("AI Companion updated!", "success");

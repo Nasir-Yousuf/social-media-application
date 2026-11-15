@@ -402,6 +402,7 @@ exports.createPost = async (req, res) => {
                 post,
                 commentText: post.content.trim(),
                 commenterName: req.user.name || req.user.username,
+                commenterId: req.user._id,
                 parentComments: [],
               });
               if (aiReplyText) {
