@@ -19,7 +19,8 @@ class DesktopSocketService {
   public connect(explicitToken?: string | null): Socket {
     const token = explicitToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('pulse518_token') : null);
 
-    if (this.socket && this.isConnected && this.currentToken === token) {
+    // If socket exists, has matching token, and is connected or currently establishing connection, reuse it!
+    if (this.socket && this.currentToken === token && (this.socket.connected || !this.socket.disconnected)) {
       return this.socket;
     }
 

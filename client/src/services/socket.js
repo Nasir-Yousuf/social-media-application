@@ -58,7 +58,8 @@ class SocketService {
   connect(explicitToken = null) {
     const token = explicitToken || (typeof localStorage !== 'undefined' ? localStorage.getItem('pulse518_token') : null);
 
-    if (this.socket && this.isConnected && this.currentToken === token) {
+    // If socket exists, has matching token, and is connected or currently establishing connection, reuse it!
+    if (this.socket && this.currentToken === token && (this.socket.connected || !this.socket.disconnected)) {
       return this.socket;
     }
 
@@ -75,7 +76,7 @@ class SocketService {
 
     this.socket = io(serverUrl, {
       auth: { token },
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 25,
       reconnectionDelay: 1000,

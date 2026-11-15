@@ -107,7 +107,13 @@ class SoundEffectsEngine {
     const vibratePhone = () => {
       try {
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate([800, 400, 800, 400]);
+          // Chrome Intervention compliance: check user activation before calling navigator.vibrate
+          const hasActivation = typeof navigator.userActivation !== 'undefined'
+            ? !!(navigator.userActivation.hasBeenActive || navigator.userActivation.isActive)
+            : true;
+          if (hasActivation) {
+            navigator.vibrate([800, 400, 800, 400]);
+          }
         }
       } catch {}
     };
@@ -175,7 +181,12 @@ class SoundEffectsEngine {
     }
     try {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(0);
+        const hasActivation = typeof navigator.userActivation !== 'undefined'
+          ? !!(navigator.userActivation.hasBeenActive || navigator.userActivation.isActive)
+          : true;
+        if (hasActivation) {
+          navigator.vibrate(0);
+        }
       }
     } catch {}
   }
