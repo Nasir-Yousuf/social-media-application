@@ -6,9 +6,10 @@ const { getClientIp } = require('../utils/ipUtils');
 const { logActivity } = require('../utils/auditLogger');
 const { canUserViewPost, canUserReplyToPost } = require('./postController');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const { executeCursorPagination } = require('../utils/cursorPagination');
 
-// Get comments for a post
-exports.getCommentsByPost = async (req, res) => {
+// Get comments for a post - supports deterministic cursor pagination and legacy retrieval
+exports.getCommentsByPost = async (req, res, next) => {
   try {
     const { postId } = req.params;
     const currentUserId = req.user ? req.user._id : null;
@@ -24,15 +25,52 @@ exports.getCommentsByPost = async (req, res) => {
       return res.status(403).json({ message: 'You do not have permission to view comments on this post.' });
     }
 
+    const hasCursorOrPagination = req.query.cursor || req.query.page || req.query.limit;
+
+    if (hasCursorOrPagination) {
+      const { items: paginatedComments, nextCursor, hasMore, limit, page } = await executeCursorPagination(Comment, {
+        baseQuery: { post: postId },
+        cursor: req.query.cursor,
+        page: req.query.page,
+        limit: req.query.limit || 50,
+        sortOrder: 1, // Chronological (oldest first)
+        populate: [{ path: 'author', select: 'name username avatarUrl role status' }],
+      });
+
+      const totalComments = await Comment.countDocuments({ post: postId });
+
+      const enriched = paginatedComments.map((c) => {
+        const obj = typeof c.toObject === 'function' ? c.toObject() : { ...c };
+        delete obj.ipAddress;
+        delete obj.userAgent;
+        return {
+          ...obj,
+          isOwner: currentUserId ? obj.author && (obj.author._id?.equals?.(currentUserId) || obj.author._id === currentUserId) : false,
+        };
+      });
+
+      return res.status(200).json({
+        comments: enriched,
+        commentsCount: totalComments,
+        pagination: {
+          nextCursor: nextCursor || null,
+          hasMore,
+          limit,
+          page: page || 1,
+          totalComments,
+        },
+      });
+    }
+
     const comments = await Comment.find({ post: postId })
       .populate('author', 'name username avatarUrl role status')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1, _id: 1 });
 
     // Also fetch any LearningAnswer linked to this question / post ID
     const LearningAnswer = require('../models/LearningAnswer');
     let answers = await LearningAnswer.find({ question: postId })
       .populate('author', 'name username avatarUrl role status')
-      .sort({ createdAt: 1 });
+      .sort({ createdAt: 1, _id: 1 });
 
     // Check if there is an associated LearningQuestion
     const LearningQuestion = require('../models/LearningQuestion');
@@ -45,7 +83,7 @@ exports.getCommentsByPost = async (req, res) => {
     if (matchedQ) {
       const qAnswers = await LearningAnswer.find({ question: matchedQ._id })
         .populate('author', 'name username avatarUrl role status')
-        .sort({ createdAt: 1 });
+        .sort({ createdAt: 1, _id: 1 });
       answers = [...answers, ...qAnswers];
     }
 
@@ -82,6 +120,7 @@ exports.getCommentsByPost = async (req, res) => {
 
     return res.status(200).json({ comments: enriched, commentsCount: enriched.length });
   } catch (err) {
+    if (next) return next(err);
     console.error('getCommentsByPost error:', err);
     return res.status(500).json({ message: 'Error retrieving comments.' });
   }

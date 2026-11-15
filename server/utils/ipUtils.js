@@ -4,21 +4,13 @@
 const getClientIp = (req) => {
   if (!req) return 'Unknown';
 
-  const forwarded = req.headers ? req.headers['x-forwarded-for'] : null;
-  if (forwarded) {
-    const parts = forwarded.split(',').map((p) => p.trim());
-    if (parts.length > 0 && parts[0]) {
-      return cleanIp(parts[0]);
-    }
+  // Express req.ip is parsed securely using app.set('trust proxy', TRUST_PROXY_HOPS).
+  // This ensures untrusted/spoofed X-Forwarded-For client headers cannot forge client IP.
+  if (req.ip) {
+    return cleanIp(req.ip);
   }
 
-  const cfIp = req.headers ? req.headers['cf-connecting-ip'] : null;
-  if (cfIp) return cleanIp(cfIp);
-
-  const realIp = req.headers ? req.headers['x-real-ip'] : null;
-  if (realIp) return cleanIp(realIp);
-
-  const remote = req.ip || req.socket?.remoteAddress || 'Unknown';
+  const remote = req.socket?.remoteAddress || req.connection?.remoteAddress || 'Unknown';
   return cleanIp(remote);
 };
 

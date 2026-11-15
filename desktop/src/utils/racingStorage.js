@@ -7,7 +7,7 @@ export const CAR_CATALOG = [
     color: '#a855f7', // Cyber Purple
     accentColor: '#c084fc',
     tailFlame: '#e879f9',
-    image: '/racing/shadow_v12.png',
+    image: '/racing/shadow_v12.webp',
     stats: { speed: 95, acceleration: 92, handling: 88, nitro: 94 },
     description: 'Hyper-tuned twin-turbo powerhouse forged for night circuit dominance.',
     unlockedByDefault: true,
@@ -19,7 +19,7 @@ export const CAR_CATALOG = [
     color: '#22c55e', // Cyber Green
     accentColor: '#4ade80',
     tailFlame: '#10b981',
-    image: '/racing/neon_gt.png',
+    image: '/racing/neon_gt.webp',
     stats: { speed: 91, acceleration: 93, handling: 94, nitro: 89 },
     description: 'Lightweight electric track weapon with razor-sharp cornering agility.',
     unlockedByDefault: true,
@@ -31,7 +31,7 @@ export const CAR_CATALOG = [
     color: '#ef4444', // Crimson Red
     accentColor: '#f87171',
     tailFlame: '#f97316',
-    image: '/racing/street_phantom.png',
+    image: '/racing/street_phantom.webp',
     stats: { speed: 88, acceleration: 94, handling: 90, nitro: 86 },
     description: 'Raw muscle supercar that explodes off the starting line.',
     unlockedByDefault: true,
@@ -43,7 +43,7 @@ export const CAR_CATALOG = [
     color: '#e2e8f0', // Hyper Titanium Silver
     accentColor: '#38bdf8',
     tailFlame: '#06b6d4',
-    image: '/racing/apex_x.png',
+    image: '/racing/apex_x.webp',
     stats: { speed: 96, acceleration: 90, handling: 95, nitro: 92 },
     description: 'Aerodynamic concept hypercar sculpted in virtual supersonic wind tunnels.',
     unlockedByDefault: true,
@@ -55,7 +55,7 @@ export const CAR_CATALOG = [
     color: '#eab308', // Solar Amber Gold
     accentColor: '#fde047',
     tailFlame: '#f59e0b',
-    image: '/racing/thunder_rs.png',
+    image: '/racing/thunder_rs.webp',
     stats: { speed: 93, acceleration: 95, handling: 87, nitro: 91 },
     description: 'Pure adrenaline with instant torque and high-revving nitro injectors.',
     unlockedByDefault: true,
@@ -67,7 +67,7 @@ export const CAR_CATALOG = [
     color: '#3b82f6', // Cobalt Electric Blue
     accentColor: '#60a5fa',
     tailFlame: '#38bdf8',
-    image: '/racing/cyber_cruiser.png',
+    image: '/racing/cyber_cruiser.webp',
     stats: { speed: 86, acceleration: 89, handling: 92, nitro: 88 },
     description: 'Balanced street machine with responsive traction control and sleek lines.',
     unlockedByDefault: true,
@@ -75,9 +75,9 @@ export const CAR_CATALOG = [
 ];
 
 export const TRACK_CIRCUITS = [
-  { id: 'neon_coast', name: 'Neon Coast', round: '1/3', laps: 2, scenery: 'coastline', bgHue: '#0b1329', bgImage: '/racing/track_neon_coast.jpg' },
-  { id: 'cyber_district', name: 'Cyber District', round: '2/3', laps: 2, scenery: 'downtown', bgHue: '#120b29', bgImage: '/racing/track_neon_coast.jpg' },
-  { id: 'mountain_pass', name: 'Sunset Pass', round: '3/3', laps: 1, scenery: 'mountains', bgHue: '#1a0f1d', bgImage: '/racing/track_neon_coast.jpg' },
+  { id: 'neon_coast', name: 'Neon Coast', round: '1/3', laps: 2, scenery: 'coastline', bgHue: '#0b1329', bgImage: '/racing/track_neon_coast.webp' },
+  { id: 'cyber_district', name: 'Cyber District', round: '2/3', laps: 2, scenery: 'downtown', bgHue: '#120b29', bgImage: '/racing/track_neon_coast.webp' },
+  { id: 'mountain_pass', name: 'Sunset Pass', round: '3/3', laps: 1, scenery: 'mountains', bgHue: '#1a0f1d', bgImage: '/racing/track_neon_coast.webp' },
 ];
 
 const STORAGE_RACING_PROFILE = 'clearfeed_racing_profile';

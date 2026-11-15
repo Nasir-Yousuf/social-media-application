@@ -10,6 +10,7 @@ const { getClientIp } = require('../utils/ipUtils');
 const { logActivity } = require('../utils/auditLogger');
 const { extractMentions, notifyMentions } = require('../utils/mentionUtils');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const { executeCursorPagination, encodeCursor } = require('../utils/cursorPagination');
 
 // Build Mongo query filter matching viewer's visibility permissions
 const buildVisibilityFilter = async (currentUserId, isAdmin = false) => {
@@ -525,14 +526,10 @@ exports.createPost = async (req, res) => {
   }
 };
 
-// Get Feed (All or Following) - Strictly Chronological
-exports.getFeed = async (req, res) => {
+// Get Feed (All or Following) - Strictly Chronological (createdAt + _id cursor pagination)
+exports.getFeed = async (req, res, next) => {
   try {
     const tab = req.query.tab || 'all'; // 'all' or 'following'
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-
     const currentUserId = req.user ? req.user._id : null;
     const isAdmin = req.user?.role === 'admin';
     const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
@@ -543,10 +540,11 @@ exports.getFeed = async (req, res) => {
         return res.status(200).json({
           posts: [],
           pagination: {
-            page,
-            limit,
+            page: 1,
+            limit: parseInt(req.query.limit, 10) || 20,
             totalPosts: 0,
             hasMore: false,
+            nextCursor: null,
           },
         });
       }
@@ -558,18 +556,25 @@ exports.getFeed = async (req, res) => {
 
     const query = Object.keys(visFilter).length > 0 ? { $and: [baseQuery, visFilter] } : baseQuery;
 
-    const posts = await Post.find(query)
-      .populate('author', 'name username avatarUrl role status')
-      .populate('audience', 'name username avatarUrl role')
-      .populate('excludedAudience', 'name username avatarUrl role')
-      .populate({
+    const populate = [
+      { path: 'author', select: 'name username avatarUrl role status' },
+      { path: 'audience', select: 'name username avatarUrl role' },
+      { path: 'excludedAudience', select: 'name username avatarUrl role' },
+      {
         path: 'forkedFrom',
         select: 'content codeSnippet author createdAt',
         populate: { path: 'author', select: 'name username avatarUrl' },
-      })
-      .sort({ isPinned: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      },
+    ];
+
+    const { items: posts, nextCursor, hasMore, page, limit } = await executeCursorPagination(Post, {
+      baseQuery: query,
+      cursor: req.query.cursor,
+      page: req.query.page,
+      limit: req.query.limit || 20,
+      sortOrder: -1,
+      populate,
+    });
 
     const totalPosts = await Post.countDocuments(query);
 
@@ -611,13 +616,15 @@ exports.getFeed = async (req, res) => {
     return res.status(200).json({
       posts: enrichedPosts,
       pagination: {
-        page,
+        page: page || 1,
         limit,
         totalPosts,
-        hasMore: skip + posts.length < totalPosts,
+        hasMore,
+        nextCursor: nextCursor || null,
       },
     });
   } catch (err) {
+    if (next) return next(err);
     console.error('getFeed error:', err);
     return res.status(500).json({ message: 'Failed to load feed.' });
   }
@@ -882,20 +889,14 @@ exports.toggleBookmark = async (req, res) => {
   }
 };
 
-// Get User's Bookmarks
-exports.getBookmarks = async (req, res) => {
+// Get User's Bookmarks - Chronological with cursor pagination
+exports.getBookmarks = async (req, res, next) => {
   try {
     const currentUserId = req.user._id;
     const isAdmin = req.user.role === 'admin';
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
 
-    const bookmarks = await Bookmark.find({ user: currentUserId })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate({
+    const populate = [
+      {
         path: 'post',
         populate: [
           { path: 'author', select: 'name username avatarUrl role status' },
@@ -907,7 +908,17 @@ exports.getBookmarks = async (req, res) => {
             populate: { path: 'author', select: 'name username avatarUrl' },
           },
         ],
-      });
+      },
+    ];
+
+    const { items: bookmarks, nextCursor, hasMore, limit, page } = await executeCursorPagination(Bookmark, {
+      baseQuery: { user: currentUserId },
+      cursor: req.query.cursor,
+      page: req.query.page,
+      limit: req.query.limit || 20,
+      sortOrder: -1,
+      populate,
+    });
 
     const viewableBookmarks = [];
     for (const b of bookmarks) {
@@ -945,20 +956,22 @@ exports.getBookmarks = async (req, res) => {
     return res.status(200).json({
       posts,
       pagination: {
-        page,
+        page: page || 1,
         limit,
         totalPosts,
-        hasMore: skip + bookmarks.length < totalPosts,
+        hasMore,
+        nextCursor: nextCursor || null,
       },
     });
   } catch (err) {
+    if (next) return next(err);
     console.error('getBookmarks error:', err);
     return res.status(500).json({ message: 'Failed to retrieve bookmarks.' });
   }
 };
 
-// Get posts by a specific user
-exports.getUserPosts = async (req, res) => {
+// Get posts by a specific user - Chronological with cursor pagination
+exports.getUserPosts = async (req, res, next) => {
   try {
     const { username } = req.params;
     const currentUserId = req.user ? req.user._id : null;
@@ -973,16 +986,25 @@ exports.getUserPosts = async (req, res) => {
     const authorFilter = { author: user._id };
     const query = Object.keys(visFilter).length > 0 ? { $and: [authorFilter, visFilter] } : authorFilter;
 
-    const posts = await Post.find(query)
-      .populate('author', 'name username avatarUrl role status')
-      .populate('audience', 'name username avatarUrl role')
-      .populate('excludedAudience', 'name username avatarUrl role')
-      .populate({
+    const populate = [
+      { path: 'author', select: 'name username avatarUrl role status' },
+      { path: 'audience', select: 'name username avatarUrl role' },
+      { path: 'excludedAudience', select: 'name username avatarUrl role' },
+      {
         path: 'forkedFrom',
         select: 'content codeSnippet author createdAt',
         populate: { path: 'author', select: 'name username avatarUrl' },
-      })
-      .sort({ createdAt: -1 });
+      },
+    ];
+
+    const { items: posts, nextCursor, hasMore, limit, page } = await executeCursorPagination(Post, {
+      baseQuery: query,
+      cursor: req.query.cursor,
+      page: req.query.page,
+      limit: req.query.limit || 50,
+      sortOrder: -1,
+      populate,
+    });
 
     const postIds = posts.map((p) => p._id);
     const [userLikes, userBookmarks] = await Promise.all([
@@ -1012,31 +1034,48 @@ exports.getUserPosts = async (req, res) => {
       })
     );
 
-    return res.status(200).json({ posts: enriched });
+    return res.status(200).json({
+      posts: enriched,
+      pagination: {
+        nextCursor: nextCursor || null,
+        hasMore,
+        limit,
+        page: page || 1,
+      },
+    });
   } catch (err) {
+    if (next) return next(err);
     console.error('getUserPosts error:', err);
     return res.status(500).json({ message: 'Error retrieving user posts.' });
   }
 };
 
-// Get Explore/Discover posts (chronological discover feed)
-exports.getExplorePosts = async (req, res) => {
+// Get Explore/Discover posts (chronological discover feed with cursor pagination)
+exports.getExplorePosts = async (req, res, next) => {
   try {
     const currentUserId = req.user ? req.user._id : null;
     const isAdmin = req.user?.role === 'admin';
     const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
 
-    const posts = await Post.find(visFilter)
-      .populate('author', 'name username avatarUrl role status')
-      .populate('audience', 'name username avatarUrl role')
-      .populate('excludedAudience', 'name username avatarUrl role')
-      .populate({
+    const populate = [
+      { path: 'author', select: 'name username avatarUrl role status' },
+      { path: 'audience', select: 'name username avatarUrl role' },
+      { path: 'excludedAudience', select: 'name username avatarUrl role' },
+      {
         path: 'forkedFrom',
         select: 'content codeSnippet author createdAt',
         populate: { path: 'author', select: 'name username avatarUrl' },
-      })
-      .sort({ createdAt: -1 })
-      .limit(30);
+      },
+    ];
+
+    const { items: posts, nextCursor, hasMore, limit, page } = await executeCursorPagination(Post, {
+      baseQuery: visFilter,
+      cursor: req.query.cursor,
+      page: req.query.page,
+      limit: req.query.limit || 30,
+      sortOrder: -1,
+      populate,
+    });
 
     const postIds = posts.map((p) => p._id);
     const [userLikes, userBookmarks] = await Promise.all([
@@ -1066,21 +1105,26 @@ exports.getExplorePosts = async (req, res) => {
       })
     );
 
-    return res.status(200).json({ posts: enriched });
+    return res.status(200).json({
+      posts: enriched,
+      pagination: {
+        nextCursor: nextCursor || null,
+        hasMore,
+        limit,
+        page: page || 1,
+      },
+    });
   } catch (err) {
+    if (next) return next(err);
     console.error('getExplorePosts error:', err);
     return res.status(500).json({ message: 'Failed to retrieve discover feed.' });
   }
 };
 
 // Get all posts that contain code snippets with optional language filter & search
-exports.getCodeFeed = async (req, res) => {
+exports.getCodeFeed = async (req, res, next) => {
   try {
     const { language, q } = req.query;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 30;
-    const skip = (page - 1) * limit;
-
     const currentUserId = req.user ? req.user._id : null;
     const isAdmin = req.user?.role === 'admin';
     const visFilter = await buildVisibilityFilter(currentUserId, isAdmin);
@@ -1119,21 +1163,27 @@ exports.getCodeFeed = async (req, res) => {
 
     const finalQuery = Object.keys(visFilter).length > 0 ? { $and: [filter, visFilter] } : filter;
 
-    const [posts, total] = await Promise.all([
-      Post.find(finalQuery)
-        .sort({ isPinned: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('author', 'name username avatarUrl role status')
-        .populate('audience', 'name username avatarUrl role')
-        .populate('excludedAudience', 'name username avatarUrl role')
-        .populate({
-          path: 'forkedFrom',
-          select: 'content codeSnippet author createdAt',
-          populate: { path: 'author', select: 'name username avatarUrl' },
-        }),
-      Post.countDocuments(finalQuery),
-    ]);
+    const populate = [
+      { path: 'author', select: 'name username avatarUrl role status' },
+      { path: 'audience', select: 'name username avatarUrl role' },
+      { path: 'excludedAudience', select: 'name username avatarUrl role' },
+      {
+        path: 'forkedFrom',
+        select: 'content codeSnippet author createdAt',
+        populate: { path: 'author', select: 'name username avatarUrl' },
+      },
+    ];
+
+    const { items: posts, nextCursor, hasMore, limit, page } = await executeCursorPagination(Post, {
+      baseQuery: finalQuery,
+      cursor: req.query.cursor,
+      page: req.query.page,
+      limit: req.query.limit || 30,
+      sortOrder: -1,
+      populate,
+    });
+
+    const total = await Post.countDocuments(finalQuery);
 
     const postIds = posts.map((p) => p._id);
     const [userLikes, userBookmarks] = await Promise.all([
@@ -1166,10 +1216,18 @@ exports.getCodeFeed = async (req, res) => {
     return res.status(200).json({
       posts: enriched,
       total,
-      page,
-      hasMore: total > skip + posts.length,
+      page: page || 1,
+      hasMore,
+      pagination: {
+        nextCursor: nextCursor || null,
+        hasMore,
+        limit,
+        page: page || 1,
+        totalPosts: total,
+      },
     });
   } catch (err) {
+    if (next) return next(err);
     console.error('getCodeFeed error:', err);
     return res.status(500).json({ message: 'Failed to retrieve code snippets.' });
   }

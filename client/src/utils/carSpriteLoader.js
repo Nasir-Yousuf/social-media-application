@@ -24,8 +24,8 @@ export const loadCarSprite = (carId, imageSrc) => {
     img.crossOrigin = 'anonymous';
 
     img.onload = () => {
-      // If image is already a transparent PNG, cache and return immediately
-      if (imageSrc.endsWith('.png')) {
+      // If image is already a transparent PNG or WebP, cache and return immediately
+      if (imageSrc.endsWith('.png') || imageSrc.endsWith('.webp')) {
         spriteCache.set(carId, img);
         resolve(img);
         return;

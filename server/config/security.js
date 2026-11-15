@@ -21,11 +21,25 @@ const getAllowedOrigins = () => {
 };
 
 const isOriginAllowed = (origin) => {
-  // Allow non-browser requests (e.g. mobile apps, Electron desktop apps, curl, server-to-server)
+  // Allow non-browser requests (e.g. mobile apps, curl, server-to-server)
   if (!origin) return true;
 
   const allowed = getAllowedOrigins();
   if (allowed.includes(origin)) return true;
+
+  // Allow Windows Tauri desktop origins
+  if (
+    origin === 'http://tauri.localhost' ||
+    origin === 'https://tauri.localhost' ||
+    origin === 'tauri://localhost'
+  ) {
+    return true;
+  }
+
+  // Allow Android emulators (10.0.2.2) and local LAN Wi-Fi devices
+  if (/^https?:\/\/(10\.0\.2\.2|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+    return true;
+  }
 
   // Allow local development ports dynamically
   if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;

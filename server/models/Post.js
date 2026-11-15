@@ -161,9 +161,12 @@ const postSchema = new mongoose.Schema(
   }
 );
 
+// Deterministic Chronological Cursor Pagination Compound Indexes
+postSchema.index({ createdAt: -1, _id: -1 });
+postSchema.index({ author: 1, createdAt: -1, _id: -1 });
+postSchema.index({ 'codeSnippet.language': 1, createdAt: -1, _id: -1 });
+postSchema.index({ 'codeSnippet.code': 1 });
 postSchema.index({ createdAt: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
-postSchema.index({ 'codeSnippet.code': 1 });
-postSchema.index({ 'codeSnippet.language': 1 });
 
 module.exports = mongoose.model('Post', postSchema);

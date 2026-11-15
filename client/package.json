@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@clearfeed/shared": "file:../packages/shared",
     "axios": "^1.20.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

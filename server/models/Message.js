@@ -90,14 +90,22 @@ const messageSchema = new mongoose.Schema(
         },
       },
     ],
+    clientMessageId: {
+      type: String,
+      sparse: true,
+      unique: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Compound index for superfast chronological query within a conversation
-messageSchema.index({ conversation: 1, createdAt: 1 });
+// Compound indexes for deterministic chronological cursor pagination
+messageSchema.index({ conversation: 1, createdAt: -1, _id: -1 });
+messageSchema.index({ conversation: 1, createdAt: 1, _id: 1 });
+messageSchema.index({ clientMessageId: 1 }, { unique: true, sparse: true });
 messageSchema.index({ recipient: 1, isRead: 1 });
 
 module.exports = mongoose.model('Message', messageSchema);

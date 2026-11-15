@@ -5,6 +5,10 @@
   "scripts": {
     "start": "node server/server.js",
     "build": "echo 'Backend build ready'",
+    "build:shared": "npm --prefix packages/shared run build",
+    "typecheck:shared": "npm --prefix packages/shared run typecheck",
+    "test:shared": "npm --prefix packages/shared test",
+    "test:server": "npm --prefix server test",
     "build:client": "cd client && npm install && npm run build",
     "postinstall": "npm --prefix server install --omit=dev",
     "dev:server": "npm --prefix server run dev",
@@ -36,5 +40,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

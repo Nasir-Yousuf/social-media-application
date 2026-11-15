@@ -13,8 +13,13 @@ import { ClearfeedLogo } from '../common/ClearfeedIcons';
 import ChangePasswordModal from '../users/ChangePasswordModal';
 
 export const AppLayout = () => {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading, logout } = useAuth();
+  const { openThemeModal, currentTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
+
   const isMessages = location.pathname.startsWith('/messages');
   const isLearn = location.pathname.startsWith('/learn');
   const isCodePractice = location.pathname.startsWith('/code-practice');
@@ -99,12 +104,6 @@ export const AppLayout = () => {
       </div>
     );
   }
-
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
-  const { logout } = useAuth();
-  const { openThemeModal, currentTheme } = useTheme();
-  const navigate = useNavigate();
 
   const handleMobileLogout = () => {
     setIsMobileDrawerOpen(false);

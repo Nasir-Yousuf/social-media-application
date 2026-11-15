@@ -1,0 +1,35 @@
+{
+  "name": "@clearfeed/shared",
+  "version": "1.0.0",
+  "description": "Shared DTOs, API contracts, Socket.io events, and validation schemas for Clearfeed across Web, Android, and Windows Desktop",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node test/clientSdk.test.js",
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\""
+  },
+  "keywords": [
+    "clearfeed",
+    "shared",
+    "contracts",
+    "types",
+    "dto",
+    "mesh"
+  ],
+  "author": "Clearfeed Core Engineering",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

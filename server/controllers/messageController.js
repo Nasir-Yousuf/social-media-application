@@ -4,6 +4,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const { executeCursorPagination, encodeCursor } = require('../utils/cursorPagination');
 const aiService = require('../services/aiService');
 const {
   broadcastChatMessage,
@@ -138,14 +139,49 @@ exports.getMessages = async (req, res) => {
       ]);
     }
 
-    // Fetch messages (paginated, chronological order)
-    const limit = parseInt(req.query.limit) || 60;
-    const messages = await Message.find({ conversation: conversationId })
-      .sort({ createdAt: 1 })
-      .limit(limit)
-      .select('sender recipient text codeSnippet typingChallenge replyTo isRead reactions createdAt')
-      .populate('reactions.user', 'name username avatarUrl')
-      .populate('typingChallenge');
+    // Fetch messages (deterministic chronological cursor pagination)
+    const limit = parseInt(req.query.limit, 10) || 60;
+    const cursor = req.query.cursor;
+
+    let messages;
+    let nextCursor = null;
+    let hasMore = false;
+
+    if (cursor) {
+      // Paginating backwards into history: fetch messages strictly older than the cursor
+      const { items, nextCursor: nCursor, hasMore: more } = await executeCursorPagination(Message, {
+        baseQuery: { conversation: conversationId },
+        cursor,
+        limit,
+        sortOrder: -1,
+        select: 'sender recipient text codeSnippet typingChallenge replyTo isRead reactions createdAt',
+        populate: [
+          { path: 'reactions.user', select: 'name username avatarUrl' },
+          { path: 'typingChallenge' },
+        ],
+      });
+      // Reverse to chronological order (oldest to newest)
+      messages = items.reverse();
+      nextCursor = nCursor;
+      hasMore = more;
+    } else {
+      // Latest messages: fetch latest `limit + 1` messages sorted descending
+      const probeItems = await Message.find({ conversation: conversationId })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(limit + 1)
+        .select('sender recipient text codeSnippet typingChallenge replyTo isRead reactions createdAt')
+        .populate('reactions.user', 'name username avatarUrl')
+        .populate('typingChallenge')
+        .exec();
+
+      hasMore = probeItems.length > limit;
+      if (hasMore) {
+        probeItems.pop();
+      }
+      const oldestDoc = probeItems.length > 0 ? probeItems[probeItems.length - 1] : null;
+      nextCursor = hasMore && oldestDoc ? encodeCursor(oldestDoc) : null;
+      messages = probeItems.reverse();
+    }
 
     const otherUser = conversation.participants.find((p) => {
       const pid = p && p._id ? p._id.toString() : p ? p.toString() : '';
@@ -177,6 +213,11 @@ exports.getMessages = async (req, res) => {
         customAiSettings: conversation.customAiSettings || null,
       },
       messages: sanitizedMessages,
+      pagination: {
+        nextCursor: nextCursor || null,
+        hasMore,
+        limit,
+      },
     });
   } catch (err) {
     console.error('getMessages error:', err);

@@ -14,18 +14,20 @@ const { connectDB, disconnectDB } = require('./config/db');
 const seedDatabase = require('./seeds/seedData');
 const { initSocket } = require('./sockets/socketManager');
 const { corsOptions, validateSecurityEnvironment } = require('./config/security');
+const { validateEnvironment } = require('./config/envValidator');
 const { apiLimiter } = require('./middleware/rateLimiter');
 
-// Run security validation checks on boot
+// Run startup environment & security validation checks on boot
 validateSecurityEnvironment();
+const envConfig = validateEnvironment();
 
 const app = express();
 const server = http.createServer(app);
 initSocket(server);
-const PORT = process.env.PORT || 5180;
+const PORT = envConfig.port || process.env.PORT || 5180;
 
-// Trust reverse proxies (Railway, Cloudflare, Vercel) for accurate client IP resolution
-app.set('trust proxy', 1);
+// Trust reverse proxies (Railway, Cloudflare, Vercel) based on validated TRUST_PROXY_HOPS
+app.set('trust proxy', envConfig.trustProxyHops);
 
 // Security Headers (mitigates clickjacking, MIME sniffing, HSTS)
 app.use(
@@ -125,14 +127,8 @@ app.use((req, res, next) => {
 });
 
 // Centralized Error Handling Middleware
-app.use((err, req, res, next) => {
-  console.error('Unhandled Server Error:', err);
-  const status = err.status || 500;
-  res.status(status).json({
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {}),
-  });
-});
+const errorHandler = require('./middleware/errorHandler');
+app.use(errorHandler);
 
 // Initialize DB and Start Server
 const startServer = async () => {
