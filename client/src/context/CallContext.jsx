@@ -79,6 +79,21 @@ export const CallProvider = ({ children }) => {
     activeCallRef.current = activeCall;
   }, [activeCall]);
 
+  const callStateRef = useRef(callState);
+  useEffect(() => {
+    callStateRef.current = callState;
+  }, [callState]);
+
+  const groupCallStateRef = useRef(groupCallState);
+  useEffect(() => {
+    groupCallStateRef.current = groupCallState;
+  }, [groupCallState]);
+
+  const activeSpaceRef = useRef(activeSpace);
+  useEffect(() => {
+    activeSpaceRef.current = activeSpace;
+  }, [activeSpace]);
+
   // Ensure remote audio element exists in DOM with proper audio policies
   useEffect(() => {
     if (!remoteAudioElemRef.current && typeof document !== "undefined") {
@@ -250,7 +265,7 @@ export const CallProvider = ({ children }) => {
     stopGroupTimer();
     sounds.stopRingtone();
 
-    if (localStreamRef.current && callState === "idle" && !activeSpace) {
+    if (localStreamRef.current && callStateRef.current === "idle" && !activeSpaceRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
       setLocalAudioStream(null);
@@ -262,21 +277,31 @@ export const CallProvider = ({ children }) => {
     setIsGroupCallModalOpen(false);
     setIsGroupMuted(false);
     setGroupCallDuration(0);
-  }, [stopGroupTimer, callState, activeSpace]);
+  }, [stopGroupTimer]);
 
-  // Deterministic teardown on window unload or component unmount
+  const cleanupCallResourcesRef = useRef(cleanupCallResources);
+  useEffect(() => {
+    cleanupCallResourcesRef.current = cleanupCallResources;
+  });
+
+  const cleanupGroupCallResourcesRef = useRef(cleanupGroupCallResources);
+  useEffect(() => {
+    cleanupGroupCallResourcesRef.current = cleanupGroupCallResources;
+  });
+
+  // Deterministic teardown on window unload or true component unmount (empty dependency array!)
   useEffect(() => {
     const handleBeforeUnload = () => {
-      cleanupCallResources();
-      cleanupGroupCallResources();
+      cleanupCallResourcesRef.current?.();
+      cleanupGroupCallResourcesRef.current?.();
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      cleanupCallResources();
-      cleanupGroupCallResources();
+      cleanupCallResourcesRef.current?.();
+      cleanupGroupCallResourcesRef.current?.();
     };
-  }, [cleanupCallResources, cleanupGroupCallResources]);
+  }, []);
 
   // Voice Activity Detection (VAD) to trigger real-time sound waves
   useEffect(() => {
@@ -395,10 +420,10 @@ export const CallProvider = ({ children }) => {
     const unsubIncoming = socketService.on(
       "call:incoming",
       ({ callId, caller, callType }) => {
-        if (callState !== "idle" || groupCallState !== "idle") {
+        if (callStateRef.current !== "idle" || groupCallStateRef.current !== "idle") {
           socketService.rejectCall({
             callId,
-            targetUserId: caller._id,
+            targetUserId: caller?._id || caller?.id,
             reason: "busy",
           });
           return;
@@ -454,6 +479,12 @@ export const CallProvider = ({ children }) => {
         // Unlock remote audio element for playback
         if (remoteAudioElemRef.current) {
           remoteAudioElemRef.current.play().catch(() => {});
+        }
+
+        // ONLY the caller initiates the WebRTC offer upon callee acceptance!
+        // Callee answers the offer in unsubSignal. This avoids WebRTC glare/collision.
+        if (!activeCallRef.current?.isOutgoing) {
+          return;
         }
 
         const targetPeerId =
@@ -788,7 +819,7 @@ export const CallProvider = ({ children }) => {
     const unsubGroupIncoming = socketService.on(
       "group-call:incoming",
       ({ roomId, roomName, caller }) => {
-        if (groupCallState !== "idle" || callState !== "idle") return;
+        if (groupCallStateRef.current !== "idle" || callStateRef.current !== "idle") return;
         setIncomingGroupCall({ roomId, roomName, caller });
         setGroupCallState("incoming");
         sounds.startIncomingRing();
@@ -993,13 +1024,13 @@ export const CallProvider = ({ children }) => {
     };
   }, [
     currentUser,
-    callState,
-    groupCallState,
-    activeCall,
     cleanupCallResources,
     refreshSpaces,
     showToast,
     startTimer,
+    startHeartbeat,
+    selectedAudioInput,
+    selectedAudioOutput,
   ]);
 
   // ==========================================
@@ -1014,17 +1045,18 @@ export const CallProvider = ({ children }) => {
         return;
       }
 
-      if (targetId === currentUser?._id) {
+      const myId = (currentUser?._id || currentUser?.id)?.toString();
+      if (targetId.toString() === myId) {
         showToast("You cannot call yourself", "info");
         return;
       }
 
       const callId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const callerInfo = {
-        _id: currentUser._id,
-        name: currentUser.name,
-        username: currentUser.username,
-        avatarUrl: currentUser.avatarUrl,
+        _id: myId,
+        name: currentUser?.name || 'Classmate',
+        username: currentUser?.username || 'user',
+        avatarUrl: currentUser?.avatarUrl,
       };
 
       sounds.unlock();
@@ -1036,7 +1068,7 @@ export const CallProvider = ({ children }) => {
         let stream = localStreamRef.current;
         const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
         if (!hasLiveTracks) {
-          stream = await getLocalAudioStream();
+          stream = await getLocalAudioStream(selectedAudioInput || null);
           localStreamRef.current = stream;
           setLocalAudioStream(stream);
         }
@@ -1044,7 +1076,9 @@ export const CallProvider = ({ children }) => {
           track.enabled = true;
         });
       } catch (err) {
-        console.warn("Microphone access notice:", err.message);
+        console.warn("Microphone access error:", err);
+        showToast("Microphone access required: please allow microphone permission in your browser", "error");
+        return;
       }
 
       setActiveCall({
@@ -1064,7 +1098,7 @@ export const CallProvider = ({ children }) => {
         callType: "audio",
       });
     },
-    [currentUser, showToast],
+    [currentUser, selectedAudioInput, showToast],
   );
 
   const acceptCall = useCallback(async () => {
@@ -1077,15 +1111,11 @@ export const CallProvider = ({ children }) => {
       remoteAudioElemRef.current.play().catch(() => {});
     }
 
-    setCallState("connected");
-    startTimer();
-    startHeartbeat(activeCall.callId);
-
     try {
       let stream = localStreamRef.current;
       const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
       if (!hasLiveTracks) {
-        stream = await getLocalAudioStream();
+        stream = await getLocalAudioStream(selectedAudioInput || null);
         localStreamRef.current = stream;
         setLocalAudioStream(stream);
       }
@@ -1093,8 +1123,15 @@ export const CallProvider = ({ children }) => {
         track.enabled = true;
       });
     } catch (err) {
-      console.warn("Microphone access notice:", err.message);
+      console.warn("Microphone access error on accept:", err);
+      showToast("Cannot access microphone to answer call: please check permissions", "error");
+      return;
     }
+
+    setCallState("connected");
+    setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : prev));
+    startTimer();
+    startHeartbeat(activeCall.callId);
 
     const targetId = activeCall.otherUser?._id || activeCall.otherUser?.id;
     if (targetId) {
@@ -1103,7 +1140,7 @@ export const CallProvider = ({ children }) => {
         targetUserId: targetId,
       });
     }
-  }, [activeCall, startTimer]);
+  }, [activeCall, selectedAudioInput, startTimer, startHeartbeat, showToast]);
 
   const rejectCall = useCallback(() => {
     if (!activeCall) return;

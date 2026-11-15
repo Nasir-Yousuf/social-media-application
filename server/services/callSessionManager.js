@@ -86,7 +86,7 @@ class CallSessionManager {
           // Callee's existing call wins; reject current attempt
           return { error: 'glare_superseded', winningCallId: calleeCurrentCallId };
         }
-      } else if (existingCall && (existingCall.status === 'connected' || existingCall.status === 'ringing')) {
+      } else if (existingCall && (existingCall.status === 'connected' || (existingCall.status === 'ringing' && existingCall.callerId !== callerIdStr))) {
         // Callee is legitimately busy with another person
         const busyLog = new CallLog({
           callId,
@@ -101,6 +101,10 @@ class CallSessionManager {
         busyLog.save().catch(() => {});
 
         return { error: 'busy', reason: 'callee_busy', targetUserId: calleeIdStr };
+      } else if (existingCall && existingCall.callerId === callerIdStr) {
+        // Same caller re-calling callee: auto-terminate previous pending attempt so call can proceed cleanly
+        console.log(`🔄 [Auto-Cancelling Previous Attempt] ${calleeCurrentCallId} from caller ${callerIdStr}`);
+        await this.terminateCall(calleeCurrentCallId, 'caller_cancelled', callerIdStr);
       }
     }
 
@@ -108,7 +112,14 @@ class CallSessionManager {
     if (this.isUserBusy(callerIdStr)) {
       const activeCallerCallId = this.userBusyMap.get(callerIdStr);
       if (activeCallerCallId !== callId) {
-        return { error: 'busy', reason: 'caller_already_in_call', callId: activeCallerCallId };
+        const activeCallerSession = this.sessions.get(activeCallerCallId);
+        if (activeCallerSession && activeCallerSession.status !== 'connected') {
+          // If previous call was still pending (initiated/ringing), auto-terminate it so user is not stuck!
+          console.log(`🔄 [Auto-Cancelling Stale Pending Call] ${activeCallerCallId} for caller ${callerIdStr}`);
+          await this.terminateCall(activeCallerCallId, 'caller_cancelled', callerIdStr);
+        } else {
+          return { error: 'busy', reason: 'caller_already_in_call', callId: activeCallerCallId };
+        }
       }
     }
 
@@ -230,9 +241,8 @@ class CallSessionManager {
         answeredAt: session.answeredAt.toISOString(),
       };
 
-      // 1. Notify caller that call was accepted
+      // 1. Notify caller that call was accepted (strictly to caller's room so callee does not cross-initiate offer)
       this.io.to(`user:${session.callerId}`).emit('call:accepted', acceptPayload);
-      this.io.to(`call:${callId}`).emit('call:accepted', acceptPayload);
 
       // 2. Multi-Device Coordination: Emit call:answered_elsewhere to other devices of the callee
       // If the user answered on Windows desktop, their Android phone must immediately stop ringing!

@@ -52,6 +52,11 @@ export const CallProvider = ({ children }) => {
     activeCallRef.current = activeCall;
   }, [activeCall]);
 
+  const callStateRef = useRef(callState);
+  useEffect(() => {
+    callStateRef.current = callState;
+  }, [callState]);
+
   // Heartbeat Watchdog helper (5s interval during connected call)
   const startHeartbeat = useCallback((cId) => {
     if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
@@ -151,12 +156,17 @@ export const CallProvider = ({ children }) => {
     setIsMinimized(false);
   }, [stopTimer, stopHeartbeat, stopRingingVibration]);
 
-  // Teardown resources on CallProvider unmount
+  const cleanupCallResourcesRef = useRef(cleanupCallResources);
+  useEffect(() => {
+    cleanupCallResourcesRef.current = cleanupCallResources;
+  });
+
+  // Teardown resources on CallProvider unmount ONLY
   useEffect(() => {
     return () => {
-      cleanupCallResources();
+      cleanupCallResourcesRef.current?.();
     };
-  }, [cleanupCallResources]);
+  }, []);
 
   // Telecom event listeners (audio focus, route changes, notification action clicks)
   useEffect(() => {
@@ -248,7 +258,7 @@ export const CallProvider = ({ children }) => {
 
     // 1. Incoming Call Event
     const unsubIncoming = socketService.on('call:incoming', ({ callId, caller, callType }) => {
-      if (callState !== 'idle') {
+      if (callStateRef.current !== 'idle') {
         // Auto-busy reject if already engaged
         const callerId = caller?._id || caller?.id;
         if (callerId) {
@@ -293,6 +303,12 @@ export const CallProvider = ({ children }) => {
       const peerName = responder?.name || activeCallRef.current?.otherUser?.name || 'Classmate';
       ClearFeedTelecom.startCallForegroundService(peerName).catch(() => {});
       ClearFeedTelecom.startCallAudio().catch(() => {});
+
+      // ONLY the caller initiates the WebRTC offer upon callee acceptance!
+      // Callee answers the offer in unsubSignal. This avoids WebRTC glare/collision.
+      if (!activeCallRef.current?.isOutgoing) {
+        return;
+      }
 
       const targetPeerId =
         responder?._id ||
@@ -634,7 +650,7 @@ export const CallProvider = ({ children }) => {
       unsubGroupLeft();
       unsubGroupMute();
     };
-  }, [currentUser, callState, cleanupCallResources, showToast]);
+  }, [currentUser, cleanupCallResources, showToast]);
 
   // Actions: Initiate 1-on-1 Audio Call
   const startAudioCall = useCallback(

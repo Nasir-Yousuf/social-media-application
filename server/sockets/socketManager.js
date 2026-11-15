@@ -616,8 +616,13 @@ function initSocket(server) {
 
     // Initiate Call (Strict caller validation from authenticated socket)
     socket.on('call:initiate', async ({ callId, targetUserId, callerInfo, callType = 'audio' }) => {
-      const effectiveCallerId = (socket.userId || userId || '').toString();
+      let effectiveCallerId = (socket.userId || userId || '').toString();
       const normTargetUserId = (targetUserId || '').toString().trim();
+
+      if (!effectiveCallerId && callerInfo?._id) {
+        effectiveCallerId = callerInfo._id.toString();
+        socket.userId = effectiveCallerId;
+      }
 
       if (!effectiveCallerId || !normTargetUserId) {
         console.warn('⚠️ call:initiate ignored: missing caller or target id', { effectiveCallerId, normTargetUserId });

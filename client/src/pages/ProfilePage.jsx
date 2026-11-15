@@ -12,6 +12,7 @@ import {
   Zap,
   LogOut,
   Phone,
+  Swords,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
@@ -27,6 +28,7 @@ import { useNotifications } from '../context/NotificationContext';
 import { useCall } from '../context/CallContext';
 import { FacultyBadge } from '../components/common/ClearfeedIcons';
 import { getLocalTypingProfile } from '../utils/typingStorage';
+import TypingChallengeModal from '../components/typing/TypingChallengeModal';
 
 export const ProfilePage = () => {
   const { username } = useParams();
@@ -43,6 +45,7 @@ export const ProfilePage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
 
   // Followers / Following Modal
   const [connectionsModal, setConnectionsModal] = useState({ isOpen: false, title: '', users: [] });
@@ -824,6 +827,15 @@ export const ProfilePage = () => {
           )}
         </div>
       </Modal>
+
+      {/* 1v1 Typing Challenge Modal */}
+      {isChallengeModalOpen && profile && (
+        <TypingChallengeModal
+          isOpen={isChallengeModalOpen}
+          onClose={() => setIsChallengeModalOpen(false)}
+          targetUser={profile}
+        />
+      )}
     </div>
   );
 };
