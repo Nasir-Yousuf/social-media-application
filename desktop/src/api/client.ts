@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const PRODUCTION_BACKEND_URL = 'https://social-media-application-production-e75d.up.railway.app/api';
+export const PRODUCTION_BACKEND_URL = 'https://clearfeed-api.onrender.com/api';
 export const LOCAL_BACKEND_URL = 'http://localhost:5180/api';
 
 export const getBaseUrl = (): string => {
@@ -53,7 +53,7 @@ api.interceptors.response.use(
       (error.message.includes('Network Error') || error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED') &&
       !originalRequest._retry &&
       originalRequest.baseURL !== PRODUCTION_BACKEND_URL &&
-      !originalRequest.url?.includes('railway.app')
+      !originalRequest.url?.includes('onrender.com')
     ) {
       originalRequest._retry = true;
       originalRequest.baseURL = PRODUCTION_BACKEND_URL;

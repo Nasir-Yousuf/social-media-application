@@ -73,7 +73,7 @@ export const linking = {
     'clearfeed://',
     'https://clearfeed-web.vercel.app',
     'https://clearfeed.app',
-    'https://social-media-application-production-e75d.up.railway.app',
+    'https://clearfeed-api.onrender.com',
   ],
   config: {
     screens: {

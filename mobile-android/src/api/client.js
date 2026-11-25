@@ -29,8 +29,8 @@ const getDevHostIp = () => {
 
 const DEV_IP = getDevHostIp();
 
-export const CLOUD_URL = 'https://social-media-application-production-e75d.up.railway.app/api';
-export const CLOUD_ORIGIN = 'https://social-media-application-production-e75d.up.railway.app';
+export const CLOUD_URL = 'https://clearfeed-api.onrender.com/api';
+export const CLOUD_ORIGIN = 'https://clearfeed-api.onrender.com';
 export const LOCAL_DEV_URL = `http://${DEV_IP}:5180/api`;
 export const LOCAL_DEV_ORIGIN = `http://${DEV_IP}:5180`;
 
@@ -183,7 +183,7 @@ async function request(endpoint, options = {}) {
       errMsg.includes('connection refused');
 
     // If local endpoint was unreachable and we aren't already targeting cloud, fallback to cloud
-    if (isConnError && !url.includes('railway.app')) {
+    if (isConnError && !url.includes('onrender.com')) {
       try {
         const cloudUrl = `${CLOUD_URL}${cleanEndpoint}`;
         const fallbackResponse = await fetch(cloudUrl, config);

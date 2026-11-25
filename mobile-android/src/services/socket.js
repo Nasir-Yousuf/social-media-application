@@ -24,7 +24,7 @@ class SocketService {
     if (__DEV__) {
       return LOCAL_DEV_ORIGIN;
     }
-    return 'https://social-media-application-production-e75d.up.railway.app';
+    return 'https://clearfeed-api.onrender.com';
   }
 
   async connect(explicitToken = null) {

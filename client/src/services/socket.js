@@ -42,7 +42,7 @@ class SocketService {
       ) {
         return `http://${hostname}:5180`;
       }
-      return 'https://social-media-application-production-e75d.up.railway.app';
+      return 'https://clearfeed-api.onrender.com';
     }
     return 'http://localhost:5180';
   }
