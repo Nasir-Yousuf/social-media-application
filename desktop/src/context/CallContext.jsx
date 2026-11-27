@@ -19,6 +19,8 @@ import {
 import { useAuth } from "./AuthContext";
 import { useNotifications } from "./NotificationContext";
 import api from "../api/client";
+import GroupCallMeshManager from "../services/groupCallMesh";
+import { createSpacesMediaAdapter } from "../services/spacesMediaAdapter";
 
 const CallContext = createContext(null);
 
@@ -29,6 +31,9 @@ export const CallProvider = ({ children }) => {
   // 1-on-1 Call States: 'idle' | 'calling' | 'incoming' | 'connected'
   const [callState, setCallState] = useState("idle");
   const [activeCall, setActiveCall] = useState(null);
+  const [callConnectionState, setCallConnectionState] = useState("idle");
+  const [iceCandidateType, setIceCandidateType] = useState(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -71,9 +76,14 @@ export const CallProvider = ({ children }) => {
   const isSpeakingLocallyRef = useRef(false);
   const activeCallRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
+  const pendingCandidatesByCallRef = useRef(new Map());
   const isRemoteDescriptionSetRef = useRef(false);
+  const makingOfferRef = useRef(false);
   const iceRestartAttemptsRef = useRef(0);
+  const disconnectGraceTimerRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
+  const groupMeshRef = useRef(new GroupCallMeshManager());
+  const spacesAdapterRef = useRef(null);
 
   useEffect(() => {
     activeCallRef.current = activeCall;
@@ -183,11 +193,16 @@ export const CallProvider = ({ children }) => {
     stopHeartbeat();
     stopTimer();
     sounds.stopRingtone();
+    if (disconnectGraceTimerRef.current) {
+      clearTimeout(disconnectGraceTimerRef.current);
+      disconnectGraceTimerRef.current = null;
+    }
     isRemoteDescriptionSetRef.current = false;
+    makingOfferRef.current = false;
     pendingCandidatesRef.current = [];
     iceRestartAttemptsRef.current = 0;
 
-    if (localStreamRef.current) {
+    if (localStreamRef.current && groupCallStateRef.current === "idle" && !activeSpaceRef.current) {
       localStreamRef.current.getTracks().forEach((t) => {
         try {
           t.stop();
@@ -210,10 +225,30 @@ export const CallProvider = ({ children }) => {
 
     setCallState("idle");
     setActiveCall(null);
+    setCallConnectionState("idle");
+    setIceCandidateType(null);
+    setAutoplayBlocked(false);
     setIsMuted(false);
     setIsMinimized(false);
     setCallDuration(0);
   }, [stopTimer, stopHeartbeat]);
+
+  const unlockRemoteAudio = useCallback(() => {
+    let unlocked = true;
+    if (remoteAudioElemRef.current) {
+      remoteAudioElemRef.current.muted = false;
+      remoteAudioElemRef.current.volume = 1.0;
+      const p = remoteAudioElemRef.current.play();
+      if (p !== undefined) {
+        p.catch(() => {
+          unlocked = false;
+        });
+      }
+    }
+    groupMeshRef.current?.unlockAudio?.();
+    spacesAdapterRef.current?.unlockAudio?.();
+    if (unlocked) setAutoplayBlocked(false);
+  }, []);
 
   // Audio Device Enumeration and Switching Helpers
   const refreshAudioDevices = useCallback(async () => {
@@ -236,15 +271,17 @@ export const CallProvider = ({ children }) => {
       localStreamRef.current = newStream;
       setLocalAudioStream(newStream);
 
-      // Dynamically replace audio track in active peer connection
+      // Dynamically replace audio track in active peer connections
+      const audioTrack = newStream.getAudioTracks()[0];
       if (peerConnectionRef.current) {
-        const audioTrack = newStream.getAudioTracks()[0];
         const senders = peerConnectionRef.current.getSenders();
         const audioSender = senders.find((s) => s.track && s.track.kind === "audio");
         if (audioSender && audioTrack) {
           await audioSender.replaceTrack(audioTrack);
         }
       }
+      groupMeshRef.current?.setLocalStream?.(newStream);
+      spacesAdapterRef.current?.setLocalStream?.(newStream);
     } catch (err) {
       console.warn("Change audio input error:", err);
     }
@@ -255,6 +292,8 @@ export const CallProvider = ({ children }) => {
     if (remoteAudioElemRef.current) {
       await setAudioOutputDevice(remoteAudioElemRef.current, deviceId);
     }
+    groupMeshRef.current?.setAudioOutput?.(deviceId);
+    spacesAdapterRef.current?.setAudioOutput?.(deviceId);
   }, []);
 
   useEffect(() => {
@@ -264,6 +303,7 @@ export const CallProvider = ({ children }) => {
   const cleanupGroupCallResources = useCallback(() => {
     stopGroupTimer();
     sounds.stopRingtone();
+    groupMeshRef.current?.disconnect();
 
     if (localStreamRef.current && callStateRef.current === "idle" && !activeSpaceRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -277,6 +317,7 @@ export const CallProvider = ({ children }) => {
     setIsGroupCallModalOpen(false);
     setIsGroupMuted(false);
     setGroupCallDuration(0);
+    setAutoplayBlocked(false);
   }, [stopGroupTimer]);
 
   const cleanupCallResourcesRef = useRef(cleanupCallResources);
@@ -294,12 +335,14 @@ export const CallProvider = ({ children }) => {
     const handleBeforeUnload = () => {
       cleanupCallResourcesRef.current?.();
       cleanupGroupCallResourcesRef.current?.();
+      spacesAdapterRef.current?.disconnect();
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       cleanupCallResourcesRef.current?.();
       cleanupGroupCallResourcesRef.current?.();
+      spacesAdapterRef.current?.disconnect();
     };
   }, []);
 
@@ -460,6 +503,163 @@ export const CallProvider = ({ children }) => {
       },
     );
 
+    const flushPendingCandidates = async (targetCallId, pc) => {
+      const byCall = pendingCandidatesByCallRef.current.get(targetCallId) || [];
+      const legacy = pendingCandidatesRef.current || [];
+      if (byCall.length === 0 && legacy.length === 0) return;
+
+      pendingCandidatesByCallRef.current.delete(targetCallId);
+      pendingCandidatesRef.current = [];
+
+      for (const cand of [...byCall, ...legacy]) {
+        await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+      }
+    };
+
+    const detectSelectedCandidateType = async (pc) => {
+      try {
+        if (!pc || typeof pc.getStats !== "function") return;
+        const stats = await pc.getStats();
+        let selectedPair = null;
+        stats.forEach((report) => {
+          if (report.type === "candidate-pair" && (report.nominated || report.selected || report.state === "succeeded")) {
+            if (!selectedPair || report.selected || report.nominated) {
+              selectedPair = report;
+            }
+          }
+        });
+        if (selectedPair) {
+          const remoteCand = stats.get(selectedPair.remoteCandidateId);
+          const localCand = stats.get(selectedPair.localCandidateId);
+          const cType = remoteCand?.candidateType || localCand?.candidateType || "";
+          if (cType) setIceCandidateType(cType);
+        }
+      } catch {}
+    };
+
+    const createActivePeerConnection = async (callId, targetPeerId, stream) => {
+      if (peerConnectionRef.current) {
+        try {
+          peerConnectionRef.current.close();
+        } catch {}
+        peerConnectionRef.current = null;
+      }
+
+      isRemoteDescriptionSetRef.current = false;
+      makingOfferRef.current = false;
+      setCallConnectionState("connecting");
+      setIceCandidateType("");
+
+      const iceConfig = await fetchIceServers(api);
+
+      const pc = createPeerConnection({
+        iceServers: iceConfig,
+        onIceCandidate: (candidate) => {
+          if (candidate && targetPeerId) {
+            socketService.sendSignal({
+              callId,
+              targetUserId: targetPeerId,
+              fromUserId: currentUser?._id,
+              signal: { type: "candidate", candidate },
+            });
+          }
+        },
+        onTrack: (remoteStream) => {
+          if (remoteAudioElemRef.current) {
+            remoteAudioElemRef.current.srcObject = remoteStream;
+            remoteAudioElemRef.current.muted = false;
+            remoteAudioElemRef.current.volume = 1.0;
+            if (selectedAudioOutput) {
+              setAudioOutputDevice(remoteAudioElemRef.current, selectedAudioOutput);
+            }
+            const p = remoteAudioElemRef.current.play();
+            if (p !== undefined) {
+              p.then(() => {
+                setAutoplayBlocked(false);
+              }).catch(() => {
+                setAutoplayBlocked(true);
+                const unlock = () => {
+                  remoteAudioElemRef.current?.play().then(() => setAutoplayBlocked(false)).catch(() => {});
+                  document.removeEventListener("click", unlock);
+                  document.removeEventListener("touchstart", unlock);
+                };
+                document.addEventListener("click", unlock, { once: true, passive: true });
+                document.addEventListener("touchstart", unlock, { once: true, passive: true });
+              });
+            }
+          }
+        },
+        onConnectionStateChange: async (connState) => {
+          setCallConnectionState(connState);
+
+          if (connState === "connected" || connState === "completed") {
+            iceRestartAttemptsRef.current = 0;
+            if (disconnectGraceTimerRef.current) {
+              clearTimeout(disconnectGraceTimerRef.current);
+              disconnectGraceTimerRef.current = null;
+            }
+            detectSelectedCandidateType(pc);
+            return;
+          }
+
+          const triggerRestart = async () => {
+            if (!peerConnectionRef.current || peerConnectionRef.current !== pc) return;
+            if (iceRestartAttemptsRef.current < 3) {
+              iceRestartAttemptsRef.current += 1;
+              try {
+                makingOfferRef.current = true;
+                const offer = await restartIce(pc);
+                if (offer && activeCallRef.current?.callId === callId && targetPeerId) {
+                  socketService.sendSignal({
+                    callId,
+                    targetUserId: targetPeerId,
+                    fromUserId: currentUser?._id,
+                    signal: { type: "offer", sdp: offer },
+                  });
+                }
+              } catch {} finally {
+                makingOfferRef.current = false;
+              }
+            } else if (activeCallRef.current?.callId === callId) {
+              showToast("Audio connection lost", "error");
+              cleanupCallResources();
+            }
+          };
+
+          if (connState === "disconnected") {
+            if (disconnectGraceTimerRef.current) {
+              clearTimeout(disconnectGraceTimerRef.current);
+            }
+            disconnectGraceTimerRef.current = setTimeout(() => {
+              disconnectGraceTimerRef.current = null;
+              if (pc.iceConnectionState === "disconnected" || pc.connectionState === "disconnected") {
+                triggerRestart();
+              }
+            }, 2500);
+          } else if (connState === "failed") {
+            if (disconnectGraceTimerRef.current) {
+              clearTimeout(disconnectGraceTimerRef.current);
+              disconnectGraceTimerRef.current = null;
+            }
+            await triggerRestart();
+          }
+        },
+      });
+
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      peerConnectionRef.current = pc;
+      return pc;
+    };
+
+    const unsubInitiated = socketService.on("call:initiated", ({ callId, status }) => {
+      if (status === "ringing") {
+        sounds.startOutgoingRing();
+      }
+      setActiveCall((prev) =>
+        prev && prev.callId === callId ? { ...prev, status: status || prev.status } : prev,
+      );
+    });
+
     // 2. Call Ringing (Target user is online and receiving call)
     const unsubRinging = socketService.on("call:ringing", () => {
       setActiveCall((prev) => (prev ? { ...prev, status: "ringing" } : prev));
@@ -470,19 +670,20 @@ export const CallProvider = ({ children }) => {
     const unsubAccepted = socketService.on(
       "call:accepted",
       async ({ callId, responder }) => {
+        if (activeCallRef.current?.callId && callId && activeCallRef.current.callId !== callId) {
+          return;
+        }
         sounds.playConnectedTone();
         setActiveCall((prev) => (prev ? { ...prev, status: "connected" } : prev));
         setCallState("connected");
         startTimer();
         startHeartbeat(callId);
 
-        // Unlock remote audio element for playback
         if (remoteAudioElemRef.current) {
           remoteAudioElemRef.current.play().catch(() => {});
         }
 
         // ONLY the caller initiates the WebRTC offer upon callee acceptance!
-        // Callee answers the offer in unsubSignal. This avoids WebRTC glare/collision.
         if (!activeCallRef.current?.isOutgoing) {
           return;
         }
@@ -494,7 +695,6 @@ export const CallProvider = ({ children }) => {
           activeCallRef.current?.otherUser?.id;
 
         try {
-          // Re-use live local audio stream if available, otherwise acquire mic
           let stream = localStreamRef.current;
           const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
           if (!hasLiveTracks) {
@@ -506,82 +706,8 @@ export const CallProvider = ({ children }) => {
             track.enabled = true;
           });
 
-          if (peerConnectionRef.current) {
-            try {
-              peerConnectionRef.current.close();
-            } catch {}
-            peerConnectionRef.current = null;
-          }
-
-          const iceConfig = await fetchIceServers(api);
-
-          const pc = createPeerConnection({
-            iceServers: iceConfig.iceServers,
-            onIceCandidate: (candidate) => {
-              if (candidate) {
-                socketService.sendSignal({
-                  callId,
-                  targetUserId: targetPeerId,
-                  fromUserId: currentUser?._id,
-                  signal: { type: "candidate", candidate },
-                });
-              }
-            },
-            onTrack: (remoteStream) => {
-              console.log("🔊 Setting remote stream to audio element:", remoteStream);
-              if (remoteAudioElemRef.current) {
-                remoteAudioElemRef.current.srcObject = remoteStream;
-                remoteAudioElemRef.current.muted = false;
-                remoteAudioElemRef.current.volume = 1.0;
-                if (selectedAudioOutput) {
-                  setAudioOutputDevice(remoteAudioElemRef.current, selectedAudioOutput);
-                }
-                const p = remoteAudioElemRef.current.play();
-                if (p !== undefined) {
-                  p.catch((err) => {
-                    console.warn("Autoplay notice, unlocking on gesture:", err);
-                    const unlock = () => {
-                      remoteAudioElemRef.current?.play().catch(() => {});
-                      document.removeEventListener("click", unlock);
-                      document.removeEventListener("touchstart", unlock);
-                    };
-                    document.addEventListener("click", unlock, { once: true, passive: true });
-                    document.addEventListener("touchstart", unlock, { once: true, passive: true });
-                  });
-                }
-              }
-            },
-            onConnectionStateChange: async (iceState) => {
-              if (iceState === "disconnected" || iceState === "failed") {
-                if (iceRestartAttemptsRef.current < 3) {
-                  iceRestartAttemptsRef.current += 1;
-                  console.warn(`🧊 ICE ${iceState}, auto ICE restart (${iceRestartAttemptsRef.current}/3)...`);
-                  try {
-                    const offer = await restartIce(peerConnectionRef.current);
-                    if (offer && activeCallRef.current) {
-                      socketService.sendSignal({
-                        callId,
-                        targetUserId: targetPeerId,
-                        fromUserId: currentUser?._id,
-                        signal: { type: "offer", sdp: offer },
-                      });
-                    }
-                  } catch (e) {
-                    console.warn("ICE restart error:", e);
-                  }
-                } else {
-                  showToast("Audio connection lost", "error");
-                  cleanupCallResources();
-                }
-              } else if (iceState === "connected" || iceState === "completed") {
-                iceRestartAttemptsRef.current = 0;
-              }
-            },
-          });
-
-          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-          peerConnectionRef.current = pc;
-
+          const pc = await createActivePeerConnection(callId, targetPeerId, stream);
+          makingOfferRef.current = true;
           const offer = await pc.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: false,
@@ -592,10 +718,12 @@ export const CallProvider = ({ children }) => {
             callId,
             targetUserId: targetPeerId,
             fromUserId: currentUser?._id,
-            signal: { type: "offer", sdp: offer },
+            signal: { type: "offer", sdp: pc.localDescription || offer },
           });
         } catch (err) {
           console.warn("WebRTC offer error:", err);
+        } finally {
+          makingOfferRef.current = false;
         }
       },
     );
@@ -606,6 +734,9 @@ export const CallProvider = ({ children }) => {
       async ({ callId, fromUserId, signal }) => {
         try {
           if (!signal) return;
+          if (activeCallRef.current?.callId && callId && activeCallRef.current.callId !== callId) {
+            return;
+          }
           const otherUserId =
             fromUserId ||
             activeCallRef.current?.otherUser?._id ||
@@ -625,92 +756,26 @@ export const CallProvider = ({ children }) => {
               track.enabled = true;
             });
 
-            const iceConfig = await fetchIceServers(api);
-
-            const pc = createPeerConnection({
-              iceServers: iceConfig.iceServers,
-              onIceCandidate: (candidate) => {
-                if (candidate) {
-                  socketService.sendSignal({
-                    callId,
-                    targetUserId: otherUserId,
-                    fromUserId: currentUser?._id,
-                    signal: { type: "candidate", candidate },
-                  });
-                }
-              },
-              onTrack: (remoteStream) => {
-                console.log("🔊 Setting remote stream to audio element:", remoteStream);
-                if (remoteAudioElemRef.current) {
-                  remoteAudioElemRef.current.srcObject = remoteStream;
-                  remoteAudioElemRef.current.muted = false;
-                  remoteAudioElemRef.current.volume = 1.0;
-                  if (selectedAudioOutput) {
-                    setAudioOutputDevice(remoteAudioElemRef.current, selectedAudioOutput);
-                  }
-                  const p = remoteAudioElemRef.current.play();
-                  if (p !== undefined) {
-                    p.catch((err) => {
-                      console.warn("Autoplay notice, unlocking on gesture:", err);
-                      const unlock = () => {
-                        remoteAudioElemRef.current?.play().catch(() => {});
-                        document.removeEventListener("click", unlock);
-                        document.removeEventListener("touchstart", unlock);
-                      };
-                      document.addEventListener("click", unlock, { once: true, passive: true });
-                      document.addEventListener("touchstart", unlock, { once: true, passive: true });
-                    });
-                  }
-                }
-              },
-              onConnectionStateChange: async (iceState) => {
-                if (iceState === "disconnected" || iceState === "failed") {
-                  if (iceRestartAttemptsRef.current < 3) {
-                    iceRestartAttemptsRef.current += 1;
-                    console.warn(`🧊 ICE ${iceState}, auto ICE restart (${iceRestartAttemptsRef.current}/3)...`);
-                    try {
-                      const offer = await restartIce(peerConnectionRef.current);
-                      if (offer && activeCallRef.current) {
-                        socketService.sendSignal({
-                          callId,
-                          targetUserId: otherUserId,
-                          fromUserId: currentUser?._id,
-                          signal: { type: "offer", sdp: offer },
-                        });
-                      }
-                    } catch (e) {
-                      console.warn("ICE restart error:", e);
-                    }
-                  } else {
-                    showToast("Audio connection lost", "error");
-                    cleanupCallResources();
-                  }
-                } else if (iceState === "connected" || iceState === "completed") {
-                  iceRestartAttemptsRef.current = 0;
-                }
-              },
-            });
-
-            stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-            peerConnectionRef.current = pc;
-            return pc;
+            return createActivePeerConnection(callId, otherUserId, stream);
           };
 
           if (signal.type === "offer") {
             const pc = await ensurePeerConnection();
-            await pc.setRemoteDescription(
-              new RTCSessionDescription(signal.sdp),
-            );
-            isRemoteDescriptionSetRef.current = true;
+            const myIdStr = (currentUser?._id || currentUser?.id || "").toString();
+            const peerIdStr = (otherUserId || "").toString();
+            const polite = myIdStr > peerIdStr;
+            const offerCollision = makingOfferRef.current || pc.signalingState !== "stable";
 
-            // Flush any buffered candidates
-            if (pendingCandidatesRef.current.length > 0) {
-              const queued = [...pendingCandidatesRef.current];
-              pendingCandidatesRef.current = [];
-              for (const cand of queued) {
-                await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+            if (offerCollision) {
+              if (!polite) {
+                return;
               }
+              await pc.setLocalDescription({ type: "rollback" }).catch(() => {});
             }
+
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+            isRemoteDescriptionSetRef.current = true;
+            await flushPendingCandidates(callId, pc);
 
             const answer = await pc.createAnswer({
               offerToReceiveAudio: true,
@@ -722,29 +787,23 @@ export const CallProvider = ({ children }) => {
               callId,
               targetUserId: otherUserId,
               fromUserId: currentUser?._id,
-              signal: { type: "answer", sdp: answer },
+              signal: { type: "answer", sdp: pc.localDescription || answer },
             });
           } else if (signal.type === "answer") {
-            if (peerConnectionRef.current) {
-              const pc = peerConnectionRef.current;
-              await pc.setRemoteDescription(
-                new RTCSessionDescription(signal.sdp),
-              );
+            const pc = peerConnectionRef.current;
+            if (pc && pc.signalingState === "have-local-offer") {
+              await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
               isRemoteDescriptionSetRef.current = true;
-
-              // Flush any buffered candidates
-              if (pendingCandidatesRef.current.length > 0) {
-                const queued = [...pendingCandidatesRef.current];
-                pendingCandidatesRef.current = [];
-                for (const cand of queued) {
-                  await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
-                }
-              }
+              await flushPendingCandidates(callId, pc);
             }
           } else if (signal.type === "candidate" && signal.candidate) {
             const pc = peerConnectionRef.current;
             if (isRemoteDescriptionSetRef.current && pc && pc.remoteDescription && pc.remoteDescription.type) {
               await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {});
+            } else if (callId) {
+              const queue = pendingCandidatesByCallRef.current.get(callId) || [];
+              queue.push(signal.candidate);
+              pendingCandidatesByCallRef.current.set(callId, queue);
             } else {
               pendingCandidatesRef.current.push(signal.candidate);
             }
@@ -830,6 +889,9 @@ export const CallProvider = ({ children }) => {
       "group-call:existing_participants",
       ({ roomId, participants }) => {
         setActiveGroupCall((prev) => (prev ? { ...prev, participants } : prev));
+        if (groupMeshRef.current && groupMeshRef.current.roomId === roomId) {
+          groupMeshRef.current.syncParticipants(participants);
+        }
       },
     );
 
@@ -843,6 +905,9 @@ export const CallProvider = ({ children }) => {
           );
           return { ...prev, participants: [...filtered, participant] };
         });
+        if (groupMeshRef.current && groupMeshRef.current.roomId === roomId) {
+          groupMeshRef.current.handleUserJoined(participant);
+        }
         sounds.playConnectedTone();
         showToast(
           `${participant.user?.name || "A classmate"} joined the group call`,
@@ -863,6 +928,18 @@ export const CallProvider = ({ children }) => {
             ),
           };
         });
+        if (groupMeshRef.current && groupMeshRef.current.roomId === roomId) {
+          groupMeshRef.current.handleUserLeft(leftUserId);
+        }
+      },
+    );
+
+    const unsubGroupSignal = socketService.on(
+      "group-call:signal",
+      async ({ roomId, fromUserId, signal }) => {
+        if (groupMeshRef.current && groupMeshRef.current.roomId === roomId) {
+          await groupMeshRef.current.handleSignal(fromUserId, signal);
+        }
       },
     );
 
@@ -893,7 +970,66 @@ export const CallProvider = ({ children }) => {
       },
     );
 
-    // 7. Spaces Updates
+    // 7. Spaces Updates & WebRTC Media Engine
+    const resolveMySpaceRole = (spaceSnapshot) => {
+      const myId = (currentUser?._id || currentUser?.id)?.toString();
+      if (!myId || !spaceSnapshot) return "LISTENER";
+      const hostId = (spaceSnapshot.host?._id || spaceSnapshot.hostId)?.toString();
+      if (hostId === myId) return "HOST";
+      const spk = (spaceSnapshot.speakers || []).find(
+        (s) => (s.user?._id || s.user?.id || s.userId)?.toString() === myId,
+      );
+      if (spk?.role) return spk.role;
+      return "LISTENER";
+    };
+
+    const syncSpaceMediaAdapter = async (spaceSnapshot, mediaToken = null) => {
+      if (!spaceSnapshot?.id) return;
+      const myId = (currentUser?._id || currentUser?.id)?.toString();
+      if (!myId) return;
+      const myRole = resolveMySpaceRole(spaceSnapshot);
+
+      if (!spacesAdapterRef.current || spacesAdapterRef.current.spaceId !== spaceSnapshot.id) {
+        const iceConfig = await fetchIceServers(api).catch(() => null);
+        const adapter = createSpacesMediaAdapter(mediaToken);
+        await adapter.connect(
+          {
+            spaceId: spaceSnapshot.id,
+            userId: myId,
+            role: myRole,
+            socketService,
+            iceServers: iceConfig,
+            selectedAudioOutput,
+          },
+          localStreamRef.current,
+          {
+            onAutoplayBlocked: () => setAutoplayBlocked(true),
+          },
+        );
+        spacesAdapterRef.current = adapter;
+      } else {
+        if (spacesAdapterRef.current.role !== myRole) {
+          await spacesAdapterRef.current.updateRole(myRole, mediaToken);
+        }
+        if (
+          localStreamRef.current &&
+          spacesAdapterRef.current.canPublish() &&
+          spacesAdapterRef.current.localStream !== localStreamRef.current
+        ) {
+          spacesAdapterRef.current.setLocalStream(localStreamRef.current);
+        }
+      }
+
+      spacesAdapterRef.current.syncParticipants(spaceSnapshot);
+    };
+
+    const unsubSpaceJoined = socketService.on("spaces:joined", ({ space, mediaToken }) => {
+      if (!space) return;
+      setActiveSpace(space);
+      setIsSpacesModalOpen(true);
+      syncSpaceMediaAdapter(space, mediaToken);
+    });
+
     const unsubSpacesUpdated = socketService.on(
       "spaces:updated",
       ({ spaces }) => {
@@ -905,12 +1041,19 @@ export const CallProvider = ({ children }) => {
       "space:state_change",
       ({ space }) => {
         setActiveSpace((prev) => (prev && prev.id === space.id ? space : prev));
+        if (activeSpaceRef.current?.id === space.id) {
+          syncSpaceMediaAdapter(space);
+        }
       },
     );
 
     const unsubSpaceEnded = socketService.on("space:ended", ({ spaceId }) => {
       setActiveSpace((prev) => {
         if (prev && prev.id === spaceId) {
+          spacesAdapterRef.current?.disconnect();
+          spacesAdapterRef.current = null;
+          setIsSpacesModalOpen(false);
+          setAutoplayBlocked(false);
           showToast("This Audio Space has ended.", "info");
           return null;
         }
@@ -945,8 +1088,27 @@ export const CallProvider = ({ children }) => {
       },
     );
 
-    const unsubSpeakerPromoted = socketService.on("spaces:speaker_promoted", () => {
+    const unsubSpeakerPromoted = socketService.on("spaces:speaker_promoted", async ({ mediaToken } = {}) => {
       setIsSpaceMuted(true);
+      try {
+        let stream = localStreamRef.current;
+        const hasLiveTracks = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
+        if (!hasLiveTracks) {
+          stream = await getLocalAudioStream(selectedAudioInput || null).catch(() => null);
+          if (stream) {
+            stream.getAudioTracks().forEach((t) => (t.enabled = false));
+            localStreamRef.current = stream;
+            setLocalAudioStream(stream);
+          }
+        }
+        if (spacesAdapterRef.current) {
+          await spacesAdapterRef.current.updateRole("SPEAKER", mediaToken);
+          if (stream) spacesAdapterRef.current.setLocalStream(stream);
+          if (activeSpaceRef.current) {
+            spacesAdapterRef.current.syncParticipants(activeSpaceRef.current);
+          }
+        }
+      } catch {}
       showToast("You have been promoted to Speaker! Tap Unmute to speak.", "success");
     });
 
@@ -957,24 +1119,36 @@ export const CallProvider = ({ children }) => {
 
     const unsubForceMuted = socketService.on("spaces:force_muted", () => {
       setIsSpaceMuted(true);
+      if (spacesAdapterRef.current) {
+        spacesAdapterRef.current.isMuted = true;
+      }
       if (localStreamRef.current) {
         localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = false));
       }
       showToast("You have been muted by a moderator.", "info");
     });
 
-    const unsubDemoted = socketService.on("spaces:demoted", () => {
+    const unsubDemoted = socketService.on("spaces:demoted", async ({ mediaToken } = {}) => {
       setIsSpaceMuted(true);
       if (localStreamRef.current) {
         localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = false));
+      }
+      if (spacesAdapterRef.current) {
+        await spacesAdapterRef.current.updateRole("LISTENER", mediaToken).catch(() => {});
+        if (activeSpaceRef.current) {
+          spacesAdapterRef.current.syncParticipants(activeSpaceRef.current);
+        }
       }
       showToast("You have been demoted back to Listeners.", "info");
     });
 
     const unsubKicked = socketService.on("spaces:kicked", () => {
+      spacesAdapterRef.current?.disconnect();
+      spacesAdapterRef.current = null;
       setActiveSpace(null);
       setIsSpacesModalOpen(false);
       setIsSpaceMuted(true);
+      setAutoplayBlocked(false);
       showToast("You were removed from this Space by a moderator.", "error");
     });
 
@@ -992,6 +1166,7 @@ export const CallProvider = ({ children }) => {
 
     return () => {
       unsubIncoming();
+      unsubInitiated();
       unsubRinging();
       unsubAccepted();
       unsubSignal();
@@ -1006,8 +1181,10 @@ export const CallProvider = ({ children }) => {
       unsubGroupExisting();
       unsubGroupJoined();
       unsubGroupLeft();
+      unsubGroupSignal();
       unsubGroupSpeaking();
       unsubGroupMute();
+      unsubSpaceJoined();
       unsubSpacesUpdated();
       unsubSpaceState();
       unsubSpaceEnded();
@@ -1201,12 +1378,30 @@ export const CallProvider = ({ children }) => {
     async ({ roomName, targetUserIds = [] }) => {
       const roomId = `grp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const finalName = (roomName || "Group Voice Call").trim();
+      setAutoplayBlocked(false);
 
+      let stream = null;
       try {
-        const stream = await getLocalAudioStream();
+        stream = await getLocalAudioStream(selectedAudioInput || null);
         localStreamRef.current = stream;
         setLocalAudioStream(stream);
-      } catch {}
+      } catch {
+        showToast("Microphone unavailable: joined Group Call muted", "info");
+      }
+
+      const iceConfig = await fetchIceServers(api).catch(() => null);
+      const myId = (currentUser?._id || currentUser?.id)?.toString();
+      groupMeshRef.current.connect({
+        roomId,
+        userId: myId,
+        socketService,
+        iceServers: iceConfig,
+        localStream: stream,
+        selectedAudioOutput,
+        callbacks: {
+          onAutoplayBlocked: () => setAutoplayBlocked(true),
+        },
+      });
 
       setActiveGroupCall({
         roomId,
@@ -1215,21 +1410,20 @@ export const CallProvider = ({ children }) => {
         participants: [
           {
             user: currentUser,
-            isMuted: false,
+            isMuted: !stream,
             joinedAt: new Date(),
           },
         ],
       });
 
+      setIsGroupMuted(!stream);
       setGroupCallState("connected");
       setIsGroupCallModalOpen(true);
       startGroupTimer();
       sounds.playConnectedTone();
 
-      // Join socket room
       socketService.joinGroupCall({ roomId, user: currentUser });
 
-      // Ring all selected participants
       if (targetUserIds.length > 0) {
         socketService.inviteToGroupCall({
           roomId,
@@ -1240,19 +1434,38 @@ export const CallProvider = ({ children }) => {
         showToast(`Calling ${targetUserIds.length} member(s)...`, "info");
       }
     },
-    [currentUser, startGroupTimer, showToast],
+    [currentUser, selectedAudioInput, selectedAudioOutput, startGroupTimer, showToast],
   );
 
   const acceptGroupCall = useCallback(async () => {
     if (!incomingGroupCall) return;
     sounds.stopRingtone();
+    sounds.unlock();
     sounds.playConnectedTone();
+    setAutoplayBlocked(false);
 
+    let stream = null;
     try {
-      const stream = await getLocalAudioStream();
+      stream = await getLocalAudioStream(selectedAudioInput || null);
       localStreamRef.current = stream;
       setLocalAudioStream(stream);
-    } catch {}
+    } catch {
+      showToast("Microphone unavailable: joined Group Call muted", "info");
+    }
+
+    const iceConfig = await fetchIceServers(api).catch(() => null);
+    const myId = (currentUser?._id || currentUser?.id)?.toString();
+    groupMeshRef.current.connect({
+      roomId: incomingGroupCall.roomId,
+      userId: myId,
+      socketService,
+      iceServers: iceConfig,
+      localStream: stream,
+      selectedAudioOutput,
+      callbacks: {
+        onAutoplayBlocked: () => setAutoplayBlocked(true),
+      },
+    });
 
     setActiveGroupCall({
       roomId: incomingGroupCall.roomId,
@@ -1260,10 +1473,11 @@ export const CallProvider = ({ children }) => {
       host: incomingGroupCall.caller,
       participants: [
         { user: incomingGroupCall.caller, isMuted: false },
-        { user: currentUser, isMuted: false },
+        { user: currentUser, isMuted: !stream },
       ],
     });
 
+    setIsGroupMuted(!stream);
     setGroupCallState("connected");
     setIncomingGroupCall(null);
     setIsGroupCallModalOpen(true);
@@ -1273,7 +1487,7 @@ export const CallProvider = ({ children }) => {
       roomId: incomingGroupCall.roomId,
       user: currentUser,
     });
-  }, [incomingGroupCall, currentUser, startGroupTimer]);
+  }, [incomingGroupCall, currentUser, selectedAudioInput, selectedAudioOutput, startGroupTimer, showToast]);
 
   const rejectGroupCall = useCallback(() => {
     sounds.stopRingtone();
@@ -1315,22 +1529,33 @@ export const CallProvider = ({ children }) => {
   const createSpace = useCallback(
     async ({ title, topic }) => {
       try {
-        const stream = await getLocalAudioStream().catch(() => null);
+        setAutoplayBlocked(false);
+        if (spacesAdapterRef.current) {
+          spacesAdapterRef.current.disconnect();
+          spacesAdapterRef.current = null;
+        }
+
+        const stream = await getLocalAudioStream(selectedAudioInput || null).catch(() => null);
         if (stream) {
           localStreamRef.current = stream;
           setLocalAudioStream(stream);
+        } else {
+          showToast("Microphone unavailable: launched Space muted.", "info");
         }
 
         const res = await api.post("/spaces", { title, topic });
         const space = res.data.space;
+        const spaceId = space?.id || space?.roomId || space?._id;
         setActiveSpace(space);
         setIsSpacesModalOpen(true);
-        setIsSpaceMuted(false);
+        setIsSpaceMuted(!stream);
 
-        socketService.joinSpace({
-          spaceId: space.id,
-          user: currentUser,
-        });
+        if (spaceId) {
+          socketService.joinSpace({
+            spaceId,
+            user: currentUser,
+          });
+        }
 
         showToast("Audio Space launched! You are live.", "success");
         refreshSpaces();
@@ -1342,18 +1567,27 @@ export const CallProvider = ({ children }) => {
         );
       }
     },
-    [currentUser, showToast, refreshSpaces],
+    [currentUser, selectedAudioInput, showToast, refreshSpaces],
   );
 
   const joinSpace = useCallback(
     (space) => {
       if (!space) return;
+      const spaceId = space.id || space.roomId || space._id;
+      if (!spaceId) return;
+
+      setAutoplayBlocked(false);
+      if (spacesAdapterRef.current && spacesAdapterRef.current.spaceId !== spaceId) {
+        spacesAdapterRef.current.disconnect();
+        spacesAdapterRef.current = null;
+      }
+
       setActiveSpace(space);
       setIsSpacesModalOpen(true);
       setIsSpaceMuted(true);
 
       socketService.joinSpace({
-        spaceId: space.id,
+        spaceId,
         user: currentUser,
       });
     },
@@ -1363,10 +1597,18 @@ export const CallProvider = ({ children }) => {
   const leaveSpace = useCallback(() => {
     if (!activeSpace) return;
     socketService.leaveSpace({ spaceId: activeSpace.id });
+    spacesAdapterRef.current?.disconnect();
+    spacesAdapterRef.current = null;
+    if (localStreamRef.current && callStateRef.current === "idle" && groupCallStateRef.current === "idle") {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
+      setLocalAudioStream(null);
+    }
     setActiveSpace(null);
     setIsSpacesModalOpen(false);
     setIsHandRaised(false);
     setIsSpaceMuted(false);
+    setAutoplayBlocked(false);
     showToast("Left Audio Space", "info");
   }, [activeSpace, showToast]);
 
@@ -1374,20 +1616,39 @@ export const CallProvider = ({ children }) => {
     if (!activeSpace) return;
     const nextState = !isSpaceMuted;
 
-    if (!nextState && !localStreamRef.current) {
-      try {
-        const stream = await getLocalAudioStream();
-        localStreamRef.current = stream;
-        setLocalAudioStream(stream);
-      } catch {}
+    if (!nextState) {
+      let stream = localStreamRef.current;
+      const hasLive = stream && stream.getAudioTracks().some((t) => t.readyState === "live");
+      if (!hasLive) {
+        try {
+          stream = await getLocalAudioStream(selectedAudioInput || null);
+          localStreamRef.current = stream;
+          setLocalAudioStream(stream);
+        } catch {
+          showToast("Microphone permission required to speak", "error");
+          return;
+        }
+      }
+      if (stream && spacesAdapterRef.current) {
+        spacesAdapterRef.current.setLocalStream(stream);
+      }
     }
 
     setIsSpaceMuted(nextState);
-    socketService.toggleSpaceMute({
-      spaceId: activeSpace.id,
-      isMuted: nextState,
-    });
-  }, [activeSpace, isSpaceMuted]);
+    if (spacesAdapterRef.current) {
+      await spacesAdapterRef.current.setMicrophoneMuted(nextState);
+    } else {
+      if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach((t) => {
+          t.enabled = !nextState;
+        });
+      }
+      socketService.toggleSpaceMute({
+        spaceId: activeSpace.id,
+        isMuted: nextState,
+      });
+    }
+  }, [activeSpace, isSpaceMuted, selectedAudioInput, showToast]);
 
   const raiseHand = useCallback(() => {
     if (!activeSpace) return;
@@ -1543,6 +1804,10 @@ export const CallProvider = ({ children }) => {
         callDuration,
         formatDuration,
         isMinimized,
+        callConnectionState,
+        iceCandidateType,
+        autoplayBlocked,
+        unlockRemoteAudio,
         localAudioStream,
         audioInputDevices,
         audioOutputDevices,

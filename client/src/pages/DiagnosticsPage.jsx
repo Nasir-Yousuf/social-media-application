@@ -42,6 +42,8 @@ export const DiagnosticsPage = () => {
   });
   const [echoPingResult, setEchoPingResult] = useState(null);
   const [isPinging, setIsPinging] = useState(false);
+  const [loopbackResult, setLoopbackResult] = useState(null);
+  const [isTestingLoopback, setIsTestingLoopback] = useState(false);
 
   // Initial auto-probe
   useEffect(() => {
@@ -88,6 +90,13 @@ export const DiagnosticsPage = () => {
         alert(`Microphone access error: ${err.message}`);
       }
     }
+  };
+
+  const handleRunLoopback = async () => {
+    setIsTestingLoopback(true);
+    const res = await diagnosticsEngine.testLoopbackAudioCall();
+    setLoopbackResult(res);
+    setIsTestingLoopback(false);
   };
 
   const handleSendEchoPing = async () => {
@@ -224,6 +233,33 @@ export const DiagnosticsPage = () => {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* 4. Local WebRTC Audio Loopback Probe */}
+          <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h4 className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                WebRTC Audio Pipeline Loopback Test
+              </h4>
+              <p className="text-[11px] text-neutral-400">
+                Verifies local SDP Offer/Answer, ICE negotiation, and bidirectional RTP audio stream setup
+              </p>
+              {loopbackResult && (
+                <p className={`text-[11px] font-semibold mt-1 ${loopbackResult.success ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {loopbackResult.success
+                    ? `PASS: Audio loopback connected in ${loopbackResult.durationMs} ms (trackReceived=${loopbackResult.trackReceived})`
+                    : `FAIL: ${loopbackResult.error || 'ICE loopback timed out'}`}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleRunLoopback}
+              disabled={isTestingLoopback}
+              className="px-3.5 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              {isTestingLoopback ? 'Testing Loopback...' : 'Test Audio Loopback'}
+            </button>
           </div>
 
           {/* ICE Candidates Detailed Inspector */}

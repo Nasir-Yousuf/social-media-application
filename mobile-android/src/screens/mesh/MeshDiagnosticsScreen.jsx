@@ -151,7 +151,7 @@ export const MeshDiagnosticsScreen = ({ navigation }) => {
     // 2. Dynamic ICE Servers
     let iceServers = DEFAULT_ICE_SERVERS.iceServers;
     try {
-      const res = await api.get('/calls/turn-credentials');
+      const res = await api.get('/calls/ice-servers');
       if (res.data?.iceServers && Array.isArray(res.data.iceServers)) {
         iceServers = res.data.iceServers;
       }

@@ -31,7 +31,22 @@ import Badge from '../components/Badge';
 export const SpacesScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { showToast } = useNotifications();
-  const { startGroupAudioCall, callState } = useCall();
+  const {
+    callState,
+    spacesList,
+    activeSpace,
+    isSpaceMuted,
+    isHandRaised,
+    isSpaceHost,
+    isSpaceSpeaker,
+    speakingUsers,
+    createSpace,
+    joinSpace,
+    leaveSpace,
+    toggleSpaceMute,
+    requestToSpeak,
+    refreshSpaces,
+  } = useCall();
 
   const [spaces, setSpaces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +61,7 @@ export const SpacesScreen = ({ navigation }) => {
 
   const fetchSpaces = useCallback(async () => {
     try {
+      await refreshSpaces?.();
       const res = await api.get('/spaces');
       if (res?.data?.spaces) {
         setSpaces(res.data.spaces);
@@ -61,7 +77,7 @@ export const SpacesScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshSpaces]);
 
   useEffect(() => {
     fetchSpaces();
@@ -80,26 +96,19 @@ export const SpacesScreen = ({ navigation }) => {
     setCreating(true);
     try {
       const selectedTopic = newRoomTopic.trim() || 'General Discussion';
-      const res = await api.post('/spaces', {
+      const created = await createSpace({
         title: newRoomTitle.trim(),
         topic: selectedTopic,
-        topicTags: [selectedTopic],
-        visibility: 'public',
       });
-      const created = res.data?.space || res.data;
-      setShowCreateModal(false);
-      setNewRoomTitle('');
-      setNewRoomTopic('');
-      showToast('Space created! Starting broadcast...', 'success');
-      fetchSpaces();
-
-      // Launch live audio room via CallContext with foreground service
-      const rId = created?.roomId || created?.id || created?._id;
-      if (rId) {
-        startGroupAudioCall(rId, created.title || 'Live Space');
+      if (created) {
+        setShowCreateModal(false);
+        setNewRoomTitle('');
+        setNewRoomTopic('');
+        showToast('Space is live!', 'success');
+        fetchSpaces();
       }
     } catch (err) {
-      showToast(err.message || 'Failed to create Space', 'error');
+      showToast(err.response?.data?.message || err.message || 'Failed to create Space', 'error');
     } finally {
       setCreating(false);
     }
@@ -107,16 +116,19 @@ export const SpacesScreen = ({ navigation }) => {
 
   const handleJoinSpace = (space) => {
     if (callState !== 'idle') {
-      showToast('You are already on an active call or Space', 'info');
+      showToast('You are already on an active call', 'info');
       return;
     }
-    const roomId = space.roomId || space.id || space._id;
-    startGroupAudioCall(roomId, space.title || 'Live Space');
+    joinSpace(space);
   };
 
+  const displayedSpaces = spacesList?.length > 0 ? spacesList : spaces;
+
   const renderSpaceCard = ({ item }) => {
-    const isLive = item.status === 'live' || true;
-    const participantCount = item.participants?.length || item.listenersCount || 1;
+    const participantCount =
+      item.speakers || item.listeners
+        ? (item.speakers?.length || 0) + (item.listeners?.length || 0)
+        : item.participants?.length || item.listenersCount || 1;
 
     return (
       <Card style={styles.spaceCard}>
@@ -204,8 +216,8 @@ export const SpacesScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={spaces}
-          keyExtractor={(item) => item._id || item.roomId || String(Math.random())}
+          data={displayedSpaces}
+          keyExtractor={(item, idx) => item._id || item.id || item.roomId || String(idx)}
           renderItem={renderSpaceCard}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -317,6 +329,81 @@ export const SpacesScreen = ({ navigation }) => {
                 <Text style={styles.aiOptionSub}>Answers questions on all Clearfeed Academy tracks</Text>
               </View>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Active Live Space Stage Modal */}
+      <Modal visible={Boolean(activeSpace)} animationType="slide" presentationStyle="pageSheet">
+        <View style={[styles.container, { paddingTop: insets.top + 12, paddingHorizontal: 18, paddingBottom: 24 }]}>
+          <View style={styles.modalHeader}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Badge variant="success" text="LIVE SPACE" style={styles.liveBadge} />
+              <Text style={[styles.roomTitle, { fontSize: 20, marginTop: 8 }]} numberOfLines={2}>
+                {activeSpace?.title || 'Live Audio Space'}
+              </Text>
+              {activeSpace?.topic && <Text style={styles.roomTopic}>#{activeSpace.topic}</Text>}
+            </View>
+            <Button
+              title={isSpaceHost ? 'End' : 'Leave'}
+              variant="secondary"
+              size="sm"
+              onPress={leaveSpace}
+            />
+          </View>
+
+          <Text style={[styles.listenersText, { marginBottom: 12 }]}>
+            Speakers Stage ({activeSpace?.speakers?.length || 1}) • {activeSpace?.listeners?.length || 0} Listeners
+          </Text>
+
+          <FlatList
+            data={activeSpace?.speakers || (activeSpace?.host ? [{ user: activeSpace.host, role: 'HOST', isMuted: false }] : [])}
+            numColumns={2}
+            keyExtractor={(s, idx) => s.user?._id || s.user?.id || String(idx)}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 12 }}
+            renderItem={({ item: spk }) => {
+              const u = spk.user || {};
+              const isSpkSpeaking = speakingUsers?.has?.(u._id);
+              return (
+                <Card style={[styles.spaceCard, { width: '48%', alignItems: 'center', padding: 14, borderColor: isSpkSpeaking ? '#14B8A6' : '#334155', borderWidth: 1 }]}>
+                  <Avatar uri={u.avatarUrl} name={u.name || 'Speaker'} size={52} />
+                  <Text style={[styles.roomTitle, { fontSize: 14, marginTop: 8, marginBottom: 2 }]} numberOfLines={1}>
+                    {u.name || 'Speaker'}
+                  </Text>
+                  <Text style={styles.roomTopic}>
+                    {spk.role || 'SPEAKER'} {spk.isMuted ? '• Muted' : '• Live'}
+                  </Text>
+                </Card>
+              );
+            }}
+          />
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#1E293B' }}>
+            {isSpaceSpeaker ? (
+              <Button
+                title={isSpaceMuted ? 'Unmute Mic' : 'Mute Mic'}
+                variant={isSpaceMuted ? 'secondary' : 'primary'}
+                size="lg"
+                onPress={toggleSpaceMute}
+                style={{ flex: 1 }}
+              />
+            ) : (
+              <Button
+                title={isHandRaised ? 'Lower Hand ✋' : 'Request to Speak'}
+                variant={isHandRaised ? 'primary' : 'secondary'}
+                size="lg"
+                onPress={requestToSpeak}
+                style={{ flex: 1 }}
+              />
+            )}
+
+            <Button
+              title={isSpaceHost ? 'End Space' : 'Leave'}
+              variant="secondary"
+              size="lg"
+              onPress={leaveSpace}
+              style={{ backgroundColor: '#7F1D1D', borderColor: '#DC2626' }}
+            />
           </View>
         </View>
       </Modal>

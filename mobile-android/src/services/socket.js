@@ -224,6 +224,10 @@ class SocketService {
     this.emit('call:accept', { callId, targetUserId });
   }
 
+  cancelCall({ callId, targetUserId, reason = 'cancelled' }) {
+    this.emit('call:cancel', { callId, targetUserId, reason });
+  }
+
   rejectCall({ callId, targetUserId, reason = 'declined' }) {
     this.emit('call:reject', { callId, targetUserId, reason });
   }
@@ -232,13 +236,21 @@ class SocketService {
     this.emit('call:end', { callId, targetUserId });
   }
 
-  sendCallSignal({ callId, targetUserId, signal }) {
-    this.emit('call:signal', { callId, targetUserId, signal });
+  sendCallSignal({ callId, targetUserId, fromUserId, signal }) {
+    this.emit('call:signal', { callId, targetUserId, fromUserId, signal });
+  }
+
+  sendSignal({ callId, targetUserId, fromUserId, signal }) {
+    this.emit('call:signal', { callId, targetUserId, fromUserId, signal });
   }
 
   // ------------------------------------------
   // Group Call Signaling Helpers
   // ------------------------------------------
+  inviteToGroupCall({ roomId, roomName, targetUserIds, caller }) {
+    this.emit('group-call:invite', { roomId, roomName, targetUserIds, caller });
+  }
+
   joinGroupCall({ roomId, user }) {
     this.emit('group-call:join', { roomId, user });
   }
@@ -251,6 +263,10 @@ class SocketService {
     this.emit('group-call:toggle_mute', { roomId, isMuted });
   }
 
+  sendGroupCallSpeaking({ roomId, isSpeaking }) {
+    this.emit('group-call:speaking', { roomId, isSpeaking });
+  }
+
   leaveGroupCall({ roomId }) {
     this.emit('group-call:leave', { roomId });
   }
@@ -260,12 +276,10 @@ class SocketService {
   // ------------------------------------------
   joinSpace({ spaceId, user }) {
     this.emit('spaces:join', { spaceId, user });
-    this.emit('space:join', { spaceId, user });
   }
 
   leaveSpace({ spaceId }) {
     this.emit('spaces:leave', { spaceId });
-    this.emit('space:leave', { spaceId });
   }
 
   requestSpeak({ spaceId }) {
@@ -306,7 +320,6 @@ class SocketService {
 
   raiseHand({ spaceId, raised }) {
     this.emit('spaces:request_speak', { spaceId, raised });
-    this.emit('space:raise_hand', { spaceId, raised });
   }
 
   setSpaceRole({ spaceId, targetUserId, role }) {
@@ -315,12 +328,18 @@ class SocketService {
 
   toggleSpaceMute({ spaceId, isMuted }) {
     this.emit('spaces:toggle_mute', { spaceId, isMuted });
-    this.emit('space:toggle_mute', { spaceId, isMuted });
   }
 
   sendSpaceReaction({ spaceId, emoji, username }) {
     this.emit('spaces:reaction', { spaceId, emoji, username });
-    this.emit('space:reaction', { spaceId, emoji, username });
+  }
+
+  sendSpaceSignal({ spaceId, targetUserId, signal }) {
+    this.emit('spaces:signal', { spaceId, targetUserId, signal });
+  }
+
+  sendSpaceSpeakingState({ spaceId, isSpeaking }) {
+    this.emit('spaces:speaking_state', { spaceId, isSpeaking });
   }
 }
 

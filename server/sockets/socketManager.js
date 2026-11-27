@@ -224,6 +224,13 @@ function initSocket(server) {
       }
     });
 
+    // Diagnostics ping ack for real Socket.IO RTT measurement
+    socket.on('ping', (ack) => {
+      if (typeof ack === 'function') {
+        ack({ ok: true, serverTime: Date.now(), userId: socket.userId || null });
+      }
+    });
+
     // ==========================================
     // CLEARFEED MESH PACKET RELAY (LAN / Wi-Fi)
     // ==========================================
@@ -737,6 +744,14 @@ function initSocket(server) {
           callSessionManager.setRinging(callId);
         }
 
+        // Notify caller immediately that signaling initialized and whether peer is currently reachable
+        socket.emit('call:initiated', {
+          callId,
+          targetUserId: targetId,
+          online: isOnline,
+          status: isOnline ? 'ringing' : 'calling',
+        });
+
         // ALWAYS emit call:incoming to all valid candidate rooms for this recipient
         const incomingPayload = {
           callId,
@@ -872,18 +887,14 @@ function initSocket(server) {
         }
       }
 
-      // 1. Relay through the dedicated call room (excluding sender)
-      if (callId) {
-        socket.to(`call:${callId}`).emit('call:signal', {
-          callId,
-          fromUserId: actorId,
-          signal,
-        });
-      }
+      // Relay ONCE across the union of call room and peer user room (excluding sender)
+      // Avoids sending duplicate offers/answers/candidates to the same peer socket!
+      const signalRooms = [];
+      if (callId) signalRooms.push(`call:${callId}`);
+      if (targetUserId) signalRooms.push(`user:${targetUserId.toString()}`);
 
-      // 2. Also relay directly to user's personal room for redundancy
-      if (targetUserId) {
-        io.to(`user:${targetUserId}`).emit('call:signal', {
+      if (signalRooms.length > 0) {
+        socket.to(signalRooms).emit('call:signal', {
           callId,
           fromUserId: actorId,
           signal,
@@ -897,14 +908,20 @@ function initSocket(server) {
 
     // Join Group Call Room
     socket.on('group-call:join', ({ roomId, user }) => {
-      const finalUserId = userId || user?._id || socket.id;
+      const rawUid = socket.userId || userId || user?._id || user?.id || socket.id;
+      const finalUserId = rawUid ? rawUid.toString() : socket.id;
       if (!roomId || !finalUserId) return;
 
-      const participantInfo = user || {
+      socket.join(`user:${finalUserId}`);
+      if (!socket.userId && finalUserId !== socket.id) {
+        socket.userId = finalUserId;
+      }
+
+      const participantInfo = {
         _id: finalUserId,
-        name: socket.user?.name || 'Member',
-        username: socket.user?.username || 'member',
-        avatarUrl: socket.user?.avatarUrl,
+        name: user?.name || socket.user?.name || 'Member',
+        username: user?.username || socket.user?.username || 'member',
+        avatarUrl: user?.avatarUrl || socket.user?.avatarUrl,
       };
 
       if (!groupCallRooms.has(roomId)) {
@@ -959,9 +976,10 @@ function initSocket(server) {
 
     // Group Call WebRTC Signal Relay
     socket.on('group-call:signal', ({ roomId, targetUserId, signal }) => {
-      const finalUserId = userId || socket.id;
+      const rawUid = socket.userId || userId || socket.id;
+      const finalUserId = rawUid ? rawUid.toString() : socket.id;
       if (!targetUserId || !signal) return;
-      io.to(`user:${targetUserId}`).emit('group-call:signal', {
+      socket.to(`user:${targetUserId.toString()}`).emit('group-call:signal', {
         roomId,
         fromUserId: finalUserId,
         fromUser: socket.user,
@@ -971,7 +989,8 @@ function initSocket(server) {
 
     // Group Call Speaking State (audio wave synchronization)
     socket.on('group-call:speaking', ({ roomId, isSpeaking }) => {
-      const finalUserId = userId || socket.id;
+      const rawUid = socket.userId || userId || socket.id;
+      const finalUserId = rawUid ? rawUid.toString() : socket.id;
       if (!roomId) return;
       io.to(`group-call:${roomId}`).emit('group-call:user_speaking', {
         roomId,
@@ -982,7 +1001,8 @@ function initSocket(server) {
 
     // Group Call Mute Toggle
     socket.on('group-call:toggle_mute', ({ roomId, isMuted }) => {
-      const finalUserId = userId || socket.id;
+      const rawUid = socket.userId || userId || socket.id;
+      const finalUserId = rawUid ? rawUid.toString() : socket.id;
       if (!roomId || !groupCallRooms.has(roomId)) return;
       const room = groupCallRooms.get(roomId);
       if (room.has(finalUserId)) {
@@ -997,7 +1017,8 @@ function initSocket(server) {
 
     // Leave Group Call
     socket.on('group-call:leave', ({ roomId }) => {
-      const finalUserId = userId || socket.id;
+      const rawUid = socket.userId || userId || socket.id;
+      const finalUserId = rawUid ? rawUid.toString() : socket.id;
       if (!roomId || !groupCallRooms.has(roomId)) return;
       const room = groupCallRooms.get(roomId);
       room.delete(finalUserId);
@@ -1017,13 +1038,19 @@ function initSocket(server) {
     // 4. SPACES LIVE SERVER-AUTHORITATIVE ENGINE
     // ==========================================
     const handleSpaceJoin = ({ spaceId, user }) => {
-      const finalUserId = userId || user?._id || socket.id;
+      const rawUid = socket.userId || userId || user?._id || user?.id || socket.id;
+      const finalUserId = rawUid ? rawUid.toString() : socket.id;
       try {
-        const userInfo = user || {
+        socket.join(`user:${finalUserId}`);
+        if (!socket.userId && finalUserId !== socket.id) {
+          socket.userId = finalUserId;
+        }
+
+        const userInfo = {
           _id: finalUserId,
-          name: socket.user?.name || 'Visitor',
-          username: socket.user?.username || 'visitor',
-          avatarUrl: socket.user?.avatarUrl,
+          name: user?.name || socket.user?.name || 'Visitor',
+          username: user?.username || socket.user?.username || 'visitor',
+          avatarUrl: user?.avatarUrl || socket.user?.avatarUrl,
         };
 
         const result = spaceSessionManager.joinSpace(spaceId, userInfo, socket.id);
@@ -1284,7 +1311,7 @@ function initSocket(server) {
         }
       }
 
-      io.to(`user:${targetUserId}`).emit('space:signal', {
+      socket.to(`user:${targetUserId.toString()}`).emit('space:signal', {
         spaceId,
         fromUserId: finalUserId.toString(),
         signal,

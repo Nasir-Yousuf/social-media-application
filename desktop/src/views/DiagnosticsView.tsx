@@ -146,7 +146,7 @@ export const DiagnosticsView: React.FC = () => {
       { urls: 'stun:stun1.l.google.com:19302' },
     ];
     try {
-      const res = await api.get('/calls/turn-credentials');
+      const res = await api.get('/calls/ice-servers');
       if (res.data?.iceServers && Array.isArray(res.data.iceServers)) {
         iceServers = res.data.iceServers;
       }

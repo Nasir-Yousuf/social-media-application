@@ -34,6 +34,8 @@ export const SpacesModal = () => {
     isSpaceMuted,
     isHandRaised,
     localAudioStream,
+    autoplayBlocked,
+    unlockRemoteAudio,
     speakingUsers = new Set(),
     spaceReactions = [],
     isHost,
@@ -563,6 +565,22 @@ export const SpacesModal = () => {
             )}
           </div>
         </div>
+
+        {autoplayBlocked && (
+          <div className="px-6 py-2.5 bg-amber-500/15 border-t border-amber-500/30 flex items-center justify-between gap-3 shrink-0">
+            <span className="text-xs font-medium text-amber-400 flex items-center gap-2">
+              <Volume2 className="w-4 h-4 shrink-0" />
+              Audio playback needs your tap to unmute speakers.
+            </span>
+            <button
+              type="button"
+              onClick={unlockRemoteAudio}
+              className="px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-all active:scale-95 cursor-pointer shrink-0"
+            >
+              Tap to Enable Audio
+            </button>
+          </div>
+        )}
 
         {/* Bottom Toolbar & Controls */}
         <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-black/30 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0">

@@ -26,6 +26,8 @@ export const CallModal = () => {
   const {
     callState,
     isMinimized,
+    callConnectionState,
+    iceCandidateType,
     minimizeCall,
     activeCall,
     groupCall,
@@ -245,7 +247,11 @@ export const CallModal = () => {
             </View>
 
             <Text style={styles.connectedStatus}>
-              {isMuted ? 'Microphone Muted' : 'HD Audio Encrypted (STUN/TURN WebRTC)'}
+              {isMuted
+                ? 'Microphone Muted'
+                : callConnectionState === 'disconnected' || callConnectionState === 'connecting'
+                ? 'Reconnecting WebRTC Audio...'
+                : `HD Audio Encrypted (${iceCandidateType === 'relay' ? 'TURN Relay' : iceCandidateType ? 'P2P Direct' : 'WebRTC'})`}
             </Text>
 
             {/* Audio Route Selector (Earpiece / Speaker / Bluetooth) */}

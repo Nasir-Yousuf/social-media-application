@@ -235,24 +235,62 @@ class SoundEffectsEngine {
 
 export const sounds = new SoundEffectsEngine();
 
-// Microphone audio stream helper with optional audio input device selection
+// Normalize ICE servers or full RTCConfiguration object safely
+export const normalizeIceConfig = (iceServersOrConfig = null) => {
+  let resolvedServers = DEFAULT_ICE_SERVERS.iceServers;
+  if (Array.isArray(iceServersOrConfig) && iceServersOrConfig.length > 0) {
+    resolvedServers = iceServersOrConfig;
+  } else if (
+    iceServersOrConfig &&
+    Array.isArray(iceServersOrConfig.iceServers) &&
+    iceServersOrConfig.iceServers.length > 0
+  ) {
+    resolvedServers = iceServersOrConfig.iceServers;
+  } else if (
+    cachedIceConfiguration &&
+    Array.isArray(cachedIceConfiguration.iceServers) &&
+    cachedIceConfiguration.iceServers.length > 0
+  ) {
+    resolvedServers = cachedIceConfiguration.iceServers;
+  }
+
+  return {
+    iceServers: resolvedServers,
+    iceCandidatePoolSize: 6,
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require',
+  };
+};
+
+// Microphone audio stream helper with optional audio input device selection & fallback
 export const getLocalAudioStream = async (audioSourceDeviceId = null) => {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     throw new Error('Microphone access is not supported in this browser.');
   }
 
-  const audioConstraints = {
+  const baseConstraints = {
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
   };
 
   if (audioSourceDeviceId) {
-    audioConstraints.deviceId = { exact: audioSourceDeviceId };
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { ...baseConstraints, deviceId: { exact: audioSourceDeviceId } },
+        video: false,
+      });
+    } catch (err) {
+      if (err.name === 'OverconstrainedError' || err.name === 'NotFoundError') {
+        console.warn('Selected audio input unavailable, falling back to default mic:', err.message);
+      } else {
+        throw err;
+      }
+    }
   }
 
   return await navigator.mediaDevices.getUserMedia({
-    audio: audioConstraints,
+    audio: baseConstraints,
     video: false,
   });
 };
@@ -324,8 +362,9 @@ export const createPeerConnection = ({
   onIceCandidate,
   onTrack,
   onConnectionStateChange,
-}) => {
-  const config = iceServers || cachedIceConfiguration || DEFAULT_ICE_SERVERS;
+  onIceCandidateError,
+} = {}) => {
+  const config = normalizeIceConfig(iceServers);
   const pc = new RTCPeerConnection(config);
 
   pc.onicecandidate = (event) => {
@@ -334,8 +373,13 @@ export const createPeerConnection = ({
     }
   };
 
+  pc.onicecandidateerror = (event) => {
+    if (typeof onIceCandidateError === 'function') {
+      onIceCandidateError(event);
+    }
+  };
+
   pc.ontrack = (event) => {
-    console.log('🔊 [WebRTC] ontrack received:', event);
     let stream = event.streams && event.streams[0] ? event.streams[0] : null;
     if (!stream && event.track) {
       stream = new MediaStream([event.track]);
@@ -345,15 +389,25 @@ export const createPeerConnection = ({
     }
   };
 
+  let lastReportedState = 'new';
+  const emitState = (nextState) => {
+    if (!nextState || nextState === lastReportedState) return;
+    lastReportedState = nextState;
+    if (typeof onConnectionStateChange === 'function') {
+      onConnectionStateChange(nextState);
+    }
+  };
+
   pc.oniceconnectionstatechange = () => {
     console.log('🧊 [WebRTC ICE State]:', pc.iceConnectionState);
-    if (typeof onConnectionStateChange === 'function') {
-      onConnectionStateChange(pc.iceConnectionState);
-    }
+    emitState(pc.iceConnectionState);
   };
 
   pc.onconnectionstatechange = () => {
     console.log('🔗 [WebRTC Connection State]:', pc.connectionState);
+    if (pc.connectionState === 'failed' || pc.connectionState === 'connected') {
+      emitState(pc.connectionState);
+    }
   };
 
   return pc;

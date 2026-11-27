@@ -363,6 +363,45 @@ await test('Native Forensics: Kotlin Telecom implementation files exist and decl
   assert(moduleCode.includes('OnAudioFocusChangeListener'), 'Must handle OnAudioFocusChangeListener');
 });
 
+await test('Group Call Mesh: Enforces lower-userId initiator election and answers cleanly on Android', async () => {
+  const { default: GroupCallMeshManager } = await import('../src/services/groupCallMesh.js');
+  const sentLower = [];
+  const sentHigher = [];
+
+  const meshLower = new GroupCallMeshManager();
+  const meshHigher = new GroupCallMeshManager();
+
+  meshLower.connect({
+    roomId: 'grp_android_1',
+    userId: 'user_100',
+    socketService: { sendGroupCallSignal: (pkt) => sentLower.push(pkt) },
+  });
+  meshHigher.connect({
+    roomId: 'grp_android_1',
+    userId: 'user_200',
+    socketService: { sendGroupCallSignal: (pkt) => sentHigher.push(pkt) },
+  });
+
+  const peers = [{ user: { _id: 'user_100' } }, { user: { _id: 'user_200' } }];
+  meshLower.syncParticipants(peers);
+  meshHigher.syncParticipants(peers);
+
+  await new Promise((r) => setTimeout(r, 20));
+  assert.strictEqual(sentLower.length, 1, 'Lower Android peer ID must initiate offer');
+  assert.strictEqual(sentLower[0].signal.type, 'offer');
+  assert.strictEqual(sentHigher.length, 0, 'Higher Android peer ID must wait as polite responder');
+
+  await meshHigher.handleSignal('user_100', sentLower[0].signal);
+  assert.strictEqual(sentHigher.length, 1, 'Higher Android peer ID must reply with answer');
+  assert.strictEqual(sentHigher[0].signal.type, 'answer');
+
+  await meshLower.handleSignal('user_200', sentHigher[0].signal);
+  assert.strictEqual(meshLower.peers.get('user_200').isRemoteDescSet, true);
+
+  meshLower.disconnect();
+  meshHigher.disconnect();
+});
+
 console.log('\n======================================================');
 console.log(`✨ Android Calling Tests: ${passed}/${passed + failed} passed (${failed} failed)`);
 console.log('======================================================\n');

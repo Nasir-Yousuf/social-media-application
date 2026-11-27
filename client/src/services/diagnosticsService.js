@@ -65,7 +65,7 @@ export class DiagnosticsEngine {
     // Fetch dynamic TURN credentials from backend if available
     if (!iceServers) {
       try {
-        const res = await api.get('/calls/turn-credentials');
+        const res = await api.get('/calls/ice-servers');
         if (res.data?.iceServers && Array.isArray(res.data.iceServers)) {
           iceServers = res.data.iceServers;
         }
@@ -246,6 +246,97 @@ export class DiagnosticsEngine {
         } catch {}
       },
     };
+  }
+
+  /**
+   * 4. End-to-End Local WebRTC Audio Loopback Test
+   * Connects two real RTCPeerConnections via local SDP + ICE negotiation to verify audio transport.
+   */
+  async testLoopbackAudioCall() {
+    const start = performance.now();
+    let pc1 = null;
+    let pc2 = null;
+    let ctx = null;
+    let dest = null;
+
+    const cleanup = () => {
+      try { pc1?.close(); } catch {}
+      try { pc2?.close(); } catch {}
+      try { dest?.stream?.getTracks().forEach((t) => t.stop()); } catch {}
+      try { if (ctx && ctx.state !== 'closed') ctx.close(); } catch {}
+    };
+
+    try {
+      const RTCPC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+      if (!RTCPC) {
+        return { success: false, error: 'RTCPeerConnection unavailable' };
+      }
+
+      pc1 = new RTCPC({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pc2 = new RTCPC({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+      // Generate a silent synthetic audio track so loopback works even without a physical mic
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0; // silent test tone
+        dest = ctx.createMediaStreamDestination();
+        osc.connect(gain);
+        gain.connect(dest);
+        osc.start();
+        dest.stream.getAudioTracks().forEach((track) => pc1.addTrack(track, dest.stream));
+      } else {
+        pc1.addTransceiver('audio', { direction: 'sendrecv' });
+      }
+
+      let trackReceived = false;
+      pc2.ontrack = () => {
+        trackReceived = true;
+      };
+
+      pc1.onicecandidate = (e) => {
+        if (e.candidate) pc2.addIceCandidate(e.candidate).catch(() => {});
+      };
+      pc2.onicecandidate = (e) => {
+        if (e.candidate) pc1.addIceCandidate(e.candidate).catch(() => {});
+      };
+
+      const connectedPromise = new Promise((resolve) => {
+        const check = () => {
+          if (
+            ['connected', 'completed'].includes(pc1.iceConnectionState) &&
+            ['connected', 'completed'].includes(pc2.iceConnectionState)
+          ) {
+            resolve(true);
+          }
+        };
+        pc1.oniceconnectionstatechange = check;
+        pc2.oniceconnectionstatechange = check;
+        setTimeout(() => resolve(false), 5000);
+      });
+
+      const offer = await pc1.createOffer({ offerToReceiveAudio: true });
+      await pc1.setLocalDescription(offer);
+      await pc2.setRemoteDescription(offer);
+      const answer = await pc2.createAnswer();
+      await pc2.setLocalDescription(answer);
+      await pc1.setRemoteDescription(answer);
+
+      const ok = await connectedPromise;
+      const durationMs = Math.round(performance.now() - start);
+      cleanup();
+
+      return {
+        success: ok,
+        trackReceived,
+        durationMs,
+      };
+    } catch (err) {
+      cleanup();
+      return { success: false, error: err.message };
+    }
   }
 }
 

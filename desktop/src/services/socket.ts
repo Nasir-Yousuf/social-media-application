@@ -115,20 +115,85 @@ class DesktopSocketService {
     }
   }
 
+  // 1-on-1 Audio Calls
+  public initiateCall({ callId, targetUserId, callerInfo, callType = 'audio' }: {
+    callId: string;
+    targetUserId: string;
+    callerInfo: any;
+    callType?: string;
+  }): void {
+    this.emit('call:initiate', { callId, targetUserId, callerInfo, callType });
+  }
+
+  public acceptCall({ callId, targetUserId }: { callId: string; targetUserId?: string }): void {
+    this.emit('call:accept', { callId, targetUserId });
+  }
+
+  public cancelCall({ callId, targetUserId, reason = 'cancelled' }: {
+    callId: string;
+    targetUserId?: string;
+    reason?: string;
+  }): void {
+    this.emit('call:cancel', { callId, targetUserId, reason });
+  }
+
+  public rejectCall({ callId, targetUserId, reason = 'declined' }: {
+    callId: string;
+    targetUserId?: string;
+    reason?: string;
+  }): void {
+    this.emit('call:reject', { callId, targetUserId, reason });
+  }
+
+  public endCall({ callId, targetUserId }: { callId: string; targetUserId?: string }): void {
+    this.emit('call:end', { callId, targetUserId });
+  }
+
+  public sendSignal({ callId, targetUserId, fromUserId, signal }: {
+    callId: string;
+    targetUserId?: string;
+    fromUserId?: string;
+    signal: any;
+  }): void {
+    this.emit('call:signal', { callId, targetUserId, fromUserId, signal });
+  }
+
+  // Group Voice Calls
+  public inviteToGroupCall(data: { roomId: string; roomName?: string; targetUserIds: string[]; caller?: any }): void {
+    this.emit('group-call:invite', data);
+  }
+
+  public joinGroupCall(data: { roomId: string; user?: any }): void {
+    this.emit('group-call:join', data);
+  }
+
+  public sendGroupCallSignal(data: { roomId: string; targetUserId: string; signal: any }): void {
+    this.emit('group-call:signal', data);
+  }
+
+  public toggleGroupCallMute(data: { roomId: string; isMuted: boolean }): void {
+    this.emit('group-call:toggle_mute', data);
+  }
+
+  public sendGroupCallSpeaking(data: { roomId: string; isSpeaking: boolean }): void {
+    this.emit('group-call:speaking', data);
+  }
+
+  public leaveGroupCall(data: { roomId: string }): void {
+    this.emit('group-call:leave', data);
+  }
+
   // Spaces Live Audio Rooms
   public joinSpace(data: { spaceId: string; user?: any }): void {
     this.emit('spaces:join', data);
-    this.emit('space:join', data);
   }
 
   public leaveSpace(data: { spaceId: string }): void {
     this.emit('spaces:leave', data);
-    this.emit('space:leave', data);
   }
 
   public raiseHand(data: { spaceId: string; raised: boolean }): void {
     this.emit('spaces:request_speak', data);
-    this.emit('space:raise_hand', data);
   }
 
   public setRole(data: { spaceId: string; targetUserId: string; role: string }): void {
@@ -137,22 +202,18 @@ class DesktopSocketService {
 
   public toggleSpaceMute(data: { spaceId: string; isMuted: boolean }): void {
     this.emit('spaces:toggle_mute', data);
-    this.emit('space:toggle_mute', data);
   }
 
   public sendSpeakingState(data: { spaceId: string; isSpeaking: boolean }): void {
     this.emit('spaces:speaking_state', data);
-    this.emit('space:speaking_state', data);
   }
 
   public sendReaction(data: { spaceId: string; emoji: string; username?: string }): void {
     this.emit('spaces:reaction', data);
-    this.emit('space:reaction', data);
   }
 
   public sendSpaceSignal(data: { spaceId: string; targetUserId: string; signal: any }): void {
     this.emit('spaces:signal', data);
-    this.emit('space:signal', data);
   }
 }
 

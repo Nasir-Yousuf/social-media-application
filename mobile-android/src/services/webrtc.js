@@ -72,7 +72,13 @@ class FallbackRTCPeerConnection {
     });
   }
   async setLocalDescription(desc) {
+    if (desc?.type === 'rollback') {
+      this.localDescription = null;
+      this.signalingState = 'stable';
+      return;
+    }
     this.localDescription = desc;
+    this.signalingState = desc?.type === 'offer' ? 'have-local-offer' : 'stable';
   }
   async setRemoteDescription(desc) {
     this.remoteDescription = desc;
@@ -215,6 +221,34 @@ export const getLocalAudioStream = async () => {
   });
 };
 
+export const normalizeIceConfig = (optionsOrServers = null) => {
+  let resolvedServers = DEFAULT_ICE_SERVERS.iceServers;
+  if (Array.isArray(optionsOrServers) && optionsOrServers.length > 0) {
+    resolvedServers = optionsOrServers;
+  } else if (
+    optionsOrServers &&
+    Array.isArray(optionsOrServers.iceServers) &&
+    optionsOrServers.iceServers.length > 0
+  ) {
+    resolvedServers = optionsOrServers.iceServers;
+  } else if (optionsOrServers?.urls) {
+    resolvedServers = [optionsOrServers];
+  } else if (
+    cachedIceConfiguration &&
+    Array.isArray(cachedIceConfiguration.iceServers) &&
+    cachedIceConfiguration.iceServers.length > 0
+  ) {
+    resolvedServers = cachedIceConfiguration.iceServers;
+  }
+
+  return {
+    iceServers: resolvedServers,
+    iceCandidatePoolSize: 6,
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require',
+  };
+};
+
 /**
  * Create RTCPeerConnection configured for mobile mesh VoIP audio
  */
@@ -223,11 +257,7 @@ export const createPeerConnection = (options = {}) => {
     throw new Error('WebRTC RTCPeerConnection is not supported on this platform.');
   }
 
-  const config =
-    options?.iceServers ||
-    (options?.urls ? options : null) ||
-    cachedIceConfiguration ||
-    DEFAULT_ICE_SERVERS;
+  const config = normalizeIceConfig(options);
 
   const pc = new RTCPeerConnection(config);
 
@@ -247,9 +277,22 @@ export const createPeerConnection = (options = {}) => {
     }
   };
 
-  pc.oniceconnectionstatechange = () => {
+  let lastReportedState = 'new';
+  const emitState = (nextState) => {
+    if (!nextState || nextState === lastReportedState) return;
+    lastReportedState = nextState;
     if (typeof options?.onConnectionStateChange === 'function') {
-      options.onConnectionStateChange(pc.iceConnectionState);
+      options.onConnectionStateChange(nextState);
+    }
+  };
+
+  pc.oniceconnectionstatechange = () => {
+    emitState(pc.iceConnectionState);
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'failed' || pc.connectionState === 'connected') {
+      emitState(pc.connectionState);
     }
   };
 

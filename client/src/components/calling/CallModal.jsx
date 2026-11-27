@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Minimize2, Maximize2, Radio, Settings } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Minimize2, Maximize2, Radio, Settings, Volume2 } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
 import { useAuth } from '../../context/AuthContext';
 import Avatar from '../common/Avatar';
@@ -11,6 +11,10 @@ export const CallModal = () => {
   const {
     callState,
     activeCall,
+    callConnectionState,
+    iceCandidateType,
+    autoplayBlocked,
+    unlockRemoteAudio,
     isMuted,
     callDuration,
     formatDuration,
@@ -108,9 +112,29 @@ export const CallModal = () => {
         {/* Top Header controls */}
         <div className="w-full flex justify-between items-center mb-3">
           {isConnected ? (
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Connected
+            <span
+              className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                callConnectionState === 'reconnecting'
+                  ? 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/25'
+                  : callConnectionState === 'connected'
+                    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                    : 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full animate-pulse ${
+                  callConnectionState === 'reconnecting'
+                    ? 'bg-amber-500'
+                    : callConnectionState === 'connected'
+                      ? 'bg-emerald-500'
+                      : 'bg-sky-500'
+                }`}
+              />
+              {callConnectionState === 'reconnecting'
+                ? 'Reconnecting...'
+                : callConnectionState === 'connected'
+                  ? `HD Audio${iceCandidateType === 'relay' ? ' (Relay)' : ''}`
+                  : 'Connecting Audio...'}
             </span>
           ) : (
             <span className="text-[11px] font-mono text-neutral-400">Clearfeed Voice</span>
@@ -273,6 +297,17 @@ export const CallModal = () => {
                   size="md"
                 />
               </div>
+
+              {autoplayBlocked && (
+                <button
+                  type="button"
+                  onClick={unlockRemoteAudio}
+                  className="px-3.5 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold flex items-center gap-1.5 shadow-md animate-pulse cursor-pointer"
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span>Tap to Enable Speaker Audio</span>
+                </button>
+              )}
             </div>
           )}
         </div>
