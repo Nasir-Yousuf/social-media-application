@@ -51,6 +51,22 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    coverUrl: {
+      type: String,
+      default: '',
+    },
+    coverImage: {
+      type: Buffer,
+      select: false,
+    },
+    coverMimeType: {
+      type: String,
+      default: 'image/jpeg',
+    },
+    hasCustomCover: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       maxlength: [60, 'Status cannot exceed 60 characters'],
@@ -151,12 +167,21 @@ userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
   delete obj.avatar;
+  delete obj.coverImage;
   if (obj.hasCustomAvatar) {
     if (this.avatarUrl && this.avatarUrl.includes('?')) {
       obj.avatarUrl = this.avatarUrl;
     } else {
       const v = this.updatedAt ? new Date(this.updatedAt).getTime() : Date.now();
       obj.avatarUrl = `/api/users/${obj._id}/avatar?t=${v}`;
+    }
+  }
+  if (obj.hasCustomCover) {
+    if (this.coverUrl && this.coverUrl.includes('?')) {
+      obj.coverUrl = this.coverUrl;
+    } else {
+      const v = this.updatedAt ? new Date(this.updatedAt).getTime() : Date.now();
+      obj.coverUrl = `/api/users/${obj._id}/cover?t=${v}`;
     }
   }
   return obj;

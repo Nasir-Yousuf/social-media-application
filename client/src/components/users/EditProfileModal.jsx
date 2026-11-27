@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Camera, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, Camera, Trash2, CheckCircle2, AlertCircle, Image as ImageIcon } from 'lucide-react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
-import Avatar from '../common/Avatar';
+import Avatar, { resolveMediaUrl } from '../common/Avatar';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { compressAvatarImage } from '../../utils/imageCompressor';
+import { compressAvatarImage, compressCoverImage } from '../../utils/imageCompressor';
 
 export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
   const { user, updateUser } = useAuth();
   const { showToast } = useNotifications();
   const fileInputRef = useRef(null);
+  const coverInputRef = useRef(null);
 
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
@@ -20,7 +21,12 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
   const [avatarBase64, setAvatarBase64] = useState('');
   const [removeAvatar, setRemoveAvatar] = useState(false);
   const [avatarSizeKB, setAvatarSizeKB] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(user?.coverUrl || '');
+  const [coverBase64, setCoverBase64] = useState('');
+  const [removeCover, setRemoveCover] = useState(false);
+  const [coverSizeKB, setCoverSizeKB] = useState(null);
   const [compressing, setCompressing] = useState(false);
+  const [compressingCover, setCompressingCover] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Sync state whenever modal is opened or user changes
@@ -33,6 +39,10 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
       setAvatarBase64('');
       setRemoveAvatar(false);
       setAvatarSizeKB(null);
+      setCoverPreview(user.coverUrl || '');
+      setCoverBase64('');
+      setRemoveCover(false);
+      setCoverSizeKB(null);
     }
   }, [isOpen, user]);
 
@@ -79,6 +89,39 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
     showToast('Profile photo removed. Default initials avatar will be used.', 'info');
   };
 
+  const handleCoverSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file (PNG, JPG, WebP)', 'error');
+      return;
+    }
+
+    setCompressingCover(true);
+    try {
+      const result = await compressCoverImage(file);
+      setCoverPreview(result.base64);
+      setCoverBase64(result.base64);
+      setRemoveCover(false);
+      setCoverSizeKB(result.sizeKB);
+      showToast(`Cover optimized (${result.sizeKB} KB)`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to compress cover image.', 'error');
+    } finally {
+      setCompressingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveCover = () => {
+    setRemoveCover(true);
+    setCoverBase64('');
+    setCoverSizeKB(null);
+    setCoverPreview('');
+    showToast('Cover photo will be removed on save.', 'info');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -97,6 +140,12 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
         payload.avatarBase64 = avatarBase64;
       }
 
+      if (removeCover) {
+        payload.removeCover = true;
+      } else if (coverBase64) {
+        payload.coverBase64 = coverBase64;
+      }
+
       const res = await api.patch('/users/profile', payload);
 
       const updatedUser = {
@@ -106,6 +155,11 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
               ? res.data.user.avatarUrl
               : `${res.data.user.avatarUrl}?t=${Date.now()}`)
           : res.data.user.avatarUrl,
+        coverUrl: res.data.user.coverUrl
+          ? (res.data.user.coverUrl.includes('?')
+              ? res.data.user.coverUrl
+              : `${res.data.user.coverUrl}?t=${Date.now()}`)
+          : res.data.user.coverUrl,
       };
 
       updateUser(updatedUser);
@@ -124,10 +178,70 @@ export const EditProfileModal = ({ isOpen, onClose, onProfileUpdated }) => {
 
   const hasCustomPhoto =
     (user?.hasCustomAvatar && !removeAvatar) || Boolean(avatarBase64);
+  const hasCustomCoverImg =
+    ((user?.hasCustomCover || Boolean(user?.coverUrl)) && !removeCover) || Boolean(coverBase64);
+  const resolvedCoverPreview = coverPreview ? resolveMediaUrl(coverPreview) : null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Profile">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 font-sans">
+        {/* Cover Image Upload Area */}
+        <div className="flex flex-col gap-2">
+          <div
+            className="relative h-28 w-full rounded-xl overflow-hidden bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-600/25 dark:from-sky-950/60 dark:via-indigo-950/40 dark:to-neutral-900 border border-neutral-200 dark:border-neutral-800 group cursor-pointer"
+            onClick={() => !compressingCover && coverInputRef.current?.click()}
+            title="Click to change cover image"
+          >
+            {resolvedCoverPreview ? (
+              <img
+                src={resolvedCoverPreview}
+                alt="Cover preview"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-500 dark:text-neutral-400 text-xs font-medium">
+                <ImageIcon className="w-5 h-5 mb-1 opacity-70" />
+                <span>Add cover image</span>
+              </div>
+            )}
+
+            <div className="absolute inset-0 bg-black/45 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-semibold">
+              <Camera className="w-4 h-4" />
+              <span>{hasCustomCoverImg ? 'Change cover' : 'Upload cover'}</span>
+            </div>
+
+            {compressingCover && (
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center text-white text-xs font-bold animate-pulse">
+                Optimizing cover...
+              </div>
+            )}
+          </div>
+
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/jpg"
+            onChange={handleCoverSelect}
+            className="hidden"
+          />
+
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-neutral-500 dark:text-neutral-400">
+              {coverSizeKB ? `Cover compressed: ${coverSizeKB} KB` : 'Recommended: 1200x400 banner (≤ 450 KB)'}
+            </span>
+            {hasCustomCoverImg && (
+              <button
+                type="button"
+                onClick={handleRemoveCover}
+                className="text-rose-500 hover:text-rose-600 font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Remove cover</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Avatar Upload Area */}
         <div className="flex flex-col items-center gap-3 py-3 border-b border-neutral-100 dark:border-neutral-800">
           <div

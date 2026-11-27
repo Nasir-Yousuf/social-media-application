@@ -20,6 +20,7 @@ router.patch('/profile', requireAuth, userController.updateProfile);
 router.post('/sync-follows', requireAuth, userController.syncFollows);
 router.get('/sync-follows', requireAuth, userController.syncFollows);
 router.get('/:id/avatar', userController.getAvatar);
+router.get('/:id/cover', userController.getCover);
 
 router.post('/:id/follow', requireAuth, userController.followUser);
 router.delete('/:id/follow', requireAuth, userController.unfollowUser);

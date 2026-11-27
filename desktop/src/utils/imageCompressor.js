@@ -95,4 +95,83 @@ export const compressAvatarImage = (file, options = {}) => {
   });
 };
 
+export const compressCoverImage = (file, options = {}) => {
+  const {
+    width = 1200,
+    height = 400,
+    maxSizeBytes = 450 * 1024,
+    initialQuality = 0.85,
+  } = options;
+
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('No file provided.'));
+    if (!file.type.startsWith('image/')) {
+      return reject(new Error('Please select an image file (JPG, PNG, WebP).'));
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image format.'));
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('Canvas context not available.'));
+
+          // Center-crop to 3:1 cover aspect ratio
+          const targetRatio = width / height;
+          const imgRatio = img.width / img.height;
+          let sx = 0, sy = 0, sw = img.width, sh = img.height;
+          if (imgRatio > targetRatio) {
+            sw = img.height * targetRatio;
+            sx = (img.width - sw) / 2;
+          } else {
+            sh = img.width / targetRatio;
+            sy = (img.height - sh) / 2;
+          }
+
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
+
+          let quality = initialQuality;
+          let compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          const getByteLength = (b64) => {
+            const head = 'data:image/jpeg;base64,';
+            const data = b64.startsWith(head) ? b64.slice(head.length) : b64;
+            return Math.round((data.length * 3) / 4);
+          };
+
+          let bytes = getByteLength(compressedBase64);
+          while (bytes > maxSizeBytes && quality > 0.25) {
+            quality -= 0.12;
+            compressedBase64 = canvas.toDataURL('image/jpeg', Math.max(0.2, quality));
+            bytes = getByteLength(compressedBase64);
+          }
+
+          if (bytes > maxSizeBytes) {
+            return reject(
+              new Error(`Cover image is too large (${(bytes / 1024).toFixed(1)} KB). Please choose a smaller image.`)
+            );
+          }
+
+          resolve({
+            base64: compressedBase64,
+            sizeBytes: bytes,
+            sizeKB: (bytes / 1024).toFixed(1),
+            width,
+            height,
+          });
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 export default compressAvatarImage;

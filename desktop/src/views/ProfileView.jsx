@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../api/client';
-import Avatar from '../components/common/Avatar';
+import Avatar, { resolveMediaUrl } from '../components/common/Avatar';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import PostList from '../components/posts/PostList';
@@ -422,9 +422,39 @@ export const ProfilePage = () => {
       </div>
 
       {/* Cover Banner */}
-      <div className="h-32 sm:h-44 w-full bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-600/25 dark:from-sky-950/60 dark:via-indigo-950/40 dark:to-neutral-900 relative overflow-hidden border-b border-neutral-200/80 dark:border-neutral-800/80">
-        <div className="absolute inset-0 opacity-20 dark:opacity-30 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
-        <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-sky-400/20 blur-3xl pointer-events-none" />
+      <div
+        className={`h-32 sm:h-44 w-full bg-gradient-to-r from-sky-500/20 via-indigo-500/20 to-purple-600/25 dark:from-sky-950/60 dark:via-indigo-950/40 dark:to-neutral-900 relative overflow-hidden border-b border-neutral-200/80 dark:border-neutral-800/80 group ${
+          isSelf ? 'cursor-pointer' : ''
+        }`}
+        onClick={() => isSelf && setIsEditModalOpen(true)}
+        title={isSelf ? 'Click to change cover image' : undefined}
+      >
+        {profile.coverUrl ? (
+          <img
+            src={resolveMediaUrl(profile.coverUrl)}
+            alt={`${profile.name}'s cover`}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <>
+            <div className="absolute inset-0 opacity-20 dark:opacity-30 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
+            <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-sky-400/20 blur-3xl pointer-events-none" />
+          </>
+        )}
+
+        {isSelf && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsEditModalOpen(true);
+            }}
+            className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-black/55 hover:bg-black/75 text-white text-xs font-semibold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs cursor-pointer"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>{profile.coverUrl ? 'Edit cover' : 'Add cover'}</span>
+          </button>
+        )}
       </div>
 
       {/* Profile Header Details */}

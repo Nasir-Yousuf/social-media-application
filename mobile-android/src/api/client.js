@@ -116,6 +116,13 @@ export const resolveAvatarUrl = (url) => {
     return trimmed;
   }
 
+  // Rewrite obsolete Railway URLs to the active backend origin
+  const legacyMatch = trimmed.match(/^https?:\/\/(?:social-media-application-production-e75d|clearfeed518)\.up\.railway\.app(\/.*)?$/i);
+  if (legacyMatch) {
+    const origin = getServerOrigin();
+    return `${origin}${legacyMatch[1] || ''}`;
+  }
+
   // Absolute URLs
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;

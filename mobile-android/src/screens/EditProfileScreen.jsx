@@ -12,11 +12,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../api/client';
+import api, { resolveAvatarUrl } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import Avatar from '../components/Avatar';
@@ -33,8 +34,47 @@ export const EditProfileScreen = ({ navigation }) => {
   const [website, setWebsite] = useState(user?.website || '');
   const [github, setGithub] = useState(user?.github || '');
   const [avatarUri, setAvatarUri] = useState(user?.avatarUrl || null);
+  const [coverUri, setCoverUri] = useState(user?.coverUrl || null);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  const handlePickCover = async () => {
+    try {
+      const { status: permissionStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionStatus !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera roll permissions are required to upload a cover image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [3, 1],
+        quality: 0.55,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setUploadingCover(true);
+        const base64Data = asset.base64
+          ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
+
+        const res = await api.patch('/users/profile', { coverBase64: base64Data });
+        if (res.data?.user) {
+          updateUser(res.data.user);
+          setCoverUri(res.data.user.coverUrl || base64Data);
+          showToast('Cover image updated successfully', 'success');
+        }
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to update cover image', 'error');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
 
   const handlePickAvatar = async () => {
     try {
@@ -121,6 +161,25 @@ export const EditProfileScreen = ({ navigation }) => {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Cover Section */}
+        <TouchableOpacity onPress={handlePickCover} activeOpacity={0.85} style={styles.coverWrapper}>
+          {coverUri ? (
+            <Image source={{ uri: resolveAvatarUrl(coverUri) }} style={styles.coverImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.coverPlaceholder}>
+              <Ionicons name="image-outline" size={24} color="#64748B" />
+              <Text style={styles.coverHint}>Tap to add cover image</Text>
+            </View>
+          )}
+          <View style={styles.coverOverlay}>
+            {uploadingCover ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="camera" size={18} color="#FFFFFF" />
+            )}
+          </View>
+        </TouchableOpacity>
+
         {/* Avatar Section */}
         <View style={styles.avatarSection}>
           <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.8} style={styles.avatarWrapper}>
@@ -228,6 +287,38 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  coverWrapper: {
+    height: 110,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    marginBottom: 18,
+    position: 'relative',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  coverPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  coverHint: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  coverOverlay: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 16,
+    padding: 6,
   },
   avatarSection: {
     alignItems: 'center',

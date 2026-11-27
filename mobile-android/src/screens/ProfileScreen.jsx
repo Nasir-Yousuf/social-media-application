@@ -11,6 +11,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,7 +19,7 @@ import colors from '../theme/colors';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import PostCard from '../components/PostCard';
-import api from '../api/client';
+import api, { resolveAvatarUrl } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { VerifiedBadge } from '../components/TwitterIcons';
@@ -61,6 +62,7 @@ export const ProfileScreen = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   // Keep local user profile updated if viewing self
   useEffect(() => {
@@ -258,6 +260,47 @@ export const ProfileScreen = ({ route, navigation }) => {
     }
   };
 
+  const handlePickCover = async () => {
+    if (!isSelf) return;
+
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow photo library access to set a cover image.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [3, 1],
+        quality: 0.5,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        const base64Data = `data:image/jpeg;base64,${asset.base64}`;
+        const sizeInKb = (asset.base64.length * 0.75) / 1024;
+        if (sizeInKb > 480) {
+          showToast('Cover image is too large (max ~480KB). Please choose a smaller image.', 'error');
+          return;
+        }
+
+        setUploadingCover(true);
+        const res = await api.patch('/users/profile', { coverBase64: base64Data });
+        const nextCoverUrl = res.data?.user?.coverUrl || base64Data;
+        setProfile((prev) => ({ ...prev, coverUrl: nextCoverUrl }));
+        updateUser({ coverUrl: nextCoverUrl });
+        showToast('Cover image updated!', 'success');
+      }
+    } catch (err) {
+      showToast('Failed to upload cover image', 'error');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert('Log out', 'Are you sure you want to log out of Clearfeed?', [
       { text: 'Cancel', style: 'cancel' },
@@ -350,8 +393,36 @@ export const ProfileScreen = ({ route, navigation }) => {
         )}
         ListHeaderComponent={
           <View style={styles.profileHeader}>
+            {/* Cover Banner */}
+            <TouchableOpacity
+              onPress={handlePickCover}
+              disabled={!isSelf || uploadingCover}
+              activeOpacity={isSelf ? 0.85 : 1}
+              style={styles.coverBanner}
+            >
+              {profile.coverUrl ? (
+                <Image
+                  source={{ uri: resolveAvatarUrl(profile.coverUrl) }}
+                  style={styles.coverImage}
+                  resizeMode="cover"
+                />
+              ) : null}
+              {isSelf && (
+                <View style={styles.coverEditBadge}>
+                  {uploadingCover ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <Ionicons name="camera" size={13} color="#ffffff" />
+                      <Text style={styles.coverEditText}>{profile.coverUrl ? 'Edit cover' : 'Add cover'}</Text>
+                    </>
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
+
             {/* Avatar & Follow button row */}
-            <View style={styles.avatarRow}>
+            <View style={[styles.avatarRow, styles.avatarRowOverlap]}>
               <TouchableOpacity
                 onPress={handlePickAvatar}
                 disabled={!isSelf || uploadingAvatar}
@@ -578,16 +649,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   profileHeader: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.bg,
+  },
+  coverBanner: {
+    height: 112,
+    marginHorizontal: -16,
+    backgroundColor: '#0F172A',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  coverEditBadge: {
+    position: 'absolute',
+    right: 12,
+    bottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  coverEditText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   avatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 10,
+  },
+  avatarRowOverlap: {
+    marginTop: -28,
   },
   avatarTouch: {
     position: 'relative',

@@ -83,7 +83,17 @@ exports.getProfileByUsername = async (req, res) => {
 // Update profile (own)
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, bio, status, avatarUrl, avatarBase64, removeAvatar } = req.body;
+    const {
+      name,
+      bio,
+      status,
+      avatarUrl,
+      avatarBase64,
+      removeAvatar,
+      coverUrl,
+      coverBase64,
+      removeCover,
+    } = req.body;
     const user = req.user;
 
     if (name) user.name = name.trim();
@@ -123,6 +133,35 @@ exports.updateProfile = async (req, res) => {
       user.avatarUrl = avatarUrl.trim();
     }
 
+    // Process cover image
+    const effectiveCoverBase64 = coverBase64 || (coverUrl && coverUrl.startsWith('data:') ? coverUrl : '');
+    if (removeCover) {
+      user.coverImage = undefined;
+      user.coverMimeType = 'image/jpeg';
+      user.hasCustomCover = false;
+      user.coverUrl = '';
+    } else if (effectiveCoverBase64) {
+      const matches = effectiveCoverBase64.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+      const rawBuffer = matches && matches.length === 3
+        ? Buffer.from(matches[2], 'base64')
+        : Buffer.from(effectiveCoverBase64, 'base64');
+
+      try {
+        const sanitized = validateAndSanitizeImage(rawBuffer, {
+          maxSize: 500 * 1024, // 500 KB limit for wide cover banners
+          allowedFormats: ['jpeg', 'png', 'webp', 'gif'],
+        });
+        user.coverImage = sanitized.buffer;
+        user.coverMimeType = sanitized.mimeType;
+        user.hasCustomCover = true;
+        user.coverUrl = `/api/users/${user._id}/cover?t=${Date.now()}`;
+      } catch (validationErr) {
+        return res.status(400).json({ message: validationErr.message });
+      }
+    } else if (coverUrl !== undefined && !coverUrl.startsWith('data:')) {
+      user.coverUrl = coverUrl.trim();
+    }
+
     await user.save();
 
     return res.status(200).json({
@@ -132,6 +171,26 @@ exports.updateProfile = async (req, res) => {
   } catch (err) {
     console.error('updateProfile error:', err);
     return res.status(500).json({ message: 'Failed to update profile.' });
+  }
+};
+
+// Serve cover image directly from MongoDB Buffer
+exports.getCover = async (req, res) => {
+  try {
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
+
+    const user = await User.findById(req.params.id).select('+coverImage +coverMimeType');
+    if (!user || !user.coverImage) {
+      return res.status(404).json({ message: 'Cover image not found.' });
+    }
+
+    res.set('Content-Type', user.coverMimeType || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    return res.send(user.coverImage);
+  } catch (err) {
+    console.error('getCover error:', err);
+    return res.status(500).json({ message: 'Failed to load cover image.' });
   }
 };
 

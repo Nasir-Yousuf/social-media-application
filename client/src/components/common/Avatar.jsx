@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FacultyBadge } from './ClearfeedIcons';
+import api from '../../api/client';
 
 const sizeMap = {
   xs: 'w-6 h-6 text-[10px]',
@@ -39,31 +40,46 @@ const getInitials = (name = '') => {
     .slice(0, 2);
 };
 
-export const resolveAvatarUrl = (url) => {
+const getApiOrigin = () => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('pulse518_api_url');
+    if (custom && !custom.includes('railway.app')) {
+      return custom.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+    }
+  }
+  const base = api?.defaults?.baseURL || '';
+  if (base.startsWith('http://') || base.startsWith('https://')) {
+    return base.replace(/\/+$/, '').replace(/\/api$/, '');
+  }
+  return '';
+};
+
+export const resolveMediaUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (!trimmed) return null;
 
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('blob:')
-  ) {
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
     return trimmed;
   }
 
-  if (typeof window !== 'undefined') {
-    const custom = localStorage.getItem('pulse518_api_url');
-    if (custom) {
-      const origin = custom.trim().replace(/\/+$/, '').replace(/\/api$/, '');
-      const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-      return `${origin}${cleanPath}`;
-    }
+  // Rewrite obsolete Railway URLs to the active backend origin
+  const legacyMatch = trimmed.match(/^https?:\/\/(?:social-media-application-production-e75d|clearfeed518)\.up\.railway\.app(\/.*)?$/i);
+  if (legacyMatch) {
+    const origin = getApiOrigin() || 'https://clearfeed-api.onrender.com';
+    return `${origin}${legacyMatch[1] || ''}`;
   }
 
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  const origin = getApiOrigin();
+  return origin ? `${origin}${cleanPath}` : cleanPath;
 };
+
+export const resolveAvatarUrl = resolveMediaUrl;
 
 export const Avatar = ({
   src = '',
